@@ -5,14 +5,14 @@ changelog:
     authors:
       - octocat
   categories:
-    - title: "🚀 Nouvelles fonctionnalités"
+    - title: "Features"
       labels:
         - enhancement
         - feature
-    - title: "🐛 Correctifs"
+    - title: "Bug Fixes"
       labels:
         - bug
-    - title: "🧹 Maintenance & Divers"
+    - title: "Maintenance & Misc"
       labels:
         - chore
         - documentation
