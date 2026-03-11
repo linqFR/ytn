@@ -1,17 +1,36 @@
 # Fluent Query Builder Documentation
 
-The `QueryBuilder` is a lightweight, database-agnostic SQL string generator designed to create secure, localized, and predictable SQL queries compatible with `better-sqlite3`.
+The `QueryBuilder` is a lightweight, database-agnostic SQL string generator designed to create secure, localized, and predictable SQL queries.
 
-It adheres to the **"No Magic"** principle: it generates SQL strings and named parameters but does not execute them.
+It generates SQL strings and named parameters but does not execute them.
 
-## 🚀 Features
+It can create a table directly from [**Zod v4**](https://zod.dev/).
+
+## Table of Contents
+
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Basic Selection](#basic-selection)
+- [Joins (Inner, Left, Right)](#joins-inner-left-right)
+- [Inserting Data](#inserting-data)
+- [Updating Data](#updating-data)
+- [Ordering & Limits](#ordering--limits)
+- [Text Search](#text-search)
+- [Complex Logic (Subqueries & Case)](#complex-logic-subqueries--case)
+- [DDL & Schema Generation (Zod 4)](#ddl--schema-generation-zod-4)
+- [API Reference](#api-reference)
+- [Testing](#testing)
+
+## Features
 
 - **Fluent API**: Method chaining for readable query construction.
 - **Safe Parameter Injection**: Automatically generates named parameters (e.g., `@id`) to prevent SQL injection.
 - **Join Support**: `INNER`, `LEFT`, and `RIGHT` joins with alias support.
 - **Subqueries & Exists**: Helpers for `EXISTS` and `NOT EXISTS` conditions.
 - **Logic Blocks**: Declarative `CASE WHEN` support.
-- **Schema & CRUD**: Helpers to generate DDL (`CREATE TABLE`) and standard CRUD queries from Zod schemas.
+- **Schema & CRUD**: Helpers to generate DDL (`CREATE TABLE`) and standard CRUD queries from **Zod V4** schemas.
+
+## Getting Started
 
 Import the builder from the package. It is a **Pure ESM** package.
 
@@ -23,7 +42,7 @@ import { QueryBuilder } from "@ytn/qb";
 import { QueryBuilder } from "@ytn/qb/min";
 ```
 
-### 1. Basic Selection
+### Basic Selection
 
 ```typescript
 // SELECT id, name FROM users WHERE id = @id
@@ -35,7 +54,7 @@ const sql = QueryBuilder.table("users")
 // db.prepare(sql).get({ id: 123 });
 ```
 
-### 2. Joins (Inner, Left, Right)
+### Joins (Inner, Left, Right)
 
 `QueryBuilder` supports three explicit join methods. Each method can take either a **Table Name** or another **QueryBuilder Instance** (for subquery joins).
 
@@ -76,7 +95,7 @@ const sql = QueryBuilder.table("tools", "t")
 - `.joinLeft(target, on)`: All rows from left table.
 - `.joinRight(target, on)`: All rows from right table.
 
-### 3. Inserting Data
+### Inserting Data
 
 Fields provided to `.insert()` are automatically mapped to `@field` placeholders.
 
@@ -87,7 +106,7 @@ const sql = QueryBuilder.table("logs")
   .build();
 ```
 
-### 4. Updating Data
+### Updating Data
 
 Combine `.update()` (fields to set) with `.where()` (conditions).
 
@@ -99,7 +118,7 @@ const sql = QueryBuilder.table("tools")
   .build();
 ```
 
-### 5. Ordering & Limits
+### Ordering & Limits
 
 ```typescript
 // SELECT * FROM events ORDER BY created_at DESC LIMIT 10
@@ -110,7 +129,7 @@ const sql = QueryBuilder.table("events")
   .build();
 ```
 
-### 6. Text Search
+### Text Search
 
 Helper for `LIKE` queries combined with strict filters.
 
@@ -123,7 +142,7 @@ const sql = QueryBuilder.table("docs")
 // Usage: db.prepare(sql).all('%term%', '%term%', { type: 'md' });
 ```
 
-### 7. Complex Logic (Subqueries & Case)
+### Complex Logic (Subqueries & Case)
 
 The `QueryBuilder` supports advanced SQL constructs like nested subqueries and conditional logic block while maintaining a fluent interface.
 
@@ -215,7 +234,7 @@ const sql = QueryBuilder.table("events")
 
 ---
 
-### 8. DDL & Schema Generation (Zod 4)
+### DDL & Schema Generation (Zod 4)
 
 `QueryBuilder` can generate `CREATE TABLE` statements directly from Zod schemas. It uses the **Zod 4 Metadata system** (`.meta()`) to define database-specific constraints.
 
@@ -263,7 +282,7 @@ const PostSchema = z.object({
 
 ---
 
-## 🛠 API Reference
+## API Reference
 
 ### Initialization
 
@@ -319,7 +338,7 @@ const PostSchema = z.object({
   - **Compatibility**: Strictly designed for **Zod v4** (using official `.meta()` API).
 - `generateCRUD(tableName, schema)`: Returns an object with standard `getAll`, `getById`, `insert`, etc.
 
-## 🧪 Testing
+## Testing
 
 The package includes a comprehensive suite of tests covering:
 
