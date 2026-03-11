@@ -1,5 +1,11 @@
 # @ytn/qb
 
+## 1.1.0
+
+### Minor Changes
+
+- Unify WHERE clauses across all DML statements and add SQLite RETURNING support.
+
 ## 1.0.0
 
 ### Major Changes

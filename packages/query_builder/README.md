@@ -14,6 +14,8 @@ It can create a table directly from [**Zod v4**](https://zod.dev/).
 - [Joins (Inner, Left, Right)](#joins-inner-left-right)
 - [Inserting Data](#inserting-data)
 - [Updating Data](#updating-data)
+- [Deleting Data](#deleting-data)
+- [RETURNING Clause](#returning-clause)
 - [Ordering & Limits](#ordering--limits)
 - [Text Search](#text-search)
 - [Complex Logic (Subqueries & Case)](#complex-logic-subqueries--case)
@@ -108,13 +110,36 @@ const sql = QueryBuilder.table("logs")
 
 ### Updating Data
 
-Combine `.update()` (fields to set) with `.where()` (conditions).
+Combine `.update()` (fields to set) with `.where()` (conditions). All advanced `WHERE` filters (like `.whereIn()`) are supported.
 
 ```typescript
-// UPDATE tools SET name = @name, updated_at = @updated_at WHERE uuid = @uuid
+// UPDATE tools SET name = @name WHERE uuid = @uuid AND status IN ('draft', 'pending')
 const sql = QueryBuilder.table("tools")
-  .update(["name", "updated_at"])
+  .update(["name"])
   .where(["uuid"])
+  .whereIn("status", ["draft", "pending"])
+  .build();
+```
+
+### Deleting Data
+
+```typescript
+// DELETE FROM logs WHERE created_at < @threshold
+const sql = QueryBuilder.table("logs")
+  .delete()
+  .where([{ col: "created_at", param: "threshold" }])
+  .build();
+```
+
+### RETURNING Clause
+
+SQLite 3.35+ supports returning modified rows immediately. This works with `INSERT`, `UPDATE`, `DELETE`, and `UPSERT`.
+
+```typescript
+// INSERT INTO users (name) VALUES (@name) RETURNING id, created_at
+const sql = QueryBuilder.table("users")
+  .insert(["name"])
+  .returning(["id", "created_at"])
   .build();
 ```
 
@@ -304,6 +329,7 @@ const PostSchema = z.object({
 - `.selectCase(alias, branches, elseVal)`: Adds a conditional `CASE WHEN` column.
 - `.selectRaw(sql)`: Injects a raw SQL expression as a column.
 - `.selectWindow(alias, def)`: Defines a window function (e.g. `ROW_NUMBER()`).
+- `.returning(fields)`: Adds a `RETURNING` clause (for DML operations).
 
 #### Filtering (WHERE)
 

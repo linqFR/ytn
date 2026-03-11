@@ -9,6 +9,10 @@ echo Running Query Construction Tests...
 echo.
 call npx tsx tests/query_construction_verify.ts
 echo.
+echo Running Advanced Query Tests...
+echo.
+call npx tsx tests/advanced_query_verify.ts
+echo.
 echo Running Compiled JS Tests (dist)...
 echo.
 call node tests/dist_verify.js

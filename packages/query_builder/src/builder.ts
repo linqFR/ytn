@@ -27,6 +27,7 @@ export class Builder {
     private _indexColumns: string[] = [];
     private _ifNotExists: boolean = false;
     private _tableAlias: string | null = null;
+    private _returningFields: string[] = [];
 
     /**
      * @constructor
@@ -228,6 +229,18 @@ export class Builder {
     }
 
     /**
+     * @function returning
+     * @description Adds a RETURNING clause (SQLite 3.35+).
+     * @param {string[]} [fields=['*']] - Columns to return.
+     * @returns {this} The current Builder instance for chaining.
+     * @usage `.insert(['name']).returning(['id'])`
+     */
+    public returning(fields: string[] = ['*']): this {
+        this._returningFields = fields;
+        return this;
+    }
+
+    /**
      * @function selectRaw
      * @description Adds a raw SQL expression to the SELECT clause.
      * @param {string} rawSql - The raw SQL expression.
@@ -407,44 +420,8 @@ export class Builder {
                     sql += ` ${this._joins.map(j => `${j.type} JOIN ${j.target} ON ${j.on}`).join(" ")}`;
                 }
 
-                const conditions: string[] = [];
-                if (this._searchFields.length > 0) {
-                    const orClause = this._searchFields.map(f => `${f} LIKE ?`).join(" OR ");
-                    conditions.push(`(${orClause})`);
-                }
+                sql += this._buildWhereClause();
 
-                if (this._whereFields.length > 0) {
-                    const andClause = this._whereFields.map(f => {
-                        if (typeof f === 'string') return `${f} = @${f}`;
-                        return `${f.col} = @${f.param}`;
-                    }).join(" AND ");
-                    conditions.push(andClause);
-                }
-
-                if (this._whereColumnFields.length > 0) {
-                    const colClause = this._whereColumnFields.map(f => `${f.col1} = ${f.col2}`).join(" AND ");
-                    conditions.push(colClause);
-                }
-
-                if (this._whereLiteralFields.length > 0) {
-                    const litClause = this._whereLiteralFields.map(f => `${f.col} = ${f.value}`).join(" AND ");
-                    conditions.push(litClause);
-                }
-
-                if (this._whereRawFields.length > 0) {
-                    conditions.push(this._whereRawFields.join(" AND "));
-                }
-
-                if (this._whereInFields.length > 0) {
-                    this._whereInFields.forEach(f => {
-                        const targetStr = Array.isArray(f.target)
-                            ? `(${f.target.map(v => `'${v}'`).join(", ")})`
-                            : `(${f.target.build()})`;
-                        conditions.push(`${f.col} IN ${targetStr}`);
-                    });
-                }
-
-                if (conditions.length > 0) sql += ` WHERE ${conditions.join(" AND ")}`;
                 if (this._groupBy.length > 0) sql += ` GROUP BY ${this._groupBy.join(", ")}`;
                 if (this._orderBy.length > 0) {
                     sql += ` ORDER BY ${this._orderBy.map(o => `${o.field} ${o.dir}`).join(", ")}`;
@@ -459,16 +436,7 @@ export class Builder {
                 if (this._joins.length > 0) {
                     sql += ` ${this._joins.map(j => `${j.type} JOIN ${j.target} ON ${j.on}`).join(" ")}`;
                 }
-                const conditions: string[] = [];
-                if (this._whereFields.length > 0) {
-                    const andClause = this._whereFields.map(f => {
-                        if (typeof f === 'string') return `${f} = @${f}`;
-                        return `${f.col} = @${f.param}`;
-                    }).join(" AND ");
-                    conditions.push(andClause);
-                }
-                if (this._whereRawFields.length > 0) conditions.push(this._whereRawFields.join(" AND "));
-                if (conditions.length > 0) sql += ` WHERE ${conditions.join(" AND ")}`;
+                sql += this._buildWhereClause();
                 return sql;
             }
 
@@ -477,24 +445,24 @@ export class Builder {
 
             case 'INSERT': {
                 const placeholders = this._fields.map(f => `@${f}`).join(", ");
-                return `INSERT INTO ${this._table} (${this._fields.join(", ")}) VALUES (${placeholders})`;
+                let sql = `INSERT INTO ${this._table} (${this._fields.join(", ")}) VALUES (${placeholders})`;
+                if (this._returningFields.length > 0) sql += ` RETURNING ${this._returningFields.join(', ')}`;
+                return sql;
             }
 
             case 'UPDATE': {
                 const sets = this._updateFields.map(f => `${f} = @${f}`).join(", ");
-                const wheres = this._whereFields.map(f => {
-                    if (typeof f === 'string') return `${f} = @${f}`;
-                    return `${f.col} = @${f.param}`;
-                }).join(" AND ");
-                return `UPDATE ${this._table} SET ${sets} WHERE ${wheres}`;
+                let sql = `UPDATE ${this._table} SET ${sets}`;
+                sql += this._buildWhereClause();
+                if (this._returningFields.length > 0) sql += ` RETURNING ${this._returningFields.join(', ')}`;
+                return sql;
             }
 
             case 'DELETE': {
-                const delWheres = this._whereFields.map(f => {
-                    if (typeof f === 'string') return `${f} = @${f}`;
-                    return `${f.col} = @${f.param}`;
-                }).join(" AND ");
-                return `DELETE FROM ${this._table} WHERE ${delWheres}`;
+                let sql = `DELETE FROM ${this._table}`;
+                sql += this._buildWhereClause();
+                if (this._returningFields.length > 0) sql += ` RETURNING ${this._returningFields.join(', ')}`;
+                return sql;
             }
 
             case 'UPSERT': {
@@ -506,10 +474,59 @@ export class Builder {
                     const setClauses = this._updateFields.map(f => `${f} = excluded.${f}`);
                     sql += setClauses.join(', ');
                 }
+                if (this._returningFields.length > 0) sql += ` RETURNING ${this._returningFields.join(', ')}`;
                 return sql;
             }
         }
         throw new Error(`Unknown QueryBuilder mode: ${this._mode}`);
+    }
+
+    /**
+     * @function _buildWhereClause
+     * @description Internal helper to construct the WHERE portion of queries.
+     * @private
+     * @returns {string} The constructed WHERE clause (including leading space).
+     */
+    private _buildWhereClause(): string {
+        const conditions: string[] = [];
+
+        if (this._searchFields.length > 0) {
+            const orClause = this._searchFields.map(f => `${f} LIKE ?`).join(" OR ");
+            conditions.push(`(${orClause})`);
+        }
+
+        if (this._whereFields.length > 0) {
+            const andClause = this._whereFields.map(f => {
+                if (typeof f === 'string') return `${f} = @${f}`;
+                return `${f.col} = @${f.param}`;
+            }).join(" AND ");
+            conditions.push(andClause);
+        }
+
+        if (this._whereColumnFields.length > 0) {
+            const colClause = this._whereColumnFields.map(f => `${f.col1} = ${f.col2}`).join(" AND ");
+            conditions.push(colClause);
+        }
+
+        if (this._whereLiteralFields.length > 0) {
+            const litClause = this._whereLiteralFields.map(f => `${f.col} = ${f.value}`).join(" AND ");
+            conditions.push(litClause);
+        }
+
+        if (this._whereRawFields.length > 0) {
+            conditions.push(this._whereRawFields.join(" AND "));
+        }
+
+        if (this._whereInFields.length > 0) {
+            this._whereInFields.forEach(f => {
+                const targetStr = Array.isArray(f.target)
+                    ? `(${f.target.map(v => `'${v}'`).join(", ")})`
+                    : `(${f.target.build()})`;
+                conditions.push(`${f.col} IN ${targetStr}`);
+            });
+        }
+
+        return conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : '';
     }
 
     /**
