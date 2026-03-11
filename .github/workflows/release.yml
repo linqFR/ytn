@@ -6,6 +6,9 @@ on:
       - 'v*'
       - '@ytn/*@*'
 
+permissions:
+  contents: write # Obligatoire pour créer la release
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -13,9 +16,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          generate_release_notes: true # C'est ici que la magie opère
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

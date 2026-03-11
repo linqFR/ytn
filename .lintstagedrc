@@ -1,8 +1,0 @@
-{
-  "packages/query_builder/**/*.{ts,js}": [
-    "npm run test --workspace=@ytn/qb"
-  ],
-  "packages/wf_router/**/*.{ts,js}": [
-    "npm run test --workspace=@ytn/wf"
-  ]
-}
