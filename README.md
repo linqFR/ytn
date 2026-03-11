@@ -1,6 +1,6 @@
 # YTN
 
-A modern, high-performance monorepo for SQL utilities and workflow management.
+A modern, high-performance monorepo for SQLite utilities and workflow management.
 
 ## Project Structure
 
