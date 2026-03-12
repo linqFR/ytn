@@ -39,7 +39,7 @@ You must read documentation of your SQLite database and check out which paramete
 - **Logic Blocks**: Declarative `CASE WHEN` support.
 - **Schema & CRUD**: Helpers to generate DDL (`CREATE TABLE`) and standard CRUD queries from **Zod V4** schemas.
 
-## Getting Startedv
+## Getting Started
 
 Import the builder from the package. It is a **Pure ESM** package.
 
@@ -169,7 +169,7 @@ const sql = QueryBuilder.pragma()
 db.exec(sql);
 ```
 
-##### Supported Pragma Methods
+#### Supported Pragma Methods
 
 | Method                | Parameters                  | Description                                                             |
 | :-------------------- | :-------------------------- | :---------------------------------------------------------------------- |

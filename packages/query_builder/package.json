@@ -15,6 +15,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./min": {
+      "import": "./dist/index.min.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "peerDependencies": {
