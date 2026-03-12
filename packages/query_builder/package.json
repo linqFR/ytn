@@ -1,6 +1,6 @@
 {
   "name": "@ytn/qb",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "SQL Query Builder for the YTN project",
   "type": "module",
   "scripts": {
@@ -14,6 +14,10 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./min": {
+      "import": "./dist/index.min.js",
       "types": "./dist/index.d.ts"
     }
   },

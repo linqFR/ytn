@@ -1,5 +1,11 @@
 # @ytn/qb
 
+## 1.2.1
+
+### Patch Changes
+
+- aaf0f2d: build: expose minified bundles and improve documentation
+
 ## 1.2.0
 
 ### Minor Changes
