@@ -75,7 +75,7 @@ Provide the table name (with optional alias) and the `ON` condition.
 // SELECT u.name, p.title FROM users u INNER JOIN posts p ON u.id = p.user_id
 const sql = QueryBuilder.table("users", "u")
   .select(["u.name", "p.title"])
-  .joinInner("posts p", "u.id = p.user_id")
+  .joinInner("posts p", "u.id = p.user_id") // p as an alias of posts
   .build();
 ```
 
@@ -100,9 +100,19 @@ const sql = QueryBuilder.table("tools", "t")
 
 #### Choose your Join Type
 
-- `.joinInner(target, on)`: Match in both tables.
-- `.joinLeft(target, on)`: All rows from left table.
-- `.joinRight(target, on)`: All rows from right table.
+The join methods support two different signatures depending on whether you are joining a physical table or a subquery:
+
+**1. Joining physical tables (2 arguments)**
+
+- `.joinInner(tableName, onCondition)`
+- `.joinLeft(tableName, onCondition)`
+- `.joinRight(tableName, onCondition)`
+
+**2. Joining subquery builders (3 arguments)**
+
+- `.joinInner(subquery, alias, onCondition)`
+- `.joinLeft(subquery, alias, onCondition)`
+- `.joinRight(subquery, alias, onCondition)`
 
 ### Inserting Data
 
@@ -229,7 +239,7 @@ const hasOrders = QueryBuilder.table("orders", "o") // "o" is an alias for order
 
 const sql = QueryBuilder.table("users", "u") // Define "u" as the alias for users
   .select(["name"])
-  .whereRaw(hasOrders)
+  .whereRaw(hasOrders) // WhereRaw used here because asExists is already compiled
   .build();
 // Result: SELECT name FROM users u WHERE EXISTS (SELECT * FROM orders o WHERE o.user_id = u.id)
 ```
