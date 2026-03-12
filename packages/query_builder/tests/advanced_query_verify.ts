@@ -1,27 +1,25 @@
 import { QueryBuilder } from '../src/index.js';
+import { TestRunner } from './infra.js';
 
-console.log('🏗️ Starting Advanced Query Verification...');
+const runner = new TestRunner('Advanced Query Verification');
 
-function testReturning() {
-    console.log('\n--- Case 5: RETURNING Clause ---');
+/**
+ * Case 1: RETURNING Clause.
+ */
+runner.it('RETURNING Clause', () => {
     const sql = QueryBuilder.table('users')
         .insert(['name', 'email'])
         .returning(['id', 'created_at'])
         .build();
     
     const expected = "INSERT INTO users (name, email) VALUES (@name, @email) RETURNING id, created_at";
-    console.log('Expected:', expected);
-    console.log('Result:  ', sql);
+    runner.assertSQL(sql, expected);
+});
 
-    if (sql === expected) {
-        console.log('✅ Success');
-    } else {
-        console.error('❌ RETURNING mismatch');
-    }
-}
-
-function testUpdateWithComplexWhere() {
-    console.log('\n--- Case 6: UPDATE with Complex WHERE ---');
+/**
+ * Case 2: UPDATE with Complex WHERE.
+ */
+runner.it('UPDATE with Complex WHERE', () => {
     const sql = QueryBuilder.table('posts')
         .update(['status'])
         .where(['user_id'])
@@ -30,55 +28,35 @@ function testUpdateWithComplexWhere() {
         .returning(['id'])
         .build();
     
+    // Order of clauses in where: search -> where -> whereColumn -> whereLiteral -> whereRaw -> whereIn
     const expected = "UPDATE posts SET status = @status WHERE user_id = @user_id AND published_at < CURRENT_TIMESTAMP AND category IN ('news', 'tech') RETURNING id";
-    console.log('Expected:', expected);
-    console.log('Result:  ', sql);
+    runner.assertSQL(sql, expected);
+});
 
-    if (sql === expected) {
-        console.log('✅ Success');
-    } else {
-        console.error('❌ Complex UPDATE mismatch');
-    }
-}
-
-function testDeleteWithWhereColumn() {
-    console.log('\n--- Case 7: DELETE with whereColumn ---');
+/**
+ * Case 3: DELETE with whereColumn.
+ */
+runner.it('DELETE with whereColumn', () => {
     const sql = QueryBuilder.table('logs')
         .delete()
         .whereColumn('severity', 'threshold')
         .build();
     
     const expected = "DELETE FROM logs WHERE severity = threshold";
-    console.log('Expected:', expected);
-    console.log('Result:  ', sql);
+    runner.assertSQL(sql, expected);
+});
 
-    if (sql === expected) {
-        console.log('✅ Success');
-    } else {
-        console.error('❌ DELETE whereColumn mismatch');
-    }
-}
-
-function testUpsertWithReturning() {
-    console.log('\n--- Case 8: UPSERT with RETURNING ---');
+/**
+ * Case 4: UPSERT with RETURNING.
+ */
+runner.it('UPSERT with RETURNING', () => {
     const sql = QueryBuilder.table('counters')
         .upsert(['name', 'value'], ['name'])
         .returning(['value'])
         .build();
     
     const expected = "INSERT INTO counters (name, value) VALUES (@name, @value) ON CONFLICT(name) DO UPDATE SET value = excluded.value RETURNING value";
-    console.log('Expected:', expected);
-    console.log('Result:  ', sql);
+    runner.assertSQL(sql, expected);
+});
 
-    if (sql === expected) {
-        console.log('✅ Success');
-    } else {
-        console.error('❌ UPSERT RETURNING mismatch');
-    }
-}
-
-// Run tests
-testReturning();
-testUpdateWithComplexWhere();
-testDeleteWithWhereColumn();
-testUpsertWithReturning();
+runner.finish();

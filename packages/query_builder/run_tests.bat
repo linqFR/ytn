@@ -13,13 +13,17 @@ echo Running Advanced Query Tests...
 echo.
 call npx tsx tests/advanced_query_verify.ts
 echo.
+echo Running Documentation Examples (README)...
+echo.
+call npx tsx tests/readme_examples.test.ts
+echo.
 echo Running Compiled JS Tests (dist)...
 echo.
-call node tests/dist_verify.js
+call npx tsx tests/dist_verify.ts
 echo.
 echo Running Minified Bundle Tests...
 echo.
-call node tests/min_verify.js
+call npx tsx tests/min_verify.ts
 echo.
 echo ---------------------------------------
 echo Tests completed.

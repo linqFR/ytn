@@ -1,5 +1,17 @@
 # @ytn/qb
 
+## 1.3.0
+
+### Minor Changes
+
+- feat(ddl): add `pkauto` for explicit AUTOINCREMENT and refine `NOT NULL` logic.
+  docs: overhaul README with detailed aliasing and correlated subquery examples.
+  test: unify test suite with TS-based reporting infrastructure.
+
+### Patch Changes
+
+- aaf0f2d: build: expose minified bundles and improve documentation
+
 ## 1.2.1
 
 ### Patch Changes

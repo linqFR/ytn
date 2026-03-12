@@ -223,11 +223,11 @@ The `.asExists()` and `.asNotExists()` methods are **terminators** (like `.build
 
 ```typescript
 // Checking if a user has at least one order
-const hasOrders = QueryBuilder.table("orders", "o")
-  .whereColumn("o.user_id", "u.id")
+const hasOrders = QueryBuilder.table("orders", "o") // "o" is an alias for orders
+  .whereColumn("o.user_id", "u.id") // "u" is the alias of the outer query
   .asExists();
 
-const sql = QueryBuilder.table("users", "u")
+const sql = QueryBuilder.table("users", "u") // Define "u" as the alias for users
   .select(["name"])
   .whereRaw(hasOrders)
   .build();
@@ -260,26 +260,42 @@ const sql = QueryBuilder.table("tools", "t")
   .build();
 ```
 
+#### Fine-Grained Filtering (Raw & Literals)
+
+Use these methods when you need to compare columns between tables or inject specific SQL literals without parameter binding.
+
+In this example, we build a **correlated subquery** where the inner table `tool_versions` (aliased as `tv`) is filtered by a column from the outer table `tools` (aliased as `t`):
+
 ```typescript
-const sql = QueryBuilder.table("tool_versions", "tv")
-  .select()
-  .whereColumn("tv.tool_uuid", "t.uuid") // No @ binding
-  .whereLiteral("tv.version", "'1.0.0'") // String literal
+// Subquery for correlated filtering (NOT compiled yet)
+const recentVersion = QueryBuilder.table("tool_versions", "tv")
+  .whereColumn("tv.tool_uuid", "t.uuid") // Links "tv" to outer alias "t"
+  .whereLiteral("tv.version", "'1.0.0'") // String literal (no @ binding)
+  .limit(1);
+
+// Parent query using the subquery
+const sql = QueryBuilder.table("tools", "t") // Outer alias "t" defined here
+  .whereIn("uuid", recentVersion)
   .build();
 ```
 
 #### WHERE IN (Values and Subqueries)
 
-Support for filtering against lists or subquery results.
+Support for filtering against a list of literal values or the result of a subquery.
+
+When using a subquery, pass the `Builder` instance directly (without calling `.build()`). The inner query is compiled automatically during the parent's `build()` process.
 
 ```typescript
-// WHERE id IN ('v1', 'v2')
+// Filtering with a list of values
 const sqlValues = QueryBuilder.table("tools")
-  .whereIn("uuid", ["v1", "v2"])
+  .whereIn("uuid", ["value1", "value2"])
   .build();
 
-// WHERE id IN (SELECT ...)
+// Filtering with a subquery (Subquery relation)
+// We select 'uuid' from 'tool_versions' to filter the main 'tools' table.
 const sub = QueryBuilder.table("tool_versions").select(["uuid"]).limit(5);
+
+// PASS the 'sub' builder instance directly without calling .build()
 const sqlSub = QueryBuilder.table("tools").whereIn("uuid", sub).build();
 ```
 
@@ -327,7 +343,8 @@ const ddl = QueryBuilder.createTableFromZod("users", UserSchema);
 
 | Key            | Type                 | Description                                                                                       |
 | :------------- | :------------------- | :------------------------------------------------------------------------------------------------ |
-| `pk`           | `boolean`            | If `true`, the column is marked as `PRIMARY KEY`. For `INTEGER` types, it adds `AUTOINCREMENT`.   |
+| `pk`           | `boolean`            | If `true`, the column is marked as `PRIMARY KEY`.                                                 |
+| `pkauto`       | `boolean`            | If `true`, adds `PRIMARY KEY AUTOINCREMENT`. **Note**: In SQLite, this is only valid for `INTEGER`. |
 | `fk`           | `string` \| `object` | Defines a `FOREIGN KEY`. Can be a string `"table(col)"` or an object `{ table, col, onDelete? }`. |
 | `unique`       | `boolean`            | If `true`, adds a `UNIQUE` constraint to the column.                                              |
 | `default`      | `string`             | Sets the SQL `DEFAULT` value (e.g., `"'active'"` or `"(CURRENT_TIMESTAMP)"`).                     |
@@ -360,7 +377,7 @@ You can define foreign keys directly in the metadata:
 
 ```typescript
 const PostSchema = z.object({
-  id: z.number().int().meta({ pk: true }),
+  id: z.number().int().meta({ pkauto: true }),
   user_id: z
     .string()
     .uuid()
@@ -439,8 +456,8 @@ When defining a foreign key via an object, you can specify `onDelete` and `onUpd
 
 #### Compilation & Wrappers
 
-- `.asExists()`: Wraps the entire query in an `EXISTS (...)` block.
-- `.asNotExists()`: Wraps the entire query in a `NOT EXISTS (...)` block.
+- `.asExists()`: Wraps and compiles the entire query in an `EXISTS (...)` block.
+- `.asNotExists()`: Wraps and compiles the entire query in a `NOT EXISTS (...)` block.
 - `.build()`: Compiles the builder into a final SQL string.
 
 ### Static Helpers
