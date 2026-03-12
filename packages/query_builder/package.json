@@ -1,12 +1,12 @@
 {
   "name": "@ytn/qb",
   "version": "1.3.0",
-  "description": "SQL Query Builder for the YTN project",
+  "description": "SQLite Query Builder",
   "type": "module",
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "tsx tests/v4_compliance_verify.ts"
+    "test": "tsx tests/v4_compliance_verify.ts && tsx tests/query_construction_verify.ts && tsx tests/advanced_query_verify.ts && tsx tests/readme_examples.test.ts"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
