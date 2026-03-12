@@ -152,9 +152,42 @@ function testPipelineSupport() {
     }
 }
 
+/**
+ * Test case for Foreign Key Integrity (ON DELETE/UPDATE).
+ */
+function testForeignKeyIntegrity() {
+    console.log('\n--- Case 6: Foreign Key Integrity (ON DELETE/UPDATE) ---');
+
+    const FKSchema = z.object({
+        user_id: z.string().meta({ 
+            fk: { table: 'users', col: 'id', onDelete: 'CASCADE', onUpdate: 'RESTRICT' } 
+        }),
+    });
+
+    try {
+        const ddl = (QueryBuilder as any).createTableFromZod('fk_table', FKSchema);
+        console.log('Result DDL:\n', ddl);
+
+        const hasOnDelete = ddl.includes('ON DELETE CASCADE');
+        const hasOnUpdate = ddl.includes('ON UPDATE RESTRICT');
+
+        console.log(`- Expected: Contains "ON DELETE CASCADE",  Result: ${hasOnDelete ? '✅' : '❌'}`);
+        console.log(`- Expected: Contains "ON UPDATE RESTRICT", Result: ${hasOnUpdate ? '✅' : '❌'}`);
+
+        if (hasOnDelete && hasOnUpdate) {
+            console.log('✅ Foreign Key integrity actions correctly generated');
+        } else {
+            console.error('❌ MISSING integrity actions in DDL');
+        }
+    } catch (e: any) {
+        console.error('❌ FAILED: ', e.message);
+    }
+}
+
 // Run tests
 testRecursiveUnwrapping();
 testExoticWrappers();
 testIntegerDetection();
 testWrappedFieldMeta();
 testPipelineSupport();
+testForeignKeyIntegrity();

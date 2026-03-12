@@ -33,7 +33,7 @@ coverage/
 .gemini/
 .antigravity/
 .agents/
-agent.md
+AGENT.md
 
 # Local-only packages
 packages/utils/

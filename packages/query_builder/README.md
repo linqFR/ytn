@@ -16,12 +16,19 @@ It can create a table directly from [**Zod v4**](https://zod.dev/).
 - [Updating Data](#updating-data)
 - [Deleting Data](#deleting-data)
 - [RETURNING Clause](#returning-clause)
+- [SQLite Configuration (Pragmas)](#sqlite-configuration-pragmas)
 - [Ordering & Limits](#ordering--limits)
 - [Text Search](#text-search)
 - [Complex Logic (Subqueries & Case)](#complex-logic-subqueries--case)
 - [DDL & Schema Generation (Zod 4)](#ddl--schema-generation-zod-4)
 - [API Reference](#api-reference)
 - [Testing](#testing)
+
+## WARNING
+
+You must read documentation of your SQLite database and check out which parameters are effective and allowed by the version of SQLite your DataBase is using.
+
+**`QueryBuilder` is only a tool to write SQLite request; it will not execute the request.**
 
 ## Features
 
@@ -32,7 +39,7 @@ It can create a table directly from [**Zod v4**](https://zod.dev/).
 - **Logic Blocks**: Declarative `CASE WHEN` support.
 - **Schema & CRUD**: Helpers to generate DDL (`CREATE TABLE`) and standard CRUD queries from **Zod V4** schemas.
 
-## Getting Started
+## Getting Startedv
 
 Import the builder from the package. It is a **Pure ESM** package.
 
@@ -142,6 +149,41 @@ const sql = QueryBuilder.table("users")
   .returning(["id", "created_at"])
   .build();
 ```
+
+### SQLite Configuration (Pragmas)
+
+Fine-tune your SQLite database performance and safety using the fluent `PragmaBuilder`.
+
+```typescript
+// PRAGMA foreign_keys = ON;
+// PRAGMA journal_mode = WAL;
+// PRAGMA synchronous = NORMAL;
+const sql = QueryBuilder.pragma()
+  .foreignKeys(true)
+  .journalMode("WAL")
+  .synchronous("NORMAL")
+  .cacheSize(-32000) // 32MB cache (negative value = kilobytes)
+  .build();
+
+// Execute the generated script with your driver (e.g., better-sqlite3)
+db.exec(sql);
+```
+
+##### Supported Pragma Methods
+
+| Method                | Parameters                  | Description                                                             |
+| :-------------------- | :-------------------------- | :---------------------------------------------------------------------- |
+| `.foreignKeys(on)`    | `boolean`                   | Enables or disables foreign key enforcement.                            |
+| `.journalMode(mode)`  | `'WAL' \| 'DELETE' \| ...`  | Sets the journaling mode (`WAL` is highly recommended for performance). |
+| `.synchronous(level)` | `'NORMAL' \| 'FULL' \| ...` | Controls disk sync safety vs speed.                                     |
+| `.cacheSize(size)`    | `number`                    | Sets cache size. Negative values = KB, positive = pages.                |
+| `.busyTimeout(ms)`    | `number`                    | Time to wait (ms) when database is locked before throwing an error.     |
+| `.mmap_size(bytes)`   | `number`                    | Sets the memory-mapped I/O limit.                                       |
+| `.tempStore(loc)`     | `'MEMORY' \| 'FILE'`        | Where to store temporary tables and indices.                            |
+| `.autoVacuum(mode)`   | `'NONE' \| 'FULL' \| ...`   | Sets the database auto-vacuum strategy.                                 |
+| `.pageSize(bytes)`    | `number`                    | Sets the database page size (512 to 65536).                             |
+| `.optimize()`         | _none_                      | Runs SQLite query planner optimizations.                                |
+| `.raw(key, value)`    | `string, string \| number`  | Inject any other custom SQLite `PRAGMA`.                                |
 
 ### Ordering & Limits
 
@@ -281,15 +323,38 @@ const ddl = QueryBuilder.createTableFromZod("users", UserSchema);
 // Result: CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE, role TEXT DEFAULT 'user', created_at DATETIME)
 ```
 
+##### Supported Metadata Keys
+
+| Key            | Type                 | Description                                                                                       |
+| :------------- | :------------------- | :------------------------------------------------------------------------------------------------ |
+| `pk`           | `boolean`            | If `true`, the column is marked as `PRIMARY KEY`. For `INTEGER` types, it adds `AUTOINCREMENT`.   |
+| `fk`           | `string` \| `object` | Defines a `FOREIGN KEY`. Can be a string `"table(col)"` or an object `{ table, col, onDelete? }`. |
+| `unique`       | `boolean`            | If `true`, adds a `UNIQUE` constraint to the column.                                              |
+| `default`      | `string`             | Sets the SQL `DEFAULT` value (e.g., `"'active'"` or `"(CURRENT_TIMESTAMP)"`).                     |
+| `defaultValue` | `any`                | Alias for `default`.                                                                              |
+
 #### Why `.meta()`?
 
 `QueryBuilder` strictly uses the official Zod v4 `.meta()` API for defining database constraints. This approach is preferred over legacy patterns because:
 
 - **Registry Integration**: Ensures compatibility with Zod's internal global registry.
 - **Strong Typing**: Metadata values are matched against the intended schema.
-- **Future-Proofing**: Direct access to `_def` is deprecated in Zod v4.
 
 #### Foreign Keys
+
+> [!CAUTION] > **SQLite Enforcement**: By default, SQLite **does not enforce** foreign key constraints. To enable the rules defined below (`CASCADE`, `RESTRICT`, etc.), you **must** execute the following command when opening your database connection:
+>
+> ```sql
+> PRAGMA foreign_keys = ON;
+> ```
+>
+> You can generate this command using the builder:
+>
+> ```typescript
+> const sql = QueryBuilder.enableForeignKeys();
+> ```
+>
+> Without this, your database will ignore these constraints and allow orphaned rows.
 
 You can define foreign keys directly in the metadata:
 
@@ -300,10 +365,28 @@ const PostSchema = z.object({
     .string()
     .uuid()
     .meta({
-      fk: { table: "users", col: "id", onDelete: "CASCADE" },
+      fk: {
+        table: "users",
+        col: "id",
+        onDelete: "CASCADE",
+        onUpdate: "CASCADE",
+      },
     }),
 });
 ```
+
+##### Foreign Key Integrity Actions
+
+When defining a foreign key via an object, you can specify `onDelete` and `onUpdate`.
+
+| Action          | Description                                                                                                                                                                                                         |
+| :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`CASCADE`**   | **Automated cleanup.** If a parent row is deleted or updated, all related child rows are automatically deleted or updated. Ideal for "strictly owned" relationships (e.g., a post and its comments).                |
+| **`SET NULL`**  | **Soft disconnection.** If a parent is deleted, the child's reference is set to `NULL`. Use this when the child can exist without the parent (requires the column to be nullable).                                  |
+| **`RESTRICT`**  | **Safety Lock.** Prevents any modification or deletion of the parent as long as children exist. You are forced to handle the children manually before the parent can be removed. Enforcement is strictly immediate. |
+| **`NO ACTION`** | **Passive check.** Similar to `RESTRICT`, but in some databases, the check might be deferred until the end of the transaction. Use `RESTRICT` if you want immediate failure.                                        |
+
+> [!TIP] > **Example Scenario (RESTRICT)**: If you attempt to delete a `User` who still has active `Orders`, the database will throw a SQL error and block the operation. You must first delete or reassign the `Orders` before the `User` can be removed.
 
 ---
 
@@ -312,6 +395,8 @@ const PostSchema = z.object({
 ### Initialization
 
 - `QueryBuilder.table(name: string, alias?: string)`: Start a new query.
+- `QueryBuilder.pragma()`: Returns a `PragmaBuilder` for SQLite configuration.
+- `QueryBuilder.enableForeignKeys()`: Shortcut for `PRAGMA foreign_keys = ON;`.
 
 ### Methods
 

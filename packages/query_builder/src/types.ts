@@ -9,6 +9,8 @@ export interface ForeignKeyDefinition {
     col: string;
     /** Referential integrity action on row deletion. */
     onDelete?: 'CASCADE' | 'SET NULL' | 'RESTRICT';
+    /** Referential integrity action on row update. */
+    onUpdate?: 'CASCADE' | 'SET NULL' | 'RESTRICT';
 }
 
 /**

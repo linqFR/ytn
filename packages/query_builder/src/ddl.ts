@@ -127,6 +127,7 @@ export class DDLEngine {
             } else {
                 let fkStr = `FOREIGN KEY (${col}) REFERENCES ${ref.table}(${ref.col})`;
                 if (ref.onDelete) fkStr += ` ON DELETE ${ref.onDelete}`;
+                if (ref.onUpdate) fkStr += ` ON UPDATE ${ref.onUpdate}`;
                 columnDefs.push(fkStr);
             }
         });

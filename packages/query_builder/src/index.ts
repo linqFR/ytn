@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Builder } from './builder.js';
 import { DDLEngine } from './ddl.js';
 import { Introspector } from './introspection.js';
+import { PragmaBuilder } from './pragma.js';
 import { DDLOptions } from './types.js';
 
 /**
@@ -18,6 +19,25 @@ export class QueryBuilder {
      */
     public static table(name: string, alias?: string): Builder {
         return new Builder(alias ? `${name} ${alias}` : name);
+    }
+
+    /**
+     * **Entry Point**: Start building SQLite PRAGMA statements.
+     * @returns {PragmaBuilder}
+     * @usage `QueryBuilder.pragma().foreignKeys(true).build()`
+     */
+    public static pragma(): PragmaBuilder {
+        return new PragmaBuilder();
+    }
+
+    /**
+     * @function enableForeignKeys
+     * @description Shortcut to generate the SQLite PRAGMA to enable foreign key enforcement.
+     * @returns {string} `PRAGMA foreign_keys = ON;`
+     * @usage `QueryBuilder.enableForeignKeys()`
+     */
+    public static enableForeignKeys(): string {
+        return "PRAGMA foreign_keys = ON;";
     }
 
     /**
