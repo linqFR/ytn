@@ -341,14 +341,14 @@ const ddl = QueryBuilder.createTableFromZod("users", UserSchema);
 
 ##### Supported Metadata Keys
 
-| Key            | Type                 | Description                                                                                       |
-| :------------- | :------------------- | :------------------------------------------------------------------------------------------------ |
-| `pk`           | `boolean`            | If `true`, the column is marked as `PRIMARY KEY`.                                                 |
+| Key            | Type                 | Description                                                                                         |
+| :------------- | :------------------- | :-------------------------------------------------------------------------------------------------- |
+| `pk`           | `boolean`            | If `true`, the column is marked as `PRIMARY KEY`.                                                   |
 | `pkauto`       | `boolean`            | If `true`, adds `PRIMARY KEY AUTOINCREMENT`. **Note**: In SQLite, this is only valid for `INTEGER`. |
-| `fk`           | `string` \| `object` | Defines a `FOREIGN KEY`. Can be a string `"table(col)"` or an object `{ table, col, onDelete? }`. |
-| `unique`       | `boolean`            | If `true`, adds a `UNIQUE` constraint to the column.                                              |
-| `default`      | `string`             | Sets the SQL `DEFAULT` value (e.g., `"'active'"` or `"(CURRENT_TIMESTAMP)"`).                     |
-| `defaultValue` | `any`                | Alias for `default`.                                                                              |
+| `fk`           | `string` \| `object` | Defines a `FOREIGN KEY`. Can be a string `"table(col)"` or an object `{ table, col, onDelete? }`.   |
+| `unique`       | `boolean`            | If `true`, adds a `UNIQUE` constraint to the column.                                                |
+| `default`      | `string`             | Sets the SQL `DEFAULT` value (e.g., `"'active'"` or `"(CURRENT_TIMESTAMP)"`).                       |
+| `defaultValue` | `any`                | Alias for `default`.                                                                                |
 
 #### Why `.meta()`?
 
