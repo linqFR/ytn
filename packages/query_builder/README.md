@@ -102,13 +102,13 @@ const sql = QueryBuilder.table("tools", "t")
 
 The join methods support two different signatures depending on whether you are joining a physical table or a subquery:
 
-**1. Joining physical tables (2 arguments)**
+#### 1. Joining physical tables (2 arguments)
 
 - `.joinInner(tableName, onCondition)`
 - `.joinLeft(tableName, onCondition)`
 - `.joinRight(tableName, onCondition)`
 
-**2. Joining subquery builders (3 arguments)**
+#### 2. Joining subquery builders (3 arguments)**
 
 - `.joinInner(subquery, alias, onCondition)`
 - `.joinLeft(subquery, alias, onCondition)`
