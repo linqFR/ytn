@@ -1,5 +1,11 @@
 # @ytn/qb
 
+## 1.3.1
+
+### Patch Changes
+
+- feat(core): implement automatic entry point discovery in tsup.config.base
+
 ## 1.3.0
 
 ### Minor Changes
