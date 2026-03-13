@@ -5,10 +5,10 @@
 
 console.log("Running QueryBuilder Test Suite...\n");
 
-await import('./v4_compliance_verify.js');
-await import('./query_construction_verify.js');
-await import('./advanced_query_verify.js');
-await import('./readme_examples_verify.js');
+await import('./v4-compliance-verify.js');
+await import('./query-construction-verify.js');
+await import('./advanced-query-verify.js');
+await import('./readme-examples-verify.js');
 
 
 

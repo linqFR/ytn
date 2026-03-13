@@ -1,5 +1,17 @@
 # @ytn/qb
 
+## 1.3.2
+
+### Patch Changes
+
+- refactor: harmonized file naming convention to kebab-case across the monorepo.
+
+## 1.3.1
+
+### Patch Changes
+
+- feat(core): implement automatic entry point discovery in tsup.config.base
+
 ## 1.3.0
 
 ### Minor Changes
