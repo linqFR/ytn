@@ -1,18 +1,14 @@
 {
-  "name": "@ytn/qb",
-<<<<<<< HEAD
-  "version": "1.3.2",
-=======
-  "version": "1.3.1",
->>>>>>> 1cf643b0373a16a06f158b4f8dcdfc9d770aa18b
-  "description": "SQLite Query Builder",
+  "name": "cz",
+  "version": "0.0.0",
+  "description": "Transforme Command lines into Zod-validated Objects",
   "author": "linqFR",
   "license": "MIT",
-  "keywords": [
-    "Zod",
-    "SQLite"
-  ],
   "type": "module",
+  "keywords": [
+    "CLI",
+    "Zod"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

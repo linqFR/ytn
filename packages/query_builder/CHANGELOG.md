@@ -1,11 +1,14 @@
 # @ytn/qb
 
+<<<<<<< HEAD
 ## 1.3.2
 
 ### Patch Changes
 
 - refactor: harmonized file naming convention to kebab-case across the monorepo.
 
+=======
+>>>>>>> 1cf643b0373a16a06f158b4f8dcdfc9d770aa18b
 ## 1.3.1
 
 ### Patch Changes

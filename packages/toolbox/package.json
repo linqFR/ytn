@@ -1,6 +1,6 @@
 {
   "name": "@ytn/tbx",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Toolbox containing Utilities for Zod, Nodejs, Safe-to-Go",
   "type": "module",
   "scripts": {

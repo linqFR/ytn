@@ -19,7 +19,7 @@ import { z } from "zod";
  *    If a schema defines a property named "route", it will coexist with the
  *    invisible routing `route` property without conflict.
  */
-export class xorZodGate {
+export class xorGate {
   /**
    * @property {symbol} mark - Unique identifier used as a "hidden tag" on parsed objects.
    * Survivors spreads: {...parsed} will still contain this Symbol.
