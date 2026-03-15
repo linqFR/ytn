@@ -12,7 +12,7 @@ export const CatalogDefSchema = z.record(DEFKEY, z.instanceof(z.ZodType));
 /** @constant {z.ZodString} TARGETKEY - Validation schema for snake_case target keys. */
 const TARGETKEY = zSnakeCaseKey;
 /**
- * @constant {z.ZodRecord} TargetObjects
+ * @constant {z.ZodRecord<zSnakeCaseKey, CatalogDefSchema>} TargetObjects
  * @description Schema for target objects mapping snake_case keys to CatalogDefSchema.
  */
 export const TargetObjects = z.record(zSnakeCaseKey, CatalogDefSchema);
@@ -103,14 +103,11 @@ const ArgContractSchema = z.object({
   options: z.record(
     zSnakeCaseKey, // flag long
     z.object({
-      type: z.string(), //type,
+      type: z.enum(["string", "boolean"]), // strictly compatible with parseArgs
       short: z.string(), // flag short
     }),
   ),
 });
-
-const SchemaTargetsSchema = z.record(zSnakeCaseKey, z.instanceof(z.ZodType));
-const xorSchema = z.instanceof(z.ZodType);
 
 /**
  * @constant {z.ZodObject} UsageSchema
@@ -143,7 +140,9 @@ const UsageSchema = z.object({
           const hasUsages = arg.usages !== undefined;
           return hasPosition || hasUsages;
         },
-        { message: "Argument must have at least one of 'position' or 'usages'" },
+        {
+          message: "Argument must have at least one of 'position' or 'usages'",
+        },
       ),
   ),
 });
@@ -157,9 +156,39 @@ export type CatalogDefSchema = z.infer<typeof CatalogDefSchema>;
 /** Represents a mapping of targets to their definitions. */
 export type TargetObjects = z.infer<typeof TargetObjects>;
 /** Represents a mapping of target names to Zod schemas (ZodTypeAny). */
-export type SchemaTargetsSchema = z.infer<typeof SchemaTargetsSchema>;
+
+/**
+ * @interface RoutedResult
+ * @description Injected routing helpers available on any object successfully parsed by the xorGate.
+ */
+
+export const RouterZodSymbol = Symbol("RouterZod");
+const RoutedResult = z.intersection(
+  z.looseObject({
+    route: z.string().readonly(),
+    isRoute: z.instanceof(Function),
+  }),
+  z.custom<{ [RouterZodSymbol]: string }>(
+    (o: any) =>
+      typeof o == "object" &&
+      o !== null &&
+      Object.hasOwn(o, RouterZodSymbol) &&
+      typeof o[RouterZodSymbol] === "string",
+  ),
+);
+
+export type RoutedResult = z.infer<typeof RoutedResult>;
+
+export type RoutedResultType = z.ZodType<RoutedResult>
+
+
+const RoutedTargetsSchema = z.record(zSnakeCaseKey, RoutedResult);
+export type RoutedTargetsSchema = z.infer<typeof RoutedTargetsSchema>;
+
+
 /** Represents the final XOR union schema (ZodXor). */
-export type XorSchema = z.infer<typeof xorSchema>;
+export type XorSchema = z.ZodXor<readonly RoutedResultType[]>;
+
 /** Represents the structured help/usage information. */
 export type UsageSchema = z.infer<typeof UsageSchema>;
 

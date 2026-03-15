@@ -1,6 +1,6 @@
+import { parseArgs } from "node:util";
 import { z } from "zod";
-
-import { ArgContractSchema } from "./cli-contract-schema.js";
+import { ArgContractSchema, XorSchema, RoutedResult } from "./cli-contract-schema.js";
 
 /**
  * @function createParseArgsObject
@@ -15,7 +15,6 @@ export function createParseArgsObject(contract: ArgContractSchema) {
       values: z.record(z.string(), z.any()),
     })
     .transform((raw) => {
-      // CHECK: map positionals to their defined names based on the contract
       const mappedObj = { ...raw.values };
 
       contract.positionals.forEach((keyName, index) => {
@@ -24,4 +23,23 @@ export function createParseArgsObject(contract: ArgContractSchema) {
 
       return mappedObj;
     });
+}
+
+/**
+ * @function parseCli
+ * @description High-level helper that performs native parsing, positional mapping, and Zod validation.
+ */
+export function parseCli(
+  args: string[],
+  parsingArgs: ArgContractSchema,
+  xorSchema: XorSchema,
+): RoutedResult {
+  const raw = parseArgs({
+    args,
+    options: parsingArgs.options,
+    allowPositionals: true,
+  });
+
+  const mapped = createParseArgsObject(parsingArgs).parse(raw);
+  return xorSchema.parse(mapped);
 }

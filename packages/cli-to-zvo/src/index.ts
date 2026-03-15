@@ -1,8 +1,9 @@
 import { processContract } from "./cli-contract-parser.js";
-export { createParseArgsObject } from "./cli-parser.js";
+import { createParseArgsObject, parseCli } from "./cli-parser.js";
 import { xorGate } from "./xor-gate.js";
-import { CliContractSchema } from "./cli-contract-schema.js";
+import { CliContractSchema, RoutedResult } from "./cli-contract-schema.js";
 
+export { createParseArgsObject, parseCli };
 export type { CliContractSchema };
 
 /**
@@ -25,3 +26,16 @@ export const cliToZod = (contract: CliContractSchema) => {
     help: res.data.help,
   };
 };
+
+/**
+ * @function cliToZVO
+ * @description High-level helper that performs full parsing and validation in one call.
+ */
+export function cliToZVO(
+  contract: CliContractSchema,
+  args: string[] = process.argv.slice(2),
+):RoutedResult {
+  const tools = cliToZod(contract);
+  return parseCli(args, tools.parsingArgs, tools.xorSchema);
+}
+

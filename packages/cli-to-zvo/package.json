@@ -1,6 +1,6 @@
 {
   "name": "@ytn/cli-to-zvo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Transform Command lines into Zod-Validated Objects (ZVO)",
   "author": "linqFR",
   "license": "MIT",

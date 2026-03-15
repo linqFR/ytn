@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { SchemaTargetsSchema, XorSchema } from "./cli-contract-schema.js";
+import {
+  RoutedTargetsSchema,
+  XorSchema,
+  RoutedResult,
+  RouterZodSymbol,
+  TargetObjects,
+  RoutedResultType,
+} from "./cli-contract-schema.js";
 
 /**
  * @class xorZodGate
@@ -27,17 +34,17 @@ export class xorGate {
    * @private
    * @readonly
    */
-  private readonly mark = Symbol("RouterZod");
+  private readonly mark = RouterZodSymbol;
 
   /**
-   * @property {Record<string, z.ZodType>} schemaDict - Dictionary of individual schemas, each transformed to include routing tags.
+   * @property {RoutedTargetsSchema} schemaDict - Dictionary of individual schemas, each transformed to include routing tags.
    * @public
    * @readonly
    */
-  public readonly schemaDict: SchemaTargetsSchema;
+  public readonly schemaDict: Record<string, RoutedResultType>;
 
   /**
-   * @property {z.ZodType} xorSchema - The final XOR union schema (exclusive OR) that performs the routing.
+   * @property {XorSchema} xorSchema - The final XOR union schema (exclusive OR) that performs the routing.
    * @public
    * @readonly
    */
@@ -45,9 +52,9 @@ export class xorGate {
 
   /**
    * @constructor
-   * @param {Record<string, any>} dict - A dictionary of schema shapes or Zod schemas to be routed.
+   * @param {TargetObjects} dict - A dictionary of schema shapes or Zod schemas to be routed.
    */
-  constructor(dict: Record<string, any>) {
+  constructor(dict: TargetObjects) {
     this.schemaDict = Object.fromEntries(
       Object.entries(dict).map(([key, item]) => {
         /**
@@ -72,7 +79,7 @@ export class xorGate {
               configurable: true,
             },
           });
-          return res;
+          return res as RoutedResult;
         };
 
         const baseSchema =
@@ -83,7 +90,7 @@ export class xorGate {
     );
 
     // Create the final XOR union from the transformed branches
-    this.xorSchema = z.xor(Object.values(this.schemaDict) as any);
+    this.xorSchema = z.xor(Object.values(this.schemaDict) as RoutedResultType[]) as XorSchema;
   }
 
   /**
