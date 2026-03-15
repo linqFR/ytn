@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SchemaTargetsSchema, XorSchema } from "./cli-contract-schema.js";
 
 /**
  * @class xorZodGate
@@ -33,14 +34,14 @@ export class xorGate {
    * @public
    * @readonly
    */
-  public readonly schemaDict: Record<string, z.ZodType>;
+  public readonly schemaDict: SchemaTargetsSchema;
 
   /**
    * @property {z.ZodType} xorSchema - The final XOR union schema (exclusive OR) that performs the routing.
    * @public
    * @readonly
    */
-  public readonly xorSchema: z.ZodType;
+  public readonly xorSchema: XorSchema;
 
   /**
    * @constructor

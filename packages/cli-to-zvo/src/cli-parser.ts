@@ -2,6 +2,12 @@ import { z } from "zod";
 
 import { ArgContractSchema } from "./cli-contract-schema.js";
 
+/**
+ * @function createParseArgsObject
+ * @description Creates a Zod schema that transforms raw argument parser output into a mapped object based on the provided argument contract.
+ * @param {ArgContractSchema} contract - The argument contract defining positionals and options.
+ * @returns {z.ZodPipe} A Zod schema (ZodPipe wrapping ZodTransform) that transforms and maps the parsed arguments.
+ */
 export function createParseArgsObject(contract: ArgContractSchema) {
   return z
     .object({
@@ -9,7 +15,7 @@ export function createParseArgsObject(contract: ArgContractSchema) {
       values: z.record(z.string(), z.any()),
     })
     .transform((raw) => {
-      // FINI LA TRICHE ! On fait une boucle générique basée sur le contrat passé en paramètre
+      // CHECK: map positionals to their defined names based on the contract
       const mappedObj = { ...raw.values };
 
       contract.positionals.forEach((keyName, index) => {

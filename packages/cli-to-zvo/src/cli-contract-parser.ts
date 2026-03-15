@@ -1,31 +1,65 @@
 import { z, ZodType } from "zod";
 import { repiped } from "./zod-tbx.js";
 
-import { xorGate as ZodRouter } from "./xor-gate.js";
-import { isPureObject } from "./utils.js";
+import { isPureObject } from "@shared/utils.js";
+
 import {
-  CliContractSchema,
-  processedCliContractSchema,
   ArgContractSchema,
   CatalogDefSchema,
-  SchemaTargetsSchema,
-  UsageSchema,
-  XorSchema,
+  CliContractSchema,
+  processedCliContractSchema,
   TargetObjects,
+  UsageSchema,
 } from "./cli-contract-schema.js";
-import { CLI_TYPES } from "./cli-types.js";
 
+import { CLI_TYPES, CLI_ARG_TYPES } from "./cli-types.js";
 
+/**
+ * @constant {Object} NATIVE_GLOBAL_CONTRACT
+ * @description Native global definitions and targets injected into every contract.
+ */
+const NATIVE_GLOBAL_CONTRACT = {
+  def: {
+    help: {
+      type: "boolean",
+      description: "Show help information",
+      flags: { long: "help", short: "h" },
+    },
+  },
+  targets: {
+    Help: {
+      description: "Show help information",
+      flags: {
+        help: { optional: true },
+      },
+    },
+  },
+};
 
+/**
+ * @constant {z.ZodPipe} processContract
+ * @description Transformation logic that converts a raw CliContractSchema into a processedCliContractSchema.
+ * This includes resolving type definitions, building help information, and preparing target schemas.
+ * @returns {z.ZodPipe} The processed contract as a Zod pipeline result.
+ */
 export const processContract = CliContractSchema.transform((contract) => {
+  const contract_def = {
+    ...contract.def,
+    ...NATIVE_GLOBAL_CONTRACT.def,
+  } as CliContractSchema["def"];
+  const contact_targets = {
+    ...contract.targets,
+    ...NATIVE_GLOBAL_CONTRACT.targets,
+  } as CliContractSchema["targets"];
+
   const options: ArgContractSchema["options"] = {};
   const allPositionals = new Set<string>();
   const catalogDefs: CatalogDefSchema = {};
-  // const undefinedDefs: Record<string, z.ZodType> = {};
   const targetObjects: TargetObjects = {};
   const mapperDefs: Record<string, (val: string) => string> = {};
   const argumentRefs: Record<string, any> = {};
 
+  // initialize help object
   const helpObj: UsageSchema = {
     name: contract.name,
     description: contract.description,
@@ -33,17 +67,16 @@ export const processContract = CliContractSchema.transform((contract) => {
     arguments: [],
   };
 
-  Object.entries(contract.def).forEach(([key, def]) => {
+  // 1. Build and register all expected value schemas from the combined definitions
+  Object.entries(contract_def).forEach(([key, def]) => {
     if (def.flags) {
       options[def.flags.long] = {
-        type: def.type.includes("json") ? "string" : def.type,
+        type: CLI_ARG_TYPES[def.type],
         short: def.flags.short,
       };
     }
 
-    const baseSchema = def.type.includes("|")
-      ? (CLI_TYPES["|"](def.type) as ZodType)
-      : (CLI_TYPES[def.type.trim()] as ZodType);
+    const baseSchema = CLI_TYPES[def.type.trim()] as ZodType;
 
     if (isPureObject(def.map)) {
       const definedMap = def.map;
@@ -59,15 +92,15 @@ export const processContract = CliContractSchema.transform((contract) => {
           })
     ).meta({
       description: def.description,
-      // arg_name: def.arg_name,
     });
 
-    const argNameStr = def.arg_name === "" ? undefined : `<${def.arg_name}>`;
+    const argNameStr = def.arg_name === "" || def.arg_name === undefined ? undefined : `<${def.arg_name}>`;
+    const valPart = argNameStr ? ` ${argNameStr}` : "";
     let usageList = undefined;
     if (def.flags) {
       usageList = [
-        `--${def.flags.long} ${argNameStr}`,
-        `-${def.flags.short} ${argNameStr}`,
+        `--${def.flags.long}${valPart}`,
+        `-${def.flags.short}${valPart}`,
       ];
     }
     const argObj = {
@@ -77,31 +110,30 @@ export const processContract = CliContractSchema.transform((contract) => {
       type: def.type,
       description: def.description,
     };
-    if (def.arg_name != "") helpObj.arguments.push(argObj);
+    if (argNameStr || def.flags) helpObj.arguments.push(argObj);
     argumentRefs[key] = argObj;
-    // undefinedDefs[key] = z.undefined();
   });
 
-  Object.entries(contract.targets).forEach(([targetName, target]) => {
+  // 2. Build and register all expected target schemas
+  Object.entries(contact_targets).forEach(([targetName, target]) => {
     if (!targetObjects[targetName]) targetObjects[targetName] = {};
 
     let usageParams: string[] = [];
 
-    (target.positionals || []).forEach((p:string, idx) => {
+    // map positionals to their defined names based on the contract
+    (target.positionals || []).forEach((p, idx) => {
       allPositionals.add(p);
       targetObjects[targetName][p] = catalogDefs[p];
 
       // Help JSON: Positionals
-      const argName = contract.def[p].arg_name || p;
+      const argName = contract_def[p].arg_name || p;
       usageParams.push(`<${argName}>`);
-      if (argumentRefs[p].position === undefined) {
+      if (argumentRefs[p] && argumentRefs[p].position === undefined) {
         argumentRefs[p].position = idx + 1;
       }
     });
-    targetObjects[targetName] = {
-      ...targetObjects[targetName],
-    };
 
+    // build and register all expected target flags schemas
     Object.entries(target.flags || {}).forEach(([flagKey, flagDef]) => {
       if (Array.isArray(flagDef)) {
         const newflagDef = [
@@ -141,8 +173,8 @@ export const processContract = CliContractSchema.transform((contract) => {
         targetObjects[targetName][flagKey] = catalogDefs[flagKey];
       }
 
-      // Help JSON: Flags
-      const flagDefMeta = contract.def[flagKey];
+      // Help JSON: Flags Usage Generation
+      const flagDefMeta = contract_def[flagKey];
       let flagStr = flagDefMeta.flags
         ? `--${flagDefMeta.flags.long}`
         : `--${flagKey}`;
@@ -152,6 +184,7 @@ export const processContract = CliContractSchema.transform((contract) => {
       } else {
         flagStr += flagDefMeta.arg_name ? ` <${flagDefMeta.arg_name}>` : "";
       }
+
       if (isPureObject(flagDef) && "optional" in flagDef && flagDef.optional) {
         usageParams.push(`[${flagStr}]`);
       } else {
@@ -161,34 +194,17 @@ export const processContract = CliContractSchema.transform((contract) => {
 
     // Help JSON: Push usage case
     helpObj.usage_cases.push({
-      // case: target.caseName || targetName,
       command: `${contract.name} ${usageParams.join(" ")}`.trim(),
       description: target.description || "",
     });
   });
-
-  const router = new ZodRouter(targetObjects);
-  const targetSchemas = router.schemaDict;
-  const xorSchema = router.xorSchema;
 
   return {
     args: {
       positionals: Array.from(allPositionals),
       options,
     },
-    catalog: catalogDefs,
-    targets: targetObjects,
-    schemas: targetSchemas,
-    xor: xorSchema,
+    targetObjects: targetObjects,
     help: helpObj,
-  } as {
-    args: ArgContractSchema;
-    catalog: CatalogDefSchema;
-    targets: TargetObjects;
-    schemas: SchemaTargetsSchema;
-    xor: XorSchema;
-    help: UsageSchema;
-  };
-})
-
-.pipe(processedCliContractSchema);
+  } as processedCliContractSchema;
+}).pipe(processedCliContractSchema);
