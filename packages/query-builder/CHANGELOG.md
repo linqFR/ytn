@@ -1,6 +1,17 @@
 # @ytn/qb
 
+## 1.3.3
+
+### Patch Changes
+
+- Refactored package structure and modernized the testing infrastructure.
+
+  - Renamed the package directory from `query_builder` to `query-builder`.
+  - Migrated the test suite to Vitest for better workspace integration.
+  - Standardized test file naming and cleaned up build configurations.
+
 <<<<<<< HEAD
+
 ## 1.3.2
 
 ### Patch Changes
@@ -8,7 +19,9 @@
 - refactor: harmonized file naming convention to kebab-case across the monorepo.
 
 =======
->>>>>>> 1cf643b0373a16a06f158b4f8dcdfc9d770aa18b
+
+> > > > > > > 1cf643b0373a16a06f158b4f8dcdfc9d770aa18b
+
 ## 1.3.1
 
 ### Patch Changes
