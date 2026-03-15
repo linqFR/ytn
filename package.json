@@ -14,7 +14,8 @@
     "test": "npm run test --workspaces --if-present",
     "change": "changeset",
     "version": "changeset version",
-    "release": "changeset publish"
+    "release": "changeset publish",
+    "tag": "changeset tag"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
