@@ -4,7 +4,7 @@
 
 `cli-to-zvo` is a lightweight library designed to simplify the creation of robust command-line interfaces (CLI). It allows you to define a single **CLI Contract** that serves as the source of truth for argument parsing, data validation, and automated help generation.
 
-## ✨ Features
+## Features
 
 - **Schema-First**: Define your CLI structure once, use it everywhere.
 - **Zod Validation**: Leverage the full power of Zod to validate your inputs.
@@ -12,7 +12,7 @@
 - **Invisible Metadata**: Your validated objects carry routing information (`route`, `isRoute`) that doesn't pollute your business data.
 - **Automatic Help**: Generates a data structure ready to display clear user help.
 
-## 🚀 Installation
+## Installation
 
 ```bash
 npm install @ytn/cli-to-zvo
@@ -22,7 +22,7 @@ npm install @ytn/cli-to-zvo
 > [!NOTE]
 > This library requires `zod` as a peer-dependency.
 
-## 🛠️ How-to Guide
+## How-to Guide
 
 The workflow with `cli-to-zvo` breaks down into 4 simple steps.
 
@@ -107,7 +107,7 @@ if (result.isRoute("analyze")) {
 // result.route also contains the name of the matched target ('analyze')
 ```
 
-## 📖 API Reference
+## API Reference
 
 ### `cliToZod(contract)`
 
@@ -188,7 +188,7 @@ const spread = { ...result };
 if (router.isRoute(spread, "analyze")) { ... }
 ```
 
-## 🏗️ Architecture Rationale: Zod-Validated Objects
+## Architecture Rationale: Zod-Validated Objects
 
 The strength of `cli-to-zvo` lies in its **XOR Gate**. Unlike a standard Zod union, our XOR gate injects a unique `Symbol` and non-enumerable properties into the result.
 

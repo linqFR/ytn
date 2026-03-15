@@ -1,4 +1,4 @@
-## 📦 Packages
+## Packages
 
 Each package is designed to be **lightweight**, **type-safe**, and **independent**.
 
@@ -9,7 +9,7 @@ Each package is designed to be **lightweight**, **type-safe**, and **independent
 
 ---
 
-### 🔍 Quick Previews
+### Quick Previews
 
 #### [@ytn/qb](./packages/query-builder/README.md)
 
