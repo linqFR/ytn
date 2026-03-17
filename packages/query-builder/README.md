@@ -206,17 +206,33 @@ const sql = QueryBuilder.table("events")
   .build();
 ```
 
+### Cloning Queries
+
+The `.clone()` method creates an independent copy of the current builder instance. This is highly useful for deriving multiple queries (like pagination and counting rows) from a shared base query without mutating the original state.
+
+```typescript
+const baseQuery = QueryBuilder.table("users").where(["is_active"]);
+
+// Clone to get the total count
+const totalSql = baseQuery.clone().count().build();
+// Result: SELECT COUNT(*) as count FROM users WHERE is_active = @is_active
+
+// Clone to get the current page of results
+const pageSql = baseQuery.clone().limit(10).offset(20).build();
+// Result: SELECT * FROM users WHERE is_active = @is_active LIMIT 10 OFFSET 20
+```
+
 ### Text Search
 
 Helper for `LIKE` queries combined with strict filters.
 
 ```typescript
-// SELECT * FROM docs WHERE (title LIKE ? OR content LIKE ?) AND type = @type
+// SELECT * FROM docs WHERE (title LIKE @search_term OR content LIKE @search_term) AND type = @type
 const sql = QueryBuilder.table("docs")
   .search(["title", "content"], ["type"])
   .build();
 
-// Usage: db.prepare(sql).all('%term%', '%term%', { type: 'md' });
+// Usage: db.prepare(sql).all({ search_term: '%term%', type: 'md' });
 ```
 
 ### Complex Logic (Subqueries & Case)

@@ -75,8 +75,11 @@ export class QueryBuilder {
    * @function generateCRUD
    * @description Generates a standard set of CRUD SQL statements for a given Zod schema.
    * Automatically detects Primary Key (via .meta({pk:true}) or 'id'/'uuid' convention).
+   * @param {string} tableName - Target table name.
+   * @param {z.ZodTypeAny} schema - Zod schema defining the table structure.
+   * @returns {Record<string, string>} Mapping of operation names (getAll, getById, insert, update, delete, upsert) to SQL strings.
    */
-  public static generateCRUD(
+   public static generateCRUD(
     tableName: string,
     schema: z.ZodTypeAny,
   ): Record<string, string> {

@@ -52,6 +52,46 @@ export class Builder {
   }
 
   /**
+   * @function clone
+   * @description Crée une copie indépendante de l'instance courante du Builder.
+   * Utile pour réutiliser une requête de base (ex: pagination avec un count et un select).
+   * @returns {Builder} Une nouvelle instance de Builder avec le même état.
+   */
+  public clone(): Builder {
+    const tableName = this._tableAlias ? `${this._table} ${this._tableAlias}` : this._table;
+    const cloned = new Builder(tableName);
+
+    cloned._mode = this._mode;
+    cloned._limit = this._limit;
+    cloned._offset = this._offset;
+    cloned._indexName = this._indexName;
+    cloned._ifNotExists = this._ifNotExists;
+
+    cloned._fields = [...this._fields];
+    cloned._rawFunctionFields = [...this._rawFunctionFields];
+    cloned._whereRawFields = [...this._whereRawFields];
+    cloned._updateFields = [...this._updateFields];
+    cloned._conflictTargets = [...this._conflictTargets];
+    cloned._searchFields = [...this._searchFields];
+    cloned._groupBy = [...this._groupBy];
+    cloned._indexColumns = [...this._indexColumns];
+    cloned._returningFields = [...this._returningFields];
+
+    cloned._whereFields = this._whereFields.map(f => typeof f === 'string' ? f : { ...f });
+    cloned._whereColumnFields = this._whereColumnFields.map(f => ({ ...f }));
+    cloned._whereLiteralFields = this._whereLiteralFields.map(f => ({ ...f }));
+    cloned._orderBy = this._orderBy.map(f => ({ ...f }));
+    cloned._joins = this._joins.map(f => ({ ...f }));
+    
+    cloned._whereInFields = this._whereInFields.map(f => ({
+      col: f.col,
+      target: Array.isArray(f.target) ? [...f.target] : f.target
+    }));
+
+    return cloned;
+  }
+
+  /**
    * @function select
    * @description Configure the query to retrieve specific columns.
    * @param {string[]} [fields=['*']] - Columns to select.
@@ -419,9 +459,11 @@ export class Builder {
   /**
    * @function search
    * @description Configures a SELECT query with LIKE filters across multiple columns.
+   * Génère une clause WHERE utilisant le paramètre nommé `@search_term` pour chaque colonne ciblée.
    * @param {string[]} searchFields - Columns to search in.
    * @param {(string | { col: string, param: string })[]} [additionalFilters=[]] - Additional WHERE conditions.
    * @returns {this} The current Builder instance for chaining.
+   * @usage `.search(['name', 'email'])` -> nécessite de passer `{ search_term: '%valeur%' }` à l'exécution.
    * @impact Changes mode to 'SELECT'.
    */
   public search(
@@ -559,7 +601,7 @@ export class Builder {
 
     if (this._searchFields.length > 0) {
       const orClause = this._searchFields
-        .map((f) => `${f} LIKE ?`)
+        .map((f) => `${f} LIKE @search_term`)
         .join(" OR ");
       conditions.push(`(${orClause})`);
     }

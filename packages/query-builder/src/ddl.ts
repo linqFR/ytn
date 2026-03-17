@@ -154,6 +154,8 @@ export class DDLEngine {
 
     if (Array.isArray(pk) && pk.length > 0) {
       columnDefs.push(`PRIMARY KEY (${pk.join(", ")})`);
+    } else if (typeof pk === 'string') {
+      columnDefs.push(`PRIMARY KEY (${pk})`);
     }
 
     return `CREATE TABLE IF NOT EXISTS ${tableName} (\n  ${columnDefs.join(

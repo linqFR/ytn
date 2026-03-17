@@ -89,7 +89,7 @@ describe("README Examples Verification", () => {
         const sql = QueryBuilder.table("docs")
             .search(["title", "content"], ["type"])
             .build();
-        expect(sql.trim()).toBe("SELECT * FROM docs WHERE (title LIKE ? OR content LIKE ?) AND type = @type");
+        expect(sql.trim()).toBe("SELECT * FROM docs WHERE (title LIKE @search_term OR content LIKE @search_term) AND type = @type");
     });
 
     it("Existence Predicates (EXISTS)", () => {
