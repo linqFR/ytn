@@ -10,9 +10,9 @@ import {
   processedCliContractSchema,
   TargetObjects,
   UsageSchema,
-} from "./cli-contract-schema.js";
+} from "./cli-contract-schema_old.js";
 
-import { CLI_TYPES, CLI_ARG_TYPES } from "./cli-types.js";
+import { CLI_ARG_TYPES, CLI_TYPES } from "./cli-types.js";
 
 /**
  * @constant {Object} NATIVE_GLOBAL_CONTRACT
@@ -94,7 +94,10 @@ export const processContract = CliContractSchema.transform((contract) => {
       description: def.description,
     });
 
-    const argNameStr = def.arg_name === "" || def.arg_name === undefined ? undefined : `<${def.arg_name}>`;
+    const argNameStr =
+      def.arg_name === "" || def.arg_name === undefined
+        ? undefined
+        : `<${def.arg_name}>`;
     const valPart = argNameStr ? ` ${argNameStr}` : "";
     let usageList = undefined;
     if (def.flags) {

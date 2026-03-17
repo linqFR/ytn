@@ -1,15 +1,14 @@
 import { z } from "zod";
 import {
-  RoutedTargetsSchema,
-  XorSchema,
   RoutedResult,
+  RoutedResultType,
   RouterZodSymbol,
   TargetObjects,
-  RoutedResultType,
-} from "./cli-contract-schema.js";
+  XorSchema,
+} from "./cli-contract-schema_old.js";
 
 /**
- * @class xorZodGate
+ * @class xorGate
  * @description Encapsulates a dictionary of schemas into a XOR union
  * and injects invisible routing metadata into the parsed output.
  *
@@ -90,7 +89,9 @@ export class xorGate {
     );
 
     // Create the final XOR union from the transformed branches
-    this.xorSchema = z.xor(Object.values(this.schemaDict) as RoutedResultType[]) as XorSchema;
+    this.xorSchema = z.xor(
+      Object.values(this.schemaDict) as RoutedResultType[],
+    ) as XorSchema;
   }
 
   /**

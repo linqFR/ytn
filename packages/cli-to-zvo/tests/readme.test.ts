@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { parseArgs, type ParseArgsConfig } from "node:util";
+import { describe, expect, it } from "vitest";
 import {
   CliContractSchema,
   cliToZod,
   createParseArgsObject,
 } from "../src/index.js";
-import { parseArgs, type ParseArgsConfig } from "node:util";
 
 describe("README Examples Verification", () => {
   // Example from section 1, 2, 3, 4
@@ -57,7 +57,7 @@ describe("README Examples Verification", () => {
     expect(mappedArgs["verbose"]).toBe(true);
 
     // 4. Validate and Route
-    const result = (xorSchema.parse(mappedArgs) as any);
+    const result = xorSchema.parse(mappedArgs) as any;
 
     expect(result.isRoute("Analyze")).toBe(true);
     expect(result.route).toBe("Analyze");
@@ -82,7 +82,7 @@ describe("README Examples Verification", () => {
 
     const { xorSchema, router } = cliToZod(contract);
     const data = { cmd: "some-command" };
-    const result = (xorSchema.parse(data) as any);
+    const result = xorSchema.parse(data) as any;
 
     // 1. Local check
     expect(result.isRoute("Analyze")).toBe(true);

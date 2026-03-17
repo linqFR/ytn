@@ -1,6 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { cliToZod, createParseArgsObject } from "../src/index.js";
-import { parseArgs } from "node:util";
+import { describe, expect, it } from "vitest";
+import { cliToZod } from "../src/index.js";
 
 describe("CLI Help Verification", () => {
   it("should provide native help support automatically", () => {

@@ -1,7 +1,7 @@
 import { processContract } from "./cli-contract-parser.js";
+import { CliContractSchema, RoutedResult } from "./cli-contract-schema_old.js";
 import { createParseArgsObject, parseCli } from "./cli-parser.js";
 import { xorGate } from "./xor-gate.js";
-import { CliContractSchema, RoutedResult } from "./cli-contract-schema.js";
 
 export { createParseArgsObject, parseCli };
 export type { CliContractSchema };
@@ -10,7 +10,7 @@ export type { CliContractSchema };
  * @function cliToZod
  * @description Converts a CLI Contract into a set of Zod schemas for parsing and routing.
  * @param {CliContractSchema} contract - The CLI contract definition.
- * @returns {object} An object containing the XOR routing schema and a dictionary of target schemas.
+ * @returns {object} { parsingArgs, xorSchema, targetSchemas, router, help } - Processed tools for CLI execution.
  * @throws {SyntaxError} If the contract fails validation.
  */
 export const cliToZod = (contract: CliContractSchema) => {
@@ -30,12 +30,14 @@ export const cliToZod = (contract: CliContractSchema) => {
 /**
  * @function cliToZVO
  * @description High-level helper that performs full parsing and validation in one call.
+ * @param {CliContractSchema} contract - The CLI contract definition.
+ * @param {string[]} args - Raw CLI arguments (defaults to process.argv.slice(2)).
+ * @returns {RoutedResult} A validated object containing matched route data and helpers.
  */
 export function cliToZVO(
   contract: CliContractSchema,
   args: string[] = process.argv.slice(2),
-):RoutedResult {
+): RoutedResult {
   const tools = cliToZod(contract);
   return parseCli(args, tools.parsingArgs, tools.xorSchema);
 }
-

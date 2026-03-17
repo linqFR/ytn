@@ -1,198 +1,174 @@
-# cli-to-zvo (@ytn/cli-to-zvo)
+# cli-to-zvo (@ytn/czvo)
 
-> Transform your command line arguments into typed and validated Zod-Validated Objects (ZVO).
+> Transform your command line arguments into **Zod-Validated Objects (ZVO)** with a single String or DSL Contract.
 
-`cli-to-zvo` is a lightweight library designed to simplify the creation of robust command-line interfaces (CLI). It allows you to define a single **CLI Contract** that serves as the source of truth for argument parsing, data validation, and automated help generation.
+`cli-to-zvo` is a robust library for building type-safe Command Line Interfaces. In **Version 1.1 (Hybrid)**, it bridges the gap between a simple text-based DSL and the full power of native Zod schemas.
 
 ## Features
 
-- **Schema-First**: Define your CLI structure once, use it everywhere.
-- **Zod Validation**: Leverage the full power of Zod to validate your inputs.
-- **Smart Routing**: Automatically identify which command or sub-command was called (using a XOR system).
-- **Invisible Metadata**: Your validated objects carry routing information (`route`, `isRoute`) that doesn't pollute your business data.
-- **Automatic Help**: Generates a data structure ready to display clear user help.
+- **Hybrid Contract**: Mix simple string types (e.g., `"filepath"`) with custom Zod schemas using the `CZVO` API.
+- **Fail-Fast Validation**: Your CLI contract is validated upon instantiation to catch configuration errors early.
+- **Smart Routing (XOR)**: Automatically routes inputs to the correct subcommand using a secure XOR system.
+- **Pure Zod Output**: The `.enhanced` getter provides a pure Zod schema for manual use (e.g., `safeParse`).
+- **Rich Help Data**: Generates structured metadata for easy help screen formatting.
+
+---
 
 ## Installation
 
 ```bash
-npm install @ytn/cli-to-zvo
-# or via pnpm / yarn
+npm install @ytn/czvo
 ```
 
-> [!NOTE]
-> This library requires `zod` as a peer-dependency.
+---
 
-## How-to Guide
-
-The workflow with `cli-to-zvo` breaks down into 4 simple steps.
-
-### 1. Define the CLI Contract
-
-The contract describes your argument types (`def`) and your target commands (`targets`).
+## Quick Start
 
 ```typescript
-import { CliContractSchema } from "@ytn/cli-to-zvo";
+import { contractDef, cliToZVO } from "@ytn/czvo";
 
-const contract: CliContractSchema = {
-  name: "my-tool",
-  description: "A great command-line tool",
+// 1. Define the Contract
+const cli = contractDef({
+  name: "ytn",
+  description: "YouTube Downloader",
   def: {
-    input_file: {
-      type: "filepath",
-      description: "Path to the source file",
-      arg_name: "path",
-    },
-    verbose: {
-      type: "boolean",
-      description: "Enable verbose mode",
-      flags: { long: "verbose", short: "v" },
+    url: { type: "url", description: "Video URL", arg_name: "video_url" },
+    quality: {
+      type: "number",
+      description: "Video quality (144-2160)",
+      flags: { long: "quality", short: "q" },
     },
   },
   targets: {
-    Analyze: {
-      description: "Analyzes the specified file",
-      positionals: ["input_file"],
-      flags: {
-        verbose: { optional: true },
-      },
+    dl: {
+      description: "Download a video",
+      positionals: ["url"],
+      flags: { quality: { optional: true } },
     },
   },
-};
-```
-
-### 2. Generate Parser and Schemas
-
-Use `cliToZod` to transform your contract into actionable tools.
-
-```typescript
-import { cliToZod } from "@ytn/cli-to-zvo";
-
-const { parsingArgs, xorSchema, router, help } = cliToZod(contract);
-
-// parsingArgs: contains config for Node.js util.parseArgs
-// xorSchema: the global Zod schema to validate and route the result
-// router: the xorGate instance for robust routing checks
-// help: structure ready for generating help output (--help)
-```
-
-### 3. Parse Raw Arguments
-
-Use the native `node:util` module to extract arguments, then map them using `createParseArgsObject`.
-
-```typescript
-import { parseArgs } from "node:util";
-import { createParseArgsObject } from "@ytn/cli-to-zvo";
-
-const rawArgs = parseArgs({
-  args: process.argv.slice(2),
-  options: parsingArgs.options,
-  allowPositionals: true,
 });
 
-const mappedArgs = createParseArgsObject(parsingArgs).parse(rawArgs);
-```
+// 2. Parse and Validate
+const result = cliToZVO(cli, process.argv.slice(2));
 
-### 4. Validate and Route
-
-Pass the mapped object to the `xorSchema` to get a validated and "marked" object.
-
-```typescript
-const result = xorSchema.parse(mappedArgs);
-
-if (result.isRoute("analyze")) {
-  console.log(`Analyzing file: ${result.input_file}`);
-  if (result.verbose) console.log("Verbose mode enabled!");
+if (result.isRoute("dl")) {
+  console.log(
+    `Downloading ${result.url} at ${result.quality || "highest"} quality...`,
+  );
 }
-
-// result.route also contains the name of the matched target ('analyze')
 ```
 
-## API Reference
+## Defining a Contract
 
-### `cliToZod(contract)`
+A contract is defined using `contractDef()`. It consists of two main parts: `def` (Global definitions) and `targets` (Subcommands).
 
-The main entry point. Returns an object containing:
+### 1. Global Definitions (`def`)
 
-- `parsingArgs`: Configuration for `util.parseArgs`.
-- `xorSchema`: A Zod Union (XOR) schema for all defined targets.
-- `targetSchemas`: A dictionary of individual Zod schemas per target.
-- `router`: The `xorGate` instance used for robust routing validation.
+Each entry in `def` can use two types of definitions:
 
-### Defining the Contract (`CliContractSchema`)
+#### A. String DSL (Simple)
 
-#### 1. Global Definitions (`def`)
-
-The `def` object defines all possible arguments (flags and positionals) used across your commands.
+Ideal for standard types and simple unions. Your IDE will provide smart autocompletion for all **Atomic Types** (e.g., `"filepath"`, `"email"`, `"dateISO"`).
 
 ```typescript
 def: {
-  [key: string]: {
-    type: string;           // See "Supported Types" below
-    description: string;    // Used for help generation
-    arg_name?: string;      // Placeholder name for help output (e.g., <path>)
-    flags?: {
-      long: string;         // e.g., "verbose"
-      short: string;        // e.g., "v"
-    };
-    map?: Record<string, string>; // Optional value mapping (e.g., { "y": "true" })
+  age: { type: "number", description: "User age" },
+  output: { type: "filepath | url", description: "Target destination" },
+  created_at: { type: "dateISO", description: "Creation date (ISO 8601)" }
+}
+```
+
+#### B. CZVO API (Advanced)
+
+Use `CZVO` to leverage full Zod validation and custom logic.
+
+```typescript
+import { CZVO } from "@ytn/czvo";
+
+def: {
+  username: {
+    type: CZVO.string().min(3).max(20).trim(),
+    description: "System username"
+  },
+  tags: {
+    type: CZVO.list(CZVO.string().regex(/^[a-z]+$/)),
+    description: "Comma-separated lowercase tags"
   }
 }
 ```
 
-#### 2. Target Commands (`targets`)
+## CZVO API Reference
 
-The `targets` object defines your CLI's available commands/subcommands.
+`CZVO` is a "sealed" version of Zod, optimized for CLI use. It includes all standard Zod types plus powerful CLI-specific extensions.
+
+### Extensions & Overrides
+
+| Group           | Method(s)                                            | Description                                                      |
+| :-------------- | :--------------------------------------------------- | :--------------------------------------------------------------- |
+| **Primitives**  | `date()`, `number()`, `boolean()`, `bigint()`        | Coerces input strings to native JS objects (Date, Number, etc.). |
+| **ISO Formats** | `dateISO()`, `datetime()`, `time()`, `duration()`    | Validates strict ISO 8601 strings (returns `string`).            |
+| **Network**     | `url()`, `email()`, `ipv4()`, `ipv6()`, `hostname()` | Specialized network string validators.                           |
+| **Identifiers** | `uuid()`, `cuid()`, `cuid2()`, `ulid()`, `nanoid()`  | Common ID format validators.                                     |
+| **Encodings**   | `json()`, `jsonl()`, `base64()`, `hex()`, `jwt()`    | Data structure and encoding validators.                          |
+| **Collections** | `list(item)`, `set(item)`, `tuple(...items)`         | Parses comma-separated strings into collections.                 |
+| **Custom**      | `zod(schema)`, `decJSON(schema)`, `xor(...)`         | Bridges raw Zod schemas into the CLI coercion layer.             |
+| **Misc**        | `filepath()`, `file()`, `emoji()`                    | Utilities for local files and specialized strings.               |
+
+> **Note on Dates**: `CZVO.date()` returns a **JS Date Object** (coerced), while `CZVO.dateISO()` returns a **Validated String**.
+
+## Contract Structure
+
+### `def` Object
+
+| Property      | Type                    | Description                                     |
+| :------------ | :---------------------- | :---------------------------------------------- |
+| `type`        | `string` or `CZVO-Type` | The validation rule (DSL or CZVO).              |
+| `description` | `string`                | Explanation for the help screen.                |
+| `arg_name`    | `string?`               | Placeholder for help (e.g. `<video_url>`).      |
+| `flags`       | `{ long, short }?`      | Long (`--quality`) and short (`-q`) flag names. |
+| `map`         | `{}` or `undefined`     | Optional value mapping (e.g. `{"high": 1080}`). |
+
+### `targets` Object
+
+Defines subcommands (use `"default"` for a CLI without subcommands).
+
+| Property      | Type                | Description                       |
+| :------------ | :------------------ | :-------------------------------- |
+| `positionals` | `string[]`          | Ordered list of keys from `def`.  |
+| `flags`       | `{}` or `undefined` | Keys from `def` allowed as flags. |
+
+**Flag configuration:**
+
+- `true` / `false`: Required/Forbidden flag.
+- `{ optional: true }`: Makes the flag optional.
+- `string[]`: Constraints the flag to specific values (enum).
+
+---
+
+## Advanced Usage
+
+### Manual Zod Access
+
+If you need the "translated" contract (where all types are pure Zod schemas) for custom integration, use the `.enhanced` property:
 
 ```typescript
-targets: {
-  [targetName: string]: {
-    caseName: string;       // Human-readable name for this case
-    description: string;    // Brief info for help output
-    positionals?: string[]; // List of keys from `def` to use as positional args
-    flags?: Record<string,  // List of keys from `def` to use as flags
-      string[] |            // Enum: restrict flag to specific values
-      { optional: true } |  // Optionality
-      string | number | boolean | null // Default value
-    >;
-  }
-}
+const cli = contractDef(myContract);
+const translatedContract = cli.enhanced;
+
+// Each definition type is now a pure ZodType
+const ageSchema = translatedContract.def.age.type;
+const res = ageSchema.safeParse("25");
 ```
 
-### Supported Types (for `def.type`)
-
-- `string`: Standard text.
-- `number`: Coerced number.
-- `boolean`: Coerced boolean.
-- `filepath` / `url`: Path or URL validated strings.
-- `list`: Comma-separated values (parsed into an array).
-- `json` / `jsonl`: Single or newline-separated JSON objects.
-- `type1 | type2`: Simple union (e.g., `number | boolean`).
-- `tuple([...types])`: Fixed-size array with specific types.
-
-### Routing Management
-
-Every object returned by `xorSchema.parse()` features:
-
-- `.route`: The name of the matched target (non-enumerable, doesn't show up in `JSON.stringify`).
-- `.isRoute(name)`: A convenient property to check the active route.
+### Help Generation
 
 ```typescript
-const { xorSchema, router } = cliToZod(contract);
-const result = xorSchema.parse(data);
-
-// 1. Local check (convenient, but lost if you spread the object)
-if (result.isRoute("analyze")) { ... }
-
-// 2. Global check (robust, works even after {...result})
-const spread = { ...result };
-if (router.isRoute(spread, "analyze")) { ... }
+const helpData = cli.help();
+// Returns structured data: { name, description, usage_cases, arguments }
 ```
 
-## Architecture Rationale: Zod-Validated Objects
+---
 
-The strength of `cli-to-zvo` lies in its **XOR Gate**. Unlike a standard Zod union, our XOR gate injects a unique `Symbol` and non-enumerable properties into the result.
+## License
 
-This ensures that routing information:
-
-1. **Survives spreads**: `{...data}` retains the Symbol marking.
-2. **Doesn't pollute your data**: No visible `_type` or `kind` keys by default.
+MIT

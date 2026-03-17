@@ -1,6 +1,10 @@
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { ArgContractSchema, XorSchema, RoutedResult } from "./cli-contract-schema.js";
+import {
+  ArgContractSchema,
+  RoutedResult,
+  XorSchema,
+} from "./cli-contract-schema_old.js";
 
 /**
  * @function createParseArgsObject
@@ -28,6 +32,10 @@ export function createParseArgsObject(contract: ArgContractSchema) {
 /**
  * @function parseCli
  * @description High-level helper that performs native parsing, positional mapping, and Zod validation.
+ * @param {string[]} args - Raw CLI arguments to parse.
+ * @param {ArgContractSchema} parsingArgs - The argument structure allowed for parsing.
+ * @param {XorSchema} xorSchema - The global XOR union schema for validation and routing.
+ * @returns {RoutedResult} The validated and tagged result object.
  */
 export function parseCli(
   args: string[],

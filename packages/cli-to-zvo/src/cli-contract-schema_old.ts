@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zSnakeCaseKey, zArgName, zStringArray } from "./zod-tbx.js";
+import { zArgName, zSnakeCaseKey, zStringArray } from "./zod-tbx.js";
 
 /** @constant {z.ZodString} DEFKEY - Validation schema for snake_case definition keys. */
 const DEFKEY = zSnakeCaseKey;
@@ -147,7 +147,7 @@ const UsageSchema = z.object({
   ),
 });
 
-/** Represents a CLI contract definition. */
+/** @description Represents a CLI contract definition. */
 export type CliContractSchema = z.input<typeof CliContractSchema>;
 /** Represents the internal structure for argument parsing. */
 export type ArgContractSchema = z.infer<typeof ArgContractSchema>;
@@ -179,12 +179,10 @@ const RoutedResult = z.intersection(
 
 export type RoutedResult = z.infer<typeof RoutedResult>;
 
-export type RoutedResultType = z.ZodType<RoutedResult>
-
+export type RoutedResultType = z.ZodType<RoutedResult>;
 
 const RoutedTargetsSchema = z.record(zSnakeCaseKey, RoutedResult);
 export type RoutedTargetsSchema = z.infer<typeof RoutedTargetsSchema>;
-
 
 /** Represents the final XOR union schema (ZodXor). */
 export type XorSchema = z.ZodXor<readonly RoutedResultType[]>;

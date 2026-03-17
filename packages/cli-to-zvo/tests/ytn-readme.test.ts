@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import { RoutedResult } from "../src/cli-contract-schema_old.js";
 import { cliToZVO } from "../src/index.js";
-import { RoutedResult } from "../src/cli-contract-schema.js";
 
 describe("README CLI Example", () => {
   it("should parse and validate the deployment command correctly", () => {
@@ -9,24 +9,23 @@ describe("README CLI Example", () => {
       name: "ytn-cli",
       description: "YTN CLI tool",
       def: {
-        verbose: { 
-          type: "boolean", 
+        verbose: {
+          type: "boolean",
           flags: { long: "verbose", short: "v" },
-          description: "Enable detailed logging" 
+          description: "Enable detailed logging",
         },
-        env: { type: "string", description: "Target environment (dev/prod)" }
+        env: { type: "string", description: "Target environment (dev/prod)" },
       },
       targets: {
-        Deploy: { 
+        Deploy: {
           description: "Trigger a deployment",
           positionals: ["env"],
-          flags: { verbose: { optional: true } }
-        }
-      }
+          flags: { verbose: { optional: true } },
+        },
+      },
     };
     // 2. Encapsulated Parsing & Validation
     const result = cliToZVO(contract, ["prod", "--verbose"]) as RoutedResult;
-
 
     // Assertions
     expect(result.isRoute("Deploy")).toBe(true);
@@ -41,23 +40,22 @@ describe("README CLI Example", () => {
       name: "ytn-cli",
       description: "YTN CLI tool",
       def: {
-        verbose: { 
-          type: "boolean", 
+        verbose: {
+          type: "boolean",
           flags: { long: "verbose", short: "v" },
-          description: "Enable detailed logging" 
+          description: "Enable detailed logging",
         },
-        env: { type: "string", description: "Target environment" }
+        env: { type: "string", description: "Target environment" },
       },
       targets: {
-        Deploy: { 
+        Deploy: {
           description: "Deploy target",
           positionals: ["env"],
-          flags: { verbose: { optional: true } }
-        }
-      }
+          flags: { verbose: { optional: true } },
+        },
+      },
     };
     const result = cliToZVO(contract, ["dev", "-v"]) as RoutedResult;
-
 
     expect(result.isRoute("Deploy")).toBe(true);
     if (result.isRoute("Deploy")) {

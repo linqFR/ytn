@@ -20,6 +20,12 @@ export const zSnakeCaseKey = z
   .regex(/^[a-zA-Z0-9_]+$/, "Must be snake_case (no spaces or hyphens)");
 
 /**
+ * @type SnakeCase
+ * @description Branded string type to represent a validated snake_case key.
+ */
+export type SnakeCase = string & { readonly __snake_case: true };
+
+/**
  * @constant {z.ZodString} zArgName
  * @description Utility schema for argument names (alphanumeric, hyphens, and underscores).
  */
