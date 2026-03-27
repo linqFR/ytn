@@ -1,11 +1,13 @@
+# @ytn
+
 ## Packages
 
 Each package is designed to be **lightweight**, **type-safe**, and **independent**.
 
-| Package                                      | Purpose                   | Example                                                      |
-| :------------------------------------------- | :------------------------ | :----------------------------------------------------------- |
-| **[@ytn/qb](./packages/query-builder)**      | **SQLite Query Builder**  | `QB.table("users").select(["id"]).where(["active"]).build()` |
-| **[@ytn/cli-to-zvo](./packages/cli-to-zvo)** | **CLI Contract & Parser** | `const { xorSchema } = cliToZod(contract);`                  |
+|                                 Package |     Name     | Purpose                   | Example                                                      |
+| --------------------------------------: | :----------: | :------------------------ | :----------------------------------------------------------- |
+| **[@ytn/qb](./packages/query-builder)** | QueryBuilder | **SQLite Query Builder**  | `QB.table("users").select(["id"]).where(["active"]).build()` |
+|  **[@ytn/czvo](./packages/cli-to-zvo)** |  Cli-to-Zvo  | **CLI Contract & Parser** | `const result = cliToZVO(contract);`                         |
 
 ---
 
@@ -26,30 +28,32 @@ const sql = QB.table("users", "u")
   .build();
 ```
 
-#### [@ytn/cli-to-zvo](./packages/cli-to-zvo/README.md)
+#### [@ytn/czvo](./packages/cli-to-zvo/README.md)
 
 Define your contract once, get automated parsing and routing for free.
 
 ```typescript
-import { cliToZVO } from "@ytn/cli-to-zvo";
+import { cliToZVO, pico } from "@ytn/czvo";
 
 // 1. Define the Contract
 const contract = {
   name: "ytn-cli",
   description: "Deployment Tool",
-  def: {
-    verbose: {
-      type: "boolean",
-      flags: { long: "verbose", short: "v" },
-      description: "Enable detailed logging",
+  cli: {
+    positionals: ["env"],
+    flags: {
+      verbose: {
+        short: "v",
+        type: "boolean",
+        desc: "Enable detailed logging",
+        intercept: true,
+      },
     },
-    env: { type: "string", description: "Target environment (dev/prod)" },
   },
   targets: {
-    Deploy: {
-      description: "Trigger a deployment",
-      positionals: ["env"],
-      flags: { verbose: { optional: true } },
+    deploy: {
+      env: pico.string(), // pico
+      verbose: "boolean", // DSL
     },
   },
 };
@@ -57,9 +61,9 @@ const contract = {
 // 2. One-line Parsing & Zod-Validation
 const result = cliToZVO(contract, process.argv.slice(2));
 
-if (result.isRoute("Deploy")) {
-  console.log(`Deploying to ${result.env}...`);
-  if (result.verbose) console.log("Verbose mode ON");
+if (result.route === "deploy") {
+  console.log(`Deploying to ${result.data.env}...`);
+  if (result.data.verbose) console.log("Verbose mode ON");
 }
 ```
 
@@ -71,22 +75,50 @@ if (result.isRoute("Deploy")) {
 
 ## Getting Started
 
-### Installation
+### 1. Installation
+
+#### For your own project
 
 ```bash
+npm install @ytn/qb
+npm install @ytn/czvo
+```
+
+#### For development (monorepo)
+
+```bash
+# Clone the repository
+git clone git@github.com:linqFR/ytn.git
+cd ytn
+
+# Install all dependencies and setup workspaces
 npm install
 ```
 
-### Build everything
+### 2. Build & Test
+
+You can run commands for all packages using the workspace pattern:
 
 ```bash
+# Build all @ytn/* packages
 npm run build
+
+# Run tests for all packages
+npm test
 ```
 
-### Run tests
+### 3. Targeting Packages
+
+To work on a specific package, use the `--workspace` flag:
 
 ```bash
-npm test
+# Example for Query Builder
+npm run build -w @ytn/qb
+npm test -w @ytn/qb
+
+# Example for CLI Contract & Parser
+npm run build -w @ytn/czvo
+npm test -w @ytn/czvo
 ```
 
 ## License

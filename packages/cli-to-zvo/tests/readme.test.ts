@@ -1,95 +1,146 @@
-import { parseArgs, type ParseArgsConfig } from "node:util";
 import { describe, expect, it } from "vitest";
-import {
-  CliContractSchema,
-  cliToZod,
-  createParseArgsObject,
-} from "../src/index.js";
+import { cliToZVO, type tsContract, pico } from "../src/index.js";
 
 describe("README Examples Verification", () => {
-  // Example from section 1, 2, 3, 4
-  it("Complete Workflow Example", () => {
-    // 1. Define the CLI Contract
-    const contract: CliContractSchema = {
-      name: "my-tool",
-      description: "A great command-line tool",
-      def: {
-        input_file: {
-          type: "filepath",
-          description: "Path to the source file",
-          arg_name: "path",
-        },
-        verbose: {
-          type: "boolean",
-          description: "Enable verbose mode",
-          flags: { long: "verbose", short: "v" },
-        },
-      },
-      targets: {
-        Analyze: {
-          description: "Analyzes the specified file",
-          positionals: ["input_file"],
-          flags: {
-            verbose: { optional: true },
+  it("Package Quick Start Example (ytn/dl)", () => {
+    // 1. Define the Contract (from packages/cli-to-zvo/README.md)
+    const contract: tsContract = {
+      name: "ytn",
+      description: "YouTube Downloader",
+      cli: {
+        positionals: ["url"],
+        flags: {
+          quality: {
+            short: "q",
+            type: "string",
+            desc: "Video quality (144-2160)",
+          },
+          verbose: {
+            short: "v",
+            type: "boolean",
+            desc: "Enable logging",
+            intercept: true,
           },
         },
       },
-    };
-
-    // 2. Generate Parser and Schemas
-    const { parsingArgs, xorSchema, help } = cliToZod(contract);
-    expect(parsingArgs).toBeDefined();
-    expect(xorSchema).toBeDefined();
-    expect(help.name).toBe("my-tool");
-
-    // 3. Parse Raw Arguments (Simulated)
-    const mockArgv = ["data.txt", "--verbose"];
-
-    const parseConfig: ParseArgsConfig = {
-      args: mockArgv,
-      options: parsingArgs.options as ParseArgsConfig["options"],
-      allowPositionals: true,
-    };
-    const rawArgs = parseArgs(parseConfig);
-
-    const mappedArgs = createParseArgsObject(parsingArgs).parse(rawArgs);
-    expect(mappedArgs["input_file"]).toBe("data.txt");
-    expect(mappedArgs["verbose"]).toBe(true);
-
-    // 4. Validate and Route
-    const result = xorSchema.parse(mappedArgs) as any;
-
-    expect(result.isRoute("Analyze")).toBe(true);
-    expect(result.route).toBe("Analyze");
-    expect(result.input_file).toBe("data.txt");
-    expect(result.verbose).toBe(true);
-  });
-
-  it("Routing Management Example", () => {
-    const contract: CliContractSchema = {
-      name: "test",
-      description: "test",
-      def: {
-        cmd: { type: "string", description: "cmd" },
-      },
       targets: {
-        Analyze: {
-          description: "desc",
-          positionals: ["cmd"],
+        dl: {
+          url: "url", // Simple String DSL
+          quality: pico.number().optional(), // pico API (for complex logic)
+          verbose: "boolean", // Simple String DSL
         },
       },
     };
 
-    const { xorSchema, router } = cliToZod(contract);
-    const data = { cmd: "some-command" };
-    const result = xorSchema.parse(data) as any;
+    // 2. Parse and Validate
+    const args = ["https://youtube.com/watch?v=123", "-q", "1080", "-v"];
+    const result = cliToZVO(contract, args);
 
-    // 1. Local check
-    expect(result.isRoute("Analyze")).toBe(true);
+    // Verify result
+    expect(result.route).toBe("dl");
+    expect(result.error).toBeUndefined();
+    if (result.route === "dl" && !result.error) {
+      expect(result.data.url).toBe("https://youtube.com/watch?v=123");
+      expect(result.data.quality).toBe(1080);
+      expect(result.data.verbose).toBe(true);
+    }
+  });
 
-    // 2. Global check (robust, works even after {...result})
-    const spread = { ...result };
-    // Global check still works
-    expect(router.isRoute(spread, "Analyze")).toBe(true);
+  it("Root Quick Preview Example (ytn-cli/deploy)", () => {
+    // 1. Define the Contract (from root README.md)
+    const contract: tsContract = {
+      name: "ytn-cli",
+      description: "Deployment Tool",
+      cli: {
+        positionals: ["env"],
+        flags: {
+          verbose: {
+            short: "v",
+            type: "boolean",
+            desc: "Enable detailed logging",
+            intercept: true,
+          },
+        },
+      },
+      targets: {
+        deploy: {
+          env: pico.string(), // pico
+          verbose: "boolean", // DSL
+        },
+      },
+    };
+
+    // 2. One-line Parsing & Zod-Validation
+    const result = cliToZVO(contract, ["prod", "-v"]);
+
+    // Verify result
+    expect(result.route).toBe("deploy");
+    expect(result.error).toBeUndefined();
+    if (result.route === "deploy" && !result.error) {
+      expect(result.data.env).toBe("prod");
+      expect(result.data.verbose).toBe(true);
+    }
+  });
+
+  it("Routing & Literals Example (from Defining a Contract)", () => {
+    const contract: tsContract = {
+      name: "test",
+      description: "test",
+      cli: {
+        positionals: ["command"],
+        flags: {
+          path: { short: "p", type: "string", desc: "path" },
+        },
+      },
+      targets: {
+        setup: {
+          command: pico.literal("init"),
+          path: "filepath",
+        },
+      },
+    };
+
+    const result = cliToZVO(contract, ["init", "-p", "data.txt"]);
+
+    expect(result.route).toBe("setup");
+    expect(result.error).toBeUndefined();
+    if (result.route === "setup" && !result.error) {
+      expect(result.data.command).toBe("init");
+      expect(result.data.path).toBe("data.txt");
+    }
+  });
+
+  it("Zod Native Modifiers Example", () => {
+    const contract: tsContract = {
+      name: "modifiers-test",
+      description: "testing zod modifiers",
+      cli: {
+        positionals: ["age", "email", "tags"],
+      },
+      targets: {
+        setup: {
+          age: pico.number().min(18).max(99),
+          email: pico.email().optional(),
+          tags: pico.stringList().min(5),
+        },
+      },
+    };
+
+    // 1. Validating chainability and types
+    const result = cliToZVO(contract, ["25", "test@example.com", "a,b,c,d,e"]);
+
+    expect(result.route).toBe("setup");
+    expect(result.error).toBeUndefined();
+    if (result.route === "setup" && !result.error) {
+      expect(result.data.age).toBe(25);
+      expect(result.data.email).toBe("test@example.com");
+      expect(result.data.tags).toEqual(["a", "b", "c", "d", "e"]);
+    }
+
+    // 2. Failure check (min age)
+    const failResult = cliToZVO(contract, ["10", "test@example.com", "a,b,c"]);
+    expect(failResult.error).toBeDefined();
+    // In current implementation, validation error returns "error" as route
+    expect(failResult.route).toBe("error");
   });
 });

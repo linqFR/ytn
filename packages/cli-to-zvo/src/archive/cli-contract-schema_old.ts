@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { zArgName, zSnakeCaseKey, zStringArray } from "./zod-tbx.js";
+import {
+  ArgNameSchema,
+  zSnakeCaseKey,
+  tsStringArray,
+} from "../shared/zod-tbx.js";
 
 /** @constant {z.ZodString} DEFKEY - Validation schema for snake_case definition keys. */
 const DEFKEY = zSnakeCaseKey;
@@ -7,10 +11,12 @@ const DEFKEY = zSnakeCaseKey;
  * @constant {z.ZodRecord} CatalogDefSchema
  * @description Schema for catalog definitions mapping snake_case keys to Zod types.
  */
-export const CatalogDefSchema = z.record(DEFKEY, z.instanceof(z.ZodType));
+export const CatalogDefSchema = z
+  .record(DEFKEY, z.instanceof(z.ZodType))
+  .brand<"tsCatalogDef">();
 
 /** @constant {z.ZodString} TARGETKEY - Validation schema for snake_case target keys. */
-const TARGETKEY = zSnakeCaseKey;
+const TARGETKEY = tsSnakeCase;
 /**
  * @constant {z.ZodRecord<zSnakeCaseKey, CatalogDefSchema>} TargetObjects
  * @description Schema for target objects mapping snake_case keys to CatalogDefSchema.
@@ -30,7 +36,7 @@ export const CliContractSchema = z
       z.object({
         type: z.string(),
         description: z.string(),
-        arg_name: zArgName.optional().default(""),
+        arg_name: ArgNameSchema.optional().default(""),
         flags: z
           .object({
             long: z.string(),
@@ -45,7 +51,7 @@ export const CliContractSchema = z
       TARGETKEY,
       z.object({
         description: z.string(),
-        positionals: zStringArray.optional(),
+        positionals: tsStringArray.optional(),
         flags: z
           .record(
             z.string(),
@@ -99,7 +105,7 @@ export const CliContractSchema = z
  * @description Internal schema used for mapping parsed arguments to their target definitions.
  */
 const ArgContractSchema = z.object({
-  positionals: zStringArray,
+  positionals: tsStringArray,
   options: z.record(
     zSnakeCaseKey, // flag long
     z.object({
@@ -128,7 +134,7 @@ const UsageSchema = z.object({
       .object({
         //   name: z.string(),
         arg_name: z.string().optional(),
-        usages: zStringArray.optional(), // eg ['--result <result>', '-r <result>']
+        usages: tsStringArray.optional(), // eg ['--result <result>', '-r <result>']
         position: z.number().optional(),
         type: z.string(),
         description: z.string(),

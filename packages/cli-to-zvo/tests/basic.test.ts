@@ -1,39 +1,44 @@
-import { describe, expect, it } from 'vitest';
-import { cliToZod } from '../src/index.js';
+import { describe, expect, it } from "vitest";
+import { cliToZod, ContractSchema, pico, tsContract } from "../src/index.js";
 
-describe('cli-to-zvo basic verification', () => {
-    it('should process a basic contract', () => {
-        const contract = {
-            name: "test",
-            description: "test description",
-            def: {
-                flag: {
-                    type: "boolean",
-                    description: "a flag",
-                    flags: { long: "flag", short: "f" }
-                }
-            },
-            targets: {
-                run: {
-                    caseName: "Run",
-                    description: "run it",
-                    flags: { flag: { optional: true } }
-                }
-            }
-        };
+import { ZvoTestGate } from "./zvo-test-gate.js";
 
-        const { xorSchema, router } = cliToZod(contract as any);
-        expect(xorSchema).toBeDefined();
-        expect(router).toBeDefined();
+describe("cli-to-zvo basic verification", () => {
+  it("should process a basic contract", () => {
+    const contract: tsContract = {
+      name: "test",
+      description: "test description",
+      cli: {
+        flags: {
+          flag: {
+            short: "f",
+            desc: "a flag",
+            type: "boolean",
+          },
+        },
+      },
+      targets: {
+        run: {
+          flag: pico.boolean(),
+        },
+      },
+    };
 
-        const data = { flag: true };
-        const result = xorSchema.parse(data) as any;
+    const processed = ContractSchema.parse(contract);
+    const testGate = new ZvoTestGate(processed);
+    const tools = cliToZod(contract);
+    expect(testGate.testSchema).toBeDefined();
+    expect(tools.router).toBeDefined();
 
-        // Local check
-        expect(result.isRoute("run")).toBe(true);
+    const data = { flag: true };
+    const result = testGate.testSchema.parse(data);
 
-        // Global check (robust after spread)
-        const spread = { ...result };
-        expect(router.isRoute(spread, "run")).toBe(true);
-    });
+    // Local check
+    expect(result.route).toBe("run");
+    expect(result.data.flag).toBe(true);
+
+    // Global check (robust after spread)
+    const spread = { ...result };
+    expect(spread.route).toBe("run");
+  });
 });
