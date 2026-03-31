@@ -19,6 +19,8 @@ Thumbs.db
 **/docs/
 **/dev_tools/
 **/sandbox/
+**/src/archive/
+**/src/archives/
 
 # Logs
 *.log

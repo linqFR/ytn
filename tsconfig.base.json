@@ -13,7 +13,8 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["shared/*"]
+      "@shared/*": ["shared/*"],
+      "@shared": ["shared/index.ts"],
     }
   },
   "exclude": ["node_modules", "dist", "docs", "dev_tools", "sandbox"]
