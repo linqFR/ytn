@@ -6,6 +6,15 @@ const ATOMIC_KEYS = Object.keys(PICO_ATOMIC_FACTORIES) as [
   ...Array<keyof typeof PICO_ATOMIC_FACTORIES>,
 ];
 
+/**
+ * @function isAtomic
+ * @description Internal type guard that checks if a DSL string segment matches
+ * a known atomic factory (e.g., "string", "bool", "number").
+ *
+ * @param {string} entry - The string segment to test.
+ * @param {z.core.$RefinementCtx} [ctx] - Optional Zod context for error reporting.
+ * @returns {entry is keyof typeof PICO_ATOMIC_FACTORIES} True if it's a known atomic type.
+ */
 const isAtomic = (
   entry: string,
   ctx?: z.core.$RefinementCtx,
@@ -21,16 +30,25 @@ const isAtomic = (
 };
 
 export const checkPICO_ATOMIC_FACTORIES = z.enum(ATOMIC_KEYS);
+
 const checkListFormat = z.stringFormat(
   "list-format",
   /^\s*\w+(\s*,\s*\w+)+\s*$/,
 );
+
 const checkXOrFormat = z.stringFormat(
   "xor-format",
   /^\s*\w+(\s*\|\s*\w+)+\s*$/,
 );
 
-// validation schema
+/**
+ * @constant dslSchema
+ * @description Validation schema for the CZVO Domain Specific Language (DSL).
+ * It supports:
+ * - **Atomic types**: "string", "number", "bool"
+ * - **List format (Comma)**: "string, number" (maps to a Zod Tuple)
+ * - **XOR format (Pipe)**: "string | number" (maps to a Zod Union/XOR)
+ */
 export const dslSchema = z
   .string()
   .pipe(
@@ -45,9 +63,17 @@ export const dslSchema = z
     ]),
   );
 
+/**
+ * @type DslType
+ * @description TypeScript type representing valid CZVO DSL strings.
+ */
 export type DslType = z.infer<typeof dslSchema>;
 
-//  tranformation schema
+/**
+ * @constant dslToZod
+ * @description The transformation schema that compiles a DSL string into its
+ * corresponding Zod schema branch.
+ */
 export const dslToZod = z.string().pipe(
   z.union([
     checkPICO_ATOMIC_FACTORIES.transform(

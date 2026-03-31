@@ -18,7 +18,6 @@ export const HELP_CONTRACT: {
         type: "boolean",
         desc: "Show help information",
         short: "h",
-        intercept: true,
       },
     },
   },

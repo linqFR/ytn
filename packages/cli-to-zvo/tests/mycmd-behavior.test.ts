@@ -39,6 +39,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
         step: pico.literal("toto"),
         ytnUi: pico.literal("dark"),
       },
+      // catchAnythingLeftTarget: {}
     },
     fallbacks: {
       globalHelp: {

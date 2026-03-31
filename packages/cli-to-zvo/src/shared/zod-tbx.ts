@@ -78,7 +78,11 @@ export const repiped = (oldSchema: z.ZodType, targetSchema: z.ZodType) => {
 
 /**
  * @function isZodObject
- * @description Checks if a schema is a Zod object using V4 Strict properties.
+ * @description Checks if a schema represents a Zod Object, identifying it through
+ * the internal V4 `_zod` property.
+ *
+ * @param {any} schema - The schema to test.
+ * @returns {boolean} True if the schema is a Zod object.
  */
 export const isZodObject = (schema: any): boolean => {
   return unwrapZod(schema)?._zod?.def?.type === "object";
@@ -86,8 +90,11 @@ export const isZodObject = (schema: any): boolean => {
 
 /**
  * @function unwrapZod
- * @description Recursively unwraps Zod wrappers to find the underlying base schema.
- * V4 Strict: Uses _zod.def.innerType.
+ * @description Recursively follows internal Zod V4 pointers to find the root
+ * type definition (e.g., through .optional(), .nullable(), or Pipes).
+ *
+ * @param {any} schema - The Zod schema to unwrap.
+ * @returns {any} The underlying root Zod schema.
  */
 export const unwrapZod = (schema: any): any => {
   const internals = schema?._zod;
@@ -96,7 +103,16 @@ export const unwrapZod = (schema: any): any => {
 
   // These wrappers have a direct innerType in V4
   if (
-    ["optional", "nullable", "default", "readonly", "nonoptional", "catch", "success", "promise"].includes(type)
+    [
+      "optional",
+      "nullable",
+      "default",
+      "readonly",
+      "nonoptional",
+      "catch",
+      "success",
+      "promise",
+    ].includes(type)
   ) {
     return unwrapZod(internals.def.innerType);
   }
@@ -116,15 +132,21 @@ export const unwrapZod = (schema: any): any => {
 
 /**
  * @function isZodOptional
- * @description Checks if a schema is optional in V4 (bubbled through wrappers).
+ * @description Checks if a schema is officially marked as Optional in the V4 internal def.
+ *
+ * @param {any} schema - The schema to test.
+ * @returns {boolean} True if the schema represents an optional value.
  */
 export const isZodOptional = (schema: any): boolean => {
-  return schema?._zod?.optin === "optional" || schema?._zod?.def?.type === "optional";
+  return schema?._zod?.def?.type === "optional";
 };
 
 /**
  * @function isZodLiteral
- * @description Checks if a schema eventually resolves to a literal in V4.
+ * @description Path-independent check to see if a schema eventually resolves to a literal value.
+ *
+ * @param {any} schema - The schema to inspect.
+ * @returns {boolean} True if it is a Literal schema.
  */
 export const isZodLiteral = (schema: any): boolean => {
   return unwrapZod(schema)?._zod?.def?.type === "literal";
@@ -132,7 +154,10 @@ export const isZodLiteral = (schema: any): boolean => {
 
 /**
  * @function isZodEnum
- * @description Checks if a schema eventually resolves to an enum in V4.
+ * @description Path-independent check to see if a schema eventually resolves to an Enum.
+ *
+ * @param {any} schema - The schema to inspect.
+ * @returns {boolean} True if it is an Enum schema.
  */
 export const isZodEnum = (schema: any): boolean => {
   return unwrapZod(schema)?._zod?.def?.type === "enum";
@@ -140,8 +165,11 @@ export const isZodEnum = (schema: any): boolean => {
 
 /**
  * @function hasZodValue
- * @description Checks if a schema should contribute to the routing mask.
- * Strictly limited to Literals and Enums (and their wrappers).
+ * @description Determines if a schema carries a specific value (Literal or Enum)
+ * that must contribute to the routing bitmask.
+ *
+ * @param {any} schema - The schema to test.
+ * @returns {boolean} True if and only if the schema is a routing discriminant.
  */
 export const hasZodValue = (schema: any): boolean => {
   return isZodLiteral(schema) || isZodEnum(schema);

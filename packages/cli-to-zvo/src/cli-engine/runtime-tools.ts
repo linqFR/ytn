@@ -1,74 +1,87 @@
-import { forgeRoutingSignature } from "../shared/index.js";
+import {
+  computeBitmask,
+  resolveFromTree,
+} from "./tree-processing.js";
+import { ROUTER_SEPARATOR } from "../config/router-config.js";
+import { forgeRoutingSignature } from "../shared/router-utils.js";
 import type {
-  tsBitCodes,
-  tsBitRouter,
-  tsRoutingMasks,
-} from "../types/bit-router.types.js";
-import type {
+  IProcessedContract,
   tsParsedCLI,
-  tsProcessedCliOUT,
 } from "../types/contract.types.js";
 import type { tsTargetFieldName } from "../config/parse-args.js";
-import { tsDiscriminantKeys } from "./shared-tools.js";
-import { TARGET_FALLBACK_NAME } from "../config/zod-config.js";
+// import { TARGET_FALLBACK_NAME } from "../config/zod-config.js";
 
 /**
  * @function computeRoutingDiscriminant
- * @description Runtime tagger that calculates the signature for a parsed object.
+ * @description The core runtime engine for the CLI router.
+ * It resolves a set of parsed arguments into a canonical bitmask-based signature.
+ *
+ * This signature is then used by the "Gate" Zod schema as a discriminant to jump
+ * to the correct target's validation logic.
+ *
+ * The algorithm:
+ * 1. Computes a bitmask representing the presence of CLI flags/positionals.
+ * 2. Traverses the pre-compiled decision tree to get a list of target candidates.
+ * 3. Sorts targets by specificity (targets with more literal value requirements are checked first).
+ * 4. Checks the candidates' literal requirements against the actual input values.
+ * 5. Returns a unique string signature for the matching target.
+ *
+ * @param {tsParsedCLI} res - The object containing parsed CLI arguments.
+ * @param {IProcessedContract} contract - The pre-compiled contract metadata.
+ * @returns {string} The canonical signature string used for routing at the Zod layer.
  */
-export const computeRoutingDiscriminant = (
+export function computeRoutingDiscriminant(
   res: tsParsedCLI,
-  cli: tsProcessedCliOUT,
-  discriminantKeys: tsDiscriminantKeys = [],
-  router: tsBitRouter = {},
-  availableMasks: tsRoutingMasks = {},
-  bitCodes: tsBitCodes = {},
-): string => {
-  let targetCode = 0n;
+  contract: IProcessedContract,
+): string {
+  const { routing, targets } = contract;
 
-  // 1. Zero allocation: safely iterate over keys
-  for (const key in res) {
-    const bPrint =
-      cli.positionals[key as tsTargetFieldName] ||
-      cli.flags[key as tsTargetFieldName];
-    if (bPrint !== undefined) {
-      targetCode |= bPrint.bit;
-    }
-  }
+  // 1. Compute the bitmask for the current input
+  const mask = computeBitmask(res, routing.def);
 
-  const shapeKey = String(targetCode);
-  const targetMasks = availableMasks[shapeKey] || [0n];
+  // 2. Walk the decision tree to find candidates for this mask
+  // We sort candidates by specificity (number of defined literals) so specific targets win first.
+  const candidates = resolveFromTree(routing.tree, mask).sort(
+    (a, b) =>
+      Object.keys(targets[b]?.targetLiterals ?? {}).length -
+      Object.keys(targets[a]?.targetLiterals ?? {}).length,
+  );
 
-  for (let i = 0; i < targetMasks.length; i++) {
-    const mask = targetMasks[i];
-    const combo: string[] = [];
+  // 3. Find the first target where literal values match
+  for (const targetName of candidates) {
+    const target = targets[targetName];
+    if (!target) continue;
 
-    for (let j = 0; j < (discriminantKeys as unknown as string[]).length; j++) {
-      const k = (discriminantKeys as unknown as any)[j];
-      const bit = bitCodes[k];
-
-      if ((mask & bit) === bit && res[k] !== undefined) {
-        combo.push(String(res[k]));
-      } else {
-        combo.push("");
+    let isMatch = true;
+    for (const [fieldName, allowedValues] of Object.entries(
+      target.targetLiterals,
+    )) {
+      const val = String(res[fieldName as tsTargetFieldName] ?? "");
+      if (!allowedValues.includes(val)) {
+        isMatch = false;
+        break;
       }
     }
 
-    const sig = forgeRoutingSignature(targetCode, mask, combo);
-    if (router[sig]) {
+    if (isMatch) {
+      // 4. Forge the canonical signature for Zod V4 jumping
+      // IMPORTANT: We mask the runtime bitmask with the target's allowed bits
+      // to ensure we match the signature generated at build time (which only
+      // included bits the target actually knows about).
+      const finalMask = mask & target.targetCode;
+
+      const values = routing.discriminantKeys.map((k) =>
+        target.targetLiterals[k] ? String(res[k] ?? "") : "",
+      );
+
+      // Back to pure Bitmask + Values signature
+      const sig = forgeRoutingSignature(finalMask, values);
+      console.log(`[RUNTIME] Target: ${targetName}, Sig: "${sig}"`);
       return sig;
     }
   }
 
-  // Fallback final : signature universelle pour le _fallback
-  if (router[TARGET_FALLBACK_NAME]) return TARGET_FALLBACK_NAME;
-
-  // Sinon signature d'erreur absolue
-  const fallbackCombo: string[] = [];
-  for (let j = 0; j < (discriminantKeys as unknown as any[]).length; j++) {
-    const k = (discriminantKeys as unknown as any)[j];
-    fallbackCombo.push(res[k] !== undefined ? String(res[k]) : "");
-  }
-
-  return forgeRoutingSignature(targetCode, 0n, fallbackCombo);
-};
+  // 5. If no match, return undefined to trigger Zod validation error
+  // console.log(`[RUNTIME] No match found internally`);
+  return undefined as any;
+}

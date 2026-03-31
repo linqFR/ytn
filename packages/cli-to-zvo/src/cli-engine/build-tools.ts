@@ -4,7 +4,7 @@ import type {
   ParseArgsOptionsConfig,
 } from "node:util";
 import { z } from "zod";
-import { type tsParseArgString } from "../config/parse-args.js";
+import { tsTargetName, type tsParseArgString } from "../config/parse-args.js";
 import { arrOp } from "../shared/index.js";
 import {
   tsPossibleValuesData,
@@ -21,6 +21,8 @@ import type {
 } from "../types/contract.types.js";
 import { type $Entries } from "../types/ts-utils.js";
 import { computeRoutingDiscriminant } from "./runtime-tools.js";
+import type { tsDecisionNode } from "../types/tree.types.js";
+import type { tsProcessedTarget } from "../types/contract.types.js";
 import {
   strToZod,
   type tsDiscriminantKeys,
@@ -30,10 +32,11 @@ import {
 
 /**
  * @function contractCliToParseArgSchema
- * @description Transforms processed CLI metadata into a configuration for node:util.parseArgs.
+ * @description Transforms the processed CLI metadata into the specific schema
+ * required by the `node:util.parseArgs` configuration.
  *
- * @param {tsProcessedCliOUT} cli - The processed metadata.
- * @returns {tsParseArgSchema}
+ * @param {tsProcessedCliOUT} cli - The processed interface metadata.
+ * @returns {tsParseArgSchema} The mapping of positionals and options for the parser.
  */
 export const contractCliToParseArgSchema = (
   cli: tsProcessedCliOUT,
@@ -53,6 +56,17 @@ export const contractCliToParseArgSchema = (
   return { positionals, options };
 };
 
+/**
+ * @internal
+ * @function getAllowedValues
+ * @description Extracts the unique set of allowed literal values for a given field
+ * across all targets. This is used when `onlyAllowedValues` is enabled to
+ * restrict the parser at the entry level.
+ *
+ * @param {keyof tsPossibleValuesArray} paName - The name of the field to check.
+ * @param {tsPossibleValuesArray} possibleValues - The map of all possible values.
+ * @returns {string[]} The list of unique literal values.
+ */
 const getAllowedValues = <
   T extends tsPossibleValuesArray = tsPossibleValuesArray,
 >(
@@ -67,17 +81,30 @@ const getAllowedValues = <
 
 /**
  * @function contractCliToParseArgsParser
- * @description Creates a Zod schema to map and validate the output of node:util.parseArgs.
+ * @description Creates the primary Zod transformation schema that bridge the gap
+ * between `node:util.parseArgs` output and the internal domain-mapped `tsParsedCLI`.
  *
- * @param {tsProcessedCliOUT} cli - The processed metadata.
- * @returns {tsParseArgsResultParser}
+ * This schema handles:
+ * 1. Mapping indexed positionals back to named target fields.
+ * 2. Mapping kebab-case flags back to camelCase target fields.
+ * 3. Reporting unrecognized flags as Zod issues.
+ * 4. Calculating the routing discriminant at runtime via the decision tree.
+ *
+ * @param {tsProcessedCliOUT} cli - The processed CLI metadata.
+ * @param {tsDiscriminantKeys} [discriminantKeys=[]] - Keys used for literal routing.
+ * @param {tsPossibleValuesArray} [possibleValues={}] - Cached values for enum validation.
+ * @param {tsDecisionNode | tsTargetName[]} [tree=[]] - The pre-compiled routing tree.
+ * @param {Record<tsTargetName, tsProcessedTarget>} [targets={}] - Detailed target metadata.
+ * @param {tsBitCodes} [bitCodes={}] - Unique bits for every CLI argument.
+ * @param {boolean} [onlyAllowedValues=false] - If true, restricts inputs to known target literals.
+ * @returns {tsParseArgsResultParser} The Zod schema for the parsing stage.
  */
 export const contractCliToParseArgsParser = (
   cli: tsProcessedCliOUT,
   discriminantKeys: tsDiscriminantKeys = [],
   possibleValues: tsPossibleValuesArray = {},
-  router: tsBitRouter = {},
-  masks: tsRoutingMasks = {},
+  tree: tsDecisionNode | tsTargetName[] = [],
+  targets: Record<tsTargetName, tsProcessedTarget> = {},
   bitCodes: tsBitCodes = {},
   onlyAllowedValues: boolean = false,
 ): tsParseArgsResultParser => {
@@ -163,14 +190,14 @@ export const contractCliToParseArgsParser = (
       }
 
       // 3. Calculation of Routing Discriminant (Target Logic)
-      res.discriminant = computeRoutingDiscriminant(
-        res,
-        cli,
-        discriminantKeys as any,
-        router,
-        masks,
-        bitCodes,
-      );
+      res.discriminant = computeRoutingDiscriminant(res, {
+        routing: {
+          def: bitCodes,
+          tree,
+          discriminantKeys,
+        },
+        targets,
+      } as any);
 
       return res;
     }) as tsParseArgsResultParser;
@@ -178,7 +205,11 @@ export const contractCliToParseArgsParser = (
 
 /**
  * @function contractCliToParseArgs
- * @description Transforms raw contract CLI flag definitions into a `node:util.parseArgs` configuration.
+ * @description Generates the native `ParseArgsConfig` for Node's `util.parseArgs`.
+ * This effectively "configures" the underlying hardware-level parser.
+ *
+ * @param {tsProcessedCliOUT["flags"]} [flags={}] - The processed flag definitions.
+ * @returns {ParseArgsConfig} Configuration object for `parseArgs`.
  */
 export const contractCliToParseArgs = (
   flags: tsProcessedCliOUT["flags"] = {},
@@ -200,25 +231,36 @@ export const contractCliToParseArgs = (
 
 /**
  * @interface tsCliEngineTools
- * @description Bundled tools generated from CLI metadata to drive the parsing engine.
+ * @description Bundled configuration and logic required to initialize the CLI engine.
  */
 export interface tsCliEngineTools {
+  /** High-level schema representing the CLI structure. */
   config: tsParseArgSchema;
+  /** The Zod transformation schema to run after parsing. */
   parser: tsParseArgsResultParser;
+  /** The native Node.js configuration for parseArgs. */
   nativeConfig: ParseArgsConfig;
 }
 
 /**
  * @function cliEngineFactory
- * @description Consolidates the creation of the native parser configuration
- * and the result Zod schema into a single source.
+ * @description The main factory for generating all runtime tools needed to drive
+ * the CLI-to-Zod parsing engine.
+ *
+ * @param {tsProcessedCliOUT} cli - The processed interface definition.
+ * @param {tsDiscriminantKeys} [discriminantKeys] - Keys for literal routing.
+ * @param {tsPossibleValuesArray} [possibleValues] - Pre-calculated valid values.
+ * @param {tsDecisionNode | tsTargetName[]} [tree] - The routing decision tree.
+ * @param {Record<tsTargetName, tsProcessedTarget>} [targets] - Metadata for all targets.
+ * @param {tsBitCodes} [bitCodes] - Bitfield mapping for routing.
+ * @returns {tsCliEngineTools} Complete set of engine configurations and parsers.
  */
 export const cliEngineFactory = (
   cli: tsProcessedCliOUT,
   discriminantKeys: tsDiscriminantKeys = [],
   possibleValues: tsPossibleValuesArray = {},
-  router: tsBitRouter = {},
-  masks: tsRoutingMasks = {},
+  tree: tsDecisionNode | tsTargetName[] = [],
+  targets: Record<tsTargetName, tsProcessedTarget> = {},
   bitCodes: tsBitCodes = {},
 ): tsCliEngineTools => {
   return {
@@ -227,8 +269,8 @@ export const cliEngineFactory = (
       cli,
       discriminantKeys,
       possibleValues,
-      router,
-      masks,
+      tree,
+      targets,
       bitCodes,
     ),
     nativeConfig: contractCliToParseArgs(cli.flags),

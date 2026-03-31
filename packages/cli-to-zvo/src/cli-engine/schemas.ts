@@ -4,7 +4,6 @@ import {
   ParseArgObjectNameSchema,
 } from "../config/parse-args.js";
 import { picoSchema } from "../pico-zod/index.js";
-import { TARGET_FALLBACK_NAME } from "../config/zod-config.js";
 
 /**
  * @internal
@@ -24,7 +23,6 @@ export const parseArgOptionContent = z.object({
 export const contractCLiFlagSchema = z.object({
   ...parseArgOptionContent.shape,
   desc: z.string().optional(),
-  intercept: z.boolean().optional(),
 });
 
 /**
@@ -55,22 +53,42 @@ export const contractCliSchema = z
  */
 export const contractTargetSchema = z.record(
   ParseArgObjectNameSchema,
+  z.record(ParseArgObjectNameSchema, picoSchema()).refine(
+    (fields) => Object.keys(fields).length > 0,
+    { message: "A target must have at least one defined field." },
+  ),
+);
+
+/**
+ * @type contractFallbackSchema
+ * @description Record of maps for fallback targets.
+ * Validated identically to targets but allows empty records for global catch-alls.
+ */
+export const contractFallbackSchema = z.record(
+  ParseArgObjectNameSchema,
   z.record(ParseArgObjectNameSchema, picoSchema()),
 );
 
 /**
  * @type tsContractCliIN
+ * @description Input type for the CLI configuration block before Zod refinement.
  */
 export type tsContractCliIN = z.input<typeof contractCliSchema>;
+
 /**
  * @type tsContractCliOUT
+ * @description Output type for the CLI configuration block after Zod validation.
  */
 export type tsContractCliOUT = z.output<typeof contractCliSchema>;
+
 /**
  * @type tsContractTargetIN
+ * @description Input type for the targets definition block.
  */
 export type tsContractTargetIN = z.input<typeof contractTargetSchema>;
+
 /**
  * @type tsContractTargetOUT
+ * @description Output type for the targets definition block, mapping target names to their field schemas.
  */
 export type tsContractTargetOUT = z.output<typeof contractTargetSchema>;

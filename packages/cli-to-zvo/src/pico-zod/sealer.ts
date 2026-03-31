@@ -36,35 +36,65 @@ export type tsPicoFactories = $NamespaceSealed<typeof PICO_FACTORIES> & {
 const $IS_SEALED = Symbol("is_sealed");
 
 /**
- * Base interface for any sealed schema.
- * Implementing this interface confirms the object has been processed for CLI use,
- * masking forbidden Zod methods while providing an escape hatch to the raw Zod schema.
- * Using a simple covariant interface avoids variance issues in complex recursive types.
- * Stores the original Zod type to allow accurate inference and unwrapping.
+ * @interface ISealedInterface
+ * @description The common interface for all schemas that have been "Sealed" for CLI use.
+ * It provides core metadata and standardized methods while hiding non-compliant Zod internals.
+ * 
+ * @template O - The output type of the schema.
+ * @template I - The input type of the schema.
+ * @template Z - The underlying Zod type.
  */
 export interface ISealedInterface<
   O = any,
   I = any,
   Z extends z.ZodType<O, I, any> = z.ZodType<O, I, any>,
 > {
-  /** Unwraps the sealed CLI schema back to its original Zod instance */
+  /** 
+   * @property toZod
+   * @description Unwraps the sealed CLI schema back to its original raw Zod instance.
+   * Useful for advanced integrations where the raw Zod API is required.
+   */
   readonly toZod: Z;
-  /** Internal brand to identify sealed schemas at runtime */
+  
+  /** 
+   * @property [$IS_SEALED]
+   * @description Internal brand to identify sealed schemas at runtime.
+   */
   readonly [$IS_SEALED]: true;
-  /** Standard Schema support (Zod v4 compatibility) */
+  
+  /** 
+   * @property "~standard"
+   * @description Standard Schema support (Zod v4 compatibility).
+   */
   readonly "~standard": Z extends { "~standard": infer S } ? S : never;
-  /** Attach a description to the schema (via .meta({ description })) */
+  
+  /** 
+   * @method desc
+   * @description Attaches a human-readable description to the schema for help generation.
+   * 
+   * @param {string} message - The description text.
+   * @returns {$Sealed<Z>} The enriched and sealed schema.
+   */
   desc(message: string): $Sealed<Z>;
 }
 
 /**
  * @function isSealed
  * @description Type guard to identify sealed CLI schemas (created via CZVO API).
- * These schemas are recognized by the presence of the internal $IS_SEALED symbol.
+ * 
+ * @param {unknown} val - The value to check.
+ * @returns {boolean} True if the value is a sealed CZVO schema.
  */
 export const isSealed = (val: unknown): val is ISealedInterface =>
   typeof val === "object" && val !== null && $IS_SEALED in val;
 
+/**
+ * @function toZod
+ * @description Safely unwraps a schema if it is sealed, or returns the original if already raw.
+ * 
+ * @param {ISealedInterface | z.ZodType} schema - The schema to unwrap.
+ * @returns {z.ZodType} The raw Zod schema.
+ */
 export const toZod = (schema: ISealedInterface | z.ZodType): z.ZodType =>
   isSealed(schema) ? schema.toZod : schema;
 
@@ -141,10 +171,25 @@ export const toZod = (schema: ISealedInterface | z.ZodType): z.ZodType =>
 // }
 
 /**
- * @function newBridgeZod
- * @description Extended version of the CZVO Proxy engine.
- * Supports dynamic method injection (via .define() or direct assignment)
- * while isolating extensions in a local immutable layer to prevent side effects.
+ * @function bridgeZod
+ * @description The core recursive Proxy engine for the CZVO ecosystem.
+ * It provides a "Bridge" between a static API surface (methods) and a 
+ * validator instance (engine).
+ * 
+ * Features:
+ * - **Security**: Blocks access to non-compliant Zod methods (e.g. .transform) via a blacklist.
+ * - **Context**: Handles correct `this` binding for both native Zod methods and dynamic extensions.
+ * - **Fluent API**: Supports dynamic method addition via `.define()`.
+ * - **Idempotency**: Automatically re-seals results that are Zod schemas.
+ * 
+ * @template T - Type of the static methods object.
+ * @template E - Type of the validator engine (usually a Zod schema).
+ * 
+ * @param {E} engine - The underlying Zod schema or engine.
+ * @param {T} methods - The static API surface to expose.
+ * @param {(val: any) => any} wrapper - The function to call for wrapping results (usually `sealZod`).
+ * @param {(p: string | symbol) => boolean} [isForbiddenFn] - Optional blacklist filter for security.
+ * @returns {any} A Proxy representing the bridged interface.
  */
 export function bridgeZod<T extends object, E extends object>(
   engine: E,
@@ -254,10 +299,13 @@ export function bridgeZod<T extends object, E extends object>(
 }
 
 /**
- * Recursively seals an object or schema to block the forbidden methods.
- * Uses a Proxy to intercept method calls and automatically wrap the results.
- * This keeps the CLI contract predictable and prevents users from using
- * complex Zod features that would break our bitmask routing or help generation.
+ * @function sealZod
+ * @description Recursively "Seals" a Zod schema to prevent use of CLI-incompatible methods.
+ * Sealing acts as a security runtime layer that keeps the contract predictable.
+ * 
+ * @template T - The schema type to seal.
+ * @param {T} target - The raw Zod schema or object.
+ * @returns {$Sealed<T>} The protected, sealed schema.
  */
 export function sealZod<T extends object>(target: T): $Sealed<T> {
   if (isSealed(target)) return target as unknown as $Sealed<T>;

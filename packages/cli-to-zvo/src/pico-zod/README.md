@@ -1,6 +1,6 @@
 # Node.js `util.parseArgs` Behavior Reference
 
-This document summarizes the observed behaviors of `node:util.parseArgs` regarding `string` and `boolean` types, as well as positional argument management. These observations serve as the foundation for the Zod -> CLI mapping logic.
+This document summarizes the observed behaviors of `node:util.parseArgs` regarding `string` and `boolean` types, as well as positional argument management. These observations serve as the foundation for the Pico -> CLI mapping logic.
 
 ## Types Overview
 
@@ -18,19 +18,24 @@ Based on these behaviors, here are the recommended best practices for library de
 
 1. **Prefer `strict: true` mode**: The `strict: false` mode treats all unknown options as booleans by default, which can make debugging difficult (a typo like `--mame` will be transformed into `mame: true` without error).
 2. **Boolean vs String Flags**:
-   - For `z.boolean()`, you MUST use `type: "boolean"`. The user will not be able to pass a value (e.g., `--flag=true` will fail).
-   - If support for `--flag true/false` is required, use a type that accepts strings (like `pico.stringbool()`) and map it to `type: "string"` for the CLI.
-3. **Negative Values**: Node does not natively handle `--no-verbose`. It is recommended to provide explicit mapping if support for this convention is desired.
-4. **Using the `=` Separator**: To avoid "ambiguous argument" errors, recommend end-users use `--option=--value` if the value starts with a dash.
-5. **Grouped Short Flags**: Avoid placing a `string` type option in the middle of a short flag group (e.g., `-abc`). Only the last letter of a group should be an option requiring a value to avoid confusion.
-6. **Positionals**: Always enable `allowPositionals: true` if you want to collect "extra" arguments after Zod validation; otherwise, Node will ignore them or cause an error in strict mode.
+   - For `pico.boolean()`, you MUST use `type: "boolean"`. The user will not be able to pass a value (e.g., `--flag=true` will fail).
+   - If support for `--flag true/false` is required, use `pico.bool()` which maps to `type: "string"`. This ensures the CLI correctly consumes the value argument.
+3. **Array Support**: For `pico.list()`, `cli-to-zvo` uses **CSV splitting** (single string with commas) and **does NOT support** the native `multiple: true` mode of `util.parseArgs`. The argument is always mapped to `type: "string"` and should be provided as `--tags v1,v2`.
+4. **Negative Values**: Node does not natively handle `--no-verbose`. Use explicit mapping (e.g. `--not-verbose`) if support for this convention is required.
+5. **Using the `=` Separator**: To avoid "ambiguous argument" errors, recommend end-users use `--option=--value` if the value starts with a dash.
+6. **Grouped Short Flags**: Avoid placing a `string` type option in the middle of a short flag group (e.g., `-abc`). Only the last letter of a group should be an option requiring a value to avoid confusion.
+7. **Positionals**: Always enable `allowPositionals: true` if you want to collect "extra" arguments after schema validation; otherwise, Node will ignore them or cause an error in strict mode.
 
-**Configuring node:utils parseArgs**: How to correctly configure ParseArgs depending on the expected data type.
+**Configuring node:utils parseArgs**: How to correctly configure `parseArgs` depending on the expected data type.
 
-| data type   | flags type  | positionals type | allowPositionals | strict | value location (flag vs positional)          | Syntax Best Practice      |
-| :---------- | :---------- | :--------------- | :--------------- | :----- | :------------------------------------------- | :------------------------ |
-| **string**  | `"string"`  | always string    | `true`           | `true` | flag: `values[n]` <br> pos: `positionals[i]` | `--flag v` <br> `pos_val` |
-| **boolean** | `"boolean"` | always string    | `true`           | `true` | flag: `values[n]` <br> pos: `positionals[i]` | `--flag` <br> `true`      |
+| data type   | flags type  | allowPositionals | strict | value location (flag vs positional)          | Syntax Best Practice      |
+| :---------- | :---------- | :--------------- | :----- | :------------------------------------------- | :------------------------ |
+| **string**  | `"string"`  | `true`           | `true` | flag: `values[n]` <br> pos: `positionals[i]` | `--flag v` <br> `pos_val` |
+| **boolean** | `"boolean"` | `true`           | `true` | flag: `values[n]` <br> pos: `positionals[i]` | `--flag` <br> `true`      |
+| **array**   | `"string"`  | `true`           | `true` | flag: `values[n]` (split internally)         | `--list v1,v2`            |
+
+> [!NOTE]
+> The mode `multiple: true` of `util.parseArgs` (which allows `-t v1 -t v2`) is **not supported** by the current `cli-to-zvo` engine. Arrays must be passed as a single comma-separated string.
 
 ## Terminology Reference
 

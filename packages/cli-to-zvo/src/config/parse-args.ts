@@ -31,7 +31,16 @@ export const ParseArgObjectNameSchema = CamelCaseSchema;
  */
 export type tsParseArgObjectName = types.tsCamelCase;
 
+/**
+ * @type tsTargetName
+ * @description Branded camelCase string representing the unique name of a Target definition.
+ */
 export type tsTargetName = tsParseArgObjectName & { czvo: { Target: true } };
+
+/**
+ * @type tsTargetFieldName
+ * @description Branded camelCase string representing a field within a Target definition.
+ */
 export type tsTargetFieldName = tsParseArgObjectName & {
   czvo: { TargetField: true };
 };

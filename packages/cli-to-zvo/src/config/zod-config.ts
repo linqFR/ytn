@@ -1,7 +1,7 @@
 import {z} from "zod";
 
 
-export const TARGET_FALLBACK_NAME = "czvoFallback";
+// export const TARGET_FALLBACK_NAME = "czvoFallback";
 
 
 export const setZodConfig = ()=>{

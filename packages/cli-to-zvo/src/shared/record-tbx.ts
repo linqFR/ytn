@@ -16,12 +16,12 @@ export const compactRecord = <T extends Record<string, any>>(
 
 /**
  * @function groupObjectBy
- * @description Regroupe les entrées d'un objet en itérant directement avec for...in.
+ * @description Groups entries of an object into a new Record by iterating with a for...in loop.
  * 
- * @param {Record<string, T>} srcObj - L'objet source.
- * @param {(key: string, value: T) => K} keyGetter - Retourne la clé de destination.
- * @param {(key: string, value: T) => V} valueGetter - Retourne la valeur à stocker dans le tableau.
- * @returns {Record<K, V[]>} L'objet regroupé.
+ * @param {Record<string, T>} srcObj - The source object to group.
+ * @param {(key: string, value: T) => K} keyGetter - Function to extract the target group key.
+ * @param {(key: string, value: T) => V} [valueGetter] - Optional function to map the stored value.
+ * @returns {Record<K, V[]>} The resulting grouped record.
  */
 export const groupObjectBy = <T, K extends PropertyKey, V = T>(
   srcObj: Record<string, T>,

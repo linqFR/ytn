@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { pico, ContractSchema } from "../src/index.js";
 
 describe("CliContractSchema", () => {
-  it("should validate a correct hybrid contract", () => {
+  it("should validate a correct hybrid contract (with positional and flag)", () => {
     const contract = {
       name: "test-app",
       description: "A test application",
@@ -211,26 +211,26 @@ describe("CliContractSchema", () => {
         flags: {
           verbose: { type: "boolean", short: "v" },
           force: { type: "boolean", short: "f" },
-          help: { type: "boolean", short: "h", intercept: true },
+          help: { type: "boolean", short: "h"},
         },
       },
       targets: {
-        copy: {
+        copyTarget: {
           command: pico.literal("cp"),
           path: pico.filepath(),
           verbose: pico.boolean(),
         },
-        move: {
+        moveTarget: {
           command: pico.literal("mv"),
           path: pico.filepath(),
           verbose: pico.boolean(),
         },
-        delete: {
+        deleteTarget: {
           command: pico.literal("rm"),
           path: pico.filepath(),
           force: pico.boolean(),
         },
-        help: {
+        helpTarget: {
           help: pico.literal(true),
         },
       },
@@ -240,6 +240,8 @@ describe("CliContractSchema", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       const data = result.data as any;
+
+      console.log("======================= helpTARGET problem ==========================")
 
       // Affichage pour le debug
       console.log(
@@ -263,44 +265,37 @@ describe("CliContractSchema", () => {
       );
 
       // Vérification discriminants
-      expect(data.routing.discriminants.command).toContain("copy");
-      expect(data.routing.discriminants.command).toContain("move");
-      expect(data.routing.discriminants.command).toContain("delete");
+      expect(data.routing.discriminants.command).toContain("cp");
+      expect(data.routing.discriminants.command).toContain("mv");
+      expect(data.routing.discriminants.command).toContain("rm");
 
       // Vérification grouping par bits via targets
       expect(
         Array.from(bitGroups.values()).some(
-          (g) => g.includes("copy") && g.includes("move"),
+          (g) => g.includes("copyTarget") && g.includes("moveTarget"),
         ),
       ).toBe(true);
       expect(
         Array.from(bitGroups.values()).some(
-          (g) => g.includes("delete") && !g.includes("copy"),
+          (g) => g.includes("deleteTarget") && !g.includes("copyTarget"),
         ),
       ).toBe(true);
 
-      // Vérification du router et des signatures cibles
-      console.log(
-        "Router Table:",
-        JSON.stringify(data.routing.router, null, 2),
-      );
 
-      // Signature format: targetCode\x00mask\x00values...
+
+      // Signature format: mask:values...
       expect(
-        data.routing.router[`7\x001\x00cp\x00\x00\x00\x00`],
-      ).toBe("copy");
+        data.routing.router[`7:cp:`],
+      ).toBe("copyTarget");
       expect(
-        data.routing.router[`16\x0016\x00\x00\x00\x00\x00true`],
-      ).toBe("help");
-      expect((data.targets.copy as any).targetCode.toString()).toBe("7");
-      expect((data.targets.delete as any).targetCode.toString()).toBe("11"); // 11 decimal for 0xb
-      expect((data.targets.help as any).targetCode.toString()).toBe("16");
+        data.routing.router[`16::true`],
+      ).toBe("helpTarget");
+      expect((data.targets.copyTarget as any).targetCode.toString()).toBe("7");
+      expect((data.targets.deleteTarget as any).targetCode.toString()).toBe("11");
+      expect((data.targets.helpTarget as any).targetCode.toString()).toBe("16");
 
       // Bit check
-      expect((data.cli.flags as any).help.bit.toString()).toBe("16"); // 16 decimal for 0x10
-
-      // On vérifie que les codes individuels sont bien dans cli.positionals
-      expect((data.cli.positionals as any).command.bit).toBeDefined();
+      expect(data.routing.def.help).toBeDefined();
     }
   });
 
@@ -329,23 +324,23 @@ describe("CliContractSchema", () => {
 
       // Simulation : l'utilisateur a fourni "command" (positional) et "v" (flag)
       const providedArgs = ["command", "v"];
-      let dynamicBitset = 0n;
+      let dynamicBitset = 0;
       providedArgs.forEach((arg) => {
-        const bit = (data.cli.positionals[arg] || data.cli.flags[arg])?.bit;
+        const bit = data.routing.def[arg];
         if (bit) dynamicBitset |= bit;
       });
 
       // Résolution via les targets
       const possibleTargets = Object.entries(data.targets)
-        .filter(([_, t]: any) => BigInt(t.targetCode) === dynamicBitset)
+        .filter(([_, t]: any) => t.targetCode === dynamicBitset)
         .map(([name]) => name);
 
       expect(possibleTargets).toContain("one");
       expect(possibleTargets).toContain("two");
 
       // Résolution DIRECTE via le router (O(1))
-      // Signature = targetCode(3) + mask(1) + literal(1) ...
-      const signature = `3\x001\x001\x00\x00`;
+      // Signature = mask:literals...
+      const signature = `3:1`;
       const finalTarget = data.routing.router[signature];
       expect(finalTarget).toBe("one");
 

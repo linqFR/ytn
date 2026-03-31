@@ -8,19 +8,21 @@ import {
 import { ZvoGate } from "../cli-engine/gate.js";
 import {
   contractCliSchema,
+  contractFallbackSchema,
   contractTargetSchema,
 } from "../cli-engine/schemas.js";
+import {
+  buildDecisionTree,
+  generateRoutingTable,
+} from "../cli-engine/tree-processing.js";
 import {
   FlagNameToObjectName,
   type tsParseArgString,
   type tsTargetFieldName,
   type tsTargetName,
 } from "../config/parse-args.js";
-import { TARGET_FALLBACK_NAME } from "../config/zod-config.js";
-import { isPico, picoTypetoZod } from "../pico-zod/index.js";
+import { picoTypetoZod } from "../pico-zod/index.js";
 import {
-  allCombinations,
-  forgeRoutingSignature,
   getZodValue,
   hasZodValue,
   isZodOptional,
@@ -28,12 +30,8 @@ import {
 } from "../shared/index.js";
 import type {
   tsBitCodes,
-  tsBitGroups,
-  tsBitRouter,
-  tsBitRouterSet,
-  tsPossibleValuesArray,
-  tsRoutingMasks,
-  tsRoutingMasksSet,
+  tsBitGroups, tsBitRouterSet,
+  tsPossibleValuesArray, tsRoutingMasksSet
 } from "../types/bit-router.types.js";
 import type {
   IProcessedContract,
@@ -47,18 +45,15 @@ import type {
   tsProcessedTarget,
 } from "../types/contract.types.js";
 
-/**
- * @constant ContractSchema
- * @description Fail-Fast Zod schema for contract validation at runtime.
- */
-export const ContractSchema = z
+
+const baseContractSchema = z
   .object({
     name: z.string().min(1),
     description: z.string().min(1),
     version: z.string().optional(),
     cli: contractCliSchema,
     targets: contractTargetSchema,
-    fallbacks: contractTargetSchema.optional().default({}),
+    fallbacks: contractFallbackSchema.optional().default({}),
     options: z
       .object({
         onlyAllowedValues: z.boolean(),
@@ -66,6 +61,23 @@ export const ContractSchema = z
       .partial()
       .optional(),
   })
+
+/**
+ * @constant ContractSchema
+ * @description The primary compiler and validator for CLI contracts.
+ * It transforms a high-level, human-readable CLI definition into an optimized,
+ * bit-mapped runtime engine.
+ * 
+ * The compilation process follows these phases:
+ * 1. **Validation**: Ensures every field used in targets is defined in the CLI block.
+ * 2. **Bitcode Generation**: Assigns unique 2^n bitmasks to each CLI argument and flag.
+ * 3. **Metadata Enrichment**: Processes flags and positionals into a unified internal model.
+ * 4. **Target Analysis**: Deconstructs Zod schemas to identify literals and required/optional bits.
+ * 5. **Decision Tree Compilation**: Builds an optimized binary search tree for bitwise routing.
+ * 6. **Routing Table Generation**: Flattens the tree into O(1) string signatures for Zod V4 jumping.
+ * 7. **Gate Creation**: Initializes the final Zod Discriminated Union dispatcher.
+ */
+export const ContractSchema = baseContractSchema
   .transform((data, ctx) => {
     const {
       cli,
@@ -74,7 +86,8 @@ export const ContractSchema = z
       options = { onlyAllowedValues: false },
     } = data;
 
-    // Validate that every field in every target exists in the CLI definition
+    // Phase 1: Key Validation
+    // Map kebab-case CLI names to camelCase internal target field names.
     const positionals = cli.positionals ?? [];
     const paPostionals = positionals.map((v) =>
       FlagNameToObjectName<tsTargetFieldName>(v),
@@ -85,9 +98,10 @@ export const ContractSchema = z
     );
     const knownKeys = new Set<tsTargetFieldName>([...paPostionals, ...paFlags]);
 
-    // Generate unique bitmasks for each argument/flag to enable high-performance bitwise routing
+    // Phase 2: Bitcode Assignment
+    // Bitmasks allow O(1) check for the presence of multiple flags/positionals.
     const bitCodes: tsBitCodes = Object.fromEntries(
-      Array.from(knownKeys).map((v, idx) => [v, 1n << BigInt(idx)]),
+      Array.from(knownKeys).map((v, idx) => [v, 1 << idx]),
     );
     const bitRouterSet: tsBitRouterSet = Object.create(null);
     const bitGroups: tsBitGroups = new Map();
@@ -101,10 +115,10 @@ export const ContractSchema = z
       Object.create(null);
 
     const discriminants: tsDiscriminantMap = Object.create(null);
-    // Signature Slots (Positionnels + all Flags)
     const discriminantKeys = Array.from(knownKeys);
 
-    // Enrich positionals: generate bitmasks, map to object names, and initialize help metadata and discriminants
+    // Phase 3: CLI Element Enrichment
+    // Initialize help metadata and bitwise records for positionals.
     positionals.forEach((cliName, idx) => {
       const paName = paPostionals[idx];
       const entry = { long: cliName, bit: bitCodes[paName] };
@@ -113,7 +127,7 @@ export const ContractSchema = z
       discriminants[paName] = [];
     });
 
-    // Process CLI flags: track interceptors, store metadata, and consolidate into unified data models
+    // Initialize help metadata and bitwise records for flags.
     Object.entries(cli.flags ?? {}).forEach(([cliName, def]) => {
       const paName = FlagNameToObjectName<tsTargetFieldName>(cliName);
       const entry = {
@@ -132,15 +146,21 @@ export const ContractSchema = z
     const possibleValues: tsPossibleValuesSet = Object.create(null);
     Array.from(knownKeys).forEach((k) => (possibleValues[k] = {}));
 
+    // Active discriminants are fields that use literals/enums to differentiate targets
+    // sharing the same bitmask (same set of present arguments).
+    const activeDiscriminantSet = new Set<tsTargetFieldName>();
+
+    // Phase 4: Individual Target Analysis
     Object.entries(targets).forEach(([_targetName, targetFields]) => {
       const targetName = _targetName as tsTargetName;
       const preSchema: Record<string, z.ZodType> = {};
       const helpFields: Record<tsParseArgString, string> = {};
-      let targetCode = 0n;
-      let targetMask = 0n;
+      let targetCode = 0;
+      let targetMask = 0;
+      const targetLiterals: Record<tsTargetFieldName, string[]> = {};
 
-      let optionalBits = 0n;
-      let requiredBits = 0n;
+      let optionalBits = 0;
+      let requiredBits = 0;
 
       Object.entries(targetFields).forEach(([fieldName, fieldSchema]) => {
         const paFieldName = fieldName as tsTargetFieldName;
@@ -157,6 +177,9 @@ export const ContractSchema = z
           const desc =
             cliFlags[paFieldName]?.desc ?? zod.meta()?.description ?? fieldName;
 
+          preSchema[paFieldName] = zod;
+          if (dModel) helpFields[dModel.long as tsParseArgString] = desc;
+
           const bit = bitCodes[paFieldName];
           targetCode |= bit;
           if (isZodOptional(zod)) {
@@ -165,62 +188,23 @@ export const ContractSchema = z
             requiredBits |= bit;
           }
 
-          // Collect possible literal values for routing metadata
-          possibleValues[paFieldName][targetName] = new Set();
+          // Inspect Zod schemas for literal/enum values to use as routing discriminants.
           if (hasZodValue(zod)) {
+            requiredBits |= bit; // Force bit as required if it's a discriminant
+            const zodVal = getZodValue(zod);
             targetMask |= bit;
-            getZodValue(zod).forEach((v) =>
-              possibleValues[paFieldName][targetName].add(v),
-            );
-            if (paPostionals.includes(paFieldName)) {
-              discriminants[paFieldName].push(targetName);
+            activeDiscriminantSet.add(paFieldName);
+            targetLiterals[paFieldName] = zodVal;
+
+            // Global collection of allowed values for help generation.
+            if (!discriminants[paFieldName]) discriminants[paFieldName] = [];
+            for (const v of zodVal) {
+              if (!discriminants[paFieldName].includes(v)) {
+                discriminants[paFieldName].push(v);
+              }
             }
           }
-          preSchema[paFieldName] = zod;
-          helpFields[dModel.long as tsParseArgString] = desc;
         }
-      });
-
-      const signaturePermutations = allCombinations(
-        ...discriminantKeys.map((key) => getZodValue(preSchema[key])),
-      );
-
-      // BIT-PERMUTATION: Register signatures for all possible combinations of present optional fields
-      const bitSubsets = (bits: bigint): bigint[] => {
-        const result: bigint[] = [0n];
-        let temp = bits;
-        let currentBit = 1n;
-        // Search through bits of the 64-bit space (enough for BigInt bitmask)
-        for (let i = 0; i < 64; i++) {
-          if (temp & currentBit) {
-            const len = result.length;
-            for (let j = 0; j < len; j++) {
-              result.push(result[j] | currentBit);
-            }
-          }
-          currentBit <<= 1n;
-          if (currentBit > temp) break;
-        }
-        return result;
-      };
-
-      const possibleCodes = bitSubsets(optionalBits).map(
-        (subset) => subset | requiredBits,
-      );
-
-      const routingSignatures: string[] = [];
-
-      possibleCodes.forEach((code) => {
-        const shapeKey = String(code);
-        if (!masks[shapeKey]) masks[shapeKey] = new Set<bigint>();
-        masks[shapeKey].add(targetMask);
-
-        signaturePermutations.forEach((combo) => {
-          const sig = forgeRoutingSignature(code, targetMask, combo);
-          routingSignatures.push(sig);
-          if (!bitRouterSet[sig]) bitRouterSet[sig] = new Set();
-          bitRouterSet[sig].add(targetName);
-        });
       });
 
       let group = bitGroups.get(targetCode);
@@ -234,18 +218,21 @@ export const ContractSchema = z
         name: targetName,
         zod: z.strictObject(preSchema),
         targetCode: targetCode,
+        targetRequiredBits: requiredBits,
         targetMask: targetMask,
-        targetSignatures: routingSignatures,
+        targetSignatures: [], // Populated later via routing table flattening
+        targetLiterals,
         fields: helpFields,
       };
     });
 
+    // Process fallback targets (catch-alls).
     Object.entries(fallbacks).forEach(([_targetName, targetFields]) => {
       const targetName = _targetName as tsTargetName;
       const preSchema: Record<string, z.ZodType> = {};
       const helpFields: Record<tsParseArgString, string> = {};
-      let targetCode = 0n;
-      let targetMask = 0n;
+      let targetCode = 0;
+      let targetMask = 0;
 
       Object.entries(targetFields).forEach(([fieldName, fieldSchema]) => {
         const paFieldName = fieldName as tsTargetFieldName;
@@ -260,20 +247,14 @@ export const ContractSchema = z
         targetCode |= bitCodes[paFieldName];
       });
 
-      // Fallbacks use their total bitset as targetCode for the registry
-      const routingSignatures: string[] = [];
-
-      // Map all fallbacks to the universal signature for grouping
-      if (!bitRouterSet[TARGET_FALLBACK_NAME])
-        bitRouterSet[TARGET_FALLBACK_NAME] = new Set();
-      bitRouterSet[TARGET_FALLBACK_NAME].add(targetName);
-
       fullTargets[targetName] = {
         name: targetName,
         zod: z.looseObject(preSchema),
         targetCode: targetCode,
+        targetRequiredBits: targetCode,
         targetMask: targetMask,
-        targetSignatures: routingSignatures,
+        targetSignatures: [],
+        targetLiterals: {},
         fields: helpFields,
       };
     });
@@ -282,7 +263,8 @@ export const ContractSchema = z
       positionals: cliPos,
       flags: cliFlags,
     };
-    // transform Sets to Arrays
+
+    /** Utility to transform internal Set-based tracking into Arrays for the final contract. */
     const _possibleValuesToArray = () =>
       Object.fromEntries(
         (Object.entries(possibleValues) as any).map(([k, targets]: any) => [
@@ -291,36 +273,21 @@ export const ContractSchema = z
         ]),
       ) as unknown as tsPossibleValuesArray;
 
-    const _masksToArray = () => {
-      const result = setOp.recordSetToRecordArray(masks);
-      const countBits = (n: bigint) => {
-        let count = 0;
-        let temp = n;
-        while (temp > 0n) {
-          temp &= temp - 1n;
-          count++;
-        }
-        return count;
-      };
-
-      for (const shape in result) {
-        // Sort masks by specificity (descending number of set bits)
-        // This ensures the most complex targets are resolved first.
-        result[shape].sort(
-          (a: bigint, b: bigint) => countBits(b) - countBits(a),
-        );
-      }
-      return result as tsRoutingMasks;
-    };
-
-    // Project BitRouterSet to tsBitRouter (Record<string, string | string[]>)
-    const bitRouter: tsBitRouter = Object.fromEntries(
-      Object.entries(bitRouterSet).map(([sig, set]) => {
-        const names = Array.from(set);
-        return [sig, names.length === 1 ? names[0]! : names];
-      }),
+    // Phase 5: Routing Tree Compilation
+    const tree = buildDecisionTree(
+      Object.values(fullTargets).map((t) => ({
+        name: t.name,
+        requiredBits: t.targetRequiredBits,
+        allowedBits: t.targetCode,
+      })),
+      Object.values(bitCodes),
     );
 
+    const filteredDiscriminantKeys = discriminantKeys.filter((k) =>
+      activeDiscriminantSet.has(k),
+    );
+
+    // Initial build of the processed contract structure.
     const processed: IProcessedContract = {
       name: data.name,
       description: data.description,
@@ -330,32 +297,54 @@ export const ContractSchema = z
       routing: {
         groups: bitGroups,
         def: bitCodes,
-        router: bitRouter,
+        router: {}, // Placeholder for Phase 6
         discriminants,
-        discriminantKeys,
+        discriminantKeys: filteredDiscriminantKeys,
         possibleValues: _possibleValuesToArray(),
-        masks: _masksToArray(),
+        masks: {}, // Legacy slot (Tree resolution is now primary)
+        tree,
       },
       dataModels,
       parsingArgs: contractCliToParseArgSchema(cliProcessed),
-      parseArgsResultParser: contractCliToParseArgsParser(
-        cliProcessed,
-        discriminantKeys,
-        _possibleValuesToArray(),
-        bitRouter,
-        _masksToArray(),
-        bitCodes,
-        options.onlyAllowedValues,
-      ),
+      parseArgsResultParser: {} as any, // Placeholder for Phase 6
       parseArgsConfig: contractCliToParseArgs(cliProcessed.flags),
-      zvoSchema: {} as tsGate,
-      router: bitRouter,
+      zvoSchema: {} as tsGate, // Placeholder for Phase 7
+      router: {}, // Placeholder for Phase 6
       help: dataModels,
     };
 
+    // Phase 6: Routing Table Flattening
+    // Transforms the tree + literal combinations into O(1) lookup signatures.
+    const finalRouter = generateRoutingTable(processed);
+
+    processed.routing.router = finalRouter;
+    processed.router = finalRouter;
+
+    // Initialize the Zod parser for the result of Node's parseArgs.
+    processed.parseArgsResultParser = contractCliToParseArgsParser(
+      cliProcessed,
+      filteredDiscriminantKeys,
+      _possibleValuesToArray(),
+      tree,
+      fullTargets,
+      bitCodes,
+      options.onlyAllowedValues,
+    );
+
+    // Phase 7: Gate Initialization
+    // The Gate creates the final Zod Discriminated Union based on the router signatures.
     processed.zvoSchema = new ZvoGate(processed).zvoSchema;
     return processed;
   });
 
+/**
+ * @type tsContractIN
+ * @description Inferred input type for use in Contract definition files.
+ */
 export type tsContractIN = z.input<typeof ContractSchema>;
+
+/**
+ * @type tsContractOUT
+ * @description Inferred output type representing a fully compiled CLI contract.
+ */
 export type tsContractOUT = z.output<typeof ContractSchema>;

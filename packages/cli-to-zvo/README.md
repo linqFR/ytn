@@ -9,7 +9,6 @@
 - **Hybrid Contract**: Mix simple string types (e.g., `"filepath"`) with custom Zod schemas using the `pico` API.
 - **Fail-Fast Validation**: Your CLI contract is validated upon instantiation to catch configuration errors early.
 - **Smart O(1) Routing**: Instantly matches your inputs to the correct subcommand, regardless of how many routes you have.
-- **Interceptor Flags**: Support for global flags (like `--verbose` or `--help`) that work across all subcommands.
 - **Pure Zod Output**: Every target is compiled into a pure Zod schema for deep validation.
 - **Rich Help Data**: Generates structured metadata for easy help screen formatting.
 
@@ -42,7 +41,6 @@ const contract: tsContract = {
         short: "v",
         type: "boolean",
         desc: "Enable logging",
-        intercept: true,
       },
     },
   },
@@ -53,9 +51,17 @@ const contract: tsContract = {
       verbose: "boolean", // Simple String DSL
     },
   },
+  // 2. Global Catch-all (optional)
+  fallbacks: {
+    help: { verbose: "boolean" },
+  },
+  // 3. Global Engine Options (optional)
+  options: {
+    onlyAllowedValues: false, // Strict input restriction
+  },
 };
 
-// 2. Parse and Validate
+// 4. Parse and Validate
 const result = cliToZVO(contract, process.argv.slice(2));
 
 if (result.route === "dl") {
@@ -77,7 +83,6 @@ This section defines how `node:util.parseArgs` should interpret your command lin
   - `short`: Single character short flag (e.g., `"v"` for `-v`).
   - `type`: `"string"` (consumes 1 argument) or `"boolean"` (consumes 0 arguments).
   - `desc`: Description for the help screen.
-  - `intercept`: (Optional) If `true`, this flag stays available globally and doesn't trigger target mismatch errors.
 
 ```typescript
 cli: {
@@ -88,6 +93,10 @@ cli: {
   }
 }
 ```
+
+- **`fallbacks`**: (Optional) Record of targets used as catch-all routes when no primary target matches.
+- **`options`**: (Optional) Global configuration for the engine:
+  - `onlyAllowedValues`: (Optional) If `true`, restricts inputs for fields with literal/enum discriminants to those specific values at the parser level.
 
 ### 2. Physical Targets (`targets`)
 
@@ -154,24 +163,83 @@ Most Zod validation methods are available, but structural modifiers like `.defau
 >
 > **Note on Dates**: `pico.date()` returns a **JS Date Object** (coerced), while `pico.dateISO()` returns a **Validated String** (ISO format).
 >
-> 💡 *For a deep dive into how `pico` handles `node:util.parseArgs` edge cases, see the [pico-zod technical reference](./src/pico-zod/README.md).*
+> 💡 _For a deep dive into how `pico` handles `node:util.parseArgs` edge cases, see the [pico-zod technical reference](./src/pico-zod/README.md)._
 
 ---
 
 ## Routing Intelligence
 
-`cli-to-zvo` compiles your contract into a high-performance **Bitmask Signature**. It looks at which arguments are provided and what their values are (for discriminants) to identify the target route in constant time.
+Unlike traditional CLI routers that iterate through definitions sequentially (**O(n)**), `cli-to-zvo` uses a **high-performance Bitmask Signature engine**.
+
+### How it Works
+
+1. **Bitmask Compilation**: During contract creation, each CLI argument (positional or flag) is assigned a unique bit (`1 << n`).
+2. **State Calculation**: At runtime, the engine calculates a single numeric bitmask representing exactly which arguments were provided by the user.
+3. **O(1) Resolution**: This bitmask serves as a primary key. If multiple targets share the same bitmask, the engine performs a "Literal Jump"—matching specific values (like subcommands) to find the correct route.
+4. **Zod V4 Jumping**: Once identified, the engine jumps directly to the corresponding Zod schema for full validation.
+
+### Key Benefits
+
+- **Lightning Fast**: Route identification happens in constant time (**O(1)**), regardless of whether you have 5 or 500 routes.
+- **Order Independent**: Since bits don't care about order, your interface remains robust even if users swap flags and positionals.
+- **Deterministic**: No complex regex or ambiguous matching. The bitmask logic ensures that each input set maps to a single, predictable target.
+
+> [!IMPORTANT] > **Scalability Note**: The current bitmask engine is limited to **31 unique CLI arguments** (total flags + positionals across all targets) due to JavaScript's 32-bit signed integer constraints for bitwise operations (`1 << idx`). If your contract defines more than 31 unique names in the `cli` block, routing bits will overflow. Support for `BigInt` bitmasks and virtually infinite arguments is planned for future versions.
 
 ### ✅ Routing Do's
 
 - **Use Literals as Subcommands**: When using a shared positional (like `cmd`), use `pico.literal("install")` in your targets. This acts as a clear discriminant.
-- **Global Flags**: Mark common flags (like `--verbose`, `--json`) as `intercept: true` in the `cli` block so they don't interfere with route matching.
 - **Clean Naming**: Keep your `cli` field names (positionals & flags) unique to avoid shadowing.
 
 ### ❌ Routing Don'ts
 
 - **Ambiguous Signatures**: Avoid having two targets that accept the exact same number of positionals and flag types without using a literal discriminant.
-- **Type Conflicts**: Don't define a flag as a `boolean` in the `cli` block but expect to parse it as a `number` in your `targets`.
+  - _What happens?_: The engine doesn't fail, but it falls back to a sequential `z.union` for that specific branch. The first target whose schema validates successfully will be returned, losing the O(1) performance benefit for those targets.
+- **Type Conflicts**: Don't define a flag as a `boolean` in the `cli` block but expect to parse it as a `string` in your `targets`.
+  - _What happens?_: The Zod schema of the target will fail to validate the parsed value (e.g., trying to parse a `boolean` as a `string`), resulting in a clear Zod validation error for the user at runtime.
+- **Excessive Complexity**: Don't define more than **31 unique arguments** (total of all positionals and flags) in your `cli` block.
+  - _What happens?_: Beyond bit 31, JavaScript bitwise operations will overflow/wrap, causing targets to be incorrectly identified or routing to fail.
+
+---
+
+## Global Flags & Patterns
+
+Since `cli-to-zvo` uses a deterministic routing engine, "Global Flags" can be implemented using two distinct patterns:
+
+### 1. Global Catch-alls (using `fallbacks`)
+
+For flags that trigger a global action (like `--help` or `--version`), define a dedicated target in the `fallbacks` block.
+
+- **Logic**: Fallbacks are evaluated if no primary target matches. If `-h` or `--help` is present, it will create a unique bitmask signature that can be caught by the fallback.
+
+```typescript
+const contract = {
+  cli: { flags: { help: { short: "h", type: "boolean" } } },
+  targets: {
+    /* your specific routes */
+  },
+  fallbacks: {
+    help: { help: "boolean" },
+  },
+};
+```
+
+### 2. Common Shared Flags (using Composition)
+
+For flags that modify the behavior of multiple commands (like `--verbose`), use standard JavaScript object composition.
+
+- **Logic**: Including the flag in all (or some) targets ensures they stay in sync with the CLI parser while maintaining O(1) routing performance for that specific combination.
+
+```typescript
+const common = { verbose: "boolean?" };
+
+const contract = {
+  targets: {
+    dl: { ...common, url: "string" },
+    info: { ...common, id: "number" },
+  },
+};
+```
 
 ---
 
@@ -179,11 +247,12 @@ Most Zod validation methods are available, but structural modifiers like `.defau
 
 `cli-to-zvo` ensures that your CLI parser and your Zod schemas are always in sync:
 
-| CLI `type`  | Zod Expectation                              | Behavior                                     |
-| :---------- | :------------------------------------------- | :------------------------------------------- |
-| `"boolean"` | `pico.boolean()`                             | Switch flag. Consumes **0** extra arguments. |
-| `"string"`  | `pico.string()`, `pico.number()`, `pico.url` | Valued option. Consumes **1** argument.      |
-| `"string"`  | `pico.stringList()`, `pico.numList()`        | CSV-to-Array. Consumes **1** argument.       |
+| CLI `type`  | Zod Expectation                                | Behavior                                          |
+| :---------- | :--------------------------------------------- | :------------------------------------------------ |
+| `"boolean"` | `pico.boolean()`                               | Switch flag. Consumes **0** extra arguments.      |
+| `"string"`  | `pico.bool()`                                  | Boolean option. Consumes **1** argument (`true`). |
+| `"string"`  | `pico.string()`, `pico.number()`, `pico.url()` | Valued option. Consumes **1** argument.           |
+| `"string"`  | `pico.stringList()`, `pico.numList()`          | CSV splitting. Consumes **1** argument.           |
 
 ---
 
