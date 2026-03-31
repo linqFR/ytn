@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cliToZod, ContractSchema, pico, tsContract } from "../src/index.js";
 
-import { ZvoTestGate } from "./zvo-test-gate.js";
+import { ZvoTestGate } from "./zvo-gate.test.js";
 
 describe("cli-to-zvo basic verification", () => {
   it("should process a basic contract", () => {

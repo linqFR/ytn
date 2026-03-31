@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { 
-  ParseArgFlagNameSchema, 
-  ParseArgObjectNameSchema 
+import {
+  ParseArgFlagNameSchema,
+  ParseArgObjectNameSchema,
 } from "../config/parse-args.js";
 import { picoSchema } from "../pico-zod/index.js";
+import { TARGET_FALLBACK_NAME } from "../config/zod-config.js";
 
 /**
  * @internal
@@ -11,7 +12,7 @@ import { picoSchema } from "../pico-zod/index.js";
  * @description Defines the core structure of a CLI option content.
  */
 export const parseArgOptionContent = z.object({
-  short: z.string().min(1).max(1),
+  short: z.string().min(1).max(1).optional(),
   type: z.enum(["string", "boolean"]).optional().default("string"),
 });
 

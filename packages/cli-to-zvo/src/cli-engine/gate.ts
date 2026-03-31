@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { type tsParseArgObjectName } from "../config/parse-args.js";
-import {
-  type tsGate,
-  type tsProcessedCliOUT,
-  type tsProcessedContract,
-  type tsSignatureGroup,
+import { tsTargetName, type tsTargetFieldName } from "../config/parse-args.js";
+import type {
+  tsGate,
+  tsProcessedCliOUT,
+  IProcessedContract,
 } from "../types/contract.types.js";
+import type { tsPossibleValuesArray } from "../types/bit-router.types.js";
 
 /**
  * @class ZvoGate
@@ -19,42 +19,34 @@ export class ZvoGate {
   public readonly zvoSchema: tsGate;
 
   public readonly cli: tsProcessedCliOUT;
-  public readonly interceptors: Record<string, bigint>;
-  protected readonly discriminantKeys: tsParseArgObjectName[];
-  protected readonly possibleValues: Record<tsParseArgObjectName, string[]>;
+  // public readonly interceptors: tsInterceptors;
+  protected readonly discriminantKeys: tsTargetFieldName[];
+  protected readonly possibleValues: tsPossibleValuesArray;
 
-  constructor(processed: tsProcessedContract) {
+  constructor(processed: IProcessedContract) {
     const { targets, cli, routing } = processed;
     this.cli = cli;
-    this.interceptors = routing.interceptors;
+    // this.interceptors = routing.interceptors;
     this.discriminantKeys = routing.discriminantKeys;
     this.possibleValues = routing.possibleValues || {};
 
-    const signatureGroup: tsSignatureGroup = {};
-    for (const [sig, targetName] of Object.entries(routing.router)) {
-      if (!signatureGroup[sig]) signatureGroup[sig] = [];
-      signatureGroup[sig].push(targetName);
-    }
+    const forge = (sig: string, name: tsTargetName): z.ZodType =>
+      targets[name].zod
+        .extend({ discriminant: z.literal(sig) })
+        .transform(({ discriminant, ...data }: any) => ({
+          route: name,
+          data,
+        }));
 
-    const branches = Object.entries(signatureGroup).map(
-      ([sig, targetNames]) => {
-        const targetSchemas = targetNames.map((name) => {
-          const target = targets[name];
-          return target.zod
-            .extend({
-              discriminant: z.literal(sig),
-            })
-            .transform((data: any) => {
-              const { discriminant, ...cleanData } = data;
-              return { route: name, data: cleanData };
-            });
-        });
+    const branches = Object.entries(routing.router).map(([sig, names]) => {
+      const targetNames = Array.isArray(names) ? names : [names];
 
-        return targetSchemas.length > 1
-          ? z.union(targetSchemas as any)
-          : targetSchemas[0]!;
-      },
-    );
+      if (targetNames.length === 1) return forge(sig, targetNames[0]!);
+
+      return z
+        .looseObject({ discriminant: z.literal(sig) })
+        .pipe(z.union(targetNames.map((n) => forge(sig, n)) as any));
+    });
 
     this.zvoSchema = z.discriminatedUnion(
       "discriminant",

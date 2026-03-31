@@ -51,4 +51,14 @@ export type $Entries<T> = {
  */
 export type $Keys<T> = (keyof T)[];
 
+/**
+ * @type $RecordSetToArray
+ * @description Transforms a Record of Sets into a Record of Arrays.
+ */
+export type $RecordSetToArray<T extends Record<string, Set<any>>> = {
+  [K in keyof T]: T[K] extends Set<infer I> ? I[] : never;
+};
+
+
+
 

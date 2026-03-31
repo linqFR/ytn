@@ -139,7 +139,7 @@ describe("CliContractSchema", () => {
       },
       targets: {
         ui: {
-          color: pico.enum(["red", "green", "blue"]),
+          color: pico.enum("red", "green", "blue"),
         },
       },
     };
@@ -249,7 +249,7 @@ describe("CliContractSchema", () => {
 
       const bitGroups = new Map<string, string[]>();
       Object.entries(data.targets).forEach(([name, target]) => {
-        const code = (target as any).bitCode.toString(16);
+        const code = (target as any).targetCode.toString();
         if (!bitGroups.has(code)) bitGroups.set(code, []);
         bitGroups.get(code)!.push(name);
       });
@@ -285,19 +285,19 @@ describe("CliContractSchema", () => {
         JSON.stringify(data.routing.router, null, 2),
       );
 
+      // Signature format: targetCode\x00mask\x00values...
       expect(
-        data.routing.router[JSON.stringify(["7", "cp", "", "", "", ""])],
+        data.routing.router[`7\x001\x00cp\x00\x00\x00\x00`],
       ).toBe("copy");
       expect(
-        data.routing.router[JSON.stringify(["0", "", "", "", "", "true"])],
+        data.routing.router[`16\x0016\x00\x00\x00\x00\x00true`],
       ).toBe("help");
-      expect((data.targets.copy as any).bitCode.toString(16)).toBe("7");
-      expect((data.targets.delete as any).bitCode.toString(16)).toBe("b");
-      expect((data.targets.help as any).bitCode.toString(16)).toBe("0");
+      expect((data.targets.copy as any).targetCode.toString()).toBe("7");
+      expect((data.targets.delete as any).targetCode.toString()).toBe("11"); // 11 decimal for 0xb
+      expect((data.targets.help as any).targetCode.toString()).toBe("16");
 
-      // Vérification de l'intercepteur dans cli.flags
-      expect((data.cli.flags as any).help.intercept).toBe(true);
-      expect((data.cli.flags as any).help.bit.toString(16)).toBe("10");
+      // Bit check
+      expect((data.cli.flags as any).help.bit.toString()).toBe("16"); // 16 decimal for 0x10
 
       // On vérifie que les codes individuels sont bien dans cli.positionals
       expect((data.cli.positionals as any).command.bit).toBeDefined();
@@ -337,26 +337,20 @@ describe("CliContractSchema", () => {
 
       // Résolution via les targets
       const possibleTargets = Object.entries(data.targets)
-        .filter(([_, t]: any) => t.bitCode === dynamicBitset)
+        .filter(([_, t]: any) => BigInt(t.targetCode) === dynamicBitset)
         .map(([name]) => name);
 
       expect(possibleTargets).toContain("one");
       expect(possibleTargets).toContain("two");
 
       // Résolution DIRECTE via le router (O(1))
-      // Signature = code(3) + valeur literal du positional("1")
-      // Signature = JSON code(3) + valeur literal du positional("1") + slots pour v et f
-      const signature = JSON.stringify([
-        dynamicBitset.toString(16),
-        "1",
-        "",
-        "",
-      ]);
+      // Signature = targetCode(3) + mask(1) + literal(1) ...
+      const signature = `3\x001\x001\x00\x00`;
       const finalTarget = data.routing.router[signature];
       expect(finalTarget).toBe("one");
 
       console.log(
-        `Resolved targets for bitset ${dynamicBitset.toString(16)}:`,
+        `Resolved targets for bitset ${dynamicBitset.toString()}:`,
         possibleTargets,
       );
       console.log(

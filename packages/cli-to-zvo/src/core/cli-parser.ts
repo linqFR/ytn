@@ -1,6 +1,13 @@
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { OResponse, tsGate, tsParseArgSchema, tsParsedCLI } from "../types/contract.types.js";
+import {
+  $SafeResult,
+  OResponse,
+  tsGate,
+  tsParseArgSchema,
+  tsParsedCLI,
+} from "../types/contract.types.js";
+import { setZodConfig } from "../config/zod-config.js";
 
 /**
  * @function parseCli
@@ -9,6 +16,7 @@ import { OResponse, tsGate, tsParseArgSchema, tsParsedCLI } from "../types/contr
  * @param {tsParseArgSchema} parsingArgs - The argument structure allowed for parsing.
  * @param {z.ZodType<tsParsedCLI>} resultParser - The Zod schema that transforms and maps the parsed arguments.
  * @param {tsGate} zvoGate - The global Gate for validation and routing.
+ * @param {} [options] -
  * @returns {OResponse} The validated and tagged result object.
  */
 export function parseCli(
@@ -16,14 +24,19 @@ export function parseCli(
   parsingArgs: tsParseArgSchema,
   resultParser: z.ZodType<tsParsedCLI>,
   zvoGate: tsGate,
-  options:z.core.ParseContext<any>|undefined = undefined,
-): z.ZodSafeParseResult<OResponse>
-{
+  options: z.core.ParseContext<any> | undefined = undefined,
+): $SafeResult<OResponse> {
   const raw = parseArgs({
     args,
     options: parsingArgs.options,
     allowPositionals: true,
+    strict: false,
   });
 
-  return resultParser.pipe(zvoGate).safeParse(raw, options);
+  setZodConfig();
+
+  return resultParser.pipe(zvoGate).safeParse(raw, {
+    reportInput: true,
+    ...(options ?? {}),
+  });
 }

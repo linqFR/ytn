@@ -5,8 +5,13 @@ import {
   jsonlCodec,
   jsonSchemaCodec,
   makeEmptyTo,
-} from "./codecs.zod.js";
-import { type ISealedSchema, sealZod, toZod, type tsPicoCompatible } from "./sealer.js";
+} from "./zod-codecs.js";
+import {
+  type ISealedInterface,
+  sealZod,
+  toZod,
+  type tsPicoCompatible,
+} from "./sealer.js";
 import { type $NamespaceSealed } from "./sealer.types.js";
 import { isSchemaCompatible } from "./zod-modifiers.js";
 
@@ -19,7 +24,7 @@ export const PICO_ATOMIC_FACTORIES = {
   null: () => makeEmptyTo("null", z.null()),
   undefined: () => makeEmptyTo("undefined", z.undefined()),
   // unknown: () => z.unknown(),
-  // any: () => z.any(),
+  any: () => z.any(),
 
   // Primitives
   number: () => z.coerce.number(),
@@ -125,8 +130,10 @@ const COMPLEX_FACTORIES = {
   literal: <T extends string | number | boolean>(value: T) => z.literal(value),
 
   /** Creates a Zod enum schema from an array of strings or an object. */
-  enum: <const T extends readonly string[] | z.util.EnumLike>(values: T) =>
-    (z.enum as (v: T) => z.ZodEnum<T extends readonly string[] ? z.util.ToEnum<T[number]> : T>)(values),
+  enum: <const T extends string, const U extends readonly string[]>(
+    val0: T,
+    ...rest: U
+  ) => z.enum([val0, ...rest]),
 };
 
 /**
@@ -148,7 +155,7 @@ export type tsPicoAtomicType = keyof typeof PICO_ATOMIC_FACTORIES;
  * @type tsPicoInput
  * @description The core Hybrid V1.1 Contract Type (Alias for tsPico).
  */
-export type tsPicoInput = tsPicoAtomicType | (string & {}) | ISealedSchema;
+export type tsPicoInput = tsPicoAtomicType | (string & {}) | ISealedInterface;
 
 /**
  * @constant sealed_PICO_FACTORIES

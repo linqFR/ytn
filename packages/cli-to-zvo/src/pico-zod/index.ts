@@ -1,39 +1,54 @@
 import { z } from "zod";
 import { dslSchema, dslToZod, DslType } from "./dsl-converter.zod.js";
 import { PICO_FACTORIES } from "./pico-overrides.js";
-import { ISealedSchema, isSealed, sealZod, toZod } from "./sealer.js";
-import { type $NamespaceSealed } from "./sealer.types.js";
+import {
+  type ISealedInterface,
+  isSealed,
+  sealZod,
+  toZod,
+  tsPicoFactories,
+  bridgeZod,
+} from "./sealer.js";
 import { isSchemaCompatible } from "./zod-modifiers.js";
 
 // Types
 export type tsPicoString = DslType;
-
-// (moved to sealer.ts)
-
-// Pico Tree Root
-type tsPicoFactories = $NamespaceSealed<typeof PICO_FACTORIES>;
 
 /**
  * @type tsPico
  * @description Represents any item convertible to a CLI-compatible Zod schema.
  * Supports DSL strings, Sealed schemas (proxies), or raw Zod schemas.
  */
-export type tsPico = tsPicoString | ISealedSchema;
+export type tsPico = tsPicoString | ISealedInterface;
 
-export const pico = Object.fromEntries(
-  Object.entries(PICO_FACTORIES).map(([key, factory]) => [
-    key,
-    (...args: any[]) => {
-      // for tuples
-      const res = (factory as (...a: any[]) => any)(...args);
-      return res instanceof z.ZodType ? sealZod(res) : res;
-    },
-  ]),
+export const core = {
+  sealZod,
+};
+
+// const basePico = Object.fromEntries(
+//   Object.entries(PICO_FACTORIES).map(([key, factory]) => [
+//     key,
+//     (...args: any[]) => {
+//       // for tuples
+//       const res = (factory as (...a: any[]) => any)(...args);
+//       return isSchemaCompatible(res) ? sealZod(res) : res;
+//     },
+//   ]),
+// ) as tsPicoFactories;
+
+// create the functions into memory with no knownn and certain perspective of being used.
+// export const pico = newBridgeZod(basePico, {}, (v: any) =>
+//   isSealed(v) || !isSchemaCompatible(v) ? v : sealZod(v),
+// ) as tsPicoFactories;
+
+// functions are created on the fly
+export const pico = bridgeZod({}, PICO_FACTORIES, (v: any) =>
+  isSealed(v) || !isSchemaCompatible(v) ? v : sealZod(v),
 ) as tsPicoFactories;
 
 // Utilities
 
-export const isPico = (item: unknown) => {
+export const isPico = (item: unknown): item is tsPico => {
   return (
     (typeof item === "string" && dslSchema.safeParse(item).success) ||
     isSealed(item)

@@ -20,7 +20,7 @@ describe("CliContract Validation", () => {
       },
     });
 
-    expect(cli.raw.name).toBe("ytn");
+    expect(cli.processed.name).toBe("ytn");
   });
 
   it("should throw on invalid contract", () => {

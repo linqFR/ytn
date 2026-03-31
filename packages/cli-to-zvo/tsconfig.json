@@ -1,7 +1,3 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "./dist"
-  },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "sandbox/parse-args-demo.test.ts"]
+  "extends": "../../tsconfig.base.json"
 }

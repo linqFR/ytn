@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ParseArgObjectNameSchema, type tsParseArgObjectName } from "../config/parse-args.js";
-import { OResponse, tsResponse } from "../types/contract.types.js";
+import type { $SafeResult, OResponse, tsResponse } from "../types/contract.types.js";
 // Removed old imports
 
 // On définit les deux états possibles de la réponse
@@ -46,3 +46,14 @@ export const formatError =
       route,
       error,
     } as unknown as OResponse);
+
+
+export const formatOutput = (cliRes: $SafeResult<OResponse>):OResponse=>{
+
+  if (cliRes.success) {
+    const { route, data } = cliRes.data;
+    return formatResponse(route)(data);
+  }
+  return formatError("error")(z.treeifyError(cliRes.error));
+
+}

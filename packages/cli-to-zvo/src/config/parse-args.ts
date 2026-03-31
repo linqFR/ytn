@@ -4,9 +4,8 @@ import {
   CamelCaseSchema,
   KebabCaseSchema,
   kebabToCamel,
-  tsCamelCase,
-  tsKebabCase,
-} from "../shared/zod-tbx.js";
+  types,
+} from "../shared/index.js";
 
 /**
  * @constant {z.ZodSchema} ParseArgFlagNameSchema
@@ -18,7 +17,7 @@ export const ParseArgFlagNameSchema = KebabCaseSchema;
  * @type tsParseArgString
  * @description Type representation of a CLI flag name.
  */
-export type tsParseArgString = tsKebabCase;
+export type tsParseArgString = types.tsKebabCase;
 
 /**
  * @constant {z.ZodSchema} ParseArgObjectNameSchema
@@ -30,7 +29,12 @@ export const ParseArgObjectNameSchema = CamelCaseSchema;
  * @type tsParseArgObjectName
  * @description Type representation of a target object property name.
  */
-export type tsParseArgObjectName = tsCamelCase;
+export type tsParseArgObjectName = types.tsCamelCase;
+
+export type tsTargetName = tsParseArgObjectName & { czvo: { Target: true } };
+export type tsTargetFieldName = tsParseArgObjectName & {
+  czvo: { TargetField: true };
+};
 
 /**
  * @function FlagNameToObjectName
@@ -38,11 +42,9 @@ export type tsParseArgObjectName = tsCamelCase;
  */
 export const FlagNameToObjectName = kebabToCamel;
 
-parseArgs;
-
 export type tsParseArgsResult = ReturnType<typeof parseArgs>;
 
 export type tsParseArgsResultParsed = z.ZodRecord<
   typeof ParseArgObjectNameSchema,
-  z.ZodType 
+  z.ZodType
 >;

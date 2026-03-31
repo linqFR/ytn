@@ -1,35 +1,23 @@
-import { z } from "zod";
-import { ContractSchema, tsContractIN } from "../schema/contract.schema.js";
-import { OResponse } from "../types/contract.types.js";
+import { injectHelp } from "../config/help-contract.injection.js";
+import { TARGET_FALLBACK_NAME } from "../config/zod-config.js";
+import { tsPico } from "../pico-zod/index.js";
+import {
+  ContractSchema,
+  type tsContractIN,
+} from "../schema/contract.schema.js";
+import type { IProcessedContract, OResponse } from "../types/contract.types.js";
 import { parseCli } from "./cli-parser.js";
-import { formatError, formatResponse } from "./response.js";
+import { formatOutput } from "./response.js";
 
-export const cliToZod = (contract: tsContractIN) => {
+export const cliToZod = (contract: tsContractIN): IProcessedContract => {
+
   const res = ContractSchema.safeParse(contract);
   if (!res.success) {
     throw new SyntaxError(`Error with the Contract`, { cause: res.error });
   }
 
-  const {
-    cli,
-    targets,
-    parsingArgs,
-    parseArgsResultParser,
-    zvoSchema,
-    routing,
-  } = res.data;
-
-  return {
-    parsingArgs,
-    parseArgsResultParser,
-    zvoSchema,
-    targetSchemas: targets,
-    router: routing.router,
-    help: { ...cli.positionals, ...cli.flags },
-  };
+  return res.data;
 };
-
-export type tsProcessedContract = ReturnType<typeof cliToZod>;
 
 /**
  * @function cliToZVO
@@ -49,9 +37,5 @@ export function cliToZVO(
     tools.parseArgsResultParser,
     tools.zvoSchema,
   );
-  if (parsed.success) {
-    const { route, data } = parsed.data;
-    return formatResponse(route)(data);
-  }
-  return formatError("error")(z.treeifyError(parsed.error));
+  return formatOutput(parsed);
 }

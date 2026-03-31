@@ -1,6 +1,16 @@
 import { z } from "zod";
-import { type tsParseArgObjectName, type tsParseArgString } from "../config/parse-args.js";
-import { tsBitCodes, tsBitGroups, tsBitRouter, tsInterceptor } from "./bit-router.types.js";
+import type {
+  tsParseArgString,
+  tsTargetFieldName,
+  tsTargetName,
+} from "../config/parse-args.js";
+import type {
+  tsBitCodes,
+  tsBitRouter,
+  tsBitGroups,
+  tsPossibleValuesArray,
+  tsRoutingMasks,
+} from "./bit-router.types.js";
 
 /**
  * @type tsProcessedPositional
@@ -19,7 +29,6 @@ export type tsProcessedFlag = {
   type: "string" | "boolean";
   short: string;
   desc?: string;
-  intercept?: boolean;
   long: tsParseArgString;
   bit: bigint;
 };
@@ -38,8 +47,8 @@ export type tsParseArgSchema = {
  * @description Structure of the CLI configuration after being processed (with bitmasks and long names).
  */
 export type tsProcessedCliOUT = {
-  flags: Record<tsParseArgObjectName, tsProcessedFlag>;
-  positionals: Record<tsParseArgObjectName, tsProcessedPositional>;
+  flags: Record<tsTargetFieldName, tsProcessedFlag>;
+  positionals: Record<tsTargetFieldName, tsProcessedPositional>;
 };
 
 /**
@@ -47,7 +56,7 @@ export type tsProcessedCliOUT = {
  * @description Final result object of the CLI parsing, after name mapping.
  */
 export type tsParsedCLI = Record<
-  tsParseArgObjectName,
+  tsTargetFieldName,
   string | boolean | string[] | undefined
 > & { discriminant?: string };
 
@@ -56,40 +65,50 @@ export type tsParseArgsResultParser = z.ZodType<tsParsedCLI, any>;
 
 /** @type tsProcessedTarget - Deeply resolved target metadata. */
 export interface tsProcessedTarget {
-  name: tsParseArgObjectName;
-  zod: z.ZodObject<any>;
-  bitCode: bigint;
-  bitSignature: string;
+  name: tsTargetName;
+  zod: z.ZodObject <any>;
+  targetCode: bigint;
+  targetMask: bigint;
+  targetSignatures: string[];
   fields: Record<tsParseArgString, string>;
 }
 
 /** @type tsProcessedDataModel - Unified metadata for any CLI argument (positional or flag). */
-export type tsProcessedDataModel = (tsProcessedPositional & { type: "string" }) | tsProcessedFlag;
+export type tsProcessedDataModel =
+  | (tsProcessedPositional & { type: "string" })
+  | tsProcessedFlag;
 
 /** @type tsDiscriminantMap - Mapping from positional argument name to a list of target names that use it. */
-export type tsDiscriminantMap = Record<tsParseArgObjectName, tsParseArgObjectName[]>;
+export type tsDiscriminantMap = Record<tsTargetFieldName, tsTargetName[]>;
+
+export type tsPossibleValuesSet = Record<
+  tsTargetFieldName,
+  Record<tsTargetName, Set<string>>
+>;
 
 /** @type tsSignatureGroup - Internal grouping of targets by their bitmask signature. */
-export type tsSignatureGroup = Record<string, tsParseArgObjectName[]>;
+export type tsSignatureGroup = Record<string, tsTargetName[]>;
 
 /** @type tsRouteOutput - The structured output of a successfully routed command. */
 export type tsRouteOutput = Readonly<{
-  route: tsParseArgObjectName;
+  route: tsTargetName;
   data: Record<string, any>;
 }>;
 
 // Response Definition (Centralized in Types)
 /** @type tsResponse - Union type for success or error command response. */
-export type tsResponse<T = any> = 
-  | Readonly<{ route: tsParseArgObjectName; data: T; error?: never }>
-  | Readonly<{ route: tsParseArgObjectName; data?: never; error: any }>
-;
+export type tsResponse<T = any> =
+  | Readonly<{ route: tsTargetName; data: T; error?: never }>
+  | Readonly<{ route: tsTargetName; data?: never; error: any }>;
 
 /** @type OResponse - Tagged response from the CLI. */
 export type OResponse = tsResponse & z.$brand<"tsResponse">;
 
+export type $SafeResult<T extends OResponse = OResponse> =
+  z.ZodSafeParseResult<T>;
+
 /** @type tsGate - The final gate schema for routing. */
-export type tsGate = z.ZodType<OResponse, Record<string, any>>;
+export type tsGate = z.ZodType<OResponse, Record<tsTargetName, any>>;
 
 /**
  * @interface OHelpArg
@@ -129,24 +148,33 @@ export interface OHelpData {
  * @description Fully resolved and factored contract object.
  * Renamed from tsContractOUT to avoid circular dependency with Zod inference.
  */
-export interface tsProcessedContract {
+export interface IProcessedContract {
   name: string;
   description: string;
   version?: string;
   cli: tsProcessedCliOUT;
-  targets: Record<tsParseArgObjectName, tsProcessedTarget>;
+  targets: Record<tsTargetName, tsProcessedTarget>;
   routing: {
     groups: tsBitGroups;
     def: tsBitCodes;
     router: tsBitRouter;
-    interceptors: tsInterceptor;
+    /*
+    interceptors: tsInterceptors;
+    interceptorMask: tsInterceptorMask;
+    */
     discriminants: tsDiscriminantMap;
-    discriminantKeys: tsParseArgObjectName[];
-    possibleValues: Record<tsParseArgObjectName, string[]>;
+
+    discriminantKeys: tsTargetFieldName[];
+    possibleValues: tsPossibleValuesArray;
+    masks: tsRoutingMasks;
+    fallbackSignature?: string;
   };
-  dataModels: Record<tsParseArgObjectName, tsProcessedDataModel>;
+  dataModels: Record<tsTargetFieldName, tsProcessedDataModel>;
   parsingArgs: tsParseArgSchema;
   parseArgsResultParser: tsParseArgsResultParser;
   parseArgsConfig: any;
   zvoSchema: tsGate;
+  router: tsBitRouter;
+  help: Record<tsTargetFieldName, tsProcessedDataModel>;
+  fallbackSchema?: z.ZodType;
 }

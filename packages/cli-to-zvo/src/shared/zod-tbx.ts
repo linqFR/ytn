@@ -3,12 +3,12 @@ import { z } from "zod";
 /**
  * Zod v4 Parameter Types
  */
-/** @type {ZodTupleItems} Parameter types for Zod tuple items. */
-export type ZodTupleItems = Parameters<typeof z.tuple>[0];
-/** @type {ZodUnionOptions} Parameter types for Zod union options. */
-export type ZodUnionOptions = Parameters<typeof z.union>[0];
-/** @type {ZodMetadata} Metadata structure for Zod schemas. */
-export type ZodMetadata = Parameters<z.ZodType["meta"]>[0];
+/** @type {tsZodTupleItems} Parameter types for Zod tuple items. */
+export type tsZodTupleItems = Parameters<typeof z.tuple>[0];
+/** @type {tsZodUnionOptions} Parameter types for Zod union options. */
+export type tsZodUnionOptions = Parameters<typeof z.union>[0];
+/** @type {tsZodMetadata} Metadata structure for Zod schemas. */
+export type tsZodMetadata = Parameters<z.ZodType["meta"]>[0];
 
 export const SnakeCaseSchema = z
   .string()
@@ -55,10 +55,8 @@ export type tsCamelCase = z.infer<typeof CamelCaseSchema>;
  * @param {string} str - The kebab-case string to transform.
  * @returns {tsCamelCase} The transformed camelCase string.
  */
-export const kebabToCamel = (str: string): tsCamelCase => {
-  return str.replace(/-([a-z0-9])/g, (_, char) =>
-    char.toUpperCase(),
-  ) as tsCamelCase;
+export const kebabToCamel = <T extends tsCamelCase>(str: string): T => {
+  return str.replace(/-([a-z0-9])/g, (_, char) => char.toUpperCase()) as T;
 };
 
 /** @constant {z.ZodArray} StringArraySchema - Simple string array schema. */
@@ -75,21 +73,124 @@ export type tsStringArray = string[];
  * @returns {z.ZodPipe} A new Zod pipe with combined logic and preserved metadata.
  */
 export const repiped = (oldSchema: z.ZodType, targetSchema: z.ZodType) => {
-  return oldSchema.pipe(targetSchema.meta(oldSchema.meta() as ZodMetadata));
+  return oldSchema.pipe(targetSchema.meta(oldSchema.meta() as tsZodMetadata));
 };
 
 /**
  * @function isZodObject
- * @description Robustly checks if an instance is a Zod object in v4.
+ * @description Checks if a schema is a Zod object using V4 Strict properties.
  */
-export function isZodObject(schema: any): schema is z.ZodObject<any> {
-  return schema instanceof z.ZodObject;
-}
+export const isZodObject = (schema: any): boolean => {
+  return unwrapZod(schema)?._zod?.def?.type === "object";
+};
+
+/**
+ * @function unwrapZod
+ * @description Recursively unwraps Zod wrappers to find the underlying base schema.
+ * V4 Strict: Uses _zod.def.innerType.
+ */
+export const unwrapZod = (schema: any): any => {
+  const internals = schema?._zod;
+  if (!internals) return schema;
+  const type = internals.def?.type;
+
+  // These wrappers have a direct innerType in V4
+  if (
+    ["optional", "nullable", "default", "readonly", "nonoptional", "catch", "success", "promise"].includes(type)
+  ) {
+    return unwrapZod(internals.def.innerType);
+  }
+
+  // Lazy resolution
+  if (type === "lazy") {
+    return unwrapZod(internals.innerType || internals.def.getter());
+  }
+
+  // Pipe resolution (usually we want the input for CLI-to-ZVO)
+  if (type === "pipe") {
+    return unwrapZod(internals.def.in);
+  }
+
+  return schema;
+};
+
+/**
+ * @function isZodOptional
+ * @description Checks if a schema is optional in V4 (bubbled through wrappers).
+ */
+export const isZodOptional = (schema: any): boolean => {
+  return schema?._zod?.optin === "optional" || schema?._zod?.def?.type === "optional";
+};
 
 /**
  * @function isZodLiteral
- * @description Robustly checks if an instance is a Zod literal in v4.
+ * @description Checks if a schema eventually resolves to a literal in V4.
  */
-export function isZodLiteral(schema: any): schema is z.ZodLiteral {
-  return schema instanceof z.ZodLiteral;
+export const isZodLiteral = (schema: any): boolean => {
+  return unwrapZod(schema)?._zod?.def?.type === "literal";
+};
+
+/**
+ * @function isZodEnum
+ * @description Checks if a schema eventually resolves to an enum in V4.
+ */
+export const isZodEnum = (schema: any): boolean => {
+  return unwrapZod(schema)?._zod?.def?.type === "enum";
+};
+
+/**
+ * @function hasZodValue
+ * @description Checks if a schema should contribute to the routing mask.
+ * Strictly limited to Literals and Enums (and their wrappers).
+ */
+export const hasZodValue = (schema: any): boolean => {
+  return isZodLiteral(schema) || isZodEnum(schema);
+};
+
+/**
+ * @function getZodValue
+ * @description Retrieves literal/enum values using V4 bubbled values.
+ * Maps null/undefined to "" for compatibility with routing signatures.
+ */
+export function getZodValue(schema: any): string[] {
+  const values = schema?._zod?.values;
+  if (values instanceof Set) {
+    return Array.from(values).map((v) =>
+      v === null || v === undefined ? "" : String(v),
+    );
+  }
+
+  // Fallback to manual unwrap if values didn't bubble (e.g. custom types)
+  const unwrapped = unwrapZod(schema);
+  const type = unwrapped?._zod?.def?.type;
+  if (type === "literal") return unwrapped._zod.def.values.map(String);
+  if (type === "enum")
+    return Object.values(unwrapped._zod.def.entries).map(String);
+
+  return [""];
 }
+
+/**
+ * @function allCombinations
+ * @description Generates the Cartesian Product of multiple arrays.
+ * It takes one element from each array and combines them into all possible tuples.
+ *
+ * @example
+ * // Input: [['a', 'b'], ['1', '2']]
+ * // Output: [['a', '1'], ['a', '2'], ['b', '1'], ['b', '2']]
+ *
+ * @remarks
+ * This function is used during the contract compilation phase to generate all possible
+ * routing signatures for a Target. If a Target has fields with enumerations
+ * (e.g., --env=[prod, dev]), this function creates one signature per possible value
+ * so the `bitRouter` can perform O(1) resolution at runtime.
+ *
+ * @param {...T[][]} arrays - Sets of values to combine.
+ * @returns {T[][]} Every possible combination of elements.
+ */
+export const allCombinations = <T>(...arrays: T[][]): T[][] => {
+  return arrays.reduce(
+    (acc, curr) => acc.flatMap((combo) => curr.map((val) => [...combo, val])),
+    [[]] as T[][],
+  );
+};

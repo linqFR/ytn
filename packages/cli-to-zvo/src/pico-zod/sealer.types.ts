@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ISealedSchema } from "./sealer.js";
+import { type ISealedInterface } from "./sealer.js";
 import { FORBIDDEN_MODIFIERS, InternalKeys } from "./zod-modifiers.js";
 
 export type tsForbidden = InternalKeys | (typeof FORBIDDEN_MODIFIERS)[number];
@@ -16,7 +16,7 @@ export type $Sealed<T> = 0 extends 1 & T
   : T extends { _zod: any }
   ? {
       [K in keyof T as K extends tsForbidden ? never : K]: $Sealed<T[K]>;
-    } & ISealedSchema<z.output<T>, z.input<T>, T & z.ZodType<any, any, any>>
+    } & ISealedInterface<z.output<T>, z.input<T>, T & z.ZodType<any, any, any>>
   : T;
 
 /**
