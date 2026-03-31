@@ -1,5 +1,18 @@
 # @ytn/czvo
 
+## 2.1.0
+
+### Minor Changes
+
+- 35e18a6: Refactor: removal of the 'intercept' (global flags) feature from both the routing engine and documentation.
+
+  - Cleanup: removed 'intercept' property from Contract validation schemas and built-in help injection.
+  - Documentation: replaced the "Interceptor flags" section with clear patterns for global flags using 'fallbacks' and object composition.
+
+### Patch Changes
+
+- f1104fa: Refactor: removal of the 'intercept' (global flags) feature from both the routing engine and documentation.
+
 ## 2.0.0
 
 ### Major Changes

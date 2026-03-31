@@ -1,5 +1,11 @@
 # @ytn/qb
 
+## 2.0.1
+
+### Patch Changes
+
+- af39494: Small adjustments to the TypeScript configuration for improved build consistency.
+
 ## 2.0.0
 
 ### Major Changes
