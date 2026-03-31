@@ -2,4 +2,7 @@
 "@ytn/czvo": minor
 ---
 
-Stabilized the Pico CLI routing engine with full Zod v4 compliance. This update introduces a high-performance bitmask-based routing system, refactors core engine components, and centralizes shared utilities for improved reliability and positional argument resolution.
+Refactor: removal of the 'intercept' (global flags) feature from both the routing engine and documentation.
+
+- Cleanup: removed 'intercept' property from Contract validation schemas and built-in help injection.
+- Documentation: replaced the "Interceptor flags" section with clear patterns for global flags using 'fallbacks' and object composition.
