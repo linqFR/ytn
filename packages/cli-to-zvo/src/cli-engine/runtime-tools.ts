@@ -41,11 +41,19 @@ export function computeRoutingDiscriminant(
 
   // 2. Walk the decision tree to find candidates for this mask
   // We sort candidates by specificity (number of defined literals) so specific targets win first.
-  const candidates = resolveFromTree(routing.tree, mask).sort(
-    (a, b) =>
-      Object.keys(targets[b]?.targetLiterals ?? {}).length -
-      Object.keys(targets[a]?.targetLiterals ?? {}).length,
-  );
+  const candidates = resolveFromTree(routing.tree, mask).sort((a, b) => {
+    const tA = targets[a]!;
+    const tB = targets[b]!;
+
+    // 1. Specificity by literals (more required values = higher priority)
+    const litA = Object.keys(tA.targetLiterals ?? {}).length;
+    const litB = Object.keys(tB.targetLiterals ?? {}).length;
+    if (litA !== litB) return litB - litA;
+
+    // 2. Specificity by bitmask density (more matching bits = higher priority)
+    // This resolves collisions when multiple targets allow the same flag (like --help).
+    return (mask & tB.targetCode) - (mask & tA.targetCode);
+  });
 
   // 3. Find the first target where literal values match
   for (const targetName of candidates) {

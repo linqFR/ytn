@@ -1,19 +1,15 @@
 import { z } from "zod";
 import {
+  type ISealedInterface, toZod,
+  type tsPicoCompatible
+} from "./sealer.js";
+import {
   csvPreProcess,
   jsonCodec,
   jsonlCodec,
   jsonSchemaCodec,
   makeEmptyTo,
 } from "./zod-codecs.js";
-import {
-  type ISealedInterface,
-  sealZod,
-  toZod,
-  type tsPicoCompatible,
-} from "./sealer.js";
-import { type $NamespaceSealed } from "./sealer.types.js";
-import { isSchemaCompatible } from "./zod-modifiers.js";
 
 /**
  * @constant PICO_ATOMIC_FACTORIES
@@ -129,11 +125,13 @@ const COMPLEX_FACTORIES = {
   /** Creates a Zod literal schema. */
   literal: <T extends string | number | boolean>(value: T) => z.literal(value),
 
+
   /** Creates a Zod enum schema from an array of strings or an object. */
   enum: <const T extends string, const U extends readonly string[]>(
     val0: T,
     ...rest: U
   ) => z.enum([val0, ...rest]),
+
 };
 
 /**
@@ -157,18 +155,3 @@ export type tsPicoAtomicType = keyof typeof PICO_ATOMIC_FACTORIES;
  */
 export type tsPicoInput = tsPicoAtomicType | (string & {}) | ISealedInterface;
 
-/**
- * @constant sealed_PICO_FACTORIES
- * @description The finalized CLI Zod entry point.
- */
-export const sealed_PICO_FACTORIES = Object.fromEntries(
-  Object.entries(PICO_FACTORIES).map(([key, factory]) => [
-    key,
-    (...args: unknown[]) => {
-      const res = (factory as (...args: unknown[]) => unknown)(...args);
-      return isSchemaCompatible(res) ? sealZod(res) : res;
-    },
-  ]),
-) as unknown as $NamespaceSealed<typeof PICO_FACTORIES>;
-
-export type sealed_PICO_FACTORIES = typeof sealed_PICO_FACTORIES;

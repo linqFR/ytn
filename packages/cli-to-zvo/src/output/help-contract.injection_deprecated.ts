@@ -7,7 +7,7 @@ import { pico } from "../config/pico-config.js";
 /**
  * @constant {Object} HELP_CONTRACT
  * @description Native global definitions and targets injected into every contract.
-*/
+ */
 export const HELP_CONTRACT: {
   cli: tsContractCliIN;
   targets: tsContractTargetIN;
@@ -23,7 +23,7 @@ export const HELP_CONTRACT: {
   },
   targets: {
     helpTarget: {
-      ...pico.help("flag to require help", "help")
+      ...pico.help("flag to require help", "help"),
     },
   },
 };
@@ -35,7 +35,7 @@ export const HELP_CONTRACT: {
  */
 export const injectHelp = (contract: any) => {
   const cli = contract.cli || {};
-  
+
   return {
     ...contract,
     cli: {
@@ -51,4 +51,3 @@ export const injectHelp = (contract: any) => {
     },
   };
 };
-

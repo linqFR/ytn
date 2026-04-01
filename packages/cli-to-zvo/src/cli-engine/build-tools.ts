@@ -136,7 +136,7 @@ export const contractCliToParseArgsParser = (
 
   return z
     .object({
-      values: z.object(flagSchemas),
+      values: z.strictObject(flagSchemas),
       positionals:
         posSchemas.length > 0
           ? z.tuple(posSchemas as [z.ZodType, ...z.ZodType[]])

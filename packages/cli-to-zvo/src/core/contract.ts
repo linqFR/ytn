@@ -1,15 +1,19 @@
 import { z } from "zod";
-import { type tsContractIN} from "../schema/contract.schema.js";
+import { type tsContractIN } from "../schema/contract.schema.js";
 import {
   type OHelpArg,
   type OHelpCase,
   type OHelpData,
+  type OHelpOptions,
   type OResponse,
   type IProcessedContract,
   type ValidateContract,
 } from "../types/contract.types.js";
 import { parseCli } from "./cli-parser.js";
 import { cliToZod } from "./cli-to-z.js";
+import { buildHelp } from "../output/help-builder.js";
+import { printHelp } from "../output/help-printer.js";
+import type { tsTargetFieldName, tsTargetName } from "../config/parse-args.js";
 
 /**
  * @class Contract
@@ -147,42 +151,31 @@ export class Contract<I extends tsContractIN = tsContractIN> {
    * @description Generates structured metadata for the CLI help screen.
    * This extracts info from both the CLI interface definition and the target signatures.
    *
+   * @param {string | OHelpOptions} [targetOrOptions] - Name of a target OR a configuration object.
+   * @param {OHelpOptions} [options] - Custom options (if first parameter was a target name).
    * @returns {OHelpData} Structured help data ready to be passed to a renderer.
    */
-  public help(): OHelpData {
-    // 1. Extract arguments (flags and positionals)
-    const helpArgs: OHelpArg[] = Object.values(this._processed.help).map(
-      (model) => {
-        const isFlag = "short" in model;
-        const usages = isFlag
-          ? [
-              (model as any).short ? `-${(model as any).short}` : "",
-              `--${model.long}`,
-            ].filter(Boolean)
-          : [`<${model.long}>`];
+  public help(
+    targetOrOptions?: (keyof I["targets"] & string) | OHelpOptions,
+    options?: OHelpOptions,
+  ): OHelpData {
+    if (typeof targetOrOptions === "object") {
+      return buildHelp(this._processed, undefined, targetOrOptions);
+    }
+    return buildHelp(this._processed, targetOrOptions, options);
+  }
 
-        return {
-          name: model.long,
-          usages,
-          type: model.type,
-          description: (model as any).desc || "",
-        };
-      },
-    );
-
-    // 2. Extract usage cases from targets
-    const usageCases: OHelpCase[] = Object.values(this._processed.targets).map(
-      (target) => ({
-        command: `${this._processed.name} ${target.name}`,
-        description: `Execute task: ${target.name}`,
-      }),
-    );
-
-    return {
-      name: this._processed.name,
-      description: this._processed.description,
-      usage_cases: usageCases,
-      arguments: helpArgs,
-    };
+  /**
+   * @method printHelp
+   * @description Directly prints the formatted help screen to stdout with colors and alignment.
+   *
+   * @param {string | OHelpOptions} [targetOrOptions] - Name of a target OR a configuration object.
+   * @param {OHelpOptions} [options] - Custom options.
+   */
+  public printHelp(
+    targetOrOptions?: (keyof I["targets"] & string) | OHelpOptions,
+    options?: OHelpOptions,
+  ): void {
+    printHelp(this.help(targetOrOptions as any, options));
   }
 }

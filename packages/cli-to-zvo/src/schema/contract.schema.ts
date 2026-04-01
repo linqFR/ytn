@@ -25,6 +25,7 @@ import { picoTypetoZod } from "../pico-zod/index.js";
 import {
   getZodValue,
   hasZodValue,
+  isZodDefault,
   isZodOptional,
   setOp,
 } from "../shared/index.js";
@@ -182,7 +183,7 @@ export const ContractSchema = baseContractSchema
 
           const bit = bitCodes[paFieldName];
           targetCode |= bit;
-          if (isZodOptional(zod)) {
+          if (isZodOptional(zod) || isZodDefault(zod)) {
             optionalBits |= bit;
           } else {
             requiredBits |= bit;
@@ -190,13 +191,11 @@ export const ContractSchema = baseContractSchema
 
           // Inspect Zod schemas for literal/enum values to use as routing discriminants.
           if (hasZodValue(zod)) {
-            requiredBits |= bit; // Force bit as required if it's a discriminant
             const zodVal = getZodValue(zod);
             targetMask |= bit;
             activeDiscriminantSet.add(paFieldName);
             targetLiterals[paFieldName] = zodVal;
 
-            // Global collection of allowed values for help generation.
             if (!discriminants[paFieldName]) discriminants[paFieldName] = [];
             for (const v of zodVal) {
               if (!discriminants[paFieldName].includes(v)) {

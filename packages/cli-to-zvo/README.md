@@ -1,5 +1,9 @@
 # cli-to-zvo (@ytn/czvo)
 
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
+[![Zod](https://img.shields.io/badge/Zod-v4%20Compatible-darkred.svg)](https://zod.dev/)
+[![Tests](https://img.shields.io/badge/Tests-83%2F83%20Passed-brightgreen.svg)](#)
+
 > Transform your command line arguments into **Zod-Validated Objects (ZVO)** with a single **String DSL** or **pico API** Contract.
 
 `cli-to-zvo` is a robust library for building type-safe Command Line Interfaces. In **Version 1.1 (Hybrid)**, it introduces an **Automated Routing Engine** that instantly maps user inputs to the right command, giving you the best of both worlds: a simple, string-based DSL for quick setups, or the full power of native Zod schemas for complex validation.

@@ -7,7 +7,6 @@ import { parseCli } from "./cli-parser.js";
 import { formatOutput } from "./response.js";
 
 export const cliToZod = (contract: tsContractIN): IProcessedContract => {
-
   const res = ContractSchema.safeParse(contract);
   if (!res.success) {
     throw new SyntaxError(`Error with the Contract`, { cause: res.error });

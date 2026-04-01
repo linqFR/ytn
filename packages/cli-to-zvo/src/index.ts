@@ -6,11 +6,14 @@ export type { tsContractIN as tsContract };
 export type {
   OHelpData,
   OResponse,
+  OHelpOptions,
   IProcessedContract as tsProcessedContract,
 } from "./types/contract.types.js";
 
 export * from "./config/pico-config.js";
 
 export { cliToZod, cliToZVO } from "./core/cli-to-z.js";
+
+export { printHelp } from "./output/help-printer.js";
 
 export { Contract, ContractSchema };

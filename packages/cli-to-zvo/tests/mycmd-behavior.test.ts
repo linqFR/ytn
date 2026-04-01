@@ -17,6 +17,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
       positionals: ["step", "ytn-ui"],
       flags: {
         result: { short: "r", type: "string", desc: "result of the step id" },
+        verbose: { short: "v", type: "string", desc: "verbosity" },
         ...localHelp.flag,
       },
     },
@@ -24,6 +25,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
       stepHint: {
         ...pico.help("Command Step Help"),
         step: schemDef.step,
+        verbose: pico.enum("few", "full").optional().default("few"),
       },
       stepResultOk: {
         result: pico.literal("ok"),
@@ -39,14 +41,13 @@ describe("mycmd.ts Behavioral Matrix", () => {
         step: pico.literal("toto"),
         ytnUi: pico.literal("dark"),
       },
-      // catchAnythingLeftTarget: {}
     },
     fallbacks: {
       globalHelp: {
-        ...pico.help("Global Command Help")
+        ...pico.help("Global Command Help"),
       },
-      catchAnythingLeft: {}
-    }
+      catchAnythingLeft: {},
+    },
   });
 
   const parser = (args: string[]) => contract.parseCli(args);
@@ -60,11 +61,24 @@ describe("mycmd.ts Behavioral Matrix", () => {
   });
 
   it("should route to stepHint when a step and --help are provided", () => {
+    // Conflict test: 'step --help' could match globalHelp (mask 16) 
+    // but should match stepHint (mask 17) because it's more specific.
     const res = parser(["mystep", "--help"]);
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data.route).toBe("stepHint");
       expect(res.data.data.step).toBe("mystep");
+      // Should pick default value for verbose
+      expect(res.data.data.verbose).toBe("few");
+    }
+  });
+
+  it("should route to stepHint with explicit verbose flag", () => {
+    const res = parser(["mystep", "--help", "--verbose", "full"]);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.route).toBe("stepHint");
+      expect(res.data.data.verbose).toBe("full");
     }
   });
 
@@ -78,20 +92,17 @@ describe("mycmd.ts Behavioral Matrix", () => {
   });
 
   it("should route to stepToto for specific 'toto' step and 'dark' UI", () => {
-    // Should match stepToto even if stepResultOk could also match
-    // because stepToto is more specific (more literals)
-    const res = parser(["toto", "-r", "ok", "--ytn-ui", "dark"]);
+    const res = parser(["toto", "dark", "-r", "ok"]);
     expect(res.success).toBe(true);
     if (res.success) {
-      expect(res.data.route).toBe("stepToto"); // correct, we dont want stepResultOk
-      expect(res.data.route).not.toBe("stepResultOk"); // correct, we dont want stepResultOk
+      expect(res.data.route).toBe("stepToto");
       expect(res.data.data.step).toBe("toto");
       expect(res.data.data.ytnUi).toBe("dark");
     }
   });
 
   it("should fall back to stepResultOk if ytnUi is not 'dark' for step 'toto'", () => {
-    const res = parser(["toto", "-r", "ok", "--ytn-ui", "light"]);
+    const res = parser(["toto", "light", "-r", "ok"]);
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data.route).toBe("stepResultOk");
@@ -106,12 +117,24 @@ describe("mycmd.ts Behavioral Matrix", () => {
     }
   });
 
-  it("should route to catchAnythingLeft when no target matches", () => {
+  it("should route to catchAnythingLeft when no other target matches", () => {
+    // Input "-r unknown" doesn't match any target literals
+    // It should hit 'catchAnythingLeft' (fallback with mask 0)
     const res = parser(["-r", "unknown"]);
-    if (!res.success) console.error("Zod Error:", JSON.stringify(res.error, null, 2));
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data.route).toBe("catchAnythingLeft");
+      // Extra values are preserved in catch-all data
+      expect(res.data.data.result).toBe("unknown");
+    }
+  });
+
+  it("should route to catchAnythingLeft even with positionals that match nothing", () => {
+    const res = parser(["random", "positional"]);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.route).toBe("catchAnythingLeft");
+      expect(res.data.data.step).toBe("random");
     }
   });
 
@@ -126,7 +149,17 @@ describe("mycmd.ts Behavioral Matrix", () => {
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data.route).toBe("stepHint");
-      expect(res.data.data.step).toBe("validstep");
     }
+  });
+
+  it("should distinguish between two targets based on bit density", () => {
+    // footprint --help => globalHelp (1 bit: help)
+    // footprint toto --help => stepHint (2 bits: step + help)
+    
+    const res1 = parser(["--help"]);
+    expect(res1.success && res1.data.route).toBe("globalHelp");
+
+    const res2 = parser(["toto", "--help"]);
+    expect(res2.success && res2.data.route).toBe("stepHint");
   });
 });

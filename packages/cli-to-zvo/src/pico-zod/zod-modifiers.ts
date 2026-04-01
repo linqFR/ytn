@@ -4,6 +4,7 @@ import { z } from "zod";
  * Uses template literals to automatically match all _prop and ~prop.
  */
 export type InternalKeys = "def" | "~standard" | `_${string}` | `~${string}`;
+export type tsForbidden = InternalKeys | (typeof FORBIDDEN_MODIFIERS)[number];
 
 /**
  * Zod modifiers that we block to keep the CLI contract predictable.
@@ -14,7 +15,7 @@ export const FORBIDDEN_MODIFIERS = [
   "brand",
   "catch",
   "clone",
-  "default",
+  // "default",
   "describe",
   "intersection",
   "lazy",

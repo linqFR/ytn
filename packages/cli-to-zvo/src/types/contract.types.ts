@@ -195,10 +195,23 @@ export interface OHelpArg {
  * @description A single valid command-line example or usage scenario for the CLI.
  */
 export interface OHelpCase {
+  /** The unique name of the target for this usage case. */
+  target: string;
   /** The example command string. */
   command: string;
   /** A description of what this command example does. */
   description: string;
+}
+
+/**
+ * @interface OHelpOptions
+ * @description Configuration options to customize the generated help output.
+ */
+export interface OHelpOptions {
+  /** Override the primary CLI command name in usage strings. */
+  cmd?: string;
+  /** Mapping of target names to custom descriptions for the help screen. */
+  desc?: Record<string, string>;
 }
 
 /**

@@ -35,16 +35,37 @@ export const contractCliSchema = z
     positionals: z.array(ParseArgFlagNameSchema).optional(),
     flags: z.record(ParseArgFlagNameSchema, contractCLiFlagSchema).optional(),
   })
-  .refine(
-    (cli) => {
-      // Verify that the CLI block has at least one entry point
-      const hasPos = !!cli.positionals?.length;
-      const hasFlags = !!(cli.flags && Object.keys(cli.flags).length);
+  .superRefine((contract, ctx) => {
+    // Verify that the CLI block has at least one entry point
+    const hasPos = !!contract.positionals?.length;
+    const hasFlags = !!(contract.flags && Object.keys(contract.flags).length);
 
-      return hasPos || hasFlags;
-    },
-    { error: "contract.cli must define at least one positional or one flag." },
-  );
+    if (!(hasPos || hasFlags))
+      ctx.issues.push({
+        code: "custom",
+        message:
+          "contract.cli must define at least one positional or one flag.",
+        path: ["contract", "cli"],
+        input: [
+          ...(contract?.positionals ?? []),
+          ...Object.keys(contract?.flags ?? {}),
+        ],
+      });
+
+    const posCount = contract.positionals?.length || 0;
+    const flagsCount = Object.keys(contract.flags || {}).length;
+    if (posCount + flagsCount > 31)
+      ctx.issues.push({
+        code: "custom",
+        message:
+          "The 32-bit routing engine supports a maximum of 31 total arguments (flags + positionals)",
+        path: ["contract", "cli"],
+        input: [
+          ...(contract?.positionals ?? []),
+          ...Object.keys(contract?.flags ?? {}),
+        ],
+      });
+  });
 
 /**
  * @constant {z.ZodRecord} contractTargetSchema
@@ -53,10 +74,11 @@ export const contractCliSchema = z
  */
 export const contractTargetSchema = z.record(
   ParseArgObjectNameSchema,
-  z.record(ParseArgObjectNameSchema, picoSchema()).refine(
-    (fields) => Object.keys(fields).length > 0,
-    { message: "A target must have at least one defined field." },
-  ),
+  z
+    .record(ParseArgObjectNameSchema, picoSchema())
+    .refine((fields) => Object.keys(fields).length > 0, {
+      message: "A target must have at least one defined field.",
+    }),
 );
 
 /**

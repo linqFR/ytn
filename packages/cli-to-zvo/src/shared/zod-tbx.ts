@@ -142,6 +142,17 @@ export const isZodOptional = (schema: any): boolean => {
 };
 
 /**
+ * @function isZodDefault
+ * @description Checks if a schema has a default value assigned.
+ *
+ * @param {any} schema - The schema to test.
+ * @returns {boolean} True if the schema has a default.
+ */
+export const isZodDefault = (schema: any): boolean => {
+  return schema?._zod?.def?.type === "default";
+};
+
+/**
  * @function isZodLiteral
  * @description Path-independent check to see if a schema eventually resolves to a literal value.
  *
