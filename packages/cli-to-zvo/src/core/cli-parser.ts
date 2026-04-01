@@ -30,6 +30,7 @@ export function parseCli(
     args,
     options: parsingArgs.options,
     allowPositionals: true,
+    allowNegative : parsingArgs.allowNegative ,
     strict: false,
   });
 

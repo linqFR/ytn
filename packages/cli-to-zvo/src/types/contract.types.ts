@@ -50,6 +50,8 @@ export type tsParseArgSchema = {
   positionals: string[];
   /** Mapping of option long names to their type and short alias. */
   options: Record<string, { type: "string" | "boolean"; short: string }>;
+  /** Whether to support negatable flags (e.g. --no-verbose). */
+  allowNegative: boolean;
 };
 
 /**
@@ -282,6 +284,8 @@ export interface IProcessedContract {
   help: Record<tsTargetFieldName, tsProcessedDataModel>;
   /** Optional fallback schema for catch-all behavior. */
   fallbackSchema?: z.ZodType;
+  /** Whether to support negatable flags (options starting with '--no-') at the parser level. */
+  allowNegative?: boolean;
 }
 
 /**

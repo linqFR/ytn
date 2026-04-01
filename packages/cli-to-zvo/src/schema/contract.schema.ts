@@ -58,6 +58,8 @@ const baseContractSchema = z
     options: z
       .object({
         onlyAllowedValues: z.boolean(),
+        /** Whether to allow negatable flags (options starting with '--no-'). Defaults to false. */
+        allowNegative: z.boolean(),
       })
       .partial()
       .optional(),
@@ -84,7 +86,7 @@ export const ContractSchema = baseContractSchema
       cli,
       targets,
       fallbacks = {},
-      options = { onlyAllowedValues: false },
+      options = { onlyAllowedValues: false, allowNegative : false },
     } = data;
 
     // Phase 1: Key Validation
@@ -304,12 +306,13 @@ export const ContractSchema = baseContractSchema
         tree,
       },
       dataModels,
-      parsingArgs: contractCliToParseArgSchema(cliProcessed),
+      parsingArgs: contractCliToParseArgSchema(cliProcessed, options.allowNegative ),
       parseArgsResultParser: {} as any, // Placeholder for Phase 6
       parseArgsConfig: contractCliToParseArgs(cliProcessed.flags),
       zvoSchema: {} as tsGate, // Placeholder for Phase 7
       router: {}, // Placeholder for Phase 6
       help: dataModels,
+      allowNegative : options.allowNegative  ?? false,
     };
 
     // Phase 6: Routing Table Flattening

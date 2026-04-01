@@ -85,10 +85,10 @@ export class Contract<I extends tsContractIN = tsContractIN> {
    *     }
    *   },
    *   targets: {
-   *     greet: { command: "lit(hello)", name: "string" }
+   *     greet: { command: pico.literal("hello"), name: "string" }
    *   },
    *   fallbacks: {
-   *     default: { verbose: "bool?" }
+   *     default: { verbose: pico.boolean().optional() }
    *   },
    *   options: {
    *     onlyAllowedValues: true

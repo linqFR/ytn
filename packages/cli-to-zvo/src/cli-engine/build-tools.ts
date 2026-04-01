@@ -36,10 +36,12 @@ import {
  * required by the `node:util.parseArgs` configuration.
  *
  * @param {tsProcessedCliOUT} cli - The processed interface metadata.
+ * @param {boolean} [allowNegative=false] - Whether to allow negatable flags (e.g. --no-verbose).
  * @returns {tsParseArgSchema} The mapping of positionals and options for the parser.
  */
 export const contractCliToParseArgSchema = (
   cli: tsProcessedCliOUT,
+  allowNegative: boolean = false,
 ): tsParseArgSchema => {
   const options: Record<string, { type: "string" | "boolean"; short: string }> =
     {};
@@ -53,7 +55,7 @@ export const contractCliToParseArgSchema = (
     };
   });
 
-  return { positionals, options };
+  return { positionals, options, allowNegative  };
 };
 
 /**

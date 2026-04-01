@@ -2,7 +2,7 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![Zod](https://img.shields.io/badge/Zod-v4%20Compatible-darkred.svg)](https://zod.dev/)
-[![Tests](https://img.shields.io/badge/Tests-83%2F83%20Passed-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-87%2F87%20Passed-brightgreen.svg)](#)
 
 > Transform your command line arguments into **Zod-Validated Objects (ZVO)** with a single **String DSL** or **pico API** Contract.
 
@@ -61,7 +61,8 @@ const contract: tsContract = {
   },
   // 3. Global Engine Options (optional)
   options: {
-    onlyAllowedValues: false, // Strict input restriction
+    onlyAllowedValues: false, // If true, restricts inputs for literal/enum fields at the entry level (fail-fast) (default: true)
+    allowNegative: false, // If true, Allows explicitly setting boolean options to false by prefixing the option name with --no- (default: false)
   },
 };
 
@@ -115,7 +116,7 @@ If a target uses a positional argument with a **Literal** value (e.g., `cmd: pic
 Each field in a target can use a simple **DSL string** or the **pico API**.
 
 - **DSL Strings**: Smart strings like `"url"`, `"filepath"`, `"email"`, or unions `"string | number"`.
-- **pico API**: A "sealed" version of Zod for CLI use.
+- **pico API**: A "sealed" and **immutable** version of Zod for CLI use.
 
 ```typescript
 targets: {
@@ -188,7 +189,7 @@ Unlike traditional CLI routers that iterate through definitions sequentially (**
 - **Order Independent**: Since bits don't care about order, your interface remains robust even if users swap flags and positionals.
 - **Deterministic**: No complex regex or ambiguous matching. The bitmask logic ensures that each input set maps to a single, predictable target.
 
-> [!IMPORTANT] > **Scalability Note**: The current bitmask engine is limited to **31 unique CLI arguments** (total flags + positionals across all targets) due to JavaScript's 32-bit signed integer constraints for bitwise operations (`1 << idx`). If your contract defines more than 31 unique names in the `cli` block, routing bits will overflow. Support for `BigInt` bitmasks and virtually infinite arguments is planned for future versions.
+> [!IMPORTANT] > **Scalability Note**: The current bitmask engine is limited to **31 unique CLI arguments** (total flags + positionals across all targets). To ensure bitwise safety, the compiler will **aggressively reject** any contract exceeding this limit before runtime.
 
 ### ✅ Routing Do's
 
@@ -202,7 +203,7 @@ Unlike traditional CLI routers that iterate through definitions sequentially (**
 - **Type Conflicts**: Don't define a flag as a `boolean` in the `cli` block but expect to parse it as a `string` in your `targets`.
   - _What happens?_: The Zod schema of the target will fail to validate the parsed value (e.g., trying to parse a `boolean` as a `string`), resulting in a clear Zod validation error for the user at runtime.
 - **Excessive Complexity**: Don't define more than **31 unique arguments** (total of all positionals and flags) in your `cli` block.
-  - _What happens?_: Beyond bit 31, JavaScript bitwise operations will overflow/wrap, causing targets to be incorrectly identified or routing to fail.
+  - _What happens?_: The contract will fail to instantiate, throwing a configuration error mentioning the 31-argument limit.
 
 ---
 
