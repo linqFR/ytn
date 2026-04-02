@@ -1,44 +1,44 @@
 import { z } from "zod";
+import { zod } from "@shared";
+import { unwrapZod } from "@shared/zod/zod-reflection.js";
 
 /**
  * @class Introspector
- * @description Zod Introspection Engine.
- * Provides official Public API based extraction of shapes and metadata from Zod schemas.
+ * @description Zod Introspection Engine for the Query Builder.
  */
 export class Introspector {
   /**
    * @function getSchemaShape
-   * @description Recursively unwraps a Zod schema using official Public APIs to find the inner ZodObject shape.
-   * Handles: ZodOptional, ZodNullable, ZodDefault, ZodReadonly, ZodCatch, ZodLazy, and ZodPipe (Pipelines/Transforms).
-   * @param {z.ZodTypeAny} schema - Any Zod schema to inspect.
-   * @returns {z.ZodRawShape | null} The raw shape if an object is found, otherwise null.
+   * @description Finds the inner ZodObject shape by using ONLY Public V4 APIs.
+   *
+   * @param {z.ZodType} schema - The Zod schema to inspect.
+   * @returns {Record<string, z.ZodType> | null} The shape of the Zod object (Classic).
    */
-  public static getSchemaShape(schema: z.ZodTypeAny): z.ZodRawShape | null {
-    let current: any = schema;
-    const seen = new Set();
+  public static getSchemaShape(
+    schema: any,
+  ): Record<string, z.ZodType> | null {
+    if (!schema) return null;
 
-    while (current && !seen.has(current)) {
-      seen.add(current);
-      const type = current.type;
+    // 1. Recursive unwrapping of basic wrappers (Optional, Nullable, Default, Readonly)
+    const root = zod.reflect.unwrapZod(schema);
 
-      if (type === "object") {
-        return current.shape;
-      }
+    // 2. Base Case: The Core Object (Physical Source for DDL)
+    if (root instanceof z.ZodObject) {
+      return root.shape;
+    }
 
-      if (typeof current.unwrap === "function") {
-        current = current.unwrap();
-        continue;
-      }
+    // 3. V4 Pipelines: Intelligent "First Object Wins" Strategy
+    if (root instanceof z.ZodPipe) {
+      const inShape = Introspector.getSchemaShape(root.in);
+      if (inShape) return inShape;
 
-      if (current.in && current.out) {
-        const inShape = Introspector.getSchemaShape(current.in);
-        if (inShape) return inShape;
-        const outShape = Introspector.getSchemaShape(current.out);
-        if (outShape) return outShape;
-        break;
-      }
+      // Follow output if input was not an object (e.g., standalone transform or preprocess)
+      return Introspector.getSchemaShape(root.out);
+    }
 
-      break;
+    // 4. Recursive/Lazy Schemas: Materialize via .unwrap()
+    if (root instanceof z.ZodLazy) {
+      return Introspector.getSchemaShape(root.unwrap());
     }
 
     return null;
@@ -46,36 +46,36 @@ export class Introspector {
 
   /**
    * @function getPrimaryKey
-   * @description Detects the Primary Key for a given schema shape.
-   * Priority:
-   * 1. Official Zod v4 Metadata: `.meta({ pk: true })`
-   * 2. Convention: Field named 'id' or 'uuid'.
-   * @param {z.ZodRawShape} shape - The shape of the ZodObject to inspect.
-   * @returns {string | null} The field name of the primary key, or null.
+   * @description Detects the Primary Key for a given schema shape by inspecting metadata and standard conventions.
+   *
+   * @param {z.core.$ZodShape} shape - The shape of the ZodObject.
+   * @returns {string | null} The key name of the primary key.
    */
-  public static getPrimaryKey(shape: z.ZodRawShape): string | null {
-    const getMeta = (s: any) =>
-      (typeof s?.meta === "function" ? s.meta() : null) || {};
-
+  public static getPrimaryKey(shape: Record<string, z.ZodType>): string | null {
     for (const [key, schemaItem] of Object.entries(shape)) {
-      let current: any = schemaItem;
-      while (current) {
-        if (getMeta(current).pk) return key;
-        if (typeof current.unwrap === "function") {
-          current = current.unwrap();
-          continue;
-        }
-        if (current.in && current.out) {
-          current = current.in;
-          continue;
-        }
-        break;
-      }
+      const meta = Introspector.getColumnMeta(schemaItem);
+      if (meta.pk || meta.pkauto) return key;
     }
 
     const keys = Object.keys(shape);
     if (keys.includes("id")) return "id";
     if (keys.includes("uuid")) return "uuid";
     return null;
+  }
+
+  /**
+   * @function getColumnMeta
+   * @description Public accessor to column-specific metadata.
+   * Combines surface-level tags with root tags using @shared primitives.
+   *
+   * @param {z.ZodType} schema - The column schema to inspect.
+   * @returns {Record<string, any>} Merged metadata.
+   */
+  public static getColumnMeta(schema: z.ZodType): Record<string, any> {
+    const surface = zod.reflect.getZodMeta(schema);
+    const root = zod.reflect.unwrapZod(schema);
+    const rootMeta = zod.reflect.getZodMeta(root);
+
+    return { ...rootMeta, ...surface };
   }
 }

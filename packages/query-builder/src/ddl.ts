@@ -1,11 +1,14 @@
 import { z } from "zod";
+import { zod } from "@shared";
 import { Introspector } from "./introspection.js";
 import { DDLOptions } from "./types.js";
+import { $Entries } from "@shared/types/modifiers.js";
 
 /**
  * @class DDLEngine
  * @description DDL Generation Engine.
  * Responsible for generating SQL statements for schema management (tables, indexes, drops).
+ * Fully refactored to use the @shared reflection layer for Zod V4 compliance.
  */
 export class DDLEngine {
   /**
@@ -24,22 +27,21 @@ export class DDLEngine {
    * Uses the Zod v4 Public API for deep unwrapping and metadata extraction.
    *
    * @param {string} tableName - Name of the table to create.
-   * @param {z.ZodTypeAny} schema - Zod schema (typically ZodObject, but handles wrappers/pipes).
+   * @param {z.ZodType} schema - The schema to introspect.
    * @param {DDLOptions} [options={}] - Manual overrides and configuration.
    *
    * @returns {string} Compiled SQL DDL.
    */
   public static createTableFromZod(
     tableName: string,
-    schema: z.ZodTypeAny,
+    schema: z.ZodType,
     options: DDLOptions = {},
   ): string {
     const shape = Introspector.getSchemaShape(schema);
 
     if (!shape) {
-      const typeName = (schema as any).type || (schema as any)._def?.typeName;
       throw new Error(
-        `createTableFromZod requires a ZodObject (or a wrapper pointing to one). Got: ${typeName}`,
+        `createTableFromZod requires a ZodObject (or a wrapper pointing to one).`,
       );
     }
 
@@ -49,63 +51,28 @@ export class DDLEngine {
     const uniques = options.unique || [];
     const columnDefs: string[] = [];
 
-    Object.entries(shape).forEach(([key, schemaItem]: [string, any]) => {
+    Object.entries(shape).forEach(([key, schemaItem]) => {
       let type = "TEXT";
       let constraints = "";
-      let isOptional = false;
 
-      let current = schemaItem;
-      const getMeta = (s: any) =>
-        (typeof s?.meta === "function" ? s.meta() : null) || {};
-      let meta = getMeta(current);
-      let isPkFromDoc = meta.pk === true || meta.pkauto === true;
-      let isPkAutoFromDoc = meta.pkauto === true;
-      let isUniqueFromDoc =
-        meta.unique === true ||
-        (Array.isArray(uniques) && uniques.includes(key));
+      const meta = Introspector.getColumnMeta(schemaItem);
+      const isOptional =
+        zod.reflect.isZodOptional(schemaItem) ||
+        zod.reflect.isZodDefault(schemaItem);
+      const isUniqueFromDoc =
+        meta.unique || (Array.isArray(uniques) && uniques.includes(key));
 
-      while (current) {
-        const t = current.type;
-        const m = getMeta(current);
-        if (m.pk || m.pkauto) isPkFromDoc = true;
-        if (m.pkauto) isPkAutoFromDoc = true;
-        if (m.unique) isUniqueFromDoc = true;
+      // Authoritative V4 Type Reflection (No local _zod access, delegation to @shared)
+      const unwrapped = zod.reflect.unwrapZod(schemaItem);
+      const internals = unwrapped._zod?.def;
+      const baseType = internals?.type;
 
-        if (
-          t === "optional" ||
-          t === "nullable" ||
-          t === "default" ||
-          t === "catch" ||
-          t === "promise" ||
-          t === "lazy"
-        ) {
-          if (t === "optional") isOptional = true;
-          current =
-            typeof current.unwrap === "function" ? current.unwrap() : current;
-          continue;
-        }
-
-        if (current.in && current.out) {
-          current = current.in;
-          continue;
-        }
-        break;
-      }
-
-      if (!current) return;
-
-      const baseType = current.type;
       if (baseType === "number") {
-        const def = current._zod?.def || current.def || {};
-        const checks = def.checks || current.checks || [];
+        const checks = internals.checks || [];
         const isInt = checks.some(
-          (c: any) =>
-            c.kind === "int" ||
-            c.type === "int" ||
-            (c.def?.check === "number_format" &&
-              ["int32", "uint32", "safeint"].includes(c.def?.format)) ||
-            (c.kind === "number_format" &&
-              ["int32", "uint32", "safeint"].includes(c.format)),
+          (c) =>
+            ("isInt" in c && c.isInt === true) ||
+            ("format" in c && ["int32", "uint32", "safeint"].includes(c.format as string)),
         );
         type = isInt ? "INTEGER" : "REAL";
       } else if (baseType === "boolean") {
@@ -114,10 +81,11 @@ export class DDLEngine {
         type = "DATETIME";
       }
 
-      if (!pk && isPkFromDoc) pk = key;
+      // Final PK determination
+      if (!pk && (meta.pk || meta.pkauto)) pk = key;
 
       if (typeof pk === "string" && key === pk) {
-        constraints += isPkAutoFromDoc
+        constraints += meta.pkauto
           ? " PRIMARY KEY AUTOINCREMENT"
           : " PRIMARY KEY";
       } else {
@@ -130,9 +98,7 @@ export class DDLEngine {
         }
       }
 
-      if (meta.fk) {
-        fks[key] = meta.fk;
-      }
+      if (meta.fk) fks[key] = meta.fk;
 
       columnDefs.push(`${key} ${type}${constraints}`);
     });
@@ -141,6 +107,7 @@ export class DDLEngine {
       pk = Introspector.getPrimaryKey(shape) || undefined;
     }
 
+    // Build Constraints Clauses (Standard SQL)
     Object.entries(fks).forEach(([col, ref]) => {
       if (typeof ref === "string") {
         columnDefs.push(`FOREIGN KEY (${col}) REFERENCES ${ref}`);
@@ -154,7 +121,7 @@ export class DDLEngine {
 
     if (Array.isArray(pk) && pk.length > 0) {
       columnDefs.push(`PRIMARY KEY (${pk.join(", ")})`);
-    } else if (typeof pk === 'string') {
+    } else if (typeof pk === "string") {
       columnDefs.push(`PRIMARY KEY (${pk})`);
     }
 

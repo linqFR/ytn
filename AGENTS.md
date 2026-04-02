@@ -171,9 +171,14 @@ Reminder: Use Zod V4 exclusively.
 - **Handle Pipelines**: Use `.in` and `.out` for transforms/validations.
 - **Metadata**: Use the public `.meta()` getter.
 
-#### General Zod v4 Guidelines
+#### Internal Reflection Priority
 
-- **Functional API**: Prefer the functional API (e.g., `z.optional(z.string())`) for better tree-shaking.
+- **Priority 1: `instanceof`**: Use standard `instanceof z.Zod*` for base type identification (Object, Optional, etc.).
+- **Priority 2: `._zod`**: Use the `._zod` buffer as the authoritative internal fallback for V4-specific attributes (type, out, etc.) if `instanceof` is insufficient.
+- **NEVER** use 'belt and suspenders' logic (don't mix both in a single conditional if one is sufficient).
+
+#### Common V4 Patterns (Informative)
+
 - **Top-level Validation**: Use `z.email()`, `z.uuid()`, `z.url()` instead of method chaining.
 - **Top-level Objects**: Favor **`z.strictObject()`** or **`z.looseObject()`** over `.strict()` or `.loose()` method calls.
 - **No `.passthrough()`**: The method `.passthrough()` is deprecated in V4; always use **`.loose()`** or **`z.looseObject()`**.

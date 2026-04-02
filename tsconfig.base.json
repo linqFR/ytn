@@ -17,5 +17,5 @@
       "@shared": ["shared/index.ts"],
     }
   },
-  "exclude": ["node_modules", "dist", "docs", "dev_tools", "sandbox"]
+  "exclude": ["**/node_modules", "**/dist", "**/docs", "**/dev_tools", "**/sandbox", "**/archive"]
 }

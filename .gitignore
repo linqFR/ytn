@@ -38,5 +38,4 @@ coverage/
 # AGENTS.md
 
 # Local-only packages
-packages/toolbox/
 packages/wf-router/

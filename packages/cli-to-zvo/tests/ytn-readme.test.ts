@@ -15,7 +15,6 @@ describe("README CLI Example", () => {
             short: "v",
             type: "boolean",
             desc: "Enable detailed logging",
-            intercept: true
           },
         },
       },
@@ -54,7 +53,6 @@ describe("README CLI Example", () => {
             short: "v",
             type: "boolean",
             desc: "Enable detailed logging",
-            intercept: true
           },
         },
       },

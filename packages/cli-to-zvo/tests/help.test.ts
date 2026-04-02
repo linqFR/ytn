@@ -12,13 +12,11 @@ describe("CLI Help Verification", () => {
             short: "v",
             type: "boolean",
             desc: "show version",
-            intercept: true,
           },
           help: {
             short: "h",
             type: "boolean",
             desc: "Show help information",
-            intercept: true,
           },
         },
       },
