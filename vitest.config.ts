@@ -1,10 +1,10 @@
 import { defineConfig } from 'vitest/config';
-import path from 'path';
+import path from 'node:path';
 
 export default defineConfig({
   test: {
     alias: {
-      '@shared': path.resolve(__dirname, './shared'),
+      '@shared': path.resolve(import.meta.dirname, './shared'),
     },
     // This allows vitest to find tests in all workspaces
     globals: true,

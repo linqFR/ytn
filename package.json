@@ -18,6 +18,7 @@
     "tag": "changeset tag"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "typescript": "^5.7.3",
     "vitest": "^4.1.0"
   },

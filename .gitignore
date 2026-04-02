@@ -19,8 +19,8 @@ Thumbs.db
 **/docs/
 **/dev_tools/
 **/sandbox/
-**/src/archive/
-**/src/archives/
+archive/
+archives/
 
 # Logs
 *.log
@@ -35,7 +35,7 @@ coverage/
 .gemini/
 .antigravity/
 .agents/
-AGENTS.md
+# AGENTS.md
 
 # Local-only packages
 packages/toolbox/
