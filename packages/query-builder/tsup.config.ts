@@ -1,15 +1,21 @@
-import { defineConfig } from 'tsup';
-import { commonConfig, minConfig, createDualEntries, getEntriesFromExports } from '../../tsup.config.base.js';
+import { defineConfig } from "tsup";
+import {
+  commonConfig,
+  minConfig,
+  createDualEntries,
+  getEntriesFromPackage,
+} from "../../tsup.config.base.js";
 
-const entry = getEntriesFromExports(process.cwd());
+const { entries, dts } = getEntriesFromPackage(process.cwd());
 
 export default defineConfig([
   {
     ...commonConfig,
-    entry
+    entry: entries,
+    dts,
   },
   {
     ...minConfig,
-    entry: createDualEntries(entry)
-  }
+    entry: createDualEntries(entries),
+  },
 ]);

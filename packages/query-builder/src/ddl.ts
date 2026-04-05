@@ -1,8 +1,7 @@
+import { isZodDefault, isZodOptional, unwrapZod, unwrapZodDeep } from "@shared/zod/zod-reflection.js";
 import { z } from "zod";
-import { zod } from "@shared";
 import { Introspector } from "./introspection.js";
 import { DDLOptions } from "./types.js";
-import { $Entries } from "@shared/types/modifiers.js";
 
 /**
  * @class DDLEngine
@@ -57,22 +56,23 @@ export class DDLEngine {
 
       const meta = Introspector.getColumnMeta(schemaItem);
       const isOptional =
-        zod.reflect.isZodOptional(schemaItem) ||
-        zod.reflect.isZodDefault(schemaItem);
+        isZodOptional(schemaItem) ||
+        isZodDefault(schemaItem);
       const isUniqueFromDoc =
         meta.unique || (Array.isArray(uniques) && uniques.includes(key));
 
       // Authoritative V4 Type Reflection (No local _zod access, delegation to @shared)
-      const unwrapped = zod.reflect.unwrapZod(schemaItem);
+      const unwrapped = unwrapZodDeep(schemaItem);
       const internals = unwrapped._zod?.def;
       const baseType = internals?.type;
 
       if (baseType === "number") {
         const checks = internals.checks || [];
         const isInt = checks.some(
-          (c) =>
+          (c:any) =>
             ("isInt" in c && c.isInt === true) ||
-            ("format" in c && ["int32", "uint32", "safeint"].includes(c.format as string)),
+            ("format" in c &&
+              ["int32", "uint32", "safeint"].includes(c.format as string)),
         );
         type = isInt ? "INTEGER" : "REAL";
       } else if (baseType === "boolean") {

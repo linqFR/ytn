@@ -1,20 +1,20 @@
-import { describe, it, expect } from 'vitest';
-import { QueryBuilder } from '../src/index.js';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { QueryBuilder } from '../src/index.js';
 
-describe('QueryBuilder - Correctifs et Nouvelles Fonctionnalités', () => {
+describe('QueryBuilder - Fixes and New Features', () => {
 
-  describe('1. Méthode search() - Unification des paramètres', () => {
-    it('doit générer une clause WHERE avec le paramètre nommé @search_term', () => {
+  describe('1. search() method - Parameter unification', () => {
+    it('should generate a WHERE clause with the named parameter @search_term', () => {
       const sql = QueryBuilder.table('articles')
         .search(['title', 'content'])
         .build();
 
       expect(sql).toContain('WHERE (title LIKE @search_term OR content LIKE @search_term)');
-      expect(sql).not.toContain('?'); // Vérifie l'absence de paramètres positionnels
+      expect(sql).not.toContain('?'); // Verifies absence of positional parameters
     });
 
-    it("doit combiner correctement la recherche avec d'autres conditions WHERE nommées", () => {
+    it("should correctly combine search with other named WHERE conditions", () => {
       const sql = QueryBuilder.table('articles')
         .search(['title'])
         .where(['status'])
@@ -24,37 +24,37 @@ describe('QueryBuilder - Correctifs et Nouvelles Fonctionnalités', () => {
     });
   });
 
-  describe("2. Méthode clone() - Isolation de l'état", () => {
-    it("doit créer une instance indépendante sans muter l'originale", () => {
+  describe("2. clone() method - State isolation", () => {
+    it("should create an independent instance without mutating the original", () => {
       const baseQuery = QueryBuilder.table('users').where(['is_active']);
       
-      // On clone et on modifie le clone
+      // Clone and modify the clone
       const clonedQuery = baseQuery.clone().limit(10).offset(20);
       
       const baseSql = baseQuery.build();
       const clonedSql = clonedQuery.build();
 
-      // La requête de base doit rester intacte
+      // The base query must remain intact
       expect(baseSql).toBe('SELECT * FROM users WHERE is_active = @is_active');
       
-      // Le clone doit contenir les nouvelles clauses
+      // The clone must contain the new clauses
       expect(clonedSql).toBe('SELECT * FROM users WHERE is_active = @is_active LIMIT 10 OFFSET 20');
     });
 
-    it('doit isoler les modifications des tableaux internes (Deep/Shallow copy)', () => {
+    it('should isolate modifications of internal arrays (Deep/Shallow copy)', () => {
       const baseQuery = QueryBuilder.table('logs').select(['id']);
       const clone = baseQuery.clone();
 
-      clone.select(['id', 'message']); // Modifie les champs du clone
-      clone.where(['level']); // Ajoute une condition au clone
+      clone.select(['id', 'message']); // Modifies the clone's fields
+      clone.where(['level']); // Adds a condition to the clone
 
       expect(baseQuery.build()).toBe('SELECT id FROM logs');
       expect(clone.build()).toBe('SELECT id, message FROM logs WHERE level = @level');
     });
   });
 
-  describe('3. DDL Engine - Génération de la Clé Primaire', () => {
-    it('doit générer une clause PRIMARY KEY pour une clé simple (string)', () => {
+  describe('3. DDL Engine - Primary Key Generation', () => {
+    it('should generate a PRIMARY KEY clause for a simple key (string)', () => {
       const schema = z.object({
         custom_id: z.string(),
         name: z.string()
@@ -65,10 +65,10 @@ describe('QueryBuilder - Correctifs et Nouvelles Fonctionnalités', () => {
       });
 
       expect(sql).toContain('PRIMARY KEY (custom_id)');
-      expect(sql).not.toContain('PRIMARY KEY (c,u,s,t,o,m,_,i,d)'); // S'assure que la string n'est pas itérée comme un tableau
+      expect(sql).not.toContain('PRIMARY KEY (c,u,s,t,o,m,_,i,d)'); // Ensures string is not iterated as an array
     });
 
-    it('doit continuer à supporter les clés primaires composites (array)', () => {
+    it('should continue to support composite primary keys (array)', () => {
       const schema = z.object({
         tenant_id: z.string(),
         user_id: z.string(),
@@ -82,7 +82,7 @@ describe('QueryBuilder - Correctifs et Nouvelles Fonctionnalités', () => {
       expect(sql).toContain('PRIMARY KEY (tenant_id, user_id)');
     });
 
-    it('doit déduire correctement la clé primaire par convention (id)', () => {
+    it('should correctly deduce the primary key by convention (id)', () => {
       const schema = z.object({
         id: z.string(),
         email: z.string()

@@ -14,28 +14,28 @@ import {
  * Supports SELECT, INSERT, UPDATE, DELETE, UPSERT, and COUNT operations.
  */
 export class Builder {
-  private _table: string;
-  private _mode: QueryMode = "SELECT";
-  private _fields: string[] = ["*"];
-  private _rawFunctionFields: string[] = [];
-  private _whereFields: WhereDefinition[] = [];
-  private _whereColumnFields: { col1: string; col2: string }[] = [];
-  private _whereLiteralFields: { col: string; value: string }[] = [];
-  private _whereRawFields: string[] = [];
-  private _updateFields: string[] = [];
-  private _conflictTargets: string[] = [];
-  private _limit: number | null = null;
-  private _searchFields: string[] = [];
-  private _orderBy: OrderByDefinition[] = [];
-  private _joins: JoinDefinition[] = [];
-  private _groupBy: string[] = [];
-  private _offset: number | null = null;
-  private _whereInFields: WhereInDefinition[] = [];
-  private _indexName: string = "";
-  private _indexColumns: string[] = [];
-  private _ifNotExists: boolean = false;
-  private _tableAlias: string | null = null;
-  private _returningFields: string[] = [];
+  #table: string;
+  #mode: QueryMode = "SELECT";
+  #fields: string[] = ["*"];
+  #rawFunctionFields: string[] = [];
+  #whereFields: WhereDefinition[] = [];
+  #whereColumnFields: { col1: string; col2: string }[] = [];
+  #whereLiteralFields: { col: string; value: string }[] = [];
+  #whereRawFields: string[] = [];
+  #updateFields: string[] = [];
+  #conflictTargets: string[] = [];
+  #limit: number | null = null;
+  #searchFields: string[] = [];
+  #orderBy: OrderByDefinition[] = [];
+  #joins: JoinDefinition[] = [];
+  #groupBy: string[] = [];
+  #offset: number | null = null;
+  #whereInFields: WhereInDefinition[] = [];
+  #indexName: string = "";
+  #indexColumns: string[] = [];
+  #ifNotExists: boolean = false;
+  #tableAlias: string | null = null;
+  #returningFields: string[] = [];
 
   /**
    * @constructor
@@ -44,48 +44,48 @@ export class Builder {
   constructor(table: string) {
     const parts = table.split(" ");
     if (parts.length > 1) {
-      this._table = parts[0];
-      this._tableAlias = parts[1];
+      this.#table = parts[0];
+      this.#tableAlias = parts[1];
     } else {
-      this._table = table;
+      this.#table = table;
     }
   }
 
   /**
    * @function clone
-   * @description Crée une copie indépendante de l'instance courante du Builder.
-   * Utile pour réutiliser une requête de base (ex: pagination avec un count et un select).
-   * @returns {Builder} Une nouvelle instance de Builder avec le même état.
+   * @description Creates an independent copy of the current Builder instance.
+   * Useful for reusing a base query (e.g., pagination with a count and a select).
+   * @returns {Builder} A new Builder instance with the same state.
    */
   public clone(): Builder {
-    const tableName = this._tableAlias ? `${this._table} ${this._tableAlias}` : this._table;
+    const tableName = this.#tableAlias ? `${this.#table} ${this.#tableAlias}` : this.#table;
     const cloned = new Builder(tableName);
 
-    cloned._mode = this._mode;
-    cloned._limit = this._limit;
-    cloned._offset = this._offset;
-    cloned._indexName = this._indexName;
-    cloned._ifNotExists = this._ifNotExists;
+    cloned.#mode = this.#mode;
+    cloned.#limit = this.#limit;
+    cloned.#offset = this.#offset;
+    cloned.#indexName = this.#indexName;
+    cloned.#ifNotExists = this.#ifNotExists;
 
-    cloned._fields = [...this._fields];
-    cloned._rawFunctionFields = [...this._rawFunctionFields];
-    cloned._whereRawFields = [...this._whereRawFields];
-    cloned._updateFields = [...this._updateFields];
-    cloned._conflictTargets = [...this._conflictTargets];
-    cloned._searchFields = [...this._searchFields];
-    cloned._groupBy = [...this._groupBy];
-    cloned._indexColumns = [...this._indexColumns];
-    cloned._returningFields = [...this._returningFields];
+    cloned.#fields = [...this.#fields];
+    cloned.#rawFunctionFields = [...this.#rawFunctionFields];
+    cloned.#whereRawFields = [...this.#whereRawFields];
+    cloned.#updateFields = [...this.#updateFields];
+    cloned.#conflictTargets = [...this.#conflictTargets];
+    cloned.#searchFields = [...this.#searchFields];
+    cloned.#groupBy = [...this.#groupBy];
+    cloned.#indexColumns = [...this.#indexColumns];
+    cloned.#returningFields = [...this.#returningFields];
 
-    cloned._whereFields = this._whereFields.map(f => typeof f === 'string' ? f : { ...f });
-    cloned._whereColumnFields = this._whereColumnFields.map(f => ({ ...f }));
-    cloned._whereLiteralFields = this._whereLiteralFields.map(f => ({ ...f }));
-    cloned._orderBy = this._orderBy.map(f => ({ ...f }));
-    cloned._joins = this._joins.map(f => ({ ...f }));
-    
-    cloned._whereInFields = this._whereInFields.map(f => ({
+    cloned.#whereFields = this.#whereFields.map(f => typeof f === 'string' ? f : { ...f });
+    cloned.#whereColumnFields = this.#whereColumnFields.map(f => ({ ...f }));
+    cloned.#whereLiteralFields = this.#whereLiteralFields.map(f => ({ ...f }));
+    cloned.#orderBy = this.#orderBy.map(f => ({ ...f }));
+    cloned.#joins = this.#joins.map(f => ({ ...f }));
+
+    cloned.#whereInFields = this.#whereInFields.map(f => ({
       col: f.col,
-      target: Array.isArray(f.target) ? [...f.target] : f.target
+      target: Array.isArray(f.target) ? [...f.target] : f.target,
     }));
 
     return cloned;
@@ -100,8 +100,8 @@ export class Builder {
    * @impact Changes mode to 'SELECT'.
    */
   public select(fields: string[] = ["*"]): this {
-    this._mode = "SELECT";
-    this._fields = fields;
+    this.#mode = "SELECT";
+    this.#fields = fields;
     return this;
   }
 
@@ -113,7 +113,7 @@ export class Builder {
    * @impact Changes mode to 'COUNT'.
    */
   public count(): this {
-    this._mode = "COUNT";
+    this.#mode = "COUNT";
     return this;
   }
 
@@ -126,8 +126,8 @@ export class Builder {
    * @impact Changes mode to 'INSERT'.
    */
   public insert(fields: string[]): this {
-    this._mode = "INSERT";
-    this._fields = fields;
+    this.#mode = "INSERT";
+    this.#fields = fields;
     return this;
   }
 
@@ -140,8 +140,8 @@ export class Builder {
    * @impact Changes mode to 'UPDATE'.
    */
   public update(fields: string[]): this {
-    this._mode = "UPDATE";
-    this._updateFields = fields;
+    this.#mode = "UPDATE";
+    this.#updateFields = fields;
     return this;
   }
 
@@ -153,7 +153,7 @@ export class Builder {
    * @impact Changes mode to 'DELETE'.
    */
   public delete(): this {
-    this._mode = "DELETE";
+    this.#mode = "DELETE";
     return this;
   }
 
@@ -167,10 +167,10 @@ export class Builder {
    * @impact Changes mode to 'UPSERT'.
    */
   public upsert(fields: string[], conflictTargets: string[]): this {
-    this._mode = "UPSERT";
-    this._fields = fields;
-    this._conflictTargets = conflictTargets;
-    this._updateFields = fields.filter((f) => !conflictTargets.includes(f));
+    this.#mode = "UPSERT";
+    this.#fields = fields;
+    this.#conflictTargets = conflictTargets;
+    this.#updateFields = fields.filter((f) => !conflictTargets.includes(f));
     return this;
   }
 
@@ -182,7 +182,7 @@ export class Builder {
    * @usage `.where(['status', { col: 'type_id', param: 'type' }])`
    */
   public where(fields: WhereDefinition[]): this {
-    this._whereFields = [...this._whereFields, ...fields];
+    this.#whereFields = [...this.#whereFields, ...fields];
     return this;
   }
 
@@ -195,7 +195,7 @@ export class Builder {
    * @usage `.whereColumn('updated_at', 'created_at')`
    */
   public whereColumn(col1: string, col2: string): this {
-    this._whereColumnFields.push({ col1, col2 });
+    this.#whereColumnFields.push({ col1, col2 });
     return this;
   }
 
@@ -208,7 +208,7 @@ export class Builder {
    * @usage `.whereLiteral('status', "'deleted'")`
    */
   public whereLiteral(col: string, value: string): this {
-    this._whereLiteralFields.push({ col, value });
+    this.#whereLiteralFields.push({ col, value });
     return this;
   }
 
@@ -221,7 +221,7 @@ export class Builder {
    * @usage `.whereIn('id', ['1', '2'])` or `.whereIn('id', subquery)`
    */
   public whereIn(col: string, target: string[] | Builder): this {
-    this._whereInFields.push({ col, target });
+    this.#whereInFields.push({ col, target });
     return this;
   }
 
@@ -233,7 +233,7 @@ export class Builder {
    * @usage `.whereRaw("json_extract(meta, '$.id') = '123'")`
    */
   public whereRaw(condition: string): this {
-    this._whereRawFields.push(condition);
+    this.#whereRawFields.push(condition);
     return this;
   }
 
@@ -247,10 +247,10 @@ export class Builder {
    * @impact Changes mode to 'CREATE_INDEX'.
    */
   public createIndex(indexName: string, columns: string[]): this {
-    this._mode = "CREATE_INDEX";
-    this._indexName = indexName;
-    this._indexColumns = columns;
-    this._ifNotExists = true;
+    this.#mode = "CREATE_INDEX";
+    this.#indexName = indexName;
+    this.#indexColumns = columns;
+    this.#ifNotExists = true;
     return this;
   }
 
@@ -261,7 +261,7 @@ export class Builder {
    * @returns {this} The current Builder instance for chaining.
    */
   public limit(n: number): this {
-    this._limit = n;
+    this.#limit = n;
     return this;
   }
 
@@ -272,7 +272,7 @@ export class Builder {
    * @returns {this} The current Builder instance for chaining.
    */
   public offset(n: number): this {
-    this._offset = n;
+    this.#offset = n;
     return this;
   }
 
@@ -284,7 +284,7 @@ export class Builder {
    * @usage `.insert(['name']).returning(['id'])`
    */
   public returning(fields: string[] = ["*"]): this {
-    this._returningFields = fields;
+    this.#returningFields = fields;
     return this;
   }
 
@@ -296,7 +296,7 @@ export class Builder {
    * @usage `.selectRaw('COUNT(*) as total')`
    */
   public selectRaw(rawSql: string): this {
-    this._rawFunctionFields.push(rawSql);
+    this.#rawFunctionFields.push(rawSql);
     return this;
   }
 
@@ -320,7 +320,7 @@ export class Builder {
     const sql = `CASE ${branchStrings} ${
       elseValue ? `ELSE ${elseValue} ` : ""
     }END as ${alias}`;
-    this._rawFunctionFields.push(sql);
+    this.#rawFunctionFields.push(sql);
     return this;
   }
 
@@ -347,7 +347,7 @@ export class Builder {
       parts.push(`ORDER BY ${orders}`);
     }
     const winSpec = parts.join(" ");
-    this._rawFunctionFields.push(`${def.func} OVER(${winSpec}) as ${alias}`);
+    this.#rawFunctionFields.push(`${def.func} OVER(${winSpec}) as ${alias}`);
     return this;
   }
 
@@ -359,7 +359,7 @@ export class Builder {
    * @returns {this} The current Builder instance for chaining.
    */
   public orderBy(field: string, dir: "ASC" | "DESC" = "ASC"): this {
-    this._orderBy.push({ field, dir });
+    this.#orderBy.push({ field, dir });
     return this;
   }
 
@@ -370,7 +370,7 @@ export class Builder {
    * @returns {this} The current Builder instance for chaining.
    */
   public groupBy(fields: string[]): this {
-    this._groupBy = fields;
+    this.#groupBy = fields;
     return this;
   }
 
@@ -387,7 +387,7 @@ export class Builder {
     onOrAlias: string,
     onCondition?: string,
   ): this {
-    return this._addJoin("LEFT", target, onOrAlias, onCondition);
+    return this.#addJoin("LEFT", target, onOrAlias, onCondition);
   }
 
   /**
@@ -403,7 +403,7 @@ export class Builder {
     onOrAlias: string,
     onCondition?: string,
   ): this {
-    return this._addJoin("INNER", target, onOrAlias, onCondition);
+    return this.#addJoin("INNER", target, onOrAlias, onCondition);
   }
 
   /**
@@ -419,21 +419,21 @@ export class Builder {
     onOrAlias: string,
     onCondition?: string,
   ): this {
-    return this._addJoin("RIGHT", target, onOrAlias, onCondition);
+    return this.#addJoin("RIGHT", target, onOrAlias, onCondition);
   }
 
-  private _addJoin(
+  #addJoin(
     type: string,
     target: string | Builder,
     arg2: string,
     arg3?: string,
   ): this {
     if (typeof target === "string") {
-      this._joins.push({ type, target, on: arg2 });
+      this.#joins.push({ type, target, on: arg2 });
     } else {
       const alias = arg2;
       const on = arg3!;
-      this._joins.push({ type, target: `(${target.build()}) ${alias}`, on });
+      this.#joins.push({ type, target: `(${target.build()}) ${alias}`, on });
     }
     return this;
   }
@@ -459,7 +459,6 @@ export class Builder {
   /**
    * @function search
    * @description Configures a SELECT query with LIKE filters across multiple columns.
-   * Génère une clause WHERE utilisant le paramètre nommé `@search_term` pour chaque colonne ciblée.
    * @param {string[]} searchFields - Columns to search in.
    * @param {(string | { col: string, param: string })[]} [additionalFilters=[]] - Additional WHERE conditions.
    * @returns {this} The current Builder instance for chaining.
@@ -470,9 +469,9 @@ export class Builder {
     searchFields: string[],
     additionalFilters: WhereDefinition[] = [],
   ): this {
-    this._mode = "SELECT";
-    this._searchFields = searchFields;
-    this._whereFields = additionalFilters;
+    this.#mode = "SELECT";
+    this.#searchFields = searchFields;
+    this.#whereFields = additionalFilters;
     return this;
   }
 
@@ -483,131 +482,143 @@ export class Builder {
    * @throws {Error} If the query mode is unknown.
    */
   public build(): string {
-    switch (this._mode) {
+    switch (this.#mode) {
       case "SELECT": {
-        let allFields = [...this._fields, ...this._rawFunctionFields];
-        if (
-          this._fields.length === 1 &&
-          this._fields[0] === "*" &&
-          this._rawFunctionFields.length > 0
-        ) {
-          allFields = this._rawFunctionFields;
-        } else if (
-          this._fields.length === 0 &&
-          this._rawFunctionFields.length > 0
-        ) {
-          allFields = this._rawFunctionFields;
-        } else if (
-          this._fields.length === 0 &&
-          this._rawFunctionFields.length === 0
-        ) {
-          allFields = ["*"];
-        }
+        // let allFields = [...this.#fields, ...this.#rawFunctionFields];
+        // if (
+        //   this.#fields.length === 1 &&
+        //   this.#fields[0] === "*" &&
+        //   this.#rawFunctionFields.length > 0
+        // ) {
+        //   allFields = this.#rawFunctionFields;
+        // } else if (
+        //   this.#fields.length === 0 &&
+        //   this.#rawFunctionFields.length > 0
+        // ) {
+        //   allFields = this.#rawFunctionFields;
+        // } else if (
+        //   this.#fields.length === 0 &&
+        //   this.#rawFunctionFields.length === 0
+        // ) {
+        //   allFields = ["*"];
+        // }
 
-        let sql = `SELECT ${allFields.join(", ")} FROM ${this._table}`;
-        if (this._tableAlias) sql += ` ${this._tableAlias}`;
-        if (this._joins.length > 0) {
-          sql += ` ${this._joins
+        const fields = this.#fields;
+        const rawFields = this.#rawFunctionFields;
+
+        const noSpecificFields =
+          fields.length === 0 || (fields.length === 1 && fields[0] === "*");
+
+        const allFields = noSpecificFields
+          ? rawFields.length > 0
+            ? rawFields
+            : ["*"]
+          : [...fields, ...rawFields];
+
+        let sql = `SELECT ${allFields.join(", ")} FROM ${this.#table}`;
+        if (this.#tableAlias) sql += ` ${this.#tableAlias}`;
+        if (this.#joins.length > 0) {
+          sql += ` ${this.#joins
             .map((j) => `${j.type} JOIN ${j.target} ON ${j.on}`)
             .join(" ")}`;
         }
 
-        sql += this._buildWhereClause();
+        sql += this.#buildWhereClause();
 
-        if (this._groupBy.length > 0)
-          sql += ` GROUP BY ${this._groupBy.join(", ")}`;
-        if (this._orderBy.length > 0) {
-          sql += ` ORDER BY ${this._orderBy
+        if (this.#groupBy.length > 0)
+          sql += ` GROUP BY ${this.#groupBy.join(", ")}`;
+        if (this.#orderBy.length > 0) {
+          sql += ` ORDER BY ${this.#orderBy
             .map((o) => `${o.field} ${o.dir}`)
             .join(", ")}`;
         }
-        if (this._limit) sql += ` LIMIT ${this._limit}`;
-        if (this._offset) sql += ` OFFSET ${this._offset}`;
+        if (this.#limit) sql += ` LIMIT ${this.#limit}`;
+        if (this.#offset) sql += ` OFFSET ${this.#offset}`;
         return sql;
       }
 
       case "COUNT": {
-        let sql = `SELECT COUNT(*) as count FROM ${this._table}`;
-        if (this._joins.length > 0) {
-          sql += ` ${this._joins
+        let sql = `SELECT COUNT(*) as count FROM ${this.#table}`;
+        if (this.#joins.length > 0) {
+          sql += ` ${this.#joins
             .map((j) => `${j.type} JOIN ${j.target} ON ${j.on}`)
             .join(" ")}`;
         }
-        sql += this._buildWhereClause();
+        sql += this.#buildWhereClause();
         return sql;
       }
 
       case "CREATE_INDEX":
-        return `CREATE INDEX ${this._ifNotExists ? "IF NOT EXISTS " : ""}${
-          this._indexName
-        } ON ${this._table}(${this._indexColumns.join(", ")})`;
+        return `CREATE INDEX ${this.#ifNotExists ? "IF NOT EXISTS " : ""}${
+          this.#indexName
+        } ON ${this.#table}(${this.#indexColumns.join(", ")})`;
 
       case "INSERT": {
-        const placeholders = this._fields.map((f) => `@${f}`).join(", ");
-        let sql = `INSERT INTO ${this._table} (${this._fields.join(
+        const placeholders = this.#fields.map((f) => `@${f}`).join(", ");
+        let sql = `INSERT INTO ${this.#table} (${this.#fields.join(
           ", ",
         )}) VALUES (${placeholders})`;
-        if (this._returningFields.length > 0)
-          sql += ` RETURNING ${this._returningFields.join(", ")}`;
+        if (this.#returningFields.length > 0)
+          sql += ` RETURNING ${this.#returningFields.join(", ")}`;
         return sql;
       }
 
       case "UPDATE": {
-        const sets = this._updateFields.map((f) => `${f} = @${f}`).join(", ");
-        let sql = `UPDATE ${this._table} SET ${sets}`;
-        sql += this._buildWhereClause();
-        if (this._returningFields.length > 0)
-          sql += ` RETURNING ${this._returningFields.join(", ")}`;
+        const sets = this.#updateFields.map((f) => `${f} = @${f}`).join(", ");
+        let sql = `UPDATE ${this.#table} SET ${sets}`;
+        sql += this.#buildWhereClause();
+        if (this.#returningFields.length > 0)
+          sql += ` RETURNING ${this.#returningFields.join(", ")}`;
         return sql;
       }
 
       case "DELETE": {
-        let sql = `DELETE FROM ${this._table}`;
-        sql += this._buildWhereClause();
-        if (this._returningFields.length > 0)
-          sql += ` RETURNING ${this._returningFields.join(", ")}`;
+        let sql = `DELETE FROM ${this.#table}`;
+        sql += this.#buildWhereClause();
+        if (this.#returningFields.length > 0)
+          sql += ` RETURNING ${this.#returningFields.join(", ")}`;
         return sql;
       }
 
       case "UPSERT": {
-        const uCols = this._fields.join(", ");
-        const uVals = this._fields.map((f) => `@${f}`).join(", ");
-        let sql = `INSERT INTO ${this._table} (${uCols}) VALUES (${uVals})`;
-        if (this._conflictTargets.length > 0) {
-          sql += ` ON CONFLICT(${this._conflictTargets.join(
+        const uCols = this.#fields.join(", ");
+        const uVals = this.#fields.map((f) => `@${f}`).join(", ");
+        let sql = `INSERT INTO ${this.#table} (${uCols}) VALUES (${uVals})`;
+        if (this.#conflictTargets.length > 0) {
+          sql += ` ON CONFLICT(${this.#conflictTargets.join(
             ", ",
           )}) DO UPDATE SET `;
-          const setClauses = this._updateFields.map(
+          const setClauses = this.#updateFields.map(
             (f) => `${f} = excluded.${f}`,
           );
           sql += setClauses.join(", ");
         }
-        if (this._returningFields.length > 0)
-          sql += ` RETURNING ${this._returningFields.join(", ")}`;
+        if (this.#returningFields.length > 0)
+          sql += ` RETURNING ${this.#returningFields.join(", ")}`;
         return sql;
       }
     }
-    throw new Error(`Unknown QueryBuilder mode: ${this._mode}`);
+    throw new Error(`Unknown QueryBuilder mode: ${this.#mode}`);
   }
 
   /**
-   * @function _buildWhereClause
+   * @function #buildWhereClause
    * @description Internal helper to construct the WHERE portion of queries.
    * @private
    * @returns {string} The constructed WHERE clause (including leading space).
    */
-  private _buildWhereClause(): string {
+  #buildWhereClause(): string {
     const conditions: string[] = [];
 
-    if (this._searchFields.length > 0) {
-      const orClause = this._searchFields
+    if (this.#searchFields.length > 0) {
+      const orClause = this.#searchFields
         .map((f) => `${f} LIKE @search_term`)
         .join(" OR ");
       conditions.push(`(${orClause})`);
     }
 
-    if (this._whereFields.length > 0) {
-      const andClause = this._whereFields
+    if (this.#whereFields.length > 0) {
+      const andClause = this.#whereFields
         .map((f) => {
           if (typeof f === "string") return `${f} = @${f}`;
           return `${f.col} = @${f.param}`;
@@ -616,26 +627,26 @@ export class Builder {
       conditions.push(andClause);
     }
 
-    if (this._whereColumnFields.length > 0) {
-      const colClause = this._whereColumnFields
+    if (this.#whereColumnFields.length > 0) {
+      const colClause = this.#whereColumnFields
         .map((f) => `${f.col1} = ${f.col2}`)
         .join(" AND ");
       conditions.push(colClause);
     }
 
-    if (this._whereLiteralFields.length > 0) {
-      const litClause = this._whereLiteralFields
+    if (this.#whereLiteralFields.length > 0) {
+      const litClause = this.#whereLiteralFields
         .map((f) => `${f.col} = ${f.value}`)
         .join(" AND ");
       conditions.push(litClause);
     }
 
-    if (this._whereRawFields.length > 0) {
-      conditions.push(this._whereRawFields.join(" AND "));
+    if (this.#whereRawFields.length > 0) {
+      conditions.push(this.#whereRawFields.join(" AND "));
     }
 
-    if (this._whereInFields.length > 0) {
-      this._whereInFields.forEach((f) => {
+    if (this.#whereInFields.length > 0) {
+      this.#whereInFields.forEach((f) => {
         const targetStr = Array.isArray(f.target)
           ? `(${f.target.map((v) => `'${v}'`).join(", ")})`
           : `(${f.target.build()})`;
@@ -661,7 +672,7 @@ export class Builder {
   ): string {
     const placeholders = fields.map((f) => `@${f}`).join(", ");
     const updates = updateFields.map((f) => `${f} = excluded.${f}`).join(", ");
-    return `INSERT INTO ${this._table} (${fields.join(
+    return `INSERT INTO ${this.#table} (${fields.join(
       ", ",
     )}) VALUES (${placeholders}) ON CONFLICT(${conflictTarget}) DO UPDATE SET ${updates}`;
   }
@@ -675,7 +686,7 @@ export class Builder {
    */
   public insertIgnore(fields: string[], conflictTargets: string[]): string {
     const placeholders = fields.map((f) => `@${f}`).join(", ");
-    return `INSERT INTO ${this._table} (${fields.join(
+    return `INSERT INTO ${this.#table} (${fields.join(
       ", ",
     )}) VALUES (${placeholders}) ON CONFLICT(${conflictTargets.join(
       ", ",

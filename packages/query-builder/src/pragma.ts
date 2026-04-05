@@ -3,7 +3,7 @@
  * @description Fluent builder for SQLite PRAGMA statements.
  */
 export class PragmaBuilder {
-  private _statements: string[] = [];
+  #statements: string[] = [];
 
   /**
    * @function foreignKeys
@@ -12,7 +12,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public foreignKeys(on: boolean = true): this {
-    this._statements.push(`PRAGMA foreign_keys = ${on ? "ON" : "OFF"};`);
+    this.#statements.push(`PRAGMA foreign_keys = ${on ? "ON" : "OFF"};`);
     return this;
   }
 
@@ -25,7 +25,7 @@ export class PragmaBuilder {
   public journalMode(
     mode: "WAL" | "DELETE" | "MEMORY" | "TRUNCATE" | "PERSIST" | "OFF",
   ): this {
-    this._statements.push(`PRAGMA journal_mode = ${mode};`);
+    this.#statements.push(`PRAGMA journal_mode = ${mode};`);
     return this;
   }
 
@@ -36,7 +36,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public synchronous(level: "OFF" | "NORMAL" | "FULL" | "EXTRA"): this {
-    this._statements.push(`PRAGMA synchronous = ${level};`);
+    this.#statements.push(`PRAGMA synchronous = ${level};`);
     return this;
   }
 
@@ -47,7 +47,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public cacheSize(size: number): this {
-    this._statements.push(`PRAGMA cache_size = ${size};`);
+    this.#statements.push(`PRAGMA cache_size = ${size};`);
     return this;
   }
 
@@ -58,7 +58,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public tempStore(location: "DEFAULT" | "FILE" | "MEMORY"): this {
-    this._statements.push(`PRAGMA temp_store = ${location};`);
+    this.#statements.push(`PRAGMA temp_store = ${location};`);
     return this;
   }
 
@@ -70,7 +70,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public raw(key: string, value: string | number): this {
-    this._statements.push(`PRAGMA ${key} = ${value};`);
+    this.#statements.push(`PRAGMA ${key} = ${value};`);
     return this;
   }
 
@@ -81,7 +81,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public busyTimeout(ms: number): this {
-    this._statements.push(`PRAGMA busy_timeout = ${ms};`);
+    this.#statements.push(`PRAGMA busy_timeout = ${ms};`);
     return this;
   }
 
@@ -92,7 +92,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public mmap_size(bytes: number): this {
-    this._statements.push(`PRAGMA mmap_size = ${bytes};`);
+    this.#statements.push(`PRAGMA mmap_size = ${bytes};`);
     return this;
   }
 
@@ -103,7 +103,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public pageSize(bytes: number): this {
-    this._statements.push(`PRAGMA page_size = ${bytes};`);
+    this.#statements.push(`PRAGMA page_size = ${bytes};`);
     return this;
   }
 
@@ -114,7 +114,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public autoVacuum(mode: "NONE" | "FULL" | "INCREMENTAL"): this {
-    this._statements.push(`PRAGMA auto_vacuum = ${mode};`);
+    this.#statements.push(`PRAGMA auto_vacuum = ${mode};`);
     return this;
   }
 
@@ -124,7 +124,7 @@ export class PragmaBuilder {
    * @returns {this}
    */
   public optimize(): this {
-    this._statements.push(`PRAGMA optimize;`);
+    this.#statements.push(`PRAGMA optimize;`);
     return this;
   }
 
@@ -134,6 +134,6 @@ export class PragmaBuilder {
    * @returns {string} Combined PRAGMA statements.
    */
   public build(): string {
-    return this._statements.join("\n");
+    return this.#statements.join("\n");
   }
 }

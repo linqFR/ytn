@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { QueryBuilder } from '../src/index.js';
 
 describe('Query Construction Verification', () => {
