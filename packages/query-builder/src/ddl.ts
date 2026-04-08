@@ -1,4 +1,4 @@
-import { isZodDefault, isZodOptional, unwrapZod, unwrapZodDeep } from "@shared/zod/zod-reflection.js";
+import { isZodDefault, isZodOptional, unwrapZodDeep } from "@ytn/shared/zod/zod-reflection.js";
 import { z } from "zod";
 import { Introspector } from "./introspection.js";
 import { DDLOptions } from "./types.js";

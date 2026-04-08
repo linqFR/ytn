@@ -1,10 +1,10 @@
 import {
-  QueryMode,
+  CaseBranch,
   JoinDefinition,
   OrderByDefinition,
+  QueryMode,
   WhereDefinition,
   WhereInDefinition,
-  CaseBranch,
   WindowDefinition,
 } from "./types.js";
 
