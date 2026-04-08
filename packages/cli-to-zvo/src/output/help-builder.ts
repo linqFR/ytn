@@ -1,4 +1,8 @@
 import type {
+  tsTargetFieldName,
+  tsTargetName,
+} from "../config/parse-args.js";
+import type {
   IProcessedContract,
   OHelpArg,
   OHelpCase,
@@ -7,10 +11,6 @@ import type {
   tsProcessedFlag,
   tsProcessedTarget,
 } from "../types/contract.types.js";
-import type {
-  tsTargetFieldName,
-  tsTargetName,
-} from "../config/parse-args.js";
 
 /**
  * @function buildHelp

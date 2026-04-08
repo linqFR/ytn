@@ -25,16 +25,18 @@ export const contractCLiFlagSchema = z.object({
   desc: z.string().optional(),
 });
 
+const contractCliSchemaBase = z
+  .object({
+    positionals: z.array(ParseArgFlagNameSchema).optional(),
+    flags: z.record(ParseArgFlagNameSchema, contractCLiFlagSchema).optional(),
+  })
+
 /**
  * @constant {z.ZodObject} contractCliSchema
  * @description Internal schema used for mapping parsed arguments to their target definitions.
  * Strictly compatible with node:util.parseArgs options.
  */
-export const contractCliSchema = z
-  .object({
-    positionals: z.array(ParseArgFlagNameSchema).optional(),
-    flags: z.record(ParseArgFlagNameSchema, contractCLiFlagSchema).optional(),
-  })
+export const contractCliSchema = contractCliSchemaBase
   .superRefine((contract, ctx) => {
     // Verify that the CLI block has at least one entry point
     const hasPos = !!contract.positionals?.length;
@@ -67,6 +69,10 @@ export const contractCliSchema = z
       });
   });
 
+
+const contractFieldTargetSchemaBase = z
+    .record(ParseArgObjectNameSchema, picoSchema())
+
 /**
  * @constant {z.ZodRecord} contractTargetSchema
  * @description Defines the core structure of the targets block.
@@ -74,8 +80,7 @@ export const contractCliSchema = z
  */
 export const contractTargetSchema = z.record(
   ParseArgObjectNameSchema,
-  z
-    .record(ParseArgObjectNameSchema, picoSchema())
+  contractFieldTargetSchemaBase
     .refine((fields) => Object.keys(fields).length > 0, {
       message: "A target must have at least one defined field.",
     }),

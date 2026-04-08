@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pico, ContractSchema } from "../src/index.js";
+import { pico, ContractSchema } from "../src/editor.js";
 
 describe("CliContractSchema", () => {
   it("should validate a correct hybrid contract (with positional and flag)", () => {
@@ -26,7 +26,7 @@ describe("CliContractSchema", () => {
 
     const result = ContractSchema.safeParse(contract);
     if (!result.success) {
-      console.error(JSON.stringify(result.error.issues, null, 2));
+      // console.error(JSON.stringify(result.error.issues, null, 2));
     }
     expect(result.success).toBe(true);
   });
@@ -211,7 +211,7 @@ describe("CliContractSchema", () => {
         flags: {
           verbose: { type: "boolean", short: "v" },
           force: { type: "boolean", short: "f" },
-          help: { type: "boolean", short: "h"},
+          help: { type: "boolean", short: "h" },
         },
       },
       targets: {
@@ -241,13 +241,13 @@ describe("CliContractSchema", () => {
     if (result.success) {
       const data = result.data as any;
 
-      console.log("======================= helpTARGET problem ==========================")
+      // console.log("======================= helpTARGET problem ==========================")
 
-      // Affichage pour le debug
-      console.log(
-        "Discriminants:",
-        JSON.stringify(data.routing.discriminants, null, 2),
-      );
+      // // Debug display
+      // console.log(
+      //   "Discriminants:",
+      //   JSON.stringify(data.routing.discriminants, null, 2),
+      // );
 
       const bitGroups = new Map<string, string[]>();
       Object.entries(data.targets).forEach(([name, target]) => {
@@ -256,20 +256,20 @@ describe("CliContractSchema", () => {
         bitGroups.get(code)!.push(name);
       });
 
-      console.log(
-        "BitGroups:",
-        Array.from(bitGroups.entries()).map(([k, v]) => ({
-          code: k,
-          targets: v,
-        })),
-      );
+      // console.log(
+      //   "BitGroups:",
+      //   Array.from(bitGroups.entries()).map(([k, v]) => ({
+      //     code: k,
+      //     targets: v,
+      //   })),
+      // );
 
-      // Vérification discriminants
+      // Discriminant verification
       expect(data.routing.discriminants.command).toContain("cp");
       expect(data.routing.discriminants.command).toContain("mv");
       expect(data.routing.discriminants.command).toContain("rm");
 
-      // Vérification grouping par bits via targets
+      // Bit-based grouping verification via targets
       expect(
         Array.from(bitGroups.values()).some(
           (g) => g.includes("copyTarget") && g.includes("moveTarget"),
@@ -281,17 +281,13 @@ describe("CliContractSchema", () => {
         ),
       ).toBe(true);
 
-
-
       // Signature format: mask:values...
-      expect(
-        data.routing.router[`7:cp:`],
-      ).toBe("copyTarget");
-      expect(
-        data.routing.router[`16::true`],
-      ).toBe("helpTarget");
+      expect(data.routing.router[`7:cp:`]).toBe("copyTarget");
+      expect(data.routing.router[`16::true`]).toBe("helpTarget");
       expect((data.targets.copyTarget as any).targetCode.toString()).toBe("7");
-      expect((data.targets.deleteTarget as any).targetCode.toString()).toBe("11");
+      expect((data.targets.deleteTarget as any).targetCode.toString()).toBe(
+        "11",
+      );
       expect((data.targets.helpTarget as any).targetCode.toString()).toBe("16");
 
       // Bit check
@@ -322,7 +318,7 @@ describe("CliContractSchema", () => {
     if (result.success) {
       const data = result.data as any;
 
-      // Simulation : l'utilisateur a fourni "command" (positional) et "v" (flag)
+      // Simulation: user provided "command" (positional) and "v" (flag)
       const providedArgs = ["command", "v"];
       let dynamicBitset = 0;
       providedArgs.forEach((arg) => {
@@ -330,7 +326,7 @@ describe("CliContractSchema", () => {
         if (bit) dynamicBitset |= bit;
       });
 
-      // Résolution via les targets
+      // Resolution via targets
       const possibleTargets = Object.entries(data.targets)
         .filter(([_, t]: any) => t.targetCode === dynamicBitset)
         .map(([name]) => name);
@@ -338,20 +334,20 @@ describe("CliContractSchema", () => {
       expect(possibleTargets).toContain("one");
       expect(possibleTargets).toContain("two");
 
-      // Résolution DIRECTE via le router (O(1))
+      // DIRECT resolution via router (O(1))
       // Signature = mask:literals...
       const signature = `3:1`;
       const finalTarget = data.routing.router[signature];
       expect(finalTarget).toBe("one");
 
-      console.log(
-        `Resolved targets for bitset ${dynamicBitset.toString()}:`,
-        possibleTargets,
-      );
-      console.log(
-        `Final O(1) resolution for signature "${signature}":`,
-        finalTarget,
-      );
+      // console.log(
+      //   `Resolved targets for bitset ${dynamicBitset.toString()}:`,
+      //   possibleTargets,
+      // );
+      // console.log(
+      //   `Final O(1) resolution for signature "${signature}":`,
+      //   finalTarget,
+      // );
     }
   });
 });

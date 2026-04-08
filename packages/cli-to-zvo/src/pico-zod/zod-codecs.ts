@@ -3,25 +3,8 @@ import { z } from "zod";
 /**
  * Utility to parse comma-separated strings into arrays.
  */
-export const parseCommaSeparated = (val: unknown): string[] =>
-  typeof val === "string" ? val.split(",").map((s) => s.trim()) : [];
-
-/**
- * @function safeJSONParse
- * @description Safely parses a JSON string, returning a tuple with error or result.
- * @param {string} text - The JSON string to parse.
- * @returns {[Error | null, unknown]} A tuple of [Error | null, ParsedData | undefined].
- */
-const safeJSONParse = (text: string): [Error | null, unknown] => {
-  try {
-    return [null, JSON.parse(text)];
-  } catch (error) {
-    return [
-      error instanceof Error ? error : new Error(String(error)),
-      undefined,
-    ];
-  }
-};
+// export const parseCommaSeparated = (val: unknown): string[] =>
+//   typeof val === "string" ? val.split(",").map((s) => s.trim()) : [];
 
 /**
  * Utility to handle empty or specific strings ("null", "undefined") as null/undefined values.
@@ -41,94 +24,6 @@ export const makeEmptyTo = <T extends z.ZodTypeAny>(
     }, fallback),
   );
 
-/**
- * @constant {z.ZodCodec} stringListCodec
- * @description Zod codec for comma-separated string lists.
- */
-export const stringListCodec = z.codec(z.string(), z.array(z.string()), {
-  decode: (v: string) => parseCommaSeparated(v),
-  encode: (v: string[]) => v.join(", "),
-});
-
-/**
- * @constant {z.ZodCodec} jsonCodec
- * @description Zod codec for parsing JSON strings into JavaScript objects.
- */
-export const jsonCodec = z.codec(z.string(), z.any(), {
-  decode: (val: string, ctx) => {
-    const [err, res] = safeJSONParse(val);
-    if (err) {
-      if (ctx) {
-        ctx.issues.push({
-          code: "custom",
-          message: `Invalid JSON format: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-          input: val,
-        });
-      }
-      return z.NEVER;
-    }
-    return res;
-  },
-  encode: (val: unknown) => JSON.stringify(val),
-});
-
-/**
- * @constant {z.ZodCodec} jsonlCodec
- * @description Zod codec for JSON Lines (newline-separated JSON objects).
- */
-export const jsonlCodec = z.codec(z.string(), z.unknown().array(), {
-  decode: (v: string, ctx) => {
-    const lines = v.split("\n").filter((line) => line.trim() !== "");
-    return lines.map((line, idx) => {
-      const [err, res] = safeJSONParse(line);
-      if (err) {
-        if (ctx) {
-          ctx.issues.push({
-            code: "custom",
-            message: `Invalid JSON format: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-            input: line,
-            path: ["line", idx],
-          });
-        }
-        return z.NEVER;
-      }
-      return res;
-    });
-  },
-  encode: (arr: unknown[]) => arr.map((val) => JSON.stringify(val)).join("\n"),
-});
-
-/**
- * @constant {z.ZodCodec} jsonSchemaCodec
- * @description Zod Codec for string <-> JSON Schema <-> Zod schema
- */
-export const jsonSchemaCodec = z.codec(z.string(), z.instanceof(z.ZodType), {
-  // convert a JSONSchema string to convert it to a ZodType objet
-  decode: (v: string, ctx) => {
-    const [err, objSchema] = safeJSONParse(v);
-    if (err) {
-      ctx.issues.push({
-        code: "invalid_format",
-        input: v,
-        format: "json_string",
-      });
-      return z.NEVER;
-    }
-    const params = {};
-    const zodSchema = z.fromJSONSchema(objSchema as never, params);
-    return zodSchema;
-  },
-  // convert a ZodType Object to a schema, then to a JSONSchema string
-  encode: (zSchema: z.ZodType) => {
-    const params: z.core.ToJSONSchemaParams = {};
-    const jsonschema = (zSchema as z.ZodJSONSchema).toJSONSchema(params);
-    return JSON.stringify(jsonschema);
-  },
-});
 
 /**
  * @function csvPreProcess
@@ -148,6 +43,7 @@ export const jsonSchemaCodec = z.codec(z.string(), z.instanceof(z.ZodType), {
  * @returns {T} A pure collection schema that performs internal CSV splitting.
  */
 import { bridgeZod } from "./sealer.js";
+import { parseCommaSeparated } from "@ytn/shared/js/str-ops.js";
 
 /**
  * @function csvPreProcess

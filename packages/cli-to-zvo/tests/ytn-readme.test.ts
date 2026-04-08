@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { cliToZod, pico, type tsContract } from "../src/index.js";
-import { parseCli } from "../src/core/cli-parser.js";
+import { pico, type tsContract } from "../src/editor.js";
+import { createContract } from "../src/editor.js";
+import { execute } from "../src/index.js";
 
 describe("README CLI Example", () => {
   it("should parse and validate the deployment command correctly", () => {
@@ -21,24 +22,21 @@ describe("README CLI Example", () => {
       targets: {
         deploy: {
           env: pico.string(),
-          verbose: pico.boolean(),
+          verbose: "boolean",
         },
       },
     };
-    // 2. Encapsulated Parsing & Validation
-    const processed = cliToZod(contract);
-    const { parsingArgs, parseArgsResultParser, zvoSchema } = processed;
-    const res = parseCli(["prod", "--verbose"], parsingArgs, parseArgsResultParser, zvoSchema);
-    if (!res.success) throw res.error;
-    const result = res.data;
-
-
+    // 2. Encapsulated Parsing & Validation (following README Step 4)
+    const processed = createContract(contract);
+    const result = execute(processed, ["prod", "--verbose"]);
 
     // Assertions
-    expect(result.route).toBe("deploy");
-    if (result.route === "deploy") {
-      expect(result.data.env).toBe("prod");
-      expect(result.data.verbose).toBe(true);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const { route, data } = result.data;
+      expect(route).toBe("deploy");
+      expect(data.env).toBe("prod");
+      expect(data.verbose).toBe(true);
     }
   });
 
@@ -59,22 +57,19 @@ describe("README CLI Example", () => {
       targets: {
         deploy: {
           env: pico.string(),
-          verbose: pico.boolean(),
+          verbose: "boolean",
         },
       },
     };
-    const processed = cliToZod(contract);
-    const { parsingArgs, parseArgsResultParser, zvoSchema } = processed;
-    const res = parseCli(["dev", "-v"], parsingArgs, parseArgsResultParser, zvoSchema);
-    if (!res.success) throw res.error;
-    const result = res.data;
+    const processed = createContract(contract);
+    const result = execute(processed, ["dev", "-v"]);
 
-
-
-    expect(result.route).toBe("deploy");
-    if (result.route === "deploy") {
-      expect(result.data.env).toBe("dev");
-      expect(result.data.verbose).toBe(true);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const { route, data } = result.data;
+      expect(route).toBe("deploy");
+      expect(data.env).toBe("dev");
+      expect(data.verbose).toBe(true);
     }
   });
 });

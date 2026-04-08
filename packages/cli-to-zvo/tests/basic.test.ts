@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { cliToZod, ContractSchema, pico, tsContract } from "../src/index.js";
+// import { cliToZod, ContractSchema, pico, tsContract } from "../src/index.js";
 
-import { ZvoTestGate } from "./zvo-gate.test.js";
+import { ContractSchema, createContract, pico, type tsContract } from "../src/editor.js";
+import { compileZvoTestGate } from "./zvo-gate.test.js";
+// import { createContract } from "../src/editor/contract-create.js";
 
 describe("cli-to-zvo basic verification", () => {
   it("should process a basic contract", () => {
@@ -25,13 +27,13 @@ describe("cli-to-zvo basic verification", () => {
     };
 
     const processed = ContractSchema.parse(contract);
-    const testGate = new ZvoTestGate(processed);
-    const tools = cliToZod(contract);
-    expect(testGate.testSchema).toBeDefined();
+    const testSchema = compileZvoTestGate(processed);
+    const tools = createContract(contract);
+    expect(testSchema).toBeDefined();
     expect(tools.router).toBeDefined();
 
     const data = { flag: true };
-    const result = testGate.testSchema.parse(data);
+    const result = testSchema.parse(data);
 
     // Local check
     expect(result.route).toBe("run");

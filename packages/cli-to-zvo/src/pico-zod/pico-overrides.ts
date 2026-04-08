@@ -1,3 +1,4 @@
+import { jsonCodec, jsonlCodec, jsonSchemaCodec } from "@ytn/shared/zod/codecs.js";
 import { z } from "zod";
 import {
   type ISealedInterface, toZod,
@@ -5,9 +6,6 @@ import {
 } from "./sealer.js";
 import {
   csvPreProcess,
-  jsonCodec,
-  jsonlCodec,
-  jsonSchemaCodec,
   makeEmptyTo,
 } from "./zod-codecs.js";
 

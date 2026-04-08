@@ -1,19 +1,19 @@
-import { Contract } from "./core/contract.js";
-import { ContractSchema, type tsContractIN } from "./schema/contract.schema.js";
+// NOTE: Muse contain functions to run a processed contract with parcli
 
-export type { tsContractIN as tsContract };
+export {
+  isResponseOk,
+  isResponseErr,
+  isSafeResponse,
+} from "./runtime/response-check.js";
 
 export type {
   OHelpData,
-  OResponse,
   OHelpOptions,
-  IProcessedContract as tsProcessedContract,
+  IProcessedContract,
+  OSafeResult,
 } from "./types/contract.types.js";
-
-export * from "./config/pico-config.js";
-
-export { cliToZod, cliToZVO } from "./core/cli-to-z.js";
 
 export { printHelp } from "./output/help-printer.js";
 
-export { Contract, ContractSchema };
+export { execute } from "./runtime/execute.js";
+export { execWithFile } from "./runtime/excute-loader.js";

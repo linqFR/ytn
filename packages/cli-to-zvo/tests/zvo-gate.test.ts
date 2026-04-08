@@ -1,30 +1,28 @@
 import { z } from "zod";
-import { ZvoGate } from "../src/cli-engine/gate.js";
+import { compileZvoGate } from "../src/core/gate.js";
 import { tsGate, IProcessedContract } from "../src/types/contract.types.js";
 import { computeRoutingDiscriminant } from "../src/cli-engine/runtime-tools.js";
 
 /**
- * @class ZvoTestGate
- * @extends ZvoGate
+ * @function compileZvoTestGate
  * @description Specialized gate helper for testing raw objects by auto-computing their routing discriminant.
- * Revised to match the current computeRoutingDiscriminant signature and dependency mapping.
+ * This is a functional refactoring of the previous ZvoTestGate class.
+ *
+ * @param {IProcessedContract} processed - The fully compiled contract metadata.
+ * @returns {tsGate} An enhanced Zod schema with auto-tagging capabilities for testing.
  */
-export class ZvoTestGate extends ZvoGate {
-  /** @property {tsGate} testSchema - Enhanced schema with auto-tagging. */
-  public readonly testSchema: tsGate;
+export function compileZvoTestGate(processed: IProcessedContract): tsGate {
+  const zvoSchema = compileZvoGate(processed);
 
-  constructor(processed: IProcessedContract) {
-    super(processed);
-
-    this.testSchema = z
-      .record(z.string(), z.unknown())
-      .transform((val: any) => {
-        // Auto-compute the routing discriminant using the unified signature
-        if (!val.discriminant) {
-          val.discriminant = computeRoutingDiscriminant(val, processed);
-        }
-        return val;
-      })
-      .pipe(this.zvoSchema) as unknown as tsGate;
-  }
+  // Return a schema that auto-tags raw objects with their routing discriminant before pipeing to the gate.
+  return z
+    .record(z.string(), z.unknown())
+    .transform((val: any) => {
+      // Auto-compute the routing discriminant using the unified signature
+      if (!val.discriminant) {
+        val.discriminant = computeRoutingDiscriminant(val, processed);
+      }
+      return val;
+    })
+    .pipe(zvoSchema) as unknown as tsGate;
 }

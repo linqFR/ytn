@@ -5,7 +5,7 @@ import {
   jsonlCodec,
   jsonSchemaCodec,
   stringListCodec,
-} from "../src/pico-zod/zod-codecs.js";
+} from "@ytn/shared/zod/codecs.js";
 
 describe("listCodec", () => {
   it("should decode a comma-separated string into an array", () => {

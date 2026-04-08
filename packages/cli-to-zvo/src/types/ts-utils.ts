@@ -1,22 +1,4 @@
 /**
- * @type $Without
- * @description Utility type to ensure a type T does not contain any keys from U.
- * @template T - The base type.
- * @template U - The set of forbidden keys.
- */
-type $Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
-
-/**
- * @type $XOR
- * @description Exclusive OR of two types T or U. Used when a structure MUST match
- * exactly one of two different shapes, but not both at once.
- *
- * @template T - First mutually exclusive type.
- * @template U - Second mutually exclusive type.
- */
-export type $XOR<T, U> = (T & $Without<U, T>) | (U & $Without<T, U>);
-
-/**
  * @type $RequireAtLeastOne
  * @description Enforces that at least one property from the given set of Keys is present and defined.
  *
@@ -43,32 +25,4 @@ export type $DeepReadonly<T> = {
       ? T[P]
       : $DeepReadonly<T[P]>
     : T[P];
-};
-
-/**
- * @type $Entries
- * @description Provides a type-safe signature for the result of `Object.entries(T)`.
- *
- * @template T - The object or record type.
- */
-export type $Entries<T> = {
-  [K in keyof T]: [K, T[K]];
-}[keyof T][];
-
-/**
- * @type $Keys
- * @description Provides a type-safe signature for the result of `Object.keys(T)`.
- *
- * @template T - The object type.
- */
-export type $Keys<T> = (keyof T)[];
-
-/**
- * @type $RecordSetToArray
- * @description Transformation type that maps a record of `Set<T>` to a record of `T[]`.
- *
- * @template T - A Record where values are Sets.
- */
-export type $RecordSetToArray<T extends Record<string, Set<any>>> = {
-  [K in keyof T]: T[K] extends Set<infer I> ? I[] : never;
 };

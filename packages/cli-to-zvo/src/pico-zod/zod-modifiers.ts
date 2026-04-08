@@ -82,12 +82,11 @@ export function isForbidden(p: string | symbol): boolean {
 
 /**
  * @function isSchemaCompatible
- * @description Flexible check for Zod-compatible schemas (Standard Schema aware).
+ * @description Flexible check for Zod-compatible schemas.
+ * Priority 1: instanceof ZodType is the authoritative truth.
  */
 export const isSchemaCompatible = (v: unknown): v is z.ZodType =>
-  !!v &&
-  typeof v === "object" &&
-  ("_zod" in (v as object) || "~standard" in (v as object));
+  v instanceof z.ZodType;
 
 export const isSchemaCompatibleProp = (p: string | symbol) =>
   typeof p === "string" && ["~standard", "_zod"].includes(p);

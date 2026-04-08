@@ -29,12 +29,12 @@ npm install @ytn/czvo
 ## Quick Start
 
 ```typescript
-import { cliToZVO, pico } from "@ytn/czvo";
+import { createContract, pico } from "@ytn/czvo/editor.js";
+import { execute } from "@ytn/czvo";
 
 // 1. Define the Contract (using String DSL or pico API)
-import { type tsContract } from "@ytn/czvo";
-
-const contract: tsContract = {
+// Use createContract to compile your configuration into a reactive engine.
+const contract = createContract({
   name: "ytn",
   description: "YouTube Downloader",
   cli: {
@@ -64,14 +64,20 @@ const contract: tsContract = {
     onlyAllowedValues: false, // If true, restricts inputs for literal/enum fields at the entry level (fail-fast) (default: true)
     allowNegative: false, // If true, Allows explicitly setting boolean options to false by prefixing the option name with --no- (default: false)
   },
-};
+});
 
 // 4. Parse and Validate
-const result = cliToZVO(contract, process.argv.slice(2));
+// execute() returns an OSafeResult (Zod-compatible success/error object)
+const result = execute(contract, process.argv.slice(2));
 
-if (result.route === "dl") {
-  console.log(`Downloading ${result.data.url}...`);
-  if (result.data.verbose) console.log("Verbose mode ON");
+if (result.success) {
+  const { route, data } = result.data;
+  if (route === "dl") {
+    console.log(`Downloading ${data.url}...`);
+    if (data.verbose) console.log("Verbose mode ON");
+  }
+} else {
+  console.error("Validation failed:", result.error.issues);
 }
 ```
 
@@ -101,7 +107,8 @@ cli: {
 
 - **`fallbacks`**: (Optional) Record of targets used as catch-all routes when no primary target matches.
 - **`options`**: (Optional) Global configuration for the engine:
-  - `onlyAllowedValues`: (Optional) If `true`, restricts inputs for fields with literal/enum discriminants to those specific values at the parser level.
+  - `onlyAllowedValues`: If `true`, the engine performs an early validation on fields that use `pico.literal()` or `pico.enum()`. If the user input doesn't match a known value for that specific CLI argument, it fails immediately at the parser level. (Default: `false`).
+  - `allowNegative`: If `true`, the CLI parser enables support for Node's native negatable flags (e.g., `--no-verbose`). Boolean flags can then be explicitly set to `false` by the user. (Default: `false`).
 
 ### 2. Physical Targets (`targets`)
 
@@ -265,23 +272,51 @@ const contract = {
 
 ### Manual Access
 
-You can use `cliToZod` to get access to the underlying tools (schemas, bitmask router, etc.):
+You can use `createContract` to get access to the underlying tools (schemas, bitmask router, etc.):
 
 ```typescript
-const { zvoSchema, parsingArgs } = cliToZod(contract);
+import { createContract } from "@ytn/czvo/editor.js";
+import { execute } from "@ytn/czvo";
+
+const contract = createContract(config);
+const { zvoSchema, parsingArgs } = contract;
 
 // zvoSchema is a pure Zod schema representing the entire routing logic
-const result = zvoSchema.parse({ url: "...", quality: "1080" });
+const result = zvoSchema.safeParse({ url: "...", quality: "1080" });
+```
+
+### High-Level Launcher
+
+For most applications, use `launchCzvo` to handle routing and error reporting automatically:
+
+```typescript
+import { createContract } from "@ytn/czvo/editor.js";
+import { launchCzvo } from "@ytn/czvo/launcher.js";
+
+const contract = createContract(config);
+
+const handlers = {
+  dl: async (data) => {
+    console.log("Processing download...", data);
+  },
+  error: (err) => {
+    console.error("Custom error handler:", err);
+  }
+};
+
+// Automatically parses process.argv and calls the right handler
+await launchCzvo(contract, handlers);
 ```
 
 ### Help Generation
 
 ```typescript
-import { Contract } from "@ytn/czvo";
+import { createContract } from "@ytn/czvo/editor.js";
+import { buildHelp } from "@ytn/czvo/core.js";
 
-const cli = Contract.create(contract);
-const helpData = cli.help();
-// Returns structured data: { name, description, usage_cases, arguments }
+const contract = createContract(config);
+const helpData = buildHelp(contract);
+// Returns structured metadata for help display.
 ```
 
 ---

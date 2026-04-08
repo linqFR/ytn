@@ -26,3 +26,7 @@ This package follows the global naming standards. Refer to the examples below fo
 ### 5. Simple TypeScript Type Aliases (`ts*`)
 
 - **Example**: `export type tsContractAny = IContract<string>;`.
+
+### 6. High-level Utility Types (`u*`)
+
+- **Example**: `uValidateContract<T>`. Final type-level tool for contract definition.

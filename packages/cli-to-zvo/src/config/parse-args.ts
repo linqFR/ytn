@@ -1,35 +1,35 @@
-import { parseArgs } from "node:util";
-import { z } from "zod";
 import {
-  CamelCaseSchema,
-  KebabCaseSchema,
   kebabToCamel,
-  types,
-} from "../shared/index.js";
+  schCamelCase,
+  schKebabCase,
+  type tsCamelCase,
+  type tsKebabCase,
+} from "@ytn/shared/zod/zod-strcases.js";
+import type { ZodRecord, ZodType } from "zod";
 
 /**
  * @constant {z.ZodSchema} ParseArgFlagNameSchema
  * @description Schema representing a CLI flag name in kebab-case format.
  */
-export const ParseArgFlagNameSchema = KebabCaseSchema;
+export const ParseArgFlagNameSchema = schKebabCase;
 
 /**
  * @type tsParseArgString
  * @description Type representation of a CLI flag name.
  */
-export type tsParseArgString = types.tsKebabCase;
+export type tsParseArgString = tsKebabCase;
 
 /**
  * @constant {z.ZodSchema} ParseArgObjectNameSchema
  * @description Schema representing a target object property name in camelCase format.
  */
-export const ParseArgObjectNameSchema = CamelCaseSchema;
+export const ParseArgObjectNameSchema = schCamelCase;
 
 /**
  * @type tsParseArgObjectName
  * @description Type representation of a target object property name.
  */
-export type tsParseArgObjectName = types.tsCamelCase;
+export type tsParseArgObjectName = tsCamelCase;
 
 /**
  * @type tsTargetName
@@ -51,9 +51,11 @@ export type tsTargetFieldName = tsParseArgObjectName & {
  */
 export const FlagNameToObjectName = kebabToCamel;
 
-export type tsParseArgsResult = ReturnType<typeof parseArgs>;
+export type tsParseArgsResult = ReturnType<
+  typeof import("node:util").parseArgs
+>;
 
-export type tsParseArgsResultParsed = z.ZodRecord<
+export type tsParseArgsResultParsed = ZodRecord<
   typeof ParseArgObjectNameSchema,
-  z.ZodType
+  ZodType
 >;

@@ -23,28 +23,5 @@ export const compactRecord = <T extends Record<string, any>>(
  * @param {(key: string, value: T) => V} [valueGetter] - Optional function to map the stored value.
  * @returns {Record<K, V[]>} The resulting grouped record.
  */
-export const groupObjectBy = <T, K extends PropertyKey, V = T>(
-  srcObj: Record<string, T>,
-  keyGetter: (key: string, value: T) => K,
-  valueGetter: (key: string, value: T) => V = (_, value) => value as unknown as V
-): Record<K, V[]> => {
-  // Création d'un dictionnaire pur, sans prototype
-  const acc = Object.create(null) as Record<K, V[]>;
-
-  for (const key in srcObj) {
-    // Object.hasOwn garantit qu'on ignore les propriétés héritées du prototype
-    if (Object.hasOwn(srcObj, key)) {
-      const value = srcObj[key];
-      const newKey = keyGetter(key, value);
-
-      if (acc[newKey] === undefined) {
-        acc[newKey] = [];
-      }
-      acc[newKey].push(valueGetter(key, value));
-    }
-  }
-
-  return acc;
-};
 
 

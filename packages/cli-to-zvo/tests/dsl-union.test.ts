@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { cliToZod, pico } from "../src/index.js";
+import { createContract, pico } from "../src/editor.js";
 
-describe("cliToZod DSL Union Support", () => {
-  it("should support pipe unions in DSL via cliToZod", () => {
+describe("DSL Union Support", () => {
+  it("should support pipe unions in DSL via createContract", () => {
     const myContract = {
       name: "test",
       description: "test",
@@ -18,6 +18,6 @@ describe("cliToZod DSL Union Support", () => {
       },
     };
 
-    expect(() => cliToZod(myContract as any)).not.toThrow();
+    expect(() => createContract(myContract as any)).not.toThrow();
   });
 });

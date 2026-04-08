@@ -99,78 +99,6 @@ export const toZod = (schema: ISealedInterface | z.ZodType): z.ZodType =>
   isSealed(schema) ? schema.toZod : schema;
 
 /**
- * @function bridgeZod_old
- * @description Master recursive Proxy engine for both Sealing and Pre-processing.
- * It provides a bridge between a validation entrance (engine) and an API surface (methods).
- */
-// export function bridgeZod_old<T extends object, E extends object>(
-//   engine: E,
-//   methods: T,
-//   wrapper: (val: any) => any,
-//   isForbiddenFn?: (p: string | symbol) => boolean,
-// ): any {
-//   return new Proxy(engine, {
-//     has(t, p) {
-//       return p === $IS_SEALED || Reflect.has(t, p) || Reflect.has(methods, p);
-//     },
-//     get(t, p, receiver) {
-//       // Unwrapping: returning the underlying engine ensures the full validation pipeline is accessible.
-//       if (p === "toZod") return t;
-
-//       // Identification: reports as Sealed only when enforcing contract security via filters.
-//       if (p === $IS_SEALED) return !!isForbiddenFn;
-
-//       // --- ALIASES ---
-//       if (p === "desc") {
-//         return (msg: string) =>
-//           wrapper((methods as any).meta({ description: msg }));
-//       }
-//       if (p === "toJSON") {
-//         return () =>
-//           typeof (methods as any).toJSONSchema === "function"
-//             ? (methods as any).toJSONSchema()
-//             : methods;
-//       }
-
-//       // --- SECURITY ---
-//       // Security Bypass: explicitly allow Standard Schema markers to bypass pattern-matching restrictions.
-//       if (
-//         typeof p === "string" &&
-//         !isSchemaCompatibleProp(p) &&
-//         isForbiddenFn?.(p)
-//       ) {
-//         throw new Error(`[CZVO] Access to '${p}' is forbidden.`);
-//       }
-
-//       // --- DELEGATION ---
-//       // Forces priority to engine (t) for validation, standard schema and core Zod props.
-//       // Modifiers NOT in engine (like .min) naturally fall back to methods.
-//       const isZodCore =
-//         typeof p === "string" &&
-//         (p.startsWith("_") ||
-//           p.startsWith("~") ||
-//           p === "parse" ||
-//           p === "safeParse" ||
-//           p === "spa");
-//       const useEngine = isZodCore || !(p in methods);
-//       const target = useEngine ? t : methods;
-
-//       const val = (target as any)[p];
-
-//       if (typeof val === "function") {
-//         const bound = val.bind(target);
-//         return (...args: any[]) => {
-//           const res = bound(...args);
-//           return isSchemaCompatible(res) ? wrapper(res) : res;
-//         };
-//       }
-
-//       return isSchemaCompatible(val) ? wrapper(val) : val;
-//     },
-//   });
-// }
-
-/**
  * @function bridgeZod
  * @description The core recursive Proxy engine for the CZVO ecosystem.
  * It provides a "Bridge" between a static API surface (methods) and a
@@ -217,7 +145,9 @@ export function bridgeZod<T extends object, E extends object>(
         return true;
       }
       // return Reflect.set(t, p, value, receiver);
-      throw new Error(`[CZVO] Mutation of internal schema properties is forbidden.`);
+      throw new Error(
+        `[CZVO] Mutation of internal schema properties is forbidden.`,
+      );
     },
 
     get(t, p, receiver) {

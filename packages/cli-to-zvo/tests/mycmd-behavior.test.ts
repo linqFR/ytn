@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
-import { Contract, pico } from "../src/index.js";
+import { createContract, pico } from "../src/editor.js";
+import { execute } from "../src/index.js";
 
 describe("mycmd.ts Behavioral Matrix", () => {
   const schemDef = {
@@ -10,7 +10,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
 
   const localHelp = pico.help("Command Step Help");
 
-  const contract = Contract.create({
+  const tools = createContract({
     name: "footprint",
     description: "commande system for my footprint",
     cli: {
@@ -50,7 +50,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
     },
   });
 
-  const parser = (args: string[]) => contract.parseCli(args);
+  const parser = (args: string[]) => execute(tools, args);
 
   it("should route to globalHelp when only --help is provided", () => {
     const res = parser(["--help"]);
@@ -61,7 +61,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
   });
 
   it("should route to stepHint when a step and --help are provided", () => {
-    // Conflict test: 'step --help' could match globalHelp (mask 16) 
+    // Conflict test: 'step --help' could match globalHelp (mask 16)
     // but should match stepHint (mask 17) because it's more specific.
     const res = parser(["mystep", "--help"]);
     expect(res.success).toBe(true);
@@ -155,7 +155,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
   it("should distinguish between two targets based on bit density", () => {
     // footprint --help => globalHelp (1 bit: help)
     // footprint toto --help => stepHint (2 bits: step + help)
-    
+
     const res1 = parser(["--help"]);
     expect(res1.success && res1.data.route).toBe("globalHelp");
 

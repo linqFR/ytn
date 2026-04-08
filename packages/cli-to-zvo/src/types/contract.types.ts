@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { $brand, ZodObject, ZodSafeParseResult, ZodType } from "zod";
 import type {
   tsParseArgString,
   tsTargetFieldName,
@@ -6,8 +6,8 @@ import type {
 } from "../config/parse-args.js";
 import type {
   tsBitCodes,
-  tsBitRouter,
   tsBitGroups,
+  tsBitRouter,
   tsPossibleValuesArray,
   tsRoutingMasks,
 } from "./bit-router.types.js";
@@ -81,7 +81,7 @@ export type tsParsedCLI = Record<
  * @type tsParseArgsResultParser
  * @description A Zod schema used to validate and transform the output of the CLI parsing stage.
  */
-export type tsParseArgsResultParser = z.ZodType<tsParsedCLI, any>;
+export type tsParseArgsResultParser = ZodType<tsParsedCLI, any>;
 
 /**
  * @interface tsProcessedTarget
@@ -91,7 +91,7 @@ export interface tsProcessedTarget {
   /** The unique name of the target. */
   name: tsTargetName;
   /** The Zod schema associated with this target for final payload validation. */
-  zod: z.ZodObject<any>;
+  zod: ZodObject<any>;
   /** The unique bitcode identifying this target's specific combination of required arguments. */
   targetCode: number;
   /** The mask of all bits that ARE required to be present for this target to match. */
@@ -147,31 +147,27 @@ export type tsRouteOutput = Readonly<{
 }>;
 
 /**
- * @type tsResponse
- * @description A standard union response type for CLI commands, handling both success and error paths.
+ * @type OResponseOk
+ * @description A standard union response type for CLI commands, for success path.
  */
-export type tsResponse<T = any> =
-  | Readonly<{ route: tsTargetName; data: T; error?: never }>
-  | Readonly<{ route: tsTargetName; data?: never; error: any }>;
+export type OResponseOk<T = any> = Readonly<{ route: tsTargetName; data: T }>;
+
+export type OResponseErr<T = any> = Readonly<{
+  route: tsTargetName;
+  error: T;
+}>;
 
 /**
- * @type OResponse
- * @description A branded version of tsResponse, used to ensure type safety in the Zod-to-CLI pipeline.
+ * @type OSafeResult
+ * @description The unified result type returned by the CLI engine, providing access to route, data (on success), or error (on failure).
  */
-export type OResponse = tsResponse & z.$brand<"tsResponse">;
-
-/**
- * @type $SafeResult
- * @description Alias for Zod's safe parse result specifically for CLI responses.
- */
-export type $SafeResult<T extends OResponse = OResponse> =
-  z.ZodSafeParseResult<T>;
+export type OSafeResult<T = any> = ZodSafeParseResult<OResponseOk<T>>;
 
 /**
  * @type tsGate
  * @description The final "Gate" Zod schema which handles the entire routing and validation pipeline from CLI input.
  */
-export type tsGate = z.ZodType<OResponse, Record<tsTargetName, any>>;
+export type tsGate = ZodType<OResponseOk, Record<tsTargetName, any>>;
 
 /**
  * @interface OHelpArg
@@ -283,25 +279,7 @@ export interface IProcessedContract {
   /** Help metadata for all arguments. */
   help: Record<tsTargetFieldName, tsProcessedDataModel>;
   /** Optional fallback schema for catch-all behavior. */
-  fallbackSchema?: z.ZodType;
+  fallbackSchema?: ZodType;
   /** Whether to support negatable flags (options starting with '--no-') at the parser level. */
   allowNegative?: boolean;
 }
-
-/**
- * @type ValidateContract
- * @description A recursive validation helper that ensures targets are not empty and follow project rules at compile time.
- */
-export type ValidateContract<T> = T & {
-  targets: {
-    [K in keyof (T extends { targets: infer Tar }
-      ? Tar
-      : object)]: keyof (T extends { targets: Record<K, infer Fields> }
-      ? Fields
-      : object) extends never
-      ? "ERROR: Target fields cannot be empty. Use 'fallbacks' for catch-all (with at least one field)."
-      : T extends { targets: Record<K, infer Fields> }
-      ? Fields
-      : never;
-  };
-};

@@ -1,3 +1,5 @@
+import { unique as arrUnique } from "@ytn/shared/js/array-ops.js";
+import { $Entries } from "@ytn/shared/types/modifiers.type.js";
 import type {
   ParseArgsConfig,
   ParseArgsOptionDescriptor,
@@ -5,24 +7,20 @@ import type {
 } from "node:util";
 import { z } from "zod";
 import { tsTargetName, type tsParseArgString } from "../config/parse-args.js";
-import { arrOp } from "../shared/index.js";
 import {
   tsPossibleValuesData,
   type tsBitCodes,
-  type tsBitRouter,
   type tsPossibleValuesArray,
-  type tsRoutingMasks,
 } from "../types/bit-router.types.js";
 import type {
   tsParseArgSchema,
   tsParseArgsResultParser,
   tsParsedCLI,
   tsProcessedCliOUT,
+  tsProcessedTarget,
 } from "../types/contract.types.js";
-import { type $Entries } from "../types/ts-utils.js";
-import { computeRoutingDiscriminant } from "./runtime-tools.js";
 import type { tsDecisionNode } from "../types/tree.types.js";
-import type { tsProcessedTarget } from "../types/contract.types.js";
+import { computeRoutingDiscriminant } from "./runtime-tools.js";
 import {
   strToZod,
   type tsDiscriminantKeys,
@@ -55,7 +53,7 @@ export const contractCliToParseArgSchema = (
     };
   });
 
-  return { positionals, options, allowNegative  };
+  return { positionals, options, allowNegative };
 };
 
 /**
@@ -78,7 +76,7 @@ const getAllowedValues = <
   const fieldTargets = (possibleValues[paName] || {}) as tsPossibleValuesData;
   const targetValues = Object.values(fieldTargets);
   if (targetValues.some((v) => v.length === 0)) return [];
-  return arrOp.unique(targetValues.flat());
+  return arrUnique(targetValues.flat());
 };
 
 /**
@@ -264,9 +262,10 @@ export const cliEngineFactory = (
   tree: tsDecisionNode | tsTargetName[] = [],
   targets: Record<tsTargetName, tsProcessedTarget> = {},
   bitCodes: tsBitCodes = {},
+  options: { allowNegative?: boolean; onlyAllowedValues?: boolean } = {},
 ): tsCliEngineTools => {
   return {
-    config: contractCliToParseArgSchema(cli),
+    config: contractCliToParseArgSchema(cli, options.allowNegative),
     parser: contractCliToParseArgsParser(
       cli,
       discriminantKeys,
@@ -274,6 +273,7 @@ export const cliEngineFactory = (
       tree,
       targets,
       bitCodes,
+      options.onlyAllowedValues,
     ),
     nativeConfig: contractCliToParseArgs(cli.flags),
   };

@@ -34,13 +34,26 @@
     "./min": {
       "import": "./dist/index.min.js",
       "types": "./dist/index.d.ts"
+    },
+    "./core": {
+      "import": "./dist/core.js",
+      "types": "./dist/core.d.ts"
+    },
+    "./editor": {
+      "import": "./dist/editor.js",
+      "types": "./dist/editor.d.ts"
+    },
+    "./launcher": {
+      "import": "./dist/launcher.js",
+      "types": "./dist/launcher.d.ts"
     }
   },
-  "peerDependencies": {
-    "zod": "^4.3.6"
+  "bin": {
+    "czvo-compile": "./dist/cli.js"
   },
   "devDependencies": {
-    "@types/node": "^24.12.0",
+    "@ytn/shared": "workspace:*",
+    "@types/node": "^25.5.0",
     "tsup": "^8.5.1",
     "tsx": "^4.0.0",
     "zod": "^4.3.6"

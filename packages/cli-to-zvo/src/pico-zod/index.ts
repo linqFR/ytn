@@ -2,12 +2,12 @@ import { z } from "zod";
 import { dslSchema, dslToZod, DslType } from "./dsl-converter.zod.js";
 import { PICO_FACTORIES } from "./pico-overrides.js";
 import {
+  bridgeZod,
   type ISealedInterface,
   isSealed,
   sealZod,
   toZod,
   tsPicoFactories,
-  bridgeZod,
 } from "./sealer.js";
 import { isSchemaCompatible } from "./zod-modifiers.js";
 
@@ -46,7 +46,7 @@ export const pico = bridgeZod({}, PICO_FACTORIES, (v: any) =>
 /**
  * @function isPico
  * @description Runtime type guard that checks if an item is a valid CZVO schema.
- * 
+ *
  * @param {unknown} item - The value to test.
  * @returns {boolean} True if the item is a valid CZVO schema (DSL or Sealed).
  */
@@ -61,11 +61,11 @@ export const isPico = (item: unknown): item is tsPico => {
  * @function picoTypetoZod
  * @description The main conversion engine that translates CZVO schemas (DSL strings or Sealed)
  * into their underlying raw Zod instances.
- * 
+ *
  * @param {tsPico} item - The CZVO schema to convert.
  * @returns {z.ZodType} The resulting raw Zod schema.
  */
-export const picoTypetoZod = (item: tsPico): z.ZodType =>
+export const picoTypeToZod = (item: tsPico): z.ZodType =>
   z
     .union([
       dslToZod,
@@ -79,7 +79,7 @@ export const picoTypetoZod = (item: tsPico): z.ZodType =>
 /**
  * @function picoSchema
  * @description Creates a custom Zod schema that validates if a value is a valid CZVO schema.
- * 
+ *
  * @param {any} [onError] - Optional Zod error handler.
  * @returns {z.ZodType<tsPico>} A Zod validator for CZVO schemas.
  */

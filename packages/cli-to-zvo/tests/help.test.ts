@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cliToZod, type tsContract, pico } from "../src/index.js";
+import { createContract, type tsContract, pico } from "../src/editor.js";
 
 describe("CLI Help Verification", () => {
   it("should provide help support manually via cli definition", () => {
@@ -30,7 +30,7 @@ describe("CLI Help Verification", () => {
       },
     };
 
-    const processed = cliToZod(contract);
+    const processed = createContract(contract);
     expect(processed.router).toBeDefined();
   });
 });

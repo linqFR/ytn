@@ -1,14 +1,10 @@
-import {
-  computeBitmask,
-  resolveFromTree,
-} from "./tree-processing.js";
-import { ROUTER_SEPARATOR } from "../config/router-config.js";
+import type { tsTargetFieldName } from "../config/parse-args.js";
 import { forgeRoutingSignature } from "../shared/router-utils.js";
 import type {
   IProcessedContract,
   tsParsedCLI,
 } from "../types/contract.types.js";
-import type { tsTargetFieldName } from "../config/parse-args.js";
+import { computeBitmask, resolveFromTree } from "./tree-processing.js";
 // import { TARGET_FALLBACK_NAME } from "../config/zod-config.js";
 
 /**
@@ -84,12 +80,12 @@ export function computeRoutingDiscriminant(
 
       // Back to pure Bitmask + Values signature
       const sig = forgeRoutingSignature(finalMask, values);
-      console.log(`[RUNTIME] Target: ${targetName}, Sig: "${sig}"`);
+      // console.log(`[RUNTIME] Target: ${targetName}, Sig: "${sig}"`);
       return sig;
     }
   }
 
   // 5. If no match, return undefined to trigger Zod validation error
-  // console.log(`[RUNTIME] No match found internally`);
+  // console.log(`[RUNTIME] No match found internally for mask ${mask}, candidates: ${candidates.join(",")}`);
   return undefined as any;
 }

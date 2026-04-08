@@ -16,11 +16,15 @@ export type $Sealed<T> = 0 extends 1 & T
   : T extends { _zod: any }
   ? {
       [K in keyof T as K extends tsForbidden ? never : K]: $Sealed<T[K]>;
-    } & ISealedInterface<z.output<T>, z.input<T>, T & z.ZodType<any, any, any>> &
-    ("default" extends keyof T
+    } & ISealedInterface<
+      z.output<T>,
+      z.input<T>,
+      T & z.ZodType<any, any, any>
+    > &
+      ("default" extends keyof T
         ? {
             default(
-              def: z.input<T> | (() => z.input<T>)
+              def: z.input<T> | (() => z.input<T>),
             ): $Sealed<z.ZodDefault<T extends z.ZodTypeAny ? T : any>>;
           }
         : unknown)

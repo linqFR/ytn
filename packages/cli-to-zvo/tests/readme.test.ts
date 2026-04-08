@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cliToZVO, type tsContract, pico } from "../src/index.js";
+import { execute, isResponseOk, isResponseErr } from "../src/index.js";
+import { createContract, pico, type tsContract } from "../src/editor.js";
 
 describe("README Examples Verification", () => {
   it("Package Quick Start Example (ytn/dl)", () => {
@@ -33,15 +34,19 @@ describe("README Examples Verification", () => {
 
     // 2. Parse and Validate
     const args = ["https://youtube.com/watch?v=123", "-q", "1080", "-v"];
-    const result = cliToZVO(contract, args);
+    const contractObj = createContract(contract);
+    const result = execute(contractObj, args);
 
-    // Verify result
-    expect(result.route).toBe("dl");
-    expect(result.error).toBeUndefined();
-    if (result.route === "dl" && !result.error) {
-      expect(result.data.url).toBe("https://youtube.com/watch?v=123");
-      expect(result.data.quality).toBe(1080);
-      expect(result.data.verbose).toBe(true);
+    // Verify result (OSafeResult from execute)
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const { route, data } = result.data;
+      expect(route).toBe("dl");
+      expect(data.url).toBe("https://youtube.com/watch?v=123");
+      expect(data.quality).toBe(1080);
+      expect(data.verbose).toBe(true);
+    } else {
+      throw new Error("Invalid response type");
     }
   });
 
@@ -69,14 +74,18 @@ describe("README Examples Verification", () => {
     };
 
     // 2. One-line Parsing & Zod-Validation
-    const result = cliToZVO(contract, ["prod", "-v"]);
+    const contractObj = createContract(contract);
+    const result = execute(contractObj, ["prod", "-v"]);
 
     // Verify result
-    expect(result.route).toBe("deploy");
-    expect(result.error).toBeUndefined();
-    if (result.route === "deploy" && !result.error) {
-      expect(result.data.env).toBe("prod");
-      expect(result.data.verbose).toBe(true);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const { route, data } = result.data;
+      expect(route).toBe("deploy");
+      expect(data.env).toBe("prod");
+      expect(data.verbose).toBe(true);
+    } else {
+      throw new Error(`Parsing failed: ${JSON.stringify(result.error.issues)}`);
     }
   });
 
@@ -98,13 +107,17 @@ describe("README Examples Verification", () => {
       },
     };
 
-    const result = cliToZVO(contract, ["init", "-p", "data.txt"]);
+    const contractObj = createContract(contract);
+    const result = execute(contractObj, ["init", "-p", "data.txt"]);
 
-    expect(result.route).toBe("setup");
-    expect(result.error).toBeUndefined();
-    if (result.route === "setup" && !result.error) {
-      expect(result.data.command).toBe("init");
-      expect(result.data.path).toBe("data.txt");
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const { route, data } = result.data;
+      expect(route).toBe("setup");
+      expect(data.command).toBe("init");
+      expect(data.path).toBe("data.txt");
+    } else {
+      throw new Error(`Parsing failed: ${JSON.stringify(result.error.issues)}`);
     }
   });
 
@@ -125,20 +138,25 @@ describe("README Examples Verification", () => {
     };
 
     // 1. Validating chainability and types
-    const result = cliToZVO(contract, ["25", "test@example.com", "a,b,c,d,e"]);
+    const contractObj = createContract(contract);
+    const result = execute(contractObj, ["25", "test@example.com", "a,b,c,d,e"]);
 
-    expect(result.route).toBe("setup");
-    expect(result.error).toBeUndefined();
-    if (result.route === "setup" && !result.error) {
-      expect(result.data.age).toBe(25);
-      expect(result.data.email).toBe("test@example.com");
-      expect(result.data.tags).toEqual(["a", "b", "c", "d", "e"]);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const { route, data } = result.data;
+      expect(route).toBe("setup");
+      expect(data.age).toBe(25);
+      expect(data.email).toBe("test@example.com");
+      expect(data.tags).toEqual(["a", "b", "c", "d", "e"]);
+    } else {
+      throw new Error(`Parsing failed: ${JSON.stringify(result.error.issues)}`);
     }
 
     // 2. Failure check (min age)
-    const failResult = cliToZVO(contract, ["10", "test@example.com", "a,b,c"]);
-    expect(failResult.error).toBeDefined();
-    // In current implementation, validation error returns "error" as route
-    expect(failResult.route).toBe("error");
+    const failResult = execute(contractObj, ["10", "test@example.com", "a,b,c"]);
+    expect(failResult.success).toBe(false);
+    if (!failResult.success) {
+      expect(failResult.error).toBeDefined();
+    }
   });
 });

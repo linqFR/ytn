@@ -1,6 +1,13 @@
 import { z } from "zod";
-import { ParseArgObjectNameSchema, type tsParseArgObjectName } from "../config/parse-args.js";
-import type { $SafeResult, OResponse, tsResponse } from "../types/contract.types.js";
+import {
+  ParseArgObjectNameSchema,
+  type tsParseArgObjectName,
+} from "../config/parse-args.js";
+import type {
+  OSafeResult,
+  OResponseOk,
+  OResponseErr,
+} from "../types/contract.types.js";
 // Removed old imports
 
 // On définit les deux états possibles de la réponse
@@ -22,38 +29,30 @@ export const ResponseSchema = z
   .readonly()
   .brand<"tsResponse">();
 
-/**
- * Garde de type pour vérifier si un objet est une réponse (enveloppe de routage).
- */
-export const isResponse = (val: unknown): val is tsResponse => {
-  return ResponseSchema.safeParse(val).success;
-};
-
 // Response Transform / Formatter
 
 export const formatResponse =
   (route: tsParseArgObjectName | string) =>
-  <T>(data: T): OResponse =>
+  <T>(data: T): OResponseOk =>
     ({
       route,
       data,
-    } as unknown as OResponse);
+    } as unknown as OResponseOk);
 
 export const formatError =
   (route: tsParseArgObjectName | string) =>
-  (error: unknown): OResponse =>
+  (error: unknown): OResponseErr =>
     ({
       route,
       error,
-    } as unknown as OResponse);
+    } as unknown as OResponseErr);
 
-
-export const formatOutput = (cliRes: $SafeResult<OResponse>):OResponse=>{
-
+export const formatOutput = (
+  cliRes: OSafeResult,
+): OResponseOk | OResponseErr => {
   if (cliRes.success) {
     const { route, data } = cliRes.data;
     return formatResponse(route)(data);
   }
   return formatError("error")(z.treeifyError(cliRes.error));
-
-}
+};
