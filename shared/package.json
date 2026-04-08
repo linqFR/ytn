@@ -1,0 +1,56 @@
+{
+  "name": "@ytn/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Global shared utilities for the YTN project",
+  "type": "module",
+  "peerDependencies": {
+    "zod": "^4.3.6"
+  },
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts"
+    },
+    "./cli/*.js": {
+      "types": "./cli/*.ts",
+      "import": "./cli/*.ts"
+    },
+    "./dirpath/*.js": {
+      "types": "./dirpath/*.ts",
+      "import": "./dirpath/*.ts"
+    },
+    "./js/*.js": {
+      "types": "./js/*.ts",
+      "import": "./js/*.ts"
+    },
+    "./safe/*.js": {
+      "types": "./safe/*.ts",
+      "import": "./safe/*.ts"
+    },
+    "./template/*.js": {
+      "types": "./template/*.ts",
+      "import": "./template/*.ts"
+    },
+    "./types/*.js": {
+      "types": "./types/*.ts",
+      "import": "./types/*.ts"
+    },
+    "./types": {
+      "types": "./types/index.ts",
+      "import": "./types/index.ts"
+    },
+    "./typesAll": {
+      "types": "./types/all-types.ts",
+      "import": "./types/all-types.ts"
+    },
+    "./zod/*.js": {
+      "types": "./zod/*.ts",
+      "import": "./zod/*.ts"
+    },
+    "./zod": {
+      "types": "./zod/index.ts",
+      "import": "./zod/index.ts"
+    }
+  }
+}

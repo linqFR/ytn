@@ -43,22 +43,23 @@ describe("shared/system-ops (Functional & Rupture)", () => {
       // Using a path that is guaranteed not to have a package.json above it
       // On Windows, the root of a drive might work, or a temp dir outside the workspace.
       // We try to use a path like "/ghost/path/123"
-      const res = pkg.loadPackageSync("/ghost/path/that/does/not/exist"); 
+      const res = pkg.loadPackageSync("/ghost/path/that/does/not/exist");
       expect(isFailure(res)).toBe(true);
-      expect(res[0].message).toContain("package.json not found");
+      if (isFailure(res))
+        expect(res[0].message).toContain("package.json not found");
     });
   });
 
   describe("Dir Ops", () => {
     it("should detect empty directories properly (Functional)", () => {
-       const res = dirops.isEmptyDir("./shared");
-       expect(res).toBe(false); // shared directory is definitely not empty
+      const res = dirops.isEmptyDir("./shared");
+      expect(res).toBe(false); // shared directory is definitely not empty
     });
 
     it("should identify system items", () => {
-       expect(dirops.isSystemItem(".git")).toBe(true);
-       expect(dirops.isSystemItem("_archive")).toBe(true);
-       expect(dirops.isSystemItem("src")).toBe(false);
+      expect(dirops.isSystemItem(".git")).toBe(true);
+      expect(dirops.isSystemItem("_archive")).toBe(true);
+      expect(dirops.isSystemItem("src")).toBe(false);
     });
   });
 });

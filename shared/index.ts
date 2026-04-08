@@ -1,4 +1,3 @@
-
 /**
  * Global YTN Toolbox Barrel File.
  * All utilities are namespaced to avoid global scope pollution.
@@ -23,6 +22,8 @@ export type * as tsZod from "./zod/index.js";
 /*                                TOOLS & LIBS                                */
 /* -------------------------------------------------------------------------- */
 
+export * as cast from "./js/cast-ops.js";
+
 export * as obj from "./js/object-utils.js";
 export type * as tsObj from "./js/object-utils.js";
 
@@ -32,14 +33,14 @@ export type * as tsStr from "./js/string-cases.js";
 export * as arr from "./js/array-ops.js";
 export type * as tsArr from "./js/array-ops.js";
 
-export * as rec from "./js/record-ops.js";
-export type * as tsRec from "./js/record-ops.js";
+export * as rec from "./js/set-ops.js";
+export type * as tsRec from "./js/set-ops.js";
 
 export * as bitops from "./js/bit-ops.js";
 export type * as tsBitops from "./js/bit-ops.js";
 
-export * as memo from "./js/memo-ops.js";
-export type * as tsMemo from "./js/memo-ops.js";
+export * as memo from "./js/mem-ops.js";
+export type * as tsMemo from "./js/mem-ops.js";
 
 export * as math from "./js/math-ops.js";
 export type * as tsMath from "./js/math-ops.js";
@@ -52,6 +53,14 @@ export type * as tsPkg from "./js/packages.js";
 
 export * as timeout from "./js/timeout.js";
 export type * as tsTimeout from "./js/timeout.js";
+
+// Virtual Machine Operations (Execution Sandbox)
+export * as vms from "./js/vm-ops.js";
+export type * as tsVms from "./js/vm-ops.js";
+
+// Function Reflection & AST Analysis
+export * as fn from "./js/fn-reflect.js";
+export type * as tsFn from "./js/fn-reflect.js";
 
 /* -------------------------------------------------------------------------- */
 /*                                     FS OPS                                 */

@@ -1,4 +1,4 @@
-import { SafeResult, safeResultOk, catchSyncFn } from "../safe/safemode.js";
+import { tsSafeResult, safeResultOk, catchSyncFn } from "../safe/safemode.js";
 
 /**
  * Basic YAML Frontmatter parsing and serialization.

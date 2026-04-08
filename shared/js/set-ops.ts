@@ -1,5 +1,4 @@
-
-import { ts } from "../index.js";
+import type { $RecordSetToArray, $Entries } from "../types/modifiers.type.js";
 
 /**
  * Specialized Record and Map manipulation utilities.
@@ -11,10 +10,10 @@ import { ts } from "../index.js";
  */
 export const recordSetToRecordArray = <T extends Record<string, Set<any>>>(
   recordSet: T,
-): ts.$RecordSetToArray<T> =>
+): $RecordSetToArray<T> =>
   Object.fromEntries(
-    (Object.entries(recordSet) as ts.$Entries<T>).map(([k, set]) => [
+    (Object.entries(recordSet) as $Entries<T>).map(([k, set]) => [
       k,
       Array.from(set),
     ]),
-  ) as ts.$RecordSetToArray<T>;
+  ) as $RecordSetToArray<T>;

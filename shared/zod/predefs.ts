@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 /**
@@ -7,18 +6,52 @@ import { z } from "zod";
  * Rule: use 'sch*' prefix for Zod validation objects.
  */
 
-// --- Base Coerced Schemas (Standard) ---
+/**
+ * @constant {z.ZodNumber} schNumber
+ * @description Standard coerced number schema.
+ */
 export const schNumber = z.coerce.number();
+
+/**
+ * @constant {z.ZodDate} schDate
+ * @description Standard coerced date schema.
+ */
 export const schDate = z.coerce.date();
+
+/**
+ * @constant {z.ZodBoolean} schBoolean
+ * @description Standard coerced boolean schema.
+ */
 export const schBoolean = z.coerce.boolean();
 
-// --- Common string identifiers (Zod V4 Top-level) ---
+/**
+ * @constant {z.ZodString} schUUID
+ * @description UUID validation schema.
+ */
 export const schUUID = z.uuid();
+
+/**
+ * @constant {z.ZodString} schEmail
+ * @description Email validation schema.
+ */
 export const schEmail = z.email();
+
+/**
+ * @constant {z.ZodString} schUrl
+ * @description URL validation schema.
+ */
 export const schUrl = z.url();
 
-// --- Common compositions ---
+/**
+ * @constant {z.ZodOptional<z.ZodNumber>} schOptionalNumber
+ * @description Shortcut for an optional number.
+ */
 export const schOptionalNumber = z.number().optional();
+
+/**
+ * @constant {z.ZodNullable<z.ZodString>} schNullableString
+ * @description Shortcut for a nullable string.
+ */
 export const schNullableString = z.string().nullable();
 
 // --- Generic Helpers ---
@@ -26,7 +59,10 @@ import * as json from "../js/json.js";
 import { isSuccess } from "../safe/safemode.js";
 
 /**
- * Validates that a string is a valid JSON.
- * Does not transform the output (remains a string).
+ * @constant {z.ZodEffects<z.ZodString>} schJson
+ * @description Validates that a string is a valid JSON.
+ * Note: Does not transform the output (remains a string).
  */
-export const schJson = z.string().refine((val) => isSuccess(json.safeParse(val)));
+export const schJson = z
+  .string()
+  .refine((val) => isSuccess(json.safeParse(val)));

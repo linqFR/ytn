@@ -1,83 +1,52 @@
-
-import { readSafe, readSyncSafe } from "../dirpath/fs-ops.js";
-import { SafeResult, safeResultErr, safeResultOk } from "../safe/safemode.js";
-
-/**
- * Strict JSON types and safe parsing/loading operations.
- */
-
-/* -------------------------------------------------------------------------- */
-/*                                    TYPES                                   */
-/* -------------------------------------------------------------------------- */
-
-export type JSONPrimitive = string | number | boolean | null;
-
-/**
- * Recursive type checking for valid JSON structures.
- */
-export type ValidJSON<T> = 
-  0 extends 1 & T 
-  ? T 
-  : T extends JSONPrimitive 
-    ? T 
-    : T extends symbol | bigint | ((...args: any[]) => any) 
-      ? never 
-      : T extends Array<infer U> 
-        ? undefined extends U 
-          ? never 
-          : Array<ValidJSON<U>> 
-        : T extends object 
-          ? { 
-              [K in keyof T]: 
-                | ValidJSON<Exclude<T[K], undefined>> 
-                | (undefined extends T[K] ? undefined : never); 
-            } 
-          : never;
+import { catchSyncFn } from "../safe/safemode.js";
 
 /* -------------------------------------------------------------------------- */
 /*                                   PARSING                                  */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Synchronously parses a JSON string into a SafeResult.
+ * @type {Parameters<typeof JSON.parse>} tsJSONParseArgs
  */
-export function safeParse<T = any>(text: string): SafeResult<T> {
-  try {
-    return safeResultOk(JSON.parse(text) as T);
-  } catch (err: any) {
-    return safeResultErr(err);
-  }
+type tsJSONParseArgs = Parameters<typeof JSON.parse>;
+
+/**
+ * @function safeParse
+ * @description Synchronously parses a JSON string into a SafeResult, catching any syntax errors.
+ *
+ * @template T
+ * @param {tsJSONParseArgs[0]} text - The valid JSON string to parse.
+ * @param {tsJSONParseArgs[1]} [reviver] - Optional transformation function.
+ * @returns {tsSafeResult<T>} A [error, data] tuple.
+ */
+export function safeParse<T = any>(
+  text: tsJSONParseArgs[0],
+  reviver?: tsJSONParseArgs[1],
+) {
+  return catchSyncFn<any, tsJSONParseArgs>(JSON.parse)(text, reviver);
 }
 
 /**
- * Formats an object to a JSON string safely.
+ * @type {Parameters<typeof JSON.stringify>} tsJSONStringifyArgs
  */
-export function safeStringify(val: any, space: number = 2): SafeResult<string> {
-  try {
-    return safeResultOk(JSON.stringify(val, null, space));
-  } catch (err: any) {
-    return safeResultErr(err);
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                FILE LOADERS                                */
-/* -------------------------------------------------------------------------- */
+type tsJSONStringifyArgs = Parameters<typeof JSON.stringify>;
 
 /**
- * Safely loads and parses a JSON file (Async).
+ * @function safeStringify
+ * @description Safely serializes a value to a JSON string.
+ *
+ * @param {tsJSONStringifyArgs[0]} val - The value to stringify.
+ * @param {tsJSONStringifyArgs[1]} [replacer] - Optional property filter.
+ * @param {tsJSONStringifyArgs[2]} [space=2] - Indentation spacing.
+ * @returns {tsSafeResult<string>} A [error, jsonString] tuple.
  */
-export async function loadJSON<T = any>(filePath: string): Promise<SafeResult<T>> {
-  const [err, content] = await readSafe(filePath, "utf8");
-  if (err || !content) return [err, undefined];
-  return safeParse<T>(content as string);
-}
-
-/**
- * Safely loads and parses a JSON file (Sync).
- */
-export function loadJSONSync<T = any>(filePath: string): SafeResult<T> {
-  const [err, content] = readSyncSafe(filePath, "utf8");
-  if (err || !content) return [err, undefined];
-  return safeParse<T>(content as string);
+export function safeStringify(
+  val: tsJSONStringifyArgs[0],
+  replacer?: tsJSONStringifyArgs[1],
+  space: tsJSONStringifyArgs[2] = 2,
+) {
+  return catchSyncFn<string, tsJSONStringifyArgs>(JSON.stringify)(
+    val,
+    replacer,
+    space,
+  );
 }

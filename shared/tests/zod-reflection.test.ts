@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import * as reflect from "../zod/zod-reflection.js";
+import { castArrayValuesToString } from "../js/cast-ops.js";
 
 describe("shared/zod-reflection", () => {
-  it("should unwrap nested optional and default schemas", () => {
+  it("should unwrap nested optional and default schemas (Deep)", () => {
+    const schema = z.string().optional().default("foo");
+    const unwrapped = reflect.unwrapZodDeep(schema);
+    expect(unwrapped).toBeInstanceOf(z.ZodString);
+  });
+
+  it("should perform shallow unwrap only with unwrapZod", () => {
     const schema = z.string().optional().default("foo");
     const unwrapped = reflect.unwrapZod(schema);
-    expect(unwrapped).toBeInstanceOf(z.ZodString);
+    // In V4, default wraps optional, so one step unwrap yields the optional
+    expect(reflect.isZodOptional(unwrapped)).toBe(true);
+    expect(unwrapped).not.toBeInstanceOf(z.ZodString);
   });
 
   it("should detect ZodOptional and ZodDefault correctly (non-recursive check)", () => {
@@ -35,7 +44,10 @@ describe("shared/zod-reflection", () => {
     expect(reflect.getZodValue(lit)).toEqual(["world"]);
     
     const numLit = z.literal(42);
-    expect(reflect.getZodValue(numLit)).toEqual(["42"]);
+    // getZodValue returns native types for DDL/QB
+    expect(reflect.getZodValue(numLit)).toEqual([42]);
+    // castArrayValuesToString converts them for CLI/UI
+    expect(castArrayValuesToString(reflect.getZodValue(numLit))).toEqual(["42"]);
   });
 
   it("should extract values from ZodEnum", () => {

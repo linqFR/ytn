@@ -1,4 +1,4 @@
-
-export * from "./branding.js";
-export * from "./functional.js";
-export * from "./modifiers.js";
+export * from "./branding.type.js";
+export * from "./functional.type.js";
+export * from "./modifiers.type.js";
+export * from "./json.type.js";

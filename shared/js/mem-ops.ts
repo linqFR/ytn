@@ -4,8 +4,12 @@
  */
 
 /**
- * Memoization for functions receiving exactly one argument.
- * Uses a Map for O(1) retrieval.
+ * @function memoizeOne
+ * @description Simple memoization for functions receiving exactly one argument.
+ * Uses a Map to cache results based on the argument value.
+ *
+ * @param {(arg: Arg) => Res} fn - The function to memoize.
+ * @returns {(arg: Arg) => Res} The memoized wrapper.
  */
 export const memoizeOne = <Arg, Res>(fn: (arg: Arg) => Res) => {
   const cache = new Map<Arg, Res>();
@@ -21,8 +25,12 @@ export const memoizeOne = <Arg, Res>(fn: (arg: Arg) => Res) => {
 };
 
 /**
- * Memoization for functions with multiple primitive arguments.
- * Joins arguments with a null character (`\x00`) to create a stable key.
+ * @function memoizePrimitives
+ * @description Memoization for functions with multiple primitive arguments.
+ * Join arguments with a null character (`\x00`) to create a stable cache key.
+ *
+ * @param {T} fn - The function to memoize.
+ * @returns {T} The memoized wrapper.
  */
 export const memoizePrimitives = <T extends (...args: any[]) => any>(fn: T): T => {
   const cache = new Map<string, ReturnType<T>>();

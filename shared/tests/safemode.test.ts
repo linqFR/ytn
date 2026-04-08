@@ -8,10 +8,10 @@ import {
   toObject,
   fromObject,
   catchSafe,
-  catchSafeSync,
-  failfastBouncer,
+  ensureSafe,
   SAFE_MODE_WMARK,
 } from "../safe/safemode.js";
+import { failfastBouncer } from "@ytn/shared/safe/bouncer.js";
 
 describe("shared/safemode (Functional & Rupture)", () => {
   it("should brand SafeResult correctly", () => {
@@ -59,9 +59,9 @@ describe("shared/safemode (Functional & Rupture)", () => {
     expect(res2[0]).toBeInstanceOf(Error);
   });
 
-  it("should recover with sync catchSafeSync", () => {
+  it("should recover with sync ensureSafe", () => {
     const val = { x: 1 };
-    const res = catchSafeSync(val);
+    const res = ensureSafe(val);
     expect(isSuccess(res)).toBe(true);
     expect(res[1]).toBe(val);
   });
@@ -69,7 +69,7 @@ describe("shared/safemode (Functional & Rupture)", () => {
   it("should handle failfast pipelines correctly", () => {
     const step1 = (x: number) => x + 1;
     const step2 = (x: number) => x * 2;
-    const bouncer = failfastBouncer(step1, step2);
+    const bouncer = failfastBouncer<number, number>(step1, step2);
 
     const res = bouncer(10);
     expect(res[1]).toBe(22); // (10 + 1) * 2
