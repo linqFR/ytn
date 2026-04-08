@@ -1,7 +1,7 @@
 import path from "node:path";
 import { loadJSON, loadJSONSync } from "../dirpath/json-fs.js";
 import { resolveSelfRoot } from "../dirpath/path-ops.js";
-import { tsSafeResult, safeResultErr } from "../safe/safemode.js";
+import { safeResultErr } from "../safe/safemode.js";
 
 /**
  * Utilities for locating and loading Node.js package.json data.

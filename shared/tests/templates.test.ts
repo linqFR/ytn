@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tpl, yaml } from "../index.js";
-import { isSuccess, isFailure } from "../safe/safemode.js";
+import { isSuccess } from "../safe/safemode.js";
 
 describe("shared/templates & yaml (Functional & Rupture)", () => {
   describe("Template Parser", () => {

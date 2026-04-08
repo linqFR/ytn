@@ -106,9 +106,9 @@ export const ContractSchema = baseContractSchema.transform((data, ctx) => {
   const bitCodes: tsBitCodes = Object.fromEntries(
     Array.from(knownKeys).map((v, idx) => [v, 1 << idx]),
   );
-  const bitRouterSet: tsBitRouterSet = Object.create(null);
+  // const bitRouterSet: tsBitRouterSet = Object.create(null);
+  // const masks: tsRoutingMasksSet = Object.create(null);
   const bitGroups: tsBitGroups = new Map();
-  const masks: tsRoutingMasksSet = Object.create(null);
 
   const cliPos: Record<tsTargetFieldName, tsProcessedPositional> =
     Object.create(null);

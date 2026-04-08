@@ -7,7 +7,6 @@ import {
   contractCliToParseArgSchema,
   contractCliToParseArgs,
 } from "../cli-engine/build-tools.js";
-import { generateRoutingTable } from "../cli-engine/tree-processing.js";
 import { compileZvoGate } from "../core/gate.js";
 import { picoTypeToZod } from "../pico-zod/index.js";
 import type { tsProcessedTarget } from "../types/contract.types.js";

@@ -45,7 +45,7 @@ export async function launchCzvo(
   const handler = handlers[response.route];
 
   if (handler) {
-    const [err, res] = await catchAsyncFn(handler)(response.data);
+    const [err] = await catchAsyncFn(handler)(response.data);
     if (err) {
       printHelp(buildHelp(processedContract, response.route));
     }

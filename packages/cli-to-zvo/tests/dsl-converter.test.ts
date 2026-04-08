@@ -57,8 +57,7 @@ describe("dsl-converter", () => {
 
   it("debug: detailed look at unknown parse", () => {
     try {
-      const result = dslToZod.parse("not_a_type");
-      // console.log("UNEXPECTED SUCCESS (should have thrown):", result);
+      dslToZod.parse("not_a_type");
     } catch (e) {
       // console.log("EXPECTED ERROR CAPTURED:", e instanceof Error ? e.message : e);
     }

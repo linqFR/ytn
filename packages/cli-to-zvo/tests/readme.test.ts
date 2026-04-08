@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { execute, isResponseOk, isResponseErr } from "../src/index.js";
+import { execute } from "../src/index.js";
 import { createContract, pico, type tsContract } from "../src/editor.js";
 
 describe("README Examples Verification", () => {

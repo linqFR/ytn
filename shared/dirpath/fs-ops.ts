@@ -3,8 +3,7 @@ import {
   catchAsyncFn,
   catchSyncFn,
   safeResultErr,
-  safeResultOk,
-  tsSafeResult
+  safeResultOk
 } from "../safe/safemode.js";
 
 /**

@@ -37,9 +37,9 @@ export function buildDecisionTree(
     const canHaveBit = targets.filter(
       (t) => (t.allowedBits & bit) === bit,
     ).length;
-    const mustHaveBit = targets.filter(
-      (t) => (t.requiredBits & bit) === bit,
-    ).length;
+    // const mustHaveBit = targets.filter(
+    //   (t) => (t.requiredBits & bit) === bit,
+    // ).length;
 
     // A good bit splits either by 'can' or 'must'. 
     // Here we focus on 'canHave' to divide the search space.
