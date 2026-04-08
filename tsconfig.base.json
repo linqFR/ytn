@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "es2024",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "declaration": true,
@@ -11,11 +11,17 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "baseUrl": ".",
-    "paths": {
-      "@shared/*": ["shared/*"],
-      "@shared": ["shared/index.ts"],
-    }
+    "ignoreDeprecations": "6.0",
+    "rootDir": ".",
+    "types": ["node"]
   },
-  "exclude": ["**/node_modules", "**/dist", "**/docs", "**/dev_tools", "**/sandbox", "**/archive"]
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/docs",
+    "**/dev_tools",
+    "**/sandbox",
+    "**/archive",
+    "sandbox"
+  ]
 }

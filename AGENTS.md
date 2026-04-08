@@ -3,7 +3,7 @@
 > [!IMPORTANT] > **ABSOLUTE RULES**:
 
 - A QUESTION IS A QUESTION IS A QUESTION and REQUIRES AN ANSWER, NOT AN ACTION.
-- NEVER ERASE ENTIRE BLOCKS OF TEXT TO REWRITE THEM ELSEWHERE WITHOUT EXPLICIT PRIOR APPROVAL.
+- NEVER ERASE ENTIRE BLOCKS OF TEXT TO REWRITE THEM ELSEWHERE WITHOUT EXPLICIT PRIOR APPROVAL. Provide only minimal code changes. Do not rewrite unchanged blocks.
 - NEVER CHANGE THE DOCUMENT STRUCTURE OR MOVE/SUMMARIZE EXISTING PARAGRAPHS OR CODE WITHOUT EXPLICIT PRIOR APPROVAL.
 - **NEVER PERFORM ANY OPTIMIZATIONS WITHOUT PRIOR VALIDATION AND APPROVAL.**
 
@@ -20,10 +20,11 @@ AGENTS MUST ONLY INSERT OR APPEND NEW INSTRUCTIONS.
   2. **Local `node_modules`**: The TypeScript definitions (`.d.ts`) within this project are the ultimate technical proof of the available API.
 
   - **Zod v4 Protocol**:
-    - The internal structure of Zod V4 (specifically using **`._zod`**) is only authoritative because it is proven by the `node_modules` types.
-    - **`._def`** (Zod V3) is strictly forbidden; **`._zod`** (Zod V4) is the truth for internal reflection.
 
-- **Deprecation Policy**: Always check if a function, variable, or method is **deprecated**. If so, proactively update it to the modern alternative defined by the Primary Truth.
+    - The internal structure of Zod V4 (specifically using **`._zod`**) is only authoritative because it is proven by the `node_modules` types.
+    - **`._def`** (Zod V3) is strictly forbidden; **`._zod`** (Zod V4) is the truth for internal reflection (See **Internal Reflection Priority** in the Zod section).
+
+  - **Deprecation Policy**: Always check if a function, variable, or method is **deprecated**. If so, proactively update it to the modern alternative defined by the Primary Truth.
 
 ---
 
@@ -90,6 +91,7 @@ This is a monorepo for the **YTN project**, maintained by **linqFR**. It contain
 - **README.md vs AGENTS.md**:
   - README.md files are for humans (quick starts, high-level overview). They should be descriptive and rich with examples while remaining focused on usage. **Conciseness is good, but never at the expense of necessary documentation. Always include a Table of Contents for readability.**
   - AGENTS.md files contain the technical context and strict instructions that agents need.
+- **English Language Requirement**: All READMEs, HOWTOs, AGENTS.md files, as well as JSDocs and inline code comments MUST ALWAYS be written in **English**.
 - **JSDoc is Code**: Every public method, class, and exported type MUST be documented with comprehensive JSDocs.
 - **Preserve JSDocs**: Ensure build tools (like `tsup`) are configured to preserve JSDocs in the output.
 
@@ -125,10 +127,11 @@ This is a monorepo for the **YTN project**, maintained by **linqFR**. It contain
 
 - **Imports**: Use explicit file extensions in imports if required by the environment.
 - **Naming Standards - ONLY for Typescript**:
-  - `I*`: Interfaces/Types for Input/Config data (e.g., `IContract`).
-  - `O*`: Interfaces/Types for Output/Result data (e.g., `OResult`).
-  - `$*`: Type-modifiers/active generic functions (e.g., `$Without<T, U>`).
-  - `ts*`: Simple static type aliases (e.g., `tsContractAny`).
+  - `I*`: Interfaces/Types for Input/Config data (e.g., `IContract`). Defines the entry shape.
+  - `O*`: Interfaces/Types for Output/Result data (e.g., `OResult`). Defines the resulting shape.
+  - `$*`: Type-modifiers / active functional types (e.g., `$KebabToCamel<S>`). Internal type algebra and logic.
+  - `u*`: High-level exported **Utility** types (e.g., `uValidateContract<T>`). Final tools for the developer.
+  - `ts*`: Simple **static** type aliases (e.g., `tsContractIN`). Represents a fixed structure without complex logic.
 
 #### Zod Schema Namings
 
@@ -171,24 +174,31 @@ Reminder: Use Zod V4 exclusively.
 - **Handle Pipelines**: Use `.in` and `.out` for transforms/validations.
 - **Metadata**: Use the public `.meta()` getter.
 
-#### Internal Reflection Priority
+#### Internal Reflection Priority (EXCLUSIVE)
 
-- **Priority 1: `instanceof`**: Use standard `instanceof z.Zod*` for base type identification (Object, Optional, etc.).
-- **Priority 2: `._zod`**: Use the `._zod` buffer as the authoritative internal fallback for V4-specific attributes (type, out, etc.) if `instanceof` is insufficient.
-- **NEVER** use 'belt and suspenders' logic (don't mix both in a single conditional if one is sufficient).
+- **Rule of Singularity**: **NEVER** use 'belt and suspenders' logic. Do not mix both `instanceof` and property-based identification (`_zod`, `~standard`) in a single conditional.
+- **Priority 1: `instanceof` (Identification)**:
+  - ALWAYS use standard `instanceof z.Zod*` for base type identification. If it matches, it is the Only Truth.
+- **Priority 2: `._zod` (Data Access & Fallback)**:
+  - Use the `._zod` buffer ONLY if `instanceof` is insufficient to access specific V4 internal data (e.g., Lazy getters).
+  - Use property checks (`_zod` in v) ONLY if `instanceof` is definitively proven insufficient for identification (e.g., library version mismatches).
+
+**Forbidden Example**: `if (v instanceof z.ZodType || "_zod" in v)` -> **STRICTLY FORBIDDEN**.
 
 #### Common V4 Patterns (Informative)
 
 - **Top-level Validation**: Use `z.email()`, `z.uuid()`, `z.url()` instead of method chaining.
 - **Top-level Objects**: Favor **`z.strictObject()`** or **`z.looseObject()`** over `.strict()` or `.loose()` method calls.
 - **No `.passthrough()`**: The method `.passthrough()` is deprecated in V4; always use **`.loose()`** or **`z.looseObject()`**.
-- **Interface**: Use `z.interface()` for object schemas for better TypeScript optional property handling.
+- **Interface**: Can use `z.infer<schema>` for object schemas for better TypeScript optional property handling.
 - **JSON Schema**: Use the native `.toJSONSchema()` method.
 
 ### Shared Toolbox (The "linqFR" way)
 
 All access to global utilities MUST use the namespaces defined in `@ytn/shared`:
 
+- **Private Status**: `@ytn/shared` is a **strictly private** toolbox. It will NEVER be published to npm.
+- **Mandatory Inlining**: Because it handles internal logic and is not published, it MUST always be inlined into the `dist/` of public packages using `noExternal: ["@ytn/shared"]` in `tsup`. This ensures public packages remain standalone.
 - `safe.*`: Deterministic error management (`[err, res]`).
 - `lockobj.*`: Data integrity protection (Lockable Proxies).
 - `fsops.*`: Secure and deterministic I/O primitives.

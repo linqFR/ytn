@@ -7,7 +7,7 @@ Each package is designed to be **lightweight**, **type-safe**, and **independent
 |                                 Package |     Name     | Purpose                   | Example                                                      |
 | --------------------------------------: | :----------: | :------------------------ | :----------------------------------------------------------- |
 | **[@ytn/qb](./packages/query-builder)** | QueryBuilder | **SQLite Query Builder**  | `QB.table("users").select(["id"]).where(["active"]).build()` |
-|  **[@ytn/czvo](./packages/cli-to-zvo)** |  Cli-to-Zvo  | **CLI Contract & Parser** | `const result = cliToZVO(contract);`                         |
+|  **[@ytn/czvo](./packages/cli-to-zvo)** |  Cli-to-Zvo  | **CLI Contract & Parser** | `const result = execute(contract, args);`                    |
 
 ---
 
@@ -33,21 +33,17 @@ const sql = QB.table("users", "u")
 Define your contract once, get automated parsing and routing for free.
 
 ```typescript
-import { cliToZVO, pico } from "@ytn/czvo";
+import { createContract, pico } from "@ytn/czvo/editor.js"
+import { execute } from "@ytn/czvo";
 
 // 1. Define the Contract
-const contract = {
+const contract = createContract({
   name: "ytn-cli",
   description: "Deployment Tool",
   cli: {
     positionals: ["env"],
     flags: {
-      verbose: {
-        short: "v",
-        type: "boolean",
-        desc: "Enable detailed logging",
-        intercept: true,
-      },
+      verbose: { short: "v", type: "boolean", desc: "Enable logging" },
     },
   },
   targets: {
@@ -56,14 +52,17 @@ const contract = {
       verbose: "boolean", // DSL
     },
   },
-};
+});
 
 // 2. One-line Parsing & Zod-Validation
-const result = cliToZVO(contract, process.argv.slice(2));
+const result = execute(contract, process.argv.slice(2));
 
-if (result.route === "deploy") {
-  console.log(`Deploying to ${result.data.env}...`);
-  if (result.data.verbose) console.log("Verbose mode ON");
+if (result.success) {
+  const { route, data } = result.data;
+  if (route === "deploy") {
+    console.log(`Deploying to ${data.env}...`);
+    if (data.verbose) console.log("Verbose mode ON");
+  }
 }
 ```
 

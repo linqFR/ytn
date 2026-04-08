@@ -4,25 +4,28 @@
   "description": "Monorepo for the YTN project",
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "shared"
   ],
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "vitest run",
+    "check": "npx.cmd tsc --noEmit",
     "change": "changeset",
     "version": "changeset version",
     "release": "changeset publish",
     "tag": "changeset tag"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@types/node": "^25.5.0",
-    "typescript": "^5.7.3",
-    "vitest": "^4.1.0"
-  },
-  "dependencies": {
-    "@changesets/cli": "^2.30.0"
+    "acorn": "^8.16.0",
+    "acorn-walk": "^8.3.5",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.0",
+    "zod-aot": "^0.18.0"
   }
 }
