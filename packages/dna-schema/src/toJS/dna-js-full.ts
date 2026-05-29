@@ -352,7 +352,7 @@ const _unEvalEnv = (
 	const steps: tsJSStepOp[] = [];
 	steps.push(
 		[STEP.BODY, block + ":{"],
-		[STEP.BODY, "const " + evalSet + "=new Set();"]
+		[STEP.BODY, "const " + evalSet + "={};"]
 	);
 
 	// (1) dispatch every seq child with OUR evalSet as their unEval target.
@@ -391,7 +391,7 @@ const _unEvalEnv = (
 		if (!unEvalSchema) {
 			// FALSE → success requires every key/index to be in evalSet
 			steps.push([STEP.BODY,
-				"if(" + lengthExpr + ">" + evalSet + ".size){"
+				"if(" + lengthExpr + ">Object.keys(" + evalSet + ").length){"
 				+ (isCond ? "" : _err(parentCtx, inVar, pathVar + "/unevaluated" + typeName, "Unevaluated " + (isArr ? "items" : "properties") + " are not allowed") + ";")
 				+ outerBreak_
 				+ "}"
@@ -401,15 +401,15 @@ const _unEvalEnv = (
 			// redundant forEach), and in parser mode copy un-evaluated to outVar
 			if (parentSet) {
 				steps.push([STEP.BODY, isArr
-					? "for(let i=" + inVar + ".length;i--;)" + parentSet + ".add(i);"
-					: "for(const k of Object.keys(" + inVar + "))" + parentSet + ".add(k);"
+					? "for(let i=" + inVar + ".length;i--;)" + parentSet + "[i]=1;"
+					: "for(const k of Object.keys(" + inVar + "))" + parentSet + "[k]=1;"
 				]);
 				propagateAtEnd = false;
 			}
 			if (!isCond) {
 				steps.push([STEP.BODY, isArr
-					? "for(let i=" + inVar + ".length;i--;){if(!" + evalSet + ".has(i))" + outVar + "[i]=" + inVar + "[i];}"
-					: "for(const k of Object.keys(" + inVar + ")){if(!" + evalSet + ".has(k))" + outVar + "[k]=" + inVar + "[k];}"
+					? "for(let i=" + inVar + ".length;i--;){if(!" + evalSet + "[i])" + outVar + "[i]=" + inVar + "[i];}"
+					: "for(const k of Object.keys(" + inVar + ")){if(!" + evalSet + "[k])" + outVar + "[k]=" + inVar + "[k];}"
 				]);
 			}
 		}
@@ -427,18 +427,18 @@ const _unEvalEnv = (
 			breakBlock: parentCtx.breakBlock ?? block,
 		};
 
-		steps.push([STEP.BODY, enumOpen + "if(!" + evalSet + ".has(k)){"]);
+		steps.push([STEP.BODY, enumOpen + "if(!" + evalSet + "[k]){"]);
 		steps.push([unEvalSchema, "val", childOutVar, pathVar + "/unevaluated" + typeName, childCtx]);
 		steps.push([STEP.BODY,
 			(isCond ? "" : "if(errors.length)" + outerBreak_)
-			+ evalSet + ".add(k);"
+			+ evalSet + "[k]=1;"
 			+ "}}"
 		]);
 	}
 
 	// (4) propagate our set to parent (chains with oneOf/allOf/anyOf/nested unEval)
 	if (propagateAtEnd) {
-		steps.push([STEP.BODY, evalSet + ".forEach(v=>" + parentSet + ".add(v));"]);
+		steps.push([STEP.BODY, "for(const v in " + evalSet + ")" + parentSet + "[v]=1;"]);
 	}
 
 	// (5) cond-mode success markers — only reached if all checks passed:
@@ -764,490 +764,6 @@ export const unevaluatedProperties = (dnaOpt: [number, number[], tsMeta], _inVar
 		pathVar,
 	});
 
-// const unevaluatedProperties_old = (dnaOpt: [number, number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepOp[] => {
-// 	const unEvalPropSchema = dnaOpt[0];
-// 	const isCond = parentCtx.isCond;
-// 	const seq = dnaOpt[1];
-// 	const steps: tsJSStepOp[] = [];
-// 	const idx = labelId()
-// 	const evalVar = "evalP" + idx;
-// 	const uEvalBlock = "evalPB" + idx;
-// 	const evalSet = "evalPSet" + idx;
-// 	const innerFail_ = "break " + uEvalBlock + ";"
-// 	const ifLocalErr = isCond ? "if(!" + evalVar + ")" + innerFail_ : "if(errors.length)" + innerFail_;
-
-// 	const childrenCtx = { unEvalObj: evalSet, breakBlock: uEvalBlock, isCond };
-
-// 	const checkType = '!(typeof ' + _inVarName + '==="object"&&' + _inVarName + "!==null&&!Array.isArray(" + _inVarName + "))";
-
-// 	steps.push(
-// 		[STEP.BODY, uEvalBlock + ":{"],
-// 		[STEP.BODY, "const " + evalSet + "=new Set();" + (seq.length > 1 ? "let " + evalVar + ";" : "")]
-// 	);
-
-// 	for (let i = 0; i < seq.length; i++) {
-// 		const it = seq[i];
-// 		if (i > 0) steps.push([STEP.BODY, ifLocalErr])
-// 		steps.push(
-// 			[it, i === 0 ? _inVarName : evalVar, i + 1 === seq.length ? _outVarName : evalVar, pathVar, childrenCtx],
-// 		);
-// 	}
-
-// 	if (isCond) {
-// 		if (typeof unEvalPropSchema === "boolean") {
-// 			if (!unEvalPropSchema) { // false : reject everything
-// 				steps.push([STEP.BODY,
-// 				(parentCtx.typeChecked === "object" ? "" : "if(" + checkType + ")" + innerFail_)
-// 				+ "if(Object.keys(" + _inVarName + ").length>" + evalSet + ".size)"
-// 				+ innerFail_
-// 				// + "}" //closure of if
-// 				// + _assignOrCond(parentCtx, "", _inVarName, _outVarName)
-// 				+ "}" //closure of evalBlock
-// 				]);
-// 				return steps;
-// 			}
-// 			// true : accept everything
-// 			steps.push([STEP.BODY, _outVarName + "=true;}"]);
-// 			return steps;
-// 		}
-// 		steps.push(
-// 			[STEP.BODY,
-// 			(parentCtx.typeChecked === "object" ? "" : "if(" + checkType + ")" + innerFail_)
-// 			+ "const kk=Object.keys(" + _inVarName + ");let kl=kk.length;"
-// 			+ "while(kl--){"
-// 			+ "const key=kk[kl],val=" + _inVarName + "[key];"
-// 			+ "if(!" + evalSet + ".has(key)){"],
-// 			[unEvalPropSchema, "val", evalVar, pathVar + "/unevaluatedProperties", childrenCtx],
-// 			[STEP.BODY, ifLocalErr + "}" + "}}"], // closing while and evalBlock
-// 		);
-// 	} else {
-// 		if (typeof unEvalPropSchema === "boolean") {
-// 			if (!unEvalPropSchema) { // false : reject everything
-// 				steps.push([STEP.BODY,
-// 				(parentCtx.typeChecked === "object" ? "" : "if(" + checkType + ")" + innerFail_)
-// 				+ "if(Object.keys(" + _inVarName + ").length>" + evalSet + ".size){"
-// 				+ _err(parentCtx, _inVarName, pathVar + "/unevaluatedProperties", "Unevaluated properties are not allowed") + ";"
-// 				+ innerFail_
-// 				+ "}" //closure of if
-// 				+ "}" //closure of evalBlock
-// 				]);
-// 				return steps;
-// 			}
-// 			steps.push(
-// 				[STEP.BODY,
-// 				(parentCtx.typeChecked === "object" ? "" : "if(" + checkType + ")" + innerFail_)
-// 				+ "const kk=Object.keys(" + _inVarName + ");let kl=kk.length;"
-// 				+ "while(kl--){const key=kk[kl];"
-// 				+ "if(!" + evalSet + ".has(key))" + _outVarName + "[key]=" + _inVarName + "[key];"
-// 				+ "}" // closing while
-// 				+ "}" // closing evalBlock
-// 				]
-// 			);
-// 			return steps;
-// 		}
-
-// 		steps.push(
-// 			[STEP.BODY,
-// 			(parentCtx.typeChecked === "object" ? "" : "if(" + checkType + ")" + innerFail_)
-// 			+ "const kk=Object.keys(" + _inVarName + ");let kl=kk.length;"
-// 			+ "while(kl--){"
-// 			+ "const key=kk[kl],val=" + _inVarName + "[key];"
-// 			+ "if(!" + evalSet + ".has(key)){"],
-// 			[unEvalPropSchema, "val", _outVarName + "[key]", pathVar + "/unevaluatedProperties", childrenCtx],
-// 			[STEP.BODY, ifLocalErr + "}}}"] // closing while and breakBlock
-// 		)
-// 	}
-// 	return steps;
-// };
-
-// const object_old = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, declared = true): tsJSFn => {
-// 	const isCond = parentCtx.isCond;
-// 	const idx = labelId();
-// 	const oVar = "oVar" + idx;
-// 	const oLen = "oLen" + idx;
-// 	const oVarIdx = oVar + "[i]";
-// 	const loopVar = "val" + idx;
-
-// 	// passedIdx for property tracking for additionalProperties
-// 	let passedIdx = "";
-// 	const evalParent = parentCtx.unEvalObj ?? "";  // set name only e.g. "evalPSet0"
-// 	const evalParentKey_ = evalParent.length ? evalParent + ".add(key);" : "";
-
-// 	const needsOwnBlock = !parentCtx.breakBlock && !(parentCtx.ownScope === false && !parentCtx.counter);
-// 	const _block = needsOwnBlock ? "oB" + idx : "";
-// 	const innerBreak_ = "break " + _block + ";"
-// 	const outerFail_ = parentCtx.breakBlock ? "break " + parentCtx.breakBlock + ";" : "return false;";
-// 	const innerFail_ = needsOwnBlock ? innerBreak_ : outerFail_;
-// 	const _innerFail_ = ";" + innerFail_;
-// 	const innerIfErrFail_ = "if(errors.length)" + innerFail_;
-// 	const _innerIfErrFail_ = ";" + innerIfErrFail_;
-
-// 	const opt = dnaOpt[0];
-// 	const steps: tsJSStepOp[] = [];
-
-// 	// Type validation
-// 	const typeValidation =
-// 		[
-// 			// if - err (then)
-// 			"typeof " + _inVarName + '!=="object"||' + _inVarName + "===null||Array.isArray(" + _inVarName + ")",
-// 			declared ? _err(parentCtx, _inVarName, pathVar + "/object", "Object is required") : _outVarName + "=" + _inVarName
-// 		];
-
-
-// 	const neededConstants: string[] = []
-// 	const regexConstants: string[] = []
-
-// 	// object constraint checks
-// 	let objectCheck = [];
-
-// 	// object Properties
-// 	let propertiesChecks = [];
-// 	let patternPropChecks = [];
-// 	let patternPropertiesBooleanChecks: boolean | undefined;
-// 	let propertyNamesCheck: number | boolean | undefined = undefined
-// 	let additionalPropertiesCheck: number | boolean | undefined = undefined;
-
-// 	// dynamic properties & loop for dynamic properties
-// 	let needLength = false;
-// 	let requiresAddPropTracking = true;
-// 	let hasDynamicProps = false;
-// 	// `keyLoopNeeded` will be derived after the opt scan: a per-key loop is only
-// 	// useful when something actually does work per key (patternProperties,
-// 	// propertyNames as schema, additionalProperties as schema, or `:true` in parser
-// 	// mode for copying unknown keys). Pure `additionalProperties: false` does NOT
-// 	// require iterating: the Set size vs Object.keys length is enough.
-
-
-// 	for (let i = 0; i < opt.length; i++) {
-// 		const it = opt[i];
-// 		const data = it[1];
-// 		switch (it[0]) {
-// 			case "minProperties":
-// 				needLength = true;
-// 				objectCheck.push([
-// 					oLen + "<" + String(data),
-// 					_err(parentCtx, _inVarName, pathVar + "/object/minProperties", "Object requires at least " + String(data) + " properties")
-// 				])
-// 				// objectCheck += "if(" + oLen + "<" + String(data) + "){"
-// 				// 	+ innerFail_
-// 				// 	+ "}";
-// 				break;
-// 			case "maxProperties":
-// 				needLength = true;
-// 				if (data > -1)
-// 					objectCheck.push([
-// 						oLen + ">" + String(data),
-// 						_err(parentCtx, _inVarName, pathVar + "/object/maxProperties", "Object requires at most " + String(data) + " properties")
-// 					])
-// 				// += "if(" +  + "){"
-// 				// 		+ (isCond ? "" : _err(parentCtx, _inVarName, pathVar + "/object/maxProperties", "Object requires at most " + String(data) + " properties") + ";")
-// 				// 		+ innerFail_
-// 				// 		+ "}";
-// 				break;
-// 			case "required":
-// 				if (data.length > 0)
-// 					for (let i = 0; i < data.length; i++) {
-// 						const el = JSON.stringify(data[i]).slice(1, -1);
-// 						objectCheck.push([
-// 							"!Object.hasOwn(" + _inVarName + ',"' + el + '")',
-// 							_err(parentCtx, _inVarName, pathVar + "/object/required/" + el, 'Required property "' + el + '" is missing')
-// 						]);
-// 					}
-// 				break;
-
-// 			case "dependentRequired":
-// 				if (Object.keys(data).length > 0) {
-// 					const keys = Object.keys(data);
-// 					for (let i = 0; i < keys.length; i++) {
-// 						const triggerProp = keys[i];
-// 						const requiredProps = data[triggerProp];
-// 						const triggerPropStr = JSON.stringify(triggerProp);
-// 						const triggerPropDisplay = triggerPropStr.slice(1, -1);
-// 						const condition = "Object.hasOwn(" + _inVarName + "," + triggerPropStr + ")";
-// 						for (let j = 0; j < requiredProps.length; j++) {
-// 							const reqPropStr = JSON.stringify(requiredProps[j]);
-// 							const reqPropDisplay = reqPropStr.slice(1, -1);
-// 							objectCheck.push([
-// 								condition + "&&!Object.hasOwn(" + _inVarName + "," + reqPropStr + ")",
-// 								_err(parentCtx, _inVarName, pathVar + "/object/dependentRequired/" + triggerPropDisplay, 'Property "' + reqPropDisplay + '" is required when "' + triggerPropDisplay + '" is present')
-// 							]);
-// 						}
-// 					}
-// 				}
-// 				break;
-
-// 			case "properties":
-// 				propertiesChecks = data;
-// 				break;
-
-// 			case "patternProperties":
-// 				hasDynamicProps = true;
-// 				for (let i = 0; i < data.length; i++) {
-// 					const el = data[i];
-// 					const regexVar = "rxPP" + idx + "_" + i;
-// 					neededConstants.push(regexVar + "=/" + el[0] + "/u");
-// 					patternPropChecks.push([regexVar, el[0], el[1]]);
-// 				}
-// 				break;
-
-// 			case "propertyNames":
-// 				hasDynamicProps = true;
-// 				propertyNamesCheck = data;
-// 				break;
-
-// 			case "additionalProperties": {
-// 				hasDynamicProps = true;
-// 				passedIdx = "passed" + idx;
-// 				neededConstants.push(passedIdx + "=new Set()");
-// 				additionalPropertiesCheck = data
-// 				break;
-// 			}
-// 		}
-// 	}
-// 	const passedIdxAddKey_ = passedIdx.length ? passedIdx + ".add(key);" : "";
-
-// 	// In isCond mode, only schemas/patterns trigger per-key work.
-// 	const keyLoopNeededIsCond = (propertyNamesCheck !== undefined && typeof propertyNamesCheck !== "boolean")
-// 		|| (typeof propertyNamesCheck === "boolean" && propertyNamesCheck === true && (!!evalParent.length || !!passedIdx))
-// 		|| (typeof propertyNamesCheck === "boolean" && propertyNamesCheck === false)
-// 		|| patternPropChecks.length > 0
-// 		|| patternPropertiesBooleanChecks !== undefined
-// 		|| typeof additionalPropertiesCheck === "number";
-// 	// Parser mode additionally needs the loop for `additionalProperties: true`
-// 	// (copying unknown keys), `propertyNames: false` (per-key error reporting),
-// 	// and `propertyNames: true` (copying all keys).
-// 	const keyLoopNeededParser = keyLoopNeededIsCond
-// 		|| additionalPropertiesCheck === true
-// 		|| typeof propertyNamesCheck === "boolean"
-
-
-// 	if (needLength || hasDynamicProps) {
-// 		if (!hasDynamicProps) neededConstants.push(oLen + "=Object.keys(" + _inVarName + ").length");
-// 		else neededConstants.push(oVar + "=Object.keys(" + _inVarName + ")", oLen + "=" + oVar + ".length");
-// 	}
-
-// 	if (regexConstants.length) fastMergeArrays(neededConstants, regexConstants);
-// 	// if (neededConstants.length) steps.push([STEP.BODY, "const " + neededConstants.join(",") + ";"]);
-
-// 	// CODE GENERATION
-
-// 	if (_block.length) steps.push([STEP.BODY, _block + ":{"]);
-
-// 	if (isCond) {
-// 		const childrenCtx: tsJSParentCtx = { isCond: true, breakBlock: parentCtx.breakBlock || _block };
-// 		const _outTrue = _outVarName ? _outVarName + "=true;" : "";
-
-// 		const strReturn =
-// 			steps.push([STEP.BODY,
-// 			// typevalidation
-// 			"if(" + typeValidation[0] + ")" + (declared ? innerFail_ : "{" + _outTrue + innerBreak_ + "}")
-// 			+ (neededConstants.length ? "const " + neededConstants.join(",") + ";" : "")
-// 			+ (objectCheck.length ? "if((" + objectCheck.map(it => it[0]).join(")||(") + "))" + innerFail_ : "")
-// 			]);
-// 		if (propertiesChecks.length) {
-// 			// let requiresPassed = hasDynamicProps && requiresAddPropTracking;
-// 			for (let i = 0; i < propertiesChecks.length; i++) {
-// 				const el = propertiesChecks[i], el0 = JSON.stringify(el[0]), el0Litteral = el0.slice(1, -1);
-// 				const name = el[0], _name = JSON.stringify(name);
-// 				const dnaIdx = el[1];
-// 				const propVal = "ob" + idx + "pp" + i;
-// 				const objKey = _inVarName + "[" + _name + "]";
-
-// 				// Properties are optional by default (JSON Schema compliant)
-// 				steps.push(
-// 					[STEP.BODY, "if(Object.hasOwn(" + _inVarName + "," + _name + ")){"
-// 						+ "let " + propVal + "=" + objKey + ";"
-// 					],
-// 					[dnaIdx, propVal, "", pathVar + "/properties/" + el0Litteral, childrenCtx],
-// 					[STEP.BODY, (evalParent.length
-// 						? evalParent + ".add(" + _name + ");"
-// 						: "")
-// 						+ (passedIdx ? passedIdx + ".add(" + _name + ");" : "")
-// 					],
-// 					[STEP.BODY, "}"]
-// 				);
-// 			}
-// 			// steps.push([STEP.BODY, "else " + innerFail_ ]);
-// 		}
-// 		if (hasDynamicProps && keyLoopNeededIsCond) { //loop
-// 			steps.push([STEP.BODY, "for(let i=0;i<" + oLen + ";i++){const key=" + oVarIdx + "," + loopVar + "=" + _inVarName + "[key];"]);
-
-// 			//propertyNames
-// 			if (propertyNamesCheck !== undefined) {
-// 				if (typeof propertyNamesCheck === "boolean") {
-// 					if (propertyNamesCheck === false) {
-// 						// In isCond mode, just break without error (no errors array)
-// 						steps.push([STEP.BODY, innerFail_]);
-
-// 					} else {
-// 						// If true, accept all - no validation needed, just store the property
-// 						if (evalParent.length || passedIdx) steps.push([STEP.BODY, evalParentKey_ + passedIdxAddKey_]);
-// 					}
-// 				} else {
-// 					steps.push(
-// 						[propertyNamesCheck, "key", "", pathVar + "/propertyNames", childrenCtx],
-// 						// [STEP.BODY, evalParentKey_]
-// 						// [STEP.BODY, "))" + innerFail_
-// 						// + _err(parentCtx, oVarIdx, pathVar + "/propertyNames", "Property name does not match schema") + _innerFail_ + "}"
-// 						// + _outVarName + "[key]=val;"
-// 						// + (evalParent.length || passedIdx ? "else{" + evalParentKey_ + passedIdxAddKey_ + "}" : "")
-// 						// ]
-// 					);
-// 				}
-// 			}
-
-// 			//patternProperties 
-// 			if (patternPropChecks.length) {
-// 				for (let i = 0; i < patternPropChecks.length; i++) {
-// 					const el = patternPropChecks[i];
-// 					steps.push(
-// 						[STEP.BODY, "if(" + el[0] + ".test(key)){"],
-// 						[el[2], loopVar, "", pathVar + "/patternProperties/" + el[1], childrenCtx],
-// 						[STEP.BODY, (evalParent.length ? evalParent + ".add(key);" : "") + "}"],
-// 					);
-// 				}
-// 			}
-// 			if (patternPropertiesBooleanChecks !== undefined) {
-// 				if (patternPropertiesBooleanChecks === false) {
-// 					steps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/propertyNames", "Property names not allowed") + _innerFail_]);
-// 				}
-// 				// If true, accept all - no validation needed, just store the property
-// 				steps.push([STEP.BODY, evalParentKey_ + passedIdxAddKey_]);
-// 			}
-// 			//additionalProperties
-// 			if (additionalPropertiesCheck !== undefined) {
-// 				if (typeof additionalPropertiesCheck === "boolean") {
-// 					if (additionalPropertiesCheck === false)
-// 						steps.push(
-// 							// close the loop and then test the size
-// 							[STEP.BODY, "}if(" + passedIdx + ".size<" + oLen + ")" + innerFail_ + (evalParentKey_ ? "else " + evalParentKey_ : "")]
-// 						);
-// 					else steps.push([STEP.BODY, "}"]); // close the loop
-// 				} else {
-// 					steps.push(
-// 						[STEP.BODY, "if(!" + passedIdx + ".has(key)){"],
-// 						[additionalPropertiesCheck, loopVar, "", pathVar + "/additionalProperties/", childrenCtx],
-// 						[STEP.BODY, "}}"]
-// 					)
-// 				}
-// 			} else steps.push([STEP.BODY, "}"]); // close the loop
-// 		} else if (hasDynamicProps && additionalPropertiesCheck === false) {
-// 			// No per-key work needed: just verify that every input key was matched by
-// 			// `properties` (Set populated above). No iteration required.
-// 			steps.push([STEP.BODY, "if(" + passedIdx + ".size<" + oLen + ")" + innerFail_]);
-// 		} // end of loop
-// 		if (parentCtx.counter) steps.push([STEP.BODY, parentCtx.counter])
-// 		if (!evalParent && _outVarName) steps.push([STEP.BODY, _outVarName + "=true;"]);
-
-// 	} else { // isCond=false
-// 		steps.push([STEP.BODY,
-// 		// typevalidation
-// 		"if(" + typeValidation[0] + "){" // changed from "if(" + typeValidation[0] + "){" to "if(" + typeValidation[0] + "){" 
-// 		+ (declared ? typeValidation[1] : _outVarName + "=" + _inVarName) + _innerFail_
-// 		+ "}"
-// 		+ (neededConstants.length ? "const " + neededConstants.join(",") + ";" : "")
-// 		+ ((propertiesChecks.length || hasDynamicProps) ? _outVarName + "={};" : _outVarName + "=" + _inVarName + ";")
-// 		+ objectCheck.map(it => "if(" + it[0] + "){" + it[1] + _innerFail_ + "}").join("")
-// 		]);
-
-// 		if (propertiesChecks.length) {
-// 			let requiresPassed = hasDynamicProps && requiresAddPropTracking;
-// 			for (let i = 0; i < propertiesChecks.length; i++) {
-// 				const el = propertiesChecks[i], el0 = JSON.stringify(el[0]), el0Litteral = el0.slice(1, -1);
-// 				const name = el[0], _name = JSON.stringify(name);
-// 				const dnaIdx = el[1];
-// 				const objKey = _inVarName + "[" + _name + "]";
-
-// 				steps.push(
-// 					[STEP.BODY, "if(Object.hasOwn(" + _inVarName + "," + _name + ")){"],
-// 					[dnaIdx, objKey, _outVarName + "[" + _name + "]", pathVar + "/properties/" + el0Litteral],
-// 					[STEP.BODY, innerIfErrFail_
-// 						+ (evalParent.length ? evalParent + ".add(" + _name + ");" : "")
-// 						+ (requiresPassed ? passedIdx + ".add(" + _name + ");" : "")
-// 						+ "}"
-// 					]
-// 				);
-// 			}
-// 		}
-
-// 		if (hasDynamicProps && keyLoopNeededParser) { //loop
-// 			steps.push([STEP.BODY, "for(let i=0;i<" + oLen + ";i++){const key=" + oVarIdx + "," + loopVar + "=" + _inVarName + "[key];"]);
-// 			//propertyNames
-// 			if (propertyNamesCheck !== undefined) {
-// 				if (typeof propertyNamesCheck === "boolean") {
-// 					if (propertyNamesCheck === false) {
-// 						steps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/propertyNames", "Property names not allowed") + _innerFail_]);
-// 					} else {
-// 						// If true, accept all - no validation needed, just store the property
-// 						steps.push([STEP.BODY, _outVarName + "[key]=" + loopVar + ";" + evalParentKey_ + passedIdxAddKey_]);
-// 					}
-// 				} else {
-// 					steps.push(
-// 						[propertyNamesCheck, "key", _outVarName + "[key]", pathVar + "/propertyNames"],
-// 						[STEP.BODY, "if(errors.length){"
-// 							+ _err(parentCtx, oVarIdx, pathVar + "/propertyNames", "Property name does not match schema")
-// 							+ _innerFail_
-// 							+ "}"
-// 							+ _outVarName + "[key]=" + loopVar + ";"
-// 							+ evalParentKey_ + passedIdxAddKey_
-// 						]
-// 					);
-// 				}
-// 			}
-
-// 			//patternProperties 
-// 			if (patternPropChecks.length) for (let i = 0; i < patternPropChecks.length; i++) {
-// 				const el = patternPropChecks[i];
-// 				// Push step to process this pattern property
-// 				steps.push([STEP.BODY, "if(" + el[0] + ".test(key)){"],
-// 					[el[2], loopVar, _outVarName + "[key]", pathVar + "/patternProperties/" + el[1], { isCond }],
-// 					[STEP.BODY, evalParentKey_ + passedIdxAddKey_ + "}"]
-// 				);
-// 			}
-// 			if (patternPropertiesBooleanChecks !== undefined) {
-// 				if (patternPropertiesBooleanChecks === false) {
-// 					steps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/propertyNames", "Property names not allowed") + _innerFail_]);
-// 				}
-// 				// If true, accept all - no validation needed, just store the property
-// 				steps.push([STEP.BODY, _outVarName + "[key]=" + loopVar + ";" + evalParentKey_ + passedIdxAddKey_]);
-// 			}
-// 			//additionalProperties
-// 			if (additionalPropertiesCheck !== undefined) {
-// 				if (typeof additionalPropertiesCheck === "boolean") {
-// 					if (additionalPropertiesCheck === true) {
-// 						steps.push([STEP.BODY, "if(!" + passedIdx + ".has(key)){" + _outVarName + "[key]=" + loopVar + ";" + evalParentKey_ + "}"]);
-// 					} else {
-// 						steps.push(
-// 							// close the loop and then test the size
-// 							[STEP.BODY, "if(" + passedIdx + ".size<" + oLen + "){"
-// 								+ _err(parentCtx, loopVar, pathVar + "/additionalProperties", "Additional properties not allowed")
-// 								+ _innerIfErrFail_ + evalParentKey_ + "}"]
-// 						);
-// 					}
-// 				} else {
-// 					steps.push(
-// 						[STEP.BODY, "if(!" + passedIdx + ".has(key)){"],
-// 						[additionalPropertiesCheck, loopVar, _outVarName.length ? _outVarName + "[key]" : "", pathVar + "/additionalProperties/"],
-// 						[STEP.BODY, "}" + innerIfErrFail_])
-// 				}
-// 			}
-
-// 			// steps.push([STEP.BODY, _innerIfErrFail_]);
-// 			steps.push([STEP.BODY, "}"]); // close the loop
-// 		} else if (hasDynamicProps && additionalPropertiesCheck === false) {
-// 			// No per-key work needed: emit the size check directly without iterating.
-// 			steps.push([STEP.BODY, "if(" + passedIdx + ".size<" + oLen + "){"
-// 				+ _err(parentCtx, _inVarName, pathVar + "/additionalProperties", "Additional properties not allowed")
-// 				+ _innerFail_ + "}"]);
-// 		} // end of loop
-// 		if (parentCtx.counter) steps.push([STEP.BODY, parentCtx.counter + ";"]);
-// 	}
-
-// 	if (_block.length) steps.push([STEP.BODY, "}"]);
-
-// 	parentCtx.typeChecked = "object";
-// 	return steps;
-// };
 
 /**
  * Migrated `object` validator using `_assignOrCondEnv`.
@@ -1270,7 +786,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 
 	let passedIdx = "";
 	const evalParent = parentCtx.unEvalObj ?? "";
-	const evalParentKey_ = evalParent.length ? evalParent + ".add(key);" : "";
+	const evalParentKey_ = evalParent.length ? evalParent + "[key]=1;" : "";
 
 	const opt = dnaOpt[0];
 
@@ -1354,12 +870,12 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			case "additionalProperties":
 				hasDynamicProps = true;
 				passedIdx = "passed" + idx;
-				neededConstants.push(passedIdx + "=new Set()");
+				neededConstants.push(passedIdx + "={}");
 				additionalPropertiesCheck = data;
 				break;
 		}
 	}
-	const passedIdxAddKey_ = passedIdx.length ? passedIdx + ".add(key);" : "";
+	const passedIdxAddKey_ = passedIdx.length ? passedIdx + "[key]=1;" : "";
 
 	const keyLoopNeededIsCond = (propertyNamesCheck !== undefined && typeof propertyNamesCheck !== "boolean")
 		|| (typeof propertyNamesCheck === "boolean" && propertyNamesCheck === true && (!!evalParent.length || !!passedIdx))
@@ -1482,8 +998,8 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		// actually declared via `properties` (other keywords don't "evaluate"
 		// the key per JSON-Schema semantics).
 		if (propDnaIdx !== undefined) {
-			const evalMark = evalParent.length ? evalParent + ".add(" + _name + ");" : "";
-			const passMark = passedIdx ? passedIdx + ".add(" + _name + ");" : "";
+			const evalMark = evalParent.length ? evalParent + "[" + _name + "]="+_name+";" : "";
+			const passMark = passedIdx ? passedIdx + "[" + _name + "]="+_name+";" : "";
 			if (evalMark || passMark) innerSteps.push([STEP.BODY, evalMark + passMark]);
 		}
 
@@ -1520,7 +1036,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 					innerSteps.push(
 						[STEP.BODY, "if(" + el[0] + ".test(key)){"],
 						[el[2], loopVar, "", pathVar + "/patternProperties/" + el[1], childrenCtx],
-						[STEP.BODY, (evalParent.length ? evalParent + ".add(key);" : "") + passedIdxAddKey_ + "}"]
+						[STEP.BODY, (evalParent.length ? evalParent + "[key]=key;" : "") + passedIdxAddKey_ + "}"]
 					);
 				}
 			}
@@ -1534,26 +1050,26 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			if (additionalPropertiesCheck !== undefined) {
 				if (typeof additionalPropertiesCheck === "boolean") {
 					if (additionalPropertiesCheck === false)
-						innerSteps.push([STEP.BODY, "}if(" + passedIdx + ".size<" + oLen + ")" + break_ + (evalParentKey_ ? "else " + evalParentKey_ : "")]);
+						innerSteps.push([STEP.BODY, "}if(Object.keys(" + passedIdx + ").length<" + oLen + ")" + break_ + (evalParentKey_ ? "else " + evalParentKey_ : "")]);
 					// additionalProperties: true → every non-properties key is
 					// "evaluated" by JSON Schema semantics → mark in parent eval set.
 					else innerSteps.push([STEP.BODY,
-						(evalParent.length ? "if(!" + passedIdx + ".has(key))" + evalParent + ".add(key);" : "")
+						(evalParent.length ? "if(!" + passedIdx + "[key])" + evalParent + "[key]=1;" : "")
 						+ "}"
 					]);
 				} else {
 					// schema for additionalProperties → on sub-DNA success, mark key as evaluated.
 					innerSteps.push(
-						[STEP.BODY, "if(!" + passedIdx + ".has(key)){"],
+						[STEP.BODY, "if(!" + passedIdx + "[key]){"],
 						[additionalPropertiesCheck, loopVar, "", pathVar + "/additionalProperties/", childrenCtx],
-						[STEP.BODY, (evalParent.length ? evalParent + ".add(key);" : "") + "}}"]
+						[STEP.BODY, (evalParent.length ? evalParent + "[key]=1;" : "") + "}}"]
 					);
 				}
 			} else {
 				innerSteps.push([STEP.BODY, "}"]);
 			}
 		} else if (hasDynamicProps && additionalPropertiesCheck === false) {
-			innerSteps.push([STEP.BODY, "if(" + passedIdx + ".size<" + oLen + ")" + break_]);
+			innerSteps.push([STEP.BODY, "if(Object.keys(" + passedIdx + ").length<" + oLen + ")" + break_]);
 		}
 
 	} else {
@@ -1596,9 +1112,9 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			if (additionalPropertiesCheck !== undefined) {
 				if (typeof additionalPropertiesCheck === "boolean") {
 					if (additionalPropertiesCheck === true) {
-						innerSteps.push([STEP.BODY, "if(!" + passedIdx + ".has(key)){" + outVar + "[key]=" + loopVar + ";" + evalParentKey_ + "}"]);
+						innerSteps.push([STEP.BODY, "if(!" + passedIdx + "[key]){" + outVar + "[key]=" + loopVar + ";" + evalParentKey_ + "}"]);
 					} else {
-						innerSteps.push([STEP.BODY, "if(" + passedIdx + ".size<" + oLen + "){"
+						innerSteps.push([STEP.BODY, "if(Object.keys(" + passedIdx + ").length<" + oLen + "){"
 							+ _err(parentCtx, loopVar, pathVar + "/additionalProperties", "Additional properties not allowed")
 							+ _innerIfErrFail_ + evalParentKey_ + "}"]);
 					}
@@ -1606,15 +1122,15 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 					// schema for additionalProperties (parser) → on sub-DNA success,
 					// mark key as evaluated in the parent eval set.
 					innerSteps.push(
-						[STEP.BODY, "if(!" + passedIdx + ".has(key)){"],
+						[STEP.BODY, "if(!" + passedIdx + "[key]){"],
 						[additionalPropertiesCheck, loopVar, outVar.length ? outVar + "[key]" : "", pathVar + "/additionalProperties/"],
-						[STEP.BODY, innerIfErrFail_ + (evalParent.length ? evalParent + ".add(key);" : "") + "}"]
+						[STEP.BODY, innerIfErrFail_ + (evalParent.length ? evalParent + "[key]=1;" : "") + "}"]
 					);
 				}
 			}
 			innerSteps.push([STEP.BODY, "}"]);
 		} else if (hasDynamicProps && additionalPropertiesCheck === false) {
-			innerSteps.push([STEP.BODY, "if(" + passedIdx + ".size<" + oLen + "){"
+			innerSteps.push([STEP.BODY, "if(Object.keys(" + passedIdx + ").length<" + oLen + "){"
 				+ _err(parentCtx, inVar, pathVar + "/additionalProperties", "Additional properties not allowed")
 				+ _break_ + "}"]);
 		}
@@ -1653,444 +1169,6 @@ export const unevaluatedItems = (dnaOpt: [number, number[], tsMeta], _inVarName:
 		pathVar,
 	});
 
-// const unevaluatedItems_old = (dnaOpt: [number, number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepOp[] => {
-// 	const isCond = parentCtx.isCond;
-// 	const unEvalItemSchema = dnaOpt[0];
-// 	const seq = dnaOpt[1];
-// 	const steps: tsJSStepOp[] = [];
-// 	const idx = labelId();
-// 	const evalVar = "evalI" + idx;
-
-// 	const uEvalBlock = "evalIB" + idx;
-// 	const evalSet = "evalISet" + idx;
-// 	const innerFail_ = "break " + uEvalBlock + ";"
-// 	const strReturn_ = parentCtx.breakBlock ? "break " + parentCtx.breakBlock + ";" : "return false;";
-
-// 	const ifLocalErr = isCond ? "" : "if(errors.length)" + innerFail_;
-// 	const uEvalSet = "evalISet" + idx;
-
-// 	const childrenCtx = { ...parentCtx, unEvalArr: uEvalSet, breakBlock: uEvalBlock, isCond };
-// 	const checkTypePoz = "Array.isArray(" + _inVarName + ")";
-// 	const checkTypeNeg = "!" + checkTypePoz;
-
-
-// 	steps.push(
-// 		[STEP.BODY, uEvalBlock + ":{"],
-// 		[STEP.BODY, "const " + evalSet + "=new Set();"]
-// 	);
-
-// 	if (isCond) {
-
-// 		const _outTrue = _outVarName ? _outVarName + "=true;" : "";
-
-// 		for (let i = 0; i < seq.length; i++) {
-// 			const it = seq[i];
-// 			// if (i > 0) steps.push([STEP.BODY, ifLocalErr])
-// 			steps.push([it, _inVarName, "", pathVar, childrenCtx]);
-// 		}
-
-// 		if (typeof unEvalItemSchema === "boolean") {
-
-// 			if (!unEvalItemSchema) { // false : reject everything
-// 				steps.push([STEP.BODY, _assignOrCond({ ...parentCtx, unEvalArr: "" },
-// 					_inVarName, _outVarName, "",
-// 					parentCtx.typeChecked === "array" ? "" : checkTypeNeg, "", _inVarName + ".length<" + evalSet + ".size", false) + "}"]
-// 				);
-// 				return steps;
-// 			}
-// 			// true : accept everything
-// 			let unEvalArr = "";
-// 			if (parentCtx.unEvalArr) unEvalArr = "let kl=" + _inVarName + ".length;"
-// 				+ "for(;kl--;){"
-// 				+ "if(!" + parentCtx.unEvalArr + ".has(kl)){" + parentCtx.unEvalArr + ".add(kl);}";
-// 			steps.push([STEP.BODY, _assignOrCond({ ...parentCtx, unEvalArr }, _inVarName, _outVarName, "", parentCtx.typeChecked === "array" ? "" : checkTypeNeg, "", "", false) + "}"]);
-// 			return steps;
-// 		}
-
-// 		/* 
-// 		if parentCtx.typechecked === array => counter or not counter
-// 		if type checking is needed, only the case declared = true is needed
-// 		in this case, there will be a body to check the size of evalSet, and again we check whether we need a counter (outer counter)
-// 		 */
-
-// 		// Use counter pattern like not for simple schemas
-// 		let unEvalArr = "";
-// 		if (parentCtx.unEvalArr) unEvalArr = "let kl=" + _inVarName + ".length;"
-// 			+ "for(;kl--;){"
-// 			+ "if(!" + parentCtx.unEvalArr + ".has(kl)){" + parentCtx.unEvalArr + ".add(kl);}";
-// 		steps.push(
-// 			[STEP.BODY,
-// 			(parentCtx.typeChecked === "array" ? "" : "if(" + checkTypeNeg + ")" + innerFail_)
-// 			+ "let kl=" + _inVarName + ".length;"
-// 			+ "for(;kl--;){"
-// 			+ "const val=" + _inVarName + "[kl];"
-// 			+ "if(!" + evalSet + ".has(kl)){"
-// 			],
-// 			[unEvalItemSchema, "val", "", pathVar + "/unevaluatedItems", { ...childrenCtx, breakBlock: uEvalBlock, unEvalArr: evalSet }],
-// 			[STEP.BODY, ifLocalErr + "}}" + _outTrue + "}"] // closing for and evalBlock
-// 		);
-
-// 	} else {
-// 		for (let i = 0; i < seq.length; i++) {
-// 			const it = seq[i];
-// 			if (i > 0) steps.push([STEP.BODY, ifLocalErr])
-// 			steps.push(
-// 				[it, i === 0 ? _inVarName : evalVar, i + 1 === seq.length ? _outVarName : evalVar, pathVar, childrenCtx],
-// 			);
-// 		}
-
-// 		if (typeof unEvalItemSchema === "boolean") {
-// 			if (!unEvalItemSchema) { // false : reject everything
-// 				steps.push([STEP.BODY,
-// 				(parentCtx.typeChecked === "array" ? "" : "if(" + checkTypeNeg + ")" + innerFail_)
-// 				+ "if(" + _inVarName + ".length>" + evalSet + ".size){"
-// 				+ _err(parentCtx, _inVarName, pathVar + "/unevaluatedItems", "Unevaluated Items are not allowed") + ";"
-// 				+ innerFail_
-// 				+ "}" //closure of if
-// 				+ "}" //closure of evalBlock
-// 				]);
-// 				return steps;
-// 			}
-// 			steps.push(
-// 				[STEP.BODY,
-// 				(parentCtx.typeChecked === "array" ? "" : "if(" + checkTypeNeg + ")" + innerFail_)
-// 				+ "let kl=" + _inVarName + ".length;"
-// 				+ "for(;kl--;){"
-// 				+ "if(!" + evalSet + ".has(kl))" + _outVarName + "[kl]=" + _inVarName + "[kl];"
-// 				+ "}"] // closing while
-// 			);
-// 			steps.push([STEP.BODY, "}"]); // closing evalBlock
-// 			return steps;
-// 		}
-
-// 		steps.push(
-// 			[STEP.BODY,
-// 			(parentCtx.typeChecked === "array" ? "" : "if(" + checkTypeNeg + ")" + innerFail_)
-// 			+ "let kl=" + _inVarName + ".length;"
-// 			+ "for(;kl--;){"
-// 			+ "const val=" + _inVarName + "[kl];"
-// 			+ "if(!" + evalSet + ".has(kl)){"],
-// 			[unEvalItemSchema, "val", _outVarName + "[kl]", pathVar + "/unevaluatedItems", { ...childrenCtx, isCond: false, breakBlock: uEvalBlock, unEvalArr: evalSet + ".add(kl);" }],
-// 			[STEP.BODY, ifLocalErr + "}}}"] // closing while and breakBlock/seqBlock
-// 		)
-// 	}
-// 	return steps;
-// }
-
-// const array_old = (dnaOpt: tsArrayDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, declared = true): tsJSFn => {
-// 	const isCond = parentCtx.isCond;
-// 	const idx = labelId();
-// 	const aLen = "aLen" + idx;
-// 	const loopVar = "val" + idx;
-
-// 	const opt = dnaOpt[0];
-// 	const steps: tsJSStepOp[] = [];
-// 	const containsSteps: tsJSStepOp[] = [];
-
-// 	// array contraints checks
-// 	let arrayCheck = [];
-// 	// uniqueItems lives in two flavors: a standalone reverse sweep, and a per-item
-// 	// forward check that can be folded into the items loop when eligible.
-// 	let uniqueItemsState: {
-// 		decl: string;       // "let unik0=true;"
-// 		unikVar: string;    // "unik0"
-// 		standalone: string; // full reverse sweep body (no final break)
-// 		perItem: string;    // per-iteration check assuming `val` and `i` in scope
-// 		err: string;        // _err(...) string
-// 	} | undefined;
-
-// 	// array items
-// 	let prefixItemsIndices = []; // DNA indices for prefixItems
-// 	let prefixItemsLength = 0;
-// 	let itemsIndex: number | boolean = 0; // DNA index (number) or boolean schema (true/false) for items
-
-// 	// dynamic items & loop for dynamics items 
-// 	let needLength = false;
-// 	let needLoop = false;
-// 	let containsCount = ""; // empty unless schema-dispatch contains is used (countErr target)
-// 	const containsPreloop: [string, string][] = []; // [test, err] checks emitted BEFORE the loop
-// 	const containsCheck: [string, string][] = [];   // [test, err] checks emitted AFTER the loop
-
-// 	for (let i = 0; i < opt.length; i++) {
-// 		const it = opt[i];
-// 		const data = it[1];
-// 		switch (it[0]) {
-// 			case "uniqueItems": {
-// 				needLength = true;
-// 				const unikVar = "unik" + idx;
-// 				const auErr = _err(parentCtx, _inVarName, pathVar + "/array/uniqueItems", "Array items must be unique");
-// 				const decl = "let " + unikVar + "=true;";
-// 				// AJV-style double loop without Set allocation. Outer loop bails out via `&&unikVar`.
-// 				// Two flavors:
-// 				//  - standalone (reverse sweep, can fire even without an items loop)
-// 				//  - perItem (forward j<i check, designed to be folded into the items loop)
-// 				let standalone = "";
-// 				let perItem = "";
-// 				// data: 0 = strict equality, 1 = requires deepEqual
-// 				if (data === 0) {
-// 					standalone = "if(" + aLen + ">1){for(let i=" + aLen + "-1;i>=0&&" + unikVar + ";i--){for(let j=i-1;j>=0;j--){if(" + _inVarName + "[i]===" + _inVarName + "[j]){" + unikVar + "=false;break;}}}}";
-// 					perItem = "if(" + unikVar + "){for(let j=0;j<i;j++){if(" + loopVar + "===" + _inVarName + "[j]){" + unikVar + "=false;break;}}}";
-// 				} else if (data === 1) {
-// 					standalone = "if(" + aLen + ">1){for(let i=" + aLen + "-1;i>=0&&" + unikVar + ";i--){for(let j=i-1;j>=0;j--){if(deepEqual(" + _inVarName + "[i]," + _inVarName + "[j])){" + unikVar + "=false;break;}}}}";
-// 					perItem = "if(" + unikVar + "){for(let j=0;j<i;j++){if(deepEqual(" + loopVar + "," + _inVarName + "[j])){" + unikVar + "=false;break;}}}";
-// 				}
-// 				uniqueItemsState = { decl, unikVar, standalone, perItem, err: auErr };
-// 				break;
-// 			}
-// 			case "minItems":
-// 				if (data > -1) {
-// 					needLength = true;
-// 					arrayCheck.push([
-// 						aLen + "<" + String(data),
-// 						_err(parentCtx, _inVarName, pathVar + "/array/minItems", "Array requires at least " + String(data) + " items")
-
-// 					]);
-// 				}
-// 				break;
-// 			case "maxItems":
-// 				if (data > -1) {
-// 					needLength = true;
-// 					arrayCheck.push([
-// 						aLen + ">" + String(data),
-// 						_err(parentCtx, _inVarName, pathVar + "/array/maxItems", "Array requires at most " + String(data) + " items")
-// 					]);
-// 				}
-// 				break;
-// 			case "prefixItems": {
-// 				// needLength = true;
-// 				// needLoop = true;
-// 				prefixItemsIndices = data;
-// 				prefixItemsLength = data.length
-// 				break;
-// 			}
-// 			case "items": {
-// 				needLength = true;
-// 				needLoop = true;
-// 				itemsIndex = data;
-
-// 				break;
-// 			}
-// 			case "contains": {
-// 				needLength = true;
-// 				const containsData = data[0]; // number (DNA index) | boolean
-// 				const minContains = data[1];
-// 				const maxContains = data[2];
-// 				if (containsData === true) {
-// 					// Every item matches → match count = aLen, no loop/counter needed
-// 					if (minContains > -1) containsCheck.push([
-// 						aLen + "<" + String(minContains),
-// 						_err(parentCtx, _inVarName, pathVar + "/array/contains", "Array must contain at least " + String(minContains) + " valid item(s)")
-// 					]);
-// 					if (maxContains > -1) containsCheck.push([
-// 						aLen + ">" + String(maxContains),
-// 						_err(parentCtx, _inVarName, pathVar + "/array/contains", "Array must contain at most " + String(maxContains) + " valid item(s)")
-// 					]);
-// 				} else if (containsData === false) {
-// 					// No item matches → single length-based pre-check, no loop/counter
-// 					containsPreloop.push([
-// 						aLen + "===0",
-// 						_err(parentCtx, _inVarName, pathVar + "/array/contains", "Array must not be empty")
-// 					]);
-// 				} else {
-// 					// Schema dispatch: needs loop + counter. Sub-handler runs in cond-mode
-// 					// Use temporary variable to avoid labeled blocks in expressions
-// 					needLoop = true;
-// 					containsCount = "containsCnt" + idx;
-// 					// const tmpContainsVar = "tmpContains" + idx;
-// 					containsSteps.push(
-// 						// [STEP.BODY, "let " + tmpContainsVar + "=false;"],
-// 						[containsData, loopVar, "", pathVar + "/array/contains", { isCond: true, counter: "++" + containsCount + ";" }],
-// 						// [STEP.BODY, "if(!" + tmpContainsVar + ")++" + containsCount + ";"]
-// 					)
-// 					if (minContains > -1) containsCheck.push([
-// 						containsCount + "<" + String(minContains),
-// 						_err(parentCtx, _inVarName, pathVar + "/array/minContains", "Array must contain at least " + String(minContains) + " valid item(s)")
-// 					]);
-// 					if (maxContains > -1) containsCheck.push([
-// 						containsCount + ">" + String(maxContains),
-// 						_err(parentCtx, _inVarName, pathVar + "/array/maxContains", "Array must contain at most " + String(maxContains) + " valid item(s)")
-// 					]);
-// 				}
-// 				break;
-// 			}
-// 		}
-// 	}
-
-// 	// uniqueItems can be folded INTO the items loop when there is one to fold into,
-// 	// no prefixItems (would skip uniqueness pairs within the prefix), and items isn't
-// 	// `false` (which short-circuits the loop with an error per iteration).
-// 	const fuseUnique = !!uniqueItemsState && needLoop && !prefixItemsLength && itemsIndex !== false;
-
-// 	// Type validation
-// 	const typeValidation = [
-// 		"!Array.isArray(" + _inVarName + ")",
-// 		declared ? _err(parentCtx, _inVarName, pathVar + "/array", "Array is required") : _outVarName + "=" + _inVarName
-// 	];
-
-// 	const counter_ = parentCtx.counter ?? "";
-
-// 	const evalParent = parentCtx.unEvalArr;
-
-// 	const needsOwnBlock = !parentCtx.breakBlock && !(parentCtx.ownScope === false && !parentCtx.counter);
-// 	const _block = needsOwnBlock ? "arB" + idx : "";
-// 	const innerBreak_ = "break " + _block + ";"
-// 	const outerFail_ = parentCtx.breakBlock ? "break " + parentCtx.breakBlock + ";" : "return false;";
-// 	const innerFail_ = needsOwnBlock ? innerBreak_ : outerFail_;
-// 	const _innerFail_ = ";" + innerFail_;
-// 	const innerIfErrFail_ = "if(errors.length)" + innerFail_;
-
-
-// 	// CODE GENERATION
-
-
-// 	if (_block.length) steps.push([STEP.BODY, _block + ":{"]);
-// 	if (isCond) {
-
-// 		const childCtx: tsJSParentCtx = {
-// 			// ...parentCtx,
-// 			isCond,
-// 			breakBlock: parentCtx.breakBlock || _block,
-// 			// ownScope: false,
-// 			unEvalArr: evalParent
-// 		}
-// 		const _outTrue = _outVarName ? _outVarName + "=true;" : "";
-// 		const beenTested = parentCtx.typeChecked === "array";
-
-// 		const strReturn_ = parentCtx.breakBlock ? "break " + parentCtx.breakBlock + ";" : "return false;";
-
-// 		let validation, validationEnd, failReturn_ = counter_ ? counter_ : strReturn_;
-
-// 		// type validation cases
-// 		if (beenTested) {
-// 			validation = "";
-// 			validationEnd = "";
-// 		}
-// 		else if (!declared) {
-// 			validation = "if(Array.isArray(" + _inVarName + ")){";
-// 			validationEnd = "}"
-// 		}
-// 		else if (counter_) {
-// 			validation = "if(!Array.isArray(" + _inVarName + ")){" + innerBreak_ + "}";
-// 			validationEnd = "";
-// 		}
-// 		else {
-// 			validation = "if(!Array.isArray(" + _inVarName + "))" + innerFail_;
-// 			validationEnd = "";
-// 		}
-
-
-
-// 		steps.push([STEP.BODY,
-// 		// typevalidation
-// 		validation
-// 		// + "let " + tmpVar + ";"
-// 		+ ((needLength || needLoop || prefixItemsLength) ? "const " + aLen + "=" + _inVarName + ".length;" : "")
-// 		+ (arrayCheck.length ? "if((" + arrayCheck.map(it => it[0]).join(")||(") + "))" + innerFail_ : "")
-// 		+ (uniqueItemsState && !fuseUnique ? uniqueItemsState.decl + uniqueItemsState.standalone + "if(!" + uniqueItemsState.unikVar + ")" + innerFail_ : "")
-// 		+ (fuseUnique ? uniqueItemsState!.decl : "")
-// 		+ (containsCount ? "let " + containsCount + "=0;" : "")
-// 		+ (containsPreloop.length ? "if((" + containsPreloop.map(it => it[0]).join(")||(") + "))" + innerFail_ : "")
-// 		]);
-
-// 		if (prefixItemsLength) for (let i = 0; i < prefixItemsLength; i++) {
-// 			const prefixCtx = { ...childCtx, unEvalArr: childCtx.unEvalArr ? childCtx.unEvalArr + ".add(" + i + ");" : "" };
-// 			steps.push(
-// 				[STEP.BODY, "if(" + aLen + ">" + i + "){"],
-// 				[prefixItemsIndices[i], _inVarName + "[" + i + "]", "", pathVar + "/array/prefixItems/" + i, prefixCtx],
-// 				[STEP.BODY, "}"]
-// 			)
-// 		}
-
-// 		if (needLoop) {
-// 			// Loop for items (additional items after prefixItems)
-// 			const loopCtx = { ...childCtx, unEvalArr: childCtx.unEvalArr ? childCtx.unEvalArr + ".add(i);" : "" };
-// 			steps.push([STEP.BODY,
-// 			"for(let i=" + prefixItemsLength + ";i<" + aLen + ";i++){const " + loopVar + "=" + _inVarName + "[i];"
-// 			]);
-// 			if (typeof itemsIndex === "number" && itemsIndex) {
-// 				steps.push(
-// 					[itemsIndex, loopVar, "", pathVar + "/array/items", loopCtx],
-// 					// [STEP.BODY, ";"],
-// 					// [STEP.BODY, "if(!" + tmpVar + ")" + innerFail_ + evalParentKey_],
-// 				);
-// 			} else if (itemsIndex === false) {
-// 				// TODO: take it out of the loop
-// 				// items: false → no item allowed past prefixItems
-// 				// steps.push([STEP.BODY, _err(parentCtx, loopVar, pathVar + "/array/items", "Additional items not allowed") + _innerFail_ + evalParentKey_]);
-// 			} else if (itemsIndex === true) {
-// 				steps.push([STEP.BODY, childCtx.unEvalArr ? childCtx.unEvalArr + ".add(i);" : ""])
-// 			}
-// 			// itemsIndices === true or 0 → no per-item validation (accept all)
-// 			if (containsSteps.length) fastMergeArrays(steps, containsSteps);
-// 			if (fuseUnique) steps.push([STEP.BODY, uniqueItemsState!.perItem]);
-// 			steps.push([STEP.BODY, "}"]);
-// 		}
-
-// 		if (fuseUnique) steps.push([STEP.BODY, "if(!" + uniqueItemsState!.unikVar + ")" + innerFail_]);
-// 		if (containsCheck.length) steps.push([STEP.BODY, "if((" + containsCheck.map(it => it[0]).join(")||(") + "))" + innerFail_]);
-// 		if (parentCtx.counter) steps.push([STEP.BODY, parentCtx.counter]);
-// 		if (!evalParent && _outVarName.length) steps.push([STEP.BODY, _outVarName + "=true;"]);
-// 		if (validationEnd) steps.push([STEP.BODY, validationEnd])
-
-// 	} else {
-// 		steps.push([STEP.BODY,
-// 		// typevalidation
-// 		"if(" + typeValidation[0] + "){" + (declared ? typeValidation[1] : _outVarName + "=" + _inVarName) + _innerFail_ + "}"
-// 		+ "const " + aLen + "=" + _inVarName + ".length;"
-// 		+ arrayCheck.map(it => "if(" + it[0] + "){" + it[1] + _innerFail_ + "}").join("")
-// 		+ (uniqueItemsState && !fuseUnique ? uniqueItemsState.decl + uniqueItemsState.standalone + "if(!" + uniqueItemsState.unikVar + "){" + uniqueItemsState.err + _innerFail_ + "}" : "")
-// 		+ (fuseUnique ? uniqueItemsState!.decl : "")
-// 		+ (containsCount ? "let " + containsCount + "=0;" : "")
-// 		+ containsPreloop.map(it => "if(" + it[0] + "){" + it[1] + _innerFail_ + "}").join("")
-// 		+ (prefixItemsLength || needLoop ? _outVarName + "=new Array(" + aLen + ");" : "")
-// 		]);
-
-// 		// prefixItems validation in parser mode
-// 		if (prefixItemsLength) for (let i = 0; i < prefixItemsLength; i++) {
-// 			steps.push(
-// 				[STEP.BODY, "if(" + aLen + ">" + i + "){"],
-// 				[prefixItemsIndices[i], _inVarName + "[" + i + "]", _outVarName + "[" + i + "]", pathVar + "/array/prefixItems/" + i, parentCtx],
-// 				[STEP.BODY, innerIfErrFail_ + (evalParent ? evalParent + ".add(" + i + ");" : "") + "}"],
-// 			)
-// 		}
-
-// 		// items + contains validation in parser mode (loop for additional items)
-// 		if (needLoop) {
-// 			steps.push([STEP.BODY, "for(let i=" + prefixItemsLength + ";i<" + aLen + ";i++){const " + loopVar + "=" + _inVarName + "[i];"]);
-
-// 			if (containsSteps.length) fastMergeArrays(steps, containsSteps);
-// 			if (fuseUnique) steps.push([STEP.BODY, uniqueItemsState!.perItem]);
-
-// 			if (typeof itemsIndex === "number" && itemsIndex !== 0) {
-// 				steps.push(
-// 					[itemsIndex, loopVar, _outVarName + "[i]", pathVar + "/array/items", parentCtx],
-// 					[STEP.BODY, innerIfErrFail_ + evalParent],
-// 				);
-// 			} else if (itemsIndex === true) {
-// 				// items: true → accept all extra items, copy as-is
-// 				steps.push([STEP.BODY, _outVarName + "[i]=" + loopVar + ";" + evalParent]);
-// 			} else if (itemsIndex === false) {
-// 				// items: false → reject
-// 				steps.push([STEP.BODY, _err(parentCtx, loopVar, pathVar + "/array/items", "Additional items not allowed") + _innerFail_ + evalParent]);
-// 			} else {
-// 				steps.push([STEP.BODY, _outVarName + "[i]=" + loopVar + ";"]);
-// 			}
-// 			steps.push([STEP.BODY, "}"]);
-// 		}
-
-// 		if (fuseUnique) steps.push([STEP.BODY, "if(!" + uniqueItemsState!.unikVar + "){" + uniqueItemsState!.err + _innerFail_ + "}"]);
-// 		if (containsCheck.length) steps.push([STEP.BODY, containsCheck.map(it => "if(" + it[0] + "){" + it[1] + _innerFail_ + "}").join("")]);
-
-
-// 		if (parentCtx.counter) steps.push([STEP.BODY, parentCtx.counter]);
-// 		if (itemsIndex === 0 && !needLoop) {
-// 			steps.push([STEP.BODY, _outVarName + "=" + _inVarName + ";"])
-// 		}
-// 	}
-// 	if (_block.length) steps.push([STEP.BODY, "}"]) // closure of object block
-// 	parentCtx.typeChecked = "array";
-// 	return steps;
-// };
 
 /**
  * Migrated `array` validator using `_assignOrCondEnv`.
@@ -2204,7 +1282,7 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 					// set name, no trailing `;`), mark the current index `i` as
 					// evaluated whenever the contains sub-schema matches.
 					const u = parentCtx.unEvalArr;
-					const evalAdd_ = (u && !u.endsWith(";")) ? u + ".add(i);" : "";
+					const evalAdd_ = (u && !u.endsWith(";")) ? u + "[i]=1;" : ""; // TODO: parentCtx.unEvalArr exist or not and if ti does it should be only a name, not an op
 					containsSteps.push(
 						[containsData, loopVar, "", pathVar + "/array/contains", { isCond: true, counter: "++" + containsCount + ";" + evalAdd_ }]
 					);
@@ -2256,8 +1334,8 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 			isCond,
 			breakBlock: parentCtx.breakBlock || block,
 		};
-		const evalAddPrefix_ = (i: number) => evalParent ? evalParent + ".add(" + i + ");" : "";
-		const evalAddItem_   = evalParent ? evalParent + ".add(i);" : "";
+		const evalAddPrefix_ = (i: number) => evalParent ? evalParent + "[" + i + "]=1;" : "";
+		const evalAddItem_   = evalParent ? evalParent + "[i]=1;" : "";
 
 		if (prefixItemsLength) for (let i = 0; i < prefixItemsLength; i++) {
 			innerSteps.push(
@@ -2292,7 +1370,7 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 			innerSteps.push(
 				[STEP.BODY, "if(" + aLen + ">" + i + "){"],
 				[prefixItemsIndices[i], inVar + "[" + i + "]", outVar + "[" + i + "]", pathVar + "/array/prefixItems/" + i, parentCtx],
-				[STEP.BODY, innerIfErrFail_ + (evalParent ? evalParent + ".add(" + i + ");" : "") + "}"]
+				[STEP.BODY, innerIfErrFail_ + (evalParent ? evalParent + "[" + i + "]="+i+";" : "") + "}"]
 			);
 		}
 
@@ -2548,8 +1626,8 @@ export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 		childrenCtx.unEvalArr = scratch;
 		slots.push({
 			accum, scratch,
-			commit: scratch + ".forEach(v=>" + accum + ".add(v));",
-			propagate: accum + ".forEach(v=>" + parentCtx.unEvalArr + ".add(v));",
+			commit: "for(const v in " + scratch + ")" + accum + "[v]=1;",
+			propagate: "for(const v in " + accum + ")" + parentCtx.unEvalArr + "[v]=1;",
 		});
 	}
 	if (parentCtx.unEvalObj) {
@@ -2557,15 +1635,15 @@ export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 		childrenCtx.unEvalObj = scratch;
 		slots.push({
 			accum, scratch,
-			commit: scratch + ".forEach(v=>" + accum + ".add(v));",
-			propagate: accum + ".forEach(v=>" + parentCtx.unEvalObj + ".add(v));",
+			commit: "for(const v in " + scratch + ")" + accum + "[v]=1;",
+			propagate: "for(const v in " + accum + ")" + parentCtx.unEvalObj + "[v]=1;",
 		});
 	}
 	const hasEvals = slots.length > 0;
 	const countBefore = "anyCntB" + idx;
 
 	const decls = [
-		...slots.map(s => s.accum + "=new Set()"),
+		...slots.map(s => s.accum + "={}"),
 		...slots.map(s => s.scratch),
 		...(hasEvals ? [countBefore] : []),
 		count + "=0",
@@ -2583,7 +1661,7 @@ export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 				// Reset scratch sets + snapshot count, dispatch, then commit on match.
 				// No short-circuit — we need to keep collecting from later matches.
 				steps.push([STEP.BODY,
-					slots.map(s => s.scratch + "=new Set();").join("")
+					slots.map(s => s.scratch + "={};").join("")
 					+ countBefore + "=" + count + ";"
 				]);
 				steps.push([indices[i], _inVarName, "", pathVar + "/anyOf/" + i, childrenCtx]);
@@ -2655,14 +1733,14 @@ export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 	if (parentCtx.unEvalArr) {
 		const localSet = "allEvalArr" + idx;
 		childrenCtx.unEvalArr = localSet;
-		evalDecls.push(localSet + "=new Set()");
-		propagateArr_ = localSet + ".forEach(v=>" + parentCtx.unEvalArr + ".add(v));";
+		evalDecls.push(localSet + "={}");
+		propagateArr_ = "for(const v in " + localSet + ")" + parentCtx.unEvalArr + "[v]=1;";
 	}
 	if (parentCtx.unEvalObj) {
 		const localSet = "allEvalObj" + idx;
 		childrenCtx.unEvalObj = localSet;
-		evalDecls.push(localSet + "=new Set()");
-		propagateObj_ = localSet + ".forEach(v=>" + parentCtx.unEvalObj + ".add(v));";
+		evalDecls.push(localSet + "={}");
+		propagateObj_ = "for(const v in " + localSet + ")" + parentCtx.unEvalObj + "[v]=1;";
 	}
 
 	const steps: tsJSStepOp[] = [];
@@ -2731,18 +1809,18 @@ export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 		const globalEvalSet = "oneEvalGlobalArr" + idx;
 		childrenCtx.unEvalArr = evalSet;
 		declareLet.push(evalSet, globalEvalSet);
-		initEvals.push(evalSet + "=new Set();");
-		captureEvals.push(globalEvalSet + "=new Set(" + evalSet + ");");
-		propagateEvals.push(globalEvalSet + ".forEach(it=>" + parentCtx.unEvalArr + ".add(it));");
+		initEvals.push(evalSet + "={};");
+		captureEvals.push(globalEvalSet + "={..." + evalSet + "};");
+		propagateEvals.push("for(const it in " + globalEvalSet + ")" + parentCtx.unEvalArr + "[it]=1;");
 	}
 	if (parentCtx.unEvalObj) {
 		const evalSet = "oneEvalObj" + idx;
 		const globalEvalSet = "oneEvalGlobalObj" + idx;
 		childrenCtx.unEvalObj = evalSet;
 		declareLet.push(evalSet, globalEvalSet);
-		initEvals.push(evalSet + "=new Set();");
-		captureEvals.push(globalEvalSet + "=new Set(" + evalSet + ");");
-		propagateEvals.push(globalEvalSet + ".forEach(it=>" + parentCtx.unEvalObj + ".add(it));");
+		initEvals.push(evalSet + "={};");
+		captureEvals.push(globalEvalSet + "={..." + evalSet + "};");
+		propagateEvals.push("for(const it in " + globalEvalSet + ")" + parentCtx.unEvalObj + "[it]=1;");
 	}
 
 	const letDecl = "let " + (declareLet.length ? declareLet.join(",") + "," : "") + count + "=0;";
