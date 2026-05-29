@@ -1,0 +1,33 @@
+{
+  "name": "@ytn/dna-schema",
+  "version": "1.0.0",
+  "description": "DNA JSON Schema processing and validation",
+  "author": "linqFR",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "build:keywords": "tsx src/keywords/build-base.ts",
+    "build:kw": "tsx src/keywords/build-base.ts",
+    "dev": "tsup --watch",
+    "test": "vitest run"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "peerDependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@ytn/shared": "*",
+    "ajv": "^8.20.0",
+    "tsup": "^8.5.1"
+  }
+}

@@ -317,11 +317,11 @@ const _unEvalEnv = (
 	const isArr = kind === "items";
 	const isCond = parentCtx.isCond;
 
-	const block       = (isArr ? "evalIB"   : "evalPB" )  + idx;
-	const evalSet     = (isArr ? "evalISet" : "evalPSet") + idx;
+	const block = (isArr ? "evalIB" : "evalPB") + idx;
+	const evalSet = (isArr ? "evalISet" : "evalPSet") + idx;
 	const ctxKey: "unEvalArr" | "unEvalObj" = isArr ? "unEvalArr" : "unEvalObj";
 	const typeChecked = isArr ? "array" : "object";
-	const typeName    = isArr ? "Items" : "Properties";
+	const typeName = isArr ? "Items" : "Properties";
 
 	const typePosTest = isArr
 		? "Array.isArray(" + inVar + ")"
@@ -391,10 +391,10 @@ const _unEvalEnv = (
 		if (!unEvalSchema) {
 			// FALSE → success requires every key/index to be in evalSet
 			steps.push([STEP.BODY,
-				"if(" + lengthExpr + ">Object.keys(" + evalSet + ").length){"
-				+ (isCond ? "" : _err(parentCtx, inVar, pathVar + "/unevaluated" + typeName, "Unevaluated " + (isArr ? "items" : "properties") + " are not allowed") + ";")
-				+ outerBreak_
-				+ "}"
+			"if(" + lengthExpr + ">Object.keys(" + evalSet + ").length){"
+			+ (isCond ? "" : _err(parentCtx, inVar, pathVar + "/unevaluated" + typeName, "Unevaluated " + (isArr ? "items" : "properties") + " are not allowed") + ";")
+			+ outerBreak_
+			+ "}"
 			]);
 		} else {
 			// TRUE → accept everything; copy directly to parent if any (skip
@@ -430,9 +430,9 @@ const _unEvalEnv = (
 		steps.push([STEP.BODY, enumOpen + "if(!" + evalSet + "[k]){"]);
 		steps.push([unEvalSchema, "val", childOutVar, pathVar + "/unevaluated" + typeName, childCtx]);
 		steps.push([STEP.BODY,
-			(isCond ? "" : "if(errors.length)" + outerBreak_)
-			+ evalSet + "[k]=1;"
-			+ "}}"
+		(isCond ? "" : "if(errors.length)" + outerBreak_)
+		+ evalSet + "[k]=1;"
+		+ "}}"
 		]);
 	}
 
@@ -511,13 +511,13 @@ export const type = (dnaOpt: [string[], tsMeta], _inVarName: string, _outVarName
 	const tests: string[] = [];
 	for (let i = 0; i < indices.length; i++) {
 		switch (indices[i]) {
-			case "string":  tests.push('typeof ' + _inVarName + '==="string"'); break;
-			case "number":  tests.push('typeof ' + _inVarName + '==="number"'); break;
+			case "string": tests.push('typeof ' + _inVarName + '==="string"'); break;
+			case "number": tests.push('typeof ' + _inVarName + '==="number"'); break;
 			case "integer": tests.push('typeof ' + _inVarName + '==="number"&&Number.isInteger(' + _inVarName + ')'); break;
 			case "boolean": tests.push('typeof ' + _inVarName + '==="boolean"'); break;
-			case "null":    tests.push(_inVarName + '===null'); break;
-			case "object":  tests.push('typeof ' + _inVarName + '==="object"&&' + _inVarName + '!==null&&!Array.isArray(' + _inVarName + ')'); break;
-			case "array":   tests.push('Array.isArray(' + _inVarName + ')'); break;
+			case "null": tests.push(_inVarName + '===null'); break;
+			case "object": tests.push('typeof ' + _inVarName + '==="object"&&' + _inVarName + '!==null&&!Array.isArray(' + _inVarName + ')'); break;
+			case "array": tests.push('Array.isArray(' + _inVarName + ')'); break;
 		}
 	}
 	if (tests.length === 0) return "";
@@ -947,11 +947,11 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		if (isReq) {
 			const reqErr = isCond ? "" : _err(parentCtx, inVar, pathVar + "/object/required/" + k, 'Required property "' + k + '" is missing');
 			innerSteps.push([STEP.BODY,
-				"if(!Object.hasOwn(" + inVar + "," + _name + "))" + failBreak(reqErr)
+			"if(!Object.hasOwn(" + inVar + "," + _name + "))" + failBreak(reqErr)
 			]);
 		} else {
 			innerSteps.push([STEP.BODY,
-				"if(Object.hasOwn(" + inVar + "," + _name + ")){"
+			"if(Object.hasOwn(" + inVar + "," + _name + ")){"
 			]);
 		}
 
@@ -959,7 +959,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		for (const r of deps) {
 			const dReqErr = isCond ? "" : _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k, 'Property "' + r + '" is required when "' + k + '" is present');
 			innerSteps.push([STEP.BODY,
-				"if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + "))" + failBreak(dReqErr)
+			"if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + "))" + failBreak(dReqErr)
 			]);
 		}
 
@@ -998,8 +998,8 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		// actually declared via `properties` (other keywords don't "evaluate"
 		// the key per JSON-Schema semantics).
 		if (propDnaIdx !== undefined) {
-			const evalMark = evalParent.length ? evalParent + "[" + _name + "]="+_name+";" : "";
-			const passMark = passedIdx ? passedIdx + "[" + _name + "]="+_name+";" : "";
+			const evalMark = evalParent.length ? evalParent + "[" + _name + "]=" + _name + ";" : "";
+			const passMark = passedIdx ? passedIdx + "[" + _name + "]=" + _name + ";" : "";
 			if (evalMark || passMark) innerSteps.push([STEP.BODY, evalMark + passMark]);
 		}
 
@@ -1054,8 +1054,8 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 					// additionalProperties: true → every non-properties key is
 					// "evaluated" by JSON Schema semantics → mark in parent eval set.
 					else innerSteps.push([STEP.BODY,
-						(evalParent.length ? "if(!" + passedIdx + "[key])" + evalParent + "[key]=1;" : "")
-						+ "}"
+					(evalParent.length ? "if(!" + passedIdx + "[key])" + evalParent + "[key]=1;" : "")
+					+ "}"
 					]);
 				} else {
 					// schema for additionalProperties → on sub-DNA success, mark key as evaluated.
@@ -1335,7 +1335,7 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 			breakBlock: parentCtx.breakBlock || block,
 		};
 		const evalAddPrefix_ = (i: number) => evalParent ? evalParent + "[" + i + "]=1;" : "";
-		const evalAddItem_   = evalParent ? evalParent + "[i]=1;" : "";
+		const evalAddItem_ = evalParent ? evalParent + "[i]=1;" : "";
 
 		if (prefixItemsLength) for (let i = 0; i < prefixItemsLength; i++) {
 			innerSteps.push(
@@ -1347,7 +1347,7 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 
 		if (needLoop) {
 			innerSteps.push([STEP.BODY,
-				"for(let i=" + prefixItemsLength + ";i<" + aLen + ";i++){const " + loopVar + "=" + inVar + "[i];"
+			"for(let i=" + prefixItemsLength + ";i<" + aLen + ";i++){const " + loopVar + "=" + inVar + "[i];"
 			]);
 			if (typeof itemsIndex === "number" && itemsIndex) {
 				innerSteps.push([itemsIndex, loopVar, "", pathVar + "/array/items", childCtx]);
@@ -1370,7 +1370,7 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 			innerSteps.push(
 				[STEP.BODY, "if(" + aLen + ">" + i + "){"],
 				[prefixItemsIndices[i], inVar + "[" + i + "]", outVar + "[" + i + "]", pathVar + "/array/prefixItems/" + i, parentCtx],
-				[STEP.BODY, innerIfErrFail_ + (evalParent ? evalParent + "[" + i + "]="+i+";" : "") + "}"]
+				[STEP.BODY, innerIfErrFail_ + (evalParent ? evalParent + "[" + i + "]=" + i + ";" : "") + "}"]
 			);
 		}
 
@@ -1661,14 +1661,14 @@ export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 				// Reset scratch sets + snapshot count, dispatch, then commit on match.
 				// No short-circuit — we need to keep collecting from later matches.
 				steps.push([STEP.BODY,
-					slots.map(s => s.scratch + "={};").join("")
-					+ countBefore + "=" + count + ";"
+				slots.map(s => s.scratch + "={};").join("")
+				+ countBefore + "=" + count + ";"
 				]);
 				steps.push([indices[i], _inVarName, "", pathVar + "/anyOf/" + i, childrenCtx]);
 				steps.push([STEP.BODY,
-					"if(" + count + ">" + countBefore + "){"
-					+ slots.map(s => s.commit).join("")
-					+ "}"
+				"if(" + count + ">" + countBefore + "){"
+				+ slots.map(s => s.commit).join("")
+				+ "}"
 				]);
 			} else {
 				steps.push(
@@ -1745,7 +1745,7 @@ export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 
 	const steps: tsJSStepOp[] = [];
 	steps.push([STEP.BODY,
-		"let " + [...evalDecls, count + "=0"].join(",") + ";" + _block + ":{"
+	"let " + [...evalDecls, count + "=0"].join(",") + ";" + _block + ":{"
 	]);
 
 	for (let i = 0; i < indices.length; i++) {
@@ -1759,19 +1759,19 @@ export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 
 	if (isCond) {
 		steps.push([STEP.BODY,
-			"if(" + count + "!==" + indices.length + ")" + failBreak_
-			+ propagateArr_ + propagateObj_
-			+ (parentCtx.counter ?? "")
-			+ (_outVarName ? _outVarName + "=true;" : "")
-			+ "}"
+		"if(" + count + "!==" + indices.length + ")" + failBreak_
+		+ propagateArr_ + propagateObj_
+		+ (parentCtx.counter ?? "")
+		+ (_outVarName ? _outVarName + "=true;" : "")
+		+ "}"
 		]);
 	} else {
 		const errMsg = _err(parentCtx, _inVarName, pathVar + "/allOf", "Data should be valid to all schemas of:" + content);
 		steps.push([STEP.BODY,
-			"if(" + count + "!==" + indices.length + "){" + errMsg + ";" + failBreak_ + "}"
-			+ propagateArr_ + propagateObj_
-			+ (_outVarName ? _outVarName + "=" + _inVarName + ";" : "")
-			+ "}"
+		"if(" + count + "!==" + indices.length + "){" + errMsg + ";" + failBreak_ + "}"
+		+ propagateArr_ + propagateObj_
+		+ (_outVarName ? _outVarName + "=" + _inVarName + ";" : "")
+		+ "}"
 		]);
 	}
 	return steps;
@@ -1865,6 +1865,75 @@ export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 			[STEP.BODY, _outVarName + "=" + _inVarName + ";" + propagateEvals.join("") + "}"]
 		);
 	}
+
+	return steps;
+};
+
+export const discriminator = (dnaOpt: [string, any[], number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+	const isCond = parentCtx.isCond;
+	const propertyName = dnaOpt[0];
+	const discriminKeys = dnaOpt[1]; // ["cat", "dog"]
+	const indices: number[] = dnaOpt[2];
+
+	const idx = labelId();
+	const discValVar = "discVal" + idx;
+	const _block = "discB" + idx;
+	const innerBreak_ = "break " + _block + ";";
+	const outerBreak_ = parentCtx.breakBlock ? "break " + parentCtx.breakBlock + ";" : "break " + _block + ";";
+
+	// Setup eval sets for unevaluated properties/items
+	const declareLet: string[] = [];
+	const initEvals: string[] = [];
+	const propagateEvals: string[] = [];
+	const childCtx: tsJSParentCtx = { isCond, breakBlock: _block };
+	if (parentCtx.unEvalArr) {
+		const evalSet = "discEvalArr" + idx;
+		childCtx.unEvalArr = evalSet;
+		declareLet.push(evalSet);
+		initEvals.push(evalSet + "={};");
+		propagateEvals.push("for(const it in " + evalSet + ")" + parentCtx.unEvalArr + "[it]=1;");
+	}
+	if (parentCtx.unEvalObj) {
+		const evalSet = "discEvalObj" + idx;
+		childCtx.unEvalObj = evalSet;
+		declareLet.push(evalSet);
+		initEvals.push(evalSet + "={};");
+		propagateEvals.push("for(const it in " + evalSet + ")" + parentCtx.unEvalObj + "[it]=1;");
+	}
+
+	const outerCounter = parentCtx.counter ?? "";
+
+	const steps: tsJSStepOp[] = [];
+	steps.push(
+		[STEP.BODY, _block + ":{const " + discValVar + "=" + _inVarName + "[" + propertyName + "];"]
+	);
+
+	// Initialize eval sets
+	if (initEvals.length) steps.push([STEP.BODY, initEvals.join("")]);
+
+	// Generate switch with cases
+	steps.push([STEP.BODY, "switch(" + discValVar + "){"]);
+
+	for (let i = 0; i < indices.length; i++) {
+		const key = discriminKeys[i];
+		steps.push(
+			[STEP.BODY, "case " + key + ":"],
+			// Call sub-schema
+			[indices[i], _inVarName, _outVarName, pathVar + "/discriminator/" + i, childCtx],
+			[STEP.BODY, "break;"]
+		);
+	}
+
+	if (isCond) {
+		steps.push([STEP.BODY, outerBreak_ + "}"]);
+	} else {
+		steps.push(
+			[STEP.BODY, "default:"
+				+ _err(parentCtx, _inVarName, pathVar + "/discriminator", "Discriminator value not recognized") + ";"
+				+ _outVarName + "=undefined;}if(!errors.length)" + _outVarName + "[" + propertyName + "]=" + discValVar	+ ";"
+			]);
+	}
+	steps.push([STEP.BODY, outerCounter + propagateEvals.join("") + "}"]);
 
 	return steps;
 };

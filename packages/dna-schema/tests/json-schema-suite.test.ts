@@ -1,0 +1,134 @@
+import { describe, it, expect, afterAll, afterEach } from "vitest";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { jschemaToDna, OutOfScopeError } from "../src/jschema-to-dna.js";
+import { toJS } from "../src/dna-to-js.js";
+import * as mapper from "../src/toJS/dna-js-full.js";
+
+// Emulate __dirname in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const suiteDir = path.resolve(
+  __dirname,
+  "./json-schema-suite/tests/draft2020-12",
+);
+
+const remotesDir = path.resolve(__dirname, "./json-schema-suite/remotes");
+const remoteRegistry = new Map<string, any>();
+
+function loadRemotes(dir: string, base: string = "") {
+  const items = fs.readdirSync(dir);
+  for (const item of items) {
+    const fullPath = path.join(dir, item);
+    const rel = base ? base + "/" + item : item;
+    if (fs.statSync(fullPath).isDirectory()) {
+      loadRemotes(fullPath, rel);
+    } else if (item.endsWith(".json")) {
+      try {
+        const schema = JSON.parse(fs.readFileSync(fullPath, "utf-8"));
+        remoteRegistry.set("http://localhost:1234/" + rel, schema);
+      } catch {}
+    }
+  }
+}
+if (fs.existsSync(remotesDir)) {
+  loadRemotes(remotesDir);
+}
+
+// Découvre tous les fichiers JSON
+const files = fs.readdirSync(suiteDir).filter((f) => f.endsWith(".json"));
+
+describe("JSON Schema Draft 2020-12 Official Suite (DNA-JS Engine)", () => {
+  for (const file of files) {
+    // skip refRemote tests (not supported, not planned)
+    if (file === "refRemote.json") continue;
+    // skip not implemented features
+    // if (file === "dependentSchemas.json") continue;
+    if (file === "dynamicRef.json") continue;
+    if (file === "content.json") continue;
+    if (file === "vocabulary.json") continue;
+
+    const filePath = path.join(suiteDir, file);
+    const testGroups = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+
+    describe(file, () => {
+      for (const group of testGroups) {
+        describe(group.description, () => {
+          let validate: (v: any) => boolean;
+          let compileError: any = null;
+          let isOutOfScope = false;
+
+          // console.log(`Compiling: ${file} > ${group.description}`);
+
+          try {
+            const dna = jschemaToDna(group.schema, remoteRegistry);
+            const parts = toJS(true, mapper)(dna);
+            const jsCode = Array.isArray(parts) ? parts.slice(1).join('\n') : parts;
+            validate = new Function(parts[0] || "v", jsCode) as (v: any) => boolean;
+          } catch (e: any) {
+            if (e instanceof OutOfScopeError) {
+              console.log(`\x1b[33mOUT OF SCOPE: ${file} > ${group.description} - ${e.message}\x1b[0m`);
+              isOutOfScope = true;
+            } else {
+              compileError = e;
+              console.log(`ERROR in group: ${file} > ${group.description}`);
+              console.log(`Schema: ${JSON.stringify(group.schema)}`);
+              if (e instanceof SyntaxError) {
+                const dna = jschemaToDna(group.schema, remoteRegistry);
+                const parts = toJS(true, mapper)(dna);
+                const jsCode = Array.isArray(parts) ? parts.slice(1).join('\n') : parts;
+                console.log(
+                  "FAILED JS CODE:\n",
+                  jsCode,
+                );
+              }
+            }
+          }
+
+          for (const test of group.tests) {
+            if (isOutOfScope) {
+              it.skip(test.description, () => {});
+              continue;
+            }
+
+            it(test.description, () => {
+              if (compileError) throw compileError;
+
+              let success = false;
+              try {
+                success = validate(test.data);
+              } catch (e: any) {
+                success = false;
+              }
+              try {
+                expect(success).toBe(test.valid);
+              } catch (e: any) {
+                if (success !== test.valid) {
+                  console.log(
+                    `\x1b[31mFAILED: ${file} > ${group.description} > ${test.description}\x1b[0m`,
+                  );
+                  console.log(`Schema: ${JSON.stringify(group.schema)}`);
+                  console.log(`Data: ${JSON.stringify(test.data)}`);
+                  try {
+                    console.log(
+                      "CODE:\n",
+                      validate.toString(),
+                    );
+                  } catch {}
+                }
+                throw e;
+              }
+            });
+          }
+
+          // Print summary after all tests in group
+          afterAll(() => {
+            // Vitest already provides summary
+          });
+        });
+      }
+    });
+  }
+});

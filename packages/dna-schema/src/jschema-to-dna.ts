@@ -51,6 +51,7 @@ const META_KEYS = [
   "title",
   "description",
   "default",
+  "prefault",
   "examples",
   "$comment",
   "readOnly",
@@ -254,8 +255,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
         // object
         required, minProperties, maxProperties, properties, patternProperties, propertyNames, additionalProperties, unevaluatedProperties, dependentRequired, dependentSchemas,
         // array
-        items, minItems, maxItems, uniqueItems, contains, prefixItems, unevaluatedItems, minContains, maxContains
-
+        items, minItems, maxItems, uniqueItems, contains, prefixItems, unevaluatedItems, minContains, maxContains,
       } = node
 
       // const { minLength, maxLength, pattern, format } = node;
@@ -276,7 +276,6 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
 
       if (type === "boolean") pseudoTypes.add("boolean");
       if (type === "null") pseudoTypes.add("null");
-
 
       // const { required, minProperties, maxProperties, properties, patternProperties, propertyNames, additionalProperties, unevaluatedProperties, dependentRequired } = node;
 
@@ -300,7 +299,15 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
       const hasDependentSchemas = isPureObject(dependentSchemas)
         && Object.keys(dependentSchemas).length > 0;
       const hasAdditionalProp = typeof additionalProperties !== "undefined";
-      if (type === "object"
+
+      const isDiscriminator = typeof node.discriminator?.propertyName === "string"
+        && node.type === "object"
+        && node.oneOf && Array.isArray(node.oneOf) && node.oneOf.every((el) => typeof el?.properties[node.discriminator?.propertyName]?.const === "string")
+        && hasRequired && required.includes(node.discriminator?.propertyName);
+
+      if (isDiscriminator) pseudoTypes.add("discriminator");
+
+      if (!isDiscriminator && (type === "object"
         || hasProperties
         || hasMinProp
         || hasMaxProp
@@ -311,7 +318,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
         || hasDependentSchemas
         || hasAdditionalProp
         // || unevaluatedProperties !== undefined
-      ) pseudoTypes.add("object");
+      )) pseudoTypes.add("object");
 
       // const { items, minItems, maxItems, uniqueItems, contains, prefixItems, unevaluatedItems, minContains, maxContains } = node;
       const hasMinItems = typeof minItems === "number" && minItems > -1;
@@ -424,7 +431,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
       }
 
       // seq only when NO uneval wraps and there are 2+ in-place applicators.
-      if (!hasUnevalProps && !hasUnevalItems && innerCount > 1) {
+      if (!hasUnevalProps && !hasUnevalItems && !isDiscriminator && innerCount > 1) {
         const seqDef = new Array(innerCount);
         const seqStoreId = setStore(seqDef);
         seqDef.fill(seqStoreId);
@@ -546,6 +553,35 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
       if (pseudoTypes.has("boolean")) { storeDNA(["b", meta], ["b"], storeMark, storePosition()); continue; };
       if (pseudoTypes.has("null")) { storeDNA(["n0", meta], ["n0"], storeMark, storePosition()); continue; }
 
+
+      // const isDiscriminator = typeof node.discriminator?.propertyName === "string"
+      //   && node.type === "object"
+      //   && node.oneOf && Array.isArray(node.oneOf) && node.oneOf.every((it: any) => typeof it?.properties[node.discriminator?.propertyName]?.const === "string")
+      //   && hasRequired && required.includes(node.discriminator?.propertyName);
+      if (pseudoTypes.has("discriminator")) {
+        const discriminateContent = node.oneOf;
+        const discriminator = node.discriminator.propertyName;
+
+        const discriminSubSch = node.oneOf;
+        let kLen = discriminSubSch.length;
+
+        const discriminDef = new Array(kLen);
+        const discriminKeys = new Array(kLen);
+        const discriminStoreId = setStore(discriminDef);
+
+        for (; kLen--;) {
+          const sch = discriminSubSch[kLen];
+          const key = sch.properties[discriminator].const;
+          discriminKeys[kLen] = JSON.stringify(key);
+          const _sch = { ...sch};
+          const {[discriminator]:_, ...rest} = sch.properties;
+          _sch.properties = rest;
+          discriminDef[kLen] = -1;
+          stack.push([parentPath + "/" + discriminator + "/" + String(kLen), _sch, discriminStoreId, kLen])
+        }
+        storeDNA([discriminator, discriminateContent, meta], ["discriminator", JSON.stringify(discriminator), discriminKeys, discriminDef], storeMark, storePosition());
+        continue;
+      }
 
 
       // const { required, minProperties, maxProperties, properties, patternProperties, propertyNames, additionalProperties, unevaluatedProperties, dependentRequired } = node;
@@ -745,8 +781,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
         // Process items schema
         if (typeof items === "boolean") {
           itemToSeq.push(["items", items])
-        }
-        if (items != null && typeof items === "object" && !Array.isArray(items)) {
+        } else if (items != null && typeof items === "object" && !Array.isArray(items)) {
           const itemsDef = ["items", -1]
           const itemsStoreId = setStore(itemsDef);
           itemsDef[1] = itemsStoreId;
