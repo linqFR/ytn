@@ -8,6 +8,7 @@ Each package is designed to be **lightweight**, **type-safe**, and **independent
 | --------------------------------------: | :----------: | :------------------------ | :----------------------------------------------------------- |
 | **[@ytn/qb](./packages/query-builder)** | QueryBuilder | **SQLite Query Builder**  | `QB.table("users").select(["id"]).where(["active"]).build()` |
 |  **[@ytn/czvo](./packages/cli-to-zvo)** |  Cli-to-Zvo  | **CLI Contract & Parser** | `const result = execute(contract, args);`                    |
+| **[@ytn/dna](./packages/dna-schema)** | DNA | **JSON Schema Processing** | `const dna = jschemaToDna(schema); const validate = validator(dna);` |
 
 ---
 
@@ -66,9 +67,33 @@ if (result.success) {
 }
 ```
 
+#### [@ytn/dna](./packages/dna-schema/README.md)
+
+Convert JSON Schema to high-performance DNA bytecode for ultra-fast validation.
+
+```typescript
+import { jschemaToDna, validator, parser } from "@ytn/dna";
+
+const schema = {
+  type: "object",
+  properties: {
+    name: { type: "string", minLength: 3 },
+    age: { type: "number", minimum: 0 },
+  },
+};
+
+const dna = jschemaToDna(schema);
+const validate = validator(dna);
+const parse = parser(dna);
+
+validate({ name: "John", age: 30 }); // true
+const result = parse({ name: "John", age: 30 });
+// Returns: { success: true, data: { name: "John", age: 30 } }
+```
+
 ## Tech Stack
 
-- **Runtime**: Node.js (>=24.0.0)
+- **Runtime**: Node.js (>=25.0.0)
 - **Language**: TypeScript (ES2022)
 - **Module System**: Pure ESM (`type: module`)
 
@@ -81,6 +106,7 @@ if (result.success) {
 ```bash
 npm install @ytn/qb
 npm install @ytn/czvo
+npm install @ytn/dna
 ```
 
 #### For development (monorepo)
@@ -118,6 +144,10 @@ npm test -w @ytn/qb
 # Example for CLI Contract & Parser
 npm run build -w @ytn/czvo
 npm test -w @ytn/czvo
+
+# Example for DNA
+npm run build -w @ytn/dna
+npm test -w @ytn/dna
 ```
 
 ## License

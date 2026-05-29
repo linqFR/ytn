@@ -1,4 +1,7 @@
-# @ytn/dna-schema
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/Tests-1157%2F1157%20Passed-brightgreen.svg)](#tests)
+
+# @ytn/dna
 
 DNA JSON Schema processing and validation.
 
@@ -6,7 +9,7 @@ DNA JSON Schema processing and validation.
 
 ## Overview
 
-`@ytn/dna-schema` converts JSON Schema into a compact DNA bytecode format for high-performance validation. The DNA format uses opcodes and numeric sentinels for optimal V8 performance.
+`@ytn/dna` converts JSON Schema into a compact DNA bytecode format for high-performance validation. The DNA format uses opcodes and numeric sentinels for optimal V8 performance.
 
 DNA Schema provides two validation modes:
 
@@ -20,7 +23,7 @@ For detailed information about DNA opcodes, architecture, and implementation det
 ## Installation
 
 ```bash
-npm install @ytn/dna-schema
+npm install @ytn/dna
 ```
 
 ## Limitations
@@ -32,14 +35,14 @@ npm install @ytn/dna-schema
 ### Converting JSON Schema to DNA
 
 ```typescript
-import { jschemaToDna } from "@ytn/dna-schema";
+import { jschemaToDna } from "@ytn/dna";
 
 const schema = {
-  type: "object",
-  properties: {
-    name: { type: "string", minLength: 3 },
-    age: { type: "number", minimum: 0 },
-  },
+	type: "object",
+	properties: {
+		name: { type: "string", minLength: 3 },
+		age: { type: "number", minimum: 0 },
+	},
 };
 
 const dna = jschemaToDna(schema);
@@ -49,7 +52,7 @@ const dna = jschemaToDna(schema);
 ### Converting DNA back to JSON Schema
 
 ```typescript
-import { dnaToJSchema } from "@ytn/dna-schema";
+import { dnaToJSchema } from "@ytn/dna";
 
 const schema = dnaToJSchema(dna);
 // Returns original JSON Schema
@@ -58,7 +61,7 @@ const schema = dnaToJSchema(dna);
 ### Converting DNA to Zod
 
 ```typescript
-import { dnaToZod } from "@ytn/dna-schema";
+import { dnaToZod } from "@ytn/dna";
 import { z } from "zod";
 
 const zodSchema = dnaToZod(dna);
@@ -68,12 +71,12 @@ const zodSchema = dnaToZod(dna);
 ### Converting Zod to DNA
 
 ```typescript
-import { zodToDna } from "@ytn/dna-schema";
+import { zodToDna } from "@ytn/dna";
 import { z } from "zod";
 
 const schema = z.object({
-  name: z.string().min(3),
-  age: z.number().min(0),
+	name: z.string().min(3),
+	age: z.number().min(0),
 });
 
 const dna = zodToDna(schema);
@@ -85,14 +88,14 @@ const dna = zodToDna(schema);
 DNA can be compiled to high-performance JavaScript validators:
 
 ```typescript
-import { jschemaToDna, validator, parser } from "@ytn/dna-schema";
+import { jschemaToDna, validator, parser } from "@ytn/dna";
 
 const schema = {
-  type: "object",
-  properties: {
-    name: { type: "string", minLength: 3 },
-    age: { type: "number", minimum: 0 },
-  },
+	type: "object",
+	properties: {
+		name: { type: "string", minLength: 3 },
+		age: { type: "number", minimum: 0 },
+	},
 };
 
 const dna = jschemaToDna(schema);
@@ -115,32 +118,32 @@ const invalidResult = parse({ name: "Jo", age: -1 });
 DNA Schema supports the OpenAPI 3.1 `discriminator` keyword for optimized validation of polymorphic schemas:
 
 ```typescript
-import { jschemaToDna, validator, parser } from "@ytn/dna-schema";
+import { jschemaToDna, validator, parser } from "@ytn/dna";
 
 const schema = {
-  type: "object",
-  discriminator: {
-    propertyName: "type",
-  },
-  required: ["type", "name"],
-  oneOf: [
-    {
-      type: "object",
-      properties: {
-        type: { const: "cat" },
-        name: { type: "string" },
-        meows: { type: "boolean" },
-      },
-    },
-    {
-      type: "object",
-      properties: {
-        type: { const: "dog" },
-        name: { type: "string" },
-        barks: { type: "boolean" },
-      },
-    },
-  ],
+	type: "object",
+	discriminator: {
+		propertyName: "type",
+	},
+	required: ["type", "name"],
+	oneOf: [
+		{
+			type: "object",
+			properties: {
+				type: { const: "cat" },
+				name: { type: "string" },
+				meows: { type: "boolean" },
+			},
+		},
+		{
+			type: "object",
+			properties: {
+				type: { const: "dog" },
+				name: { type: "string" },
+				barks: { type: "boolean" },
+			},
+		},
+	],
 };
 
 const dna = jschemaToDna(schema);
@@ -178,6 +181,18 @@ npm run build
 ```bash
 npm test
 ```
+
+**Test Coverage**: 1157 passing, 44 skipped.
+
+- The 44 skipped tests are from the JSON Schema Test Suite and involve external references (`$ref` to HTTP URIs, URNs, or external files), which are explicitly out of scope for DNA Schema (only internal references are supported).
+
+The test suite includes:
+
+- **JSON Schema Test Suite**: Comprehensive validation against official JSON Schema 2020-12 test cases. For more information, read [JSON Schema Validation Suite](tests/json-schema-suite/README.md). Are skipped : `refRemote.json`, `dynamicRef.json`, `content.json`, `vocabulary.json`.
+- **Discriminator Tests**: Full coverage of OpenAPI 3.1 discriminator keyword with validator and parser modes.
+- **Performance Benchmarks**: Comparative benchmarks against AJV for compilation and validation speed.
+
+Some legacy/deprecated test files are excluded from the main test suite.
 
 ## Peer Dependencies
 

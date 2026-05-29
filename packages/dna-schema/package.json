@@ -1,6 +1,6 @@
 {
-  "name": "@ytn/dna-schema",
-  "version": "1.0.0",
+  "name": "@ytn/dna",
+  "version": "0.1.0",
   "description": "DNA JSON Schema processing and validation",
   "author": "linqFR",
   "license": "MIT",

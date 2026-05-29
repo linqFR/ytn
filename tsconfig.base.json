@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
-    "target": "es2024",
+    "target": "esnext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "declaration": true,
-    "declarationMap": false,
-    "sourceMap": false,
+    "declarationMap": true,
+    "sourceMap": true,
+    "verbatimModuleSyntax": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -15,6 +16,7 @@
     "rootDir": ".",
     "types": ["node"]
   },
+  "include": ["shared/**/*.ts", "packages/**/*.ts"],
   "exclude": [
     "**/node_modules",
     "**/dist",

@@ -16,11 +16,9 @@
 .idea/
 .DS_Store
 Thumbs.db
-**/docs/
+**/_*/
 **/dev_tools/
 **/sandbox/
-archive/
-archives/
 
 # Logs
 *.log
