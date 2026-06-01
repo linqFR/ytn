@@ -302,7 +302,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
 
       const isDiscriminator = typeof node.discriminator?.propertyName === "string"
         && node.type === "object"
-        && node.oneOf && Array.isArray(node.oneOf) && node.oneOf.every((el) => typeof el?.properties[node.discriminator?.propertyName]?.const === "string")
+        && node.oneOf && Array.isArray(node.oneOf) && node.oneOf.every((el: any) => typeof el?.properties[node.discriminator?.propertyName]?.const === "string")
         && hasRequired && required.includes(node.discriminator?.propertyName);
 
       if (isDiscriminator) pseudoTypes.add("discriminator");

@@ -1,16 +1,16 @@
 {
-  "name": "@ytn/dna",
-  "version": "0.1.0",
+  "name": "@ytn/schvalid",
+  "version": "0.2.0",
   "description": "DNA JSON Schema processing and validation",
   "author": "linqFR",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "tsup",
-    "build:keywords": "tsx src/keywords/build-base.ts",
-    "build:kw": "tsx src/keywords/build-base.ts",
     "dev": "tsup --watch",
-    "test": "vitest run"
+    "test": "vitest run tests/json-schema-suite.test.ts",
+    "test:full": "vitest run",
+    "test:performance": "vitest run tests/performance"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -23,6 +23,9 @@
   },
   "peerDependencies": {
     "zod": "^4.4.3"
+  },
+  "dependencies": {
+    "@ytn/dna": "*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

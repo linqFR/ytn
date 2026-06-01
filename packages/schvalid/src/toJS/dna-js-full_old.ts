@@ -642,6 +642,16 @@ export const boolean = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: strin
 	parentCtx.typeChecked = "boolean";
 	return _assignOrCond(parentCtx, _inVarName, _outVarName, testErr, test, "", "", true);
 };
+// `nan`: matches only NaN, regardless of input type.
+// `v !== v` is true ONLY when v is NaN (NaN is the only JS value not equal to
+// itself), so no upstream `typeof === "number"` is needed. This is the fastest
+// possible test (single inequality, no function call, no temp).
+export const nan = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	const test = _inVarName + "!==" + _inVarName;
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/nan", "NaN is required") + ERR_UNDEF;
+	parentCtx.typeChecked = "nan";
+	return _assignOrCond(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+};
 export const nullType = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = parentCtx.typeChecked === "null" ? "" : _inVarName + "===null";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/null", "Null is required") + ERR_UNDEF;
@@ -649,6 +659,160 @@ export const nullType = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: stri
 	return _assignOrCond(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
 export const n0 = nullType;
+
+// `undefined` opcode (Zod's `z.undefined()` and `z.void()`): only the value
+// `undefined` passes. Exported under its actual opcode name via `export {}`
+// since `undefined` is a JS global and unsafe as a local identifier.
+const undefinedType = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	const test = _inVarName + "===void 0";
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/undefined", "Undefined is required") + ERR_UNDEF;
+	parentCtx.typeChecked = "undefined";
+	return _assignOrCond(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+};
+export { undefinedType as undefined };
+
+// Wrapper opcodes (Zod's `z.optional()` / `z.nullable()`): accept the
+// "exception" value (undefined / null) OR delegate to the inner schema.
+//
+// Layout: ["optional", [innerDnaIdx]] / ["nullable", [innerDnaIdx]]
+//
+// Just like `default`/`prefault`, no own break-label is created — the inner
+// breaks to whatever block the parent provides. Failure propagates one level
+// up naturally.
+//
+// Codegen (validator):
+//   if(v !== <exc>){ <inner outVar=""> } valid=true;
+// Codegen (parser):
+//   if(v === <exc>){ data = <excValue>; } else { <inner outVar=data> }
+const wrapper = (
+	exceptionTest: string,           // e.g. `v===void 0` or `v===null`
+	exceptionValue: string,          // e.g. `void 0` or `null`
+) => (
+	dnaOpt: [number[], tsMeta],
+	_inVarName: string,
+	_outVarName: string,
+	pathVar: string,
+	labelId: tsLaberlId,
+	parentCtx: tsJSParentCtx
+): tsJSStepOp[] => {
+	const innerIdx = dnaOpt[0][0];
+	const steps: tsJSStepOp[] = [];
+	const inExceptionTest = exceptionTest.replace(/v\b/g, _inVarName); // crude swap "v" -> actual name
+	const innerCtx = { ...parentCtx, typeChecked: undefined };
+
+	if (parentCtx.isCond) {
+		steps.push([STEP.BODY, "if(!(" + inExceptionTest + ")){"]);
+		steps.push([innerIdx, _inVarName, "", pathVar, innerCtx]);
+		steps.push([STEP.BODY, "}" + (_outVarName ? _outVarName + "=true;" : "")]);
+	} else {
+		const assignException = _outVarName ? _outVarName + "=" + exceptionValue + ";" : "";
+		steps.push([STEP.BODY, "if(" + inExceptionTest + "){" + assignException + "}else{"]);
+		steps.push([innerIdx, _inVarName, _outVarName, pathVar, innerCtx]);
+		steps.push([STEP.BODY, "}"]);
+	}
+	return steps;
+};
+
+export const optional = wrapper("v===void 0", "void 0");
+export const nullable = wrapper("v===null", "null");
+
+// `default` and `prefault` are *value modifiers*, not extra tests:
+// they don't add a check on the input, they substitute it when undefined.
+// Codegen reflects that — no own break-label, no extra block. The inner
+// schema breaks to whatever block the parent already provides.
+//
+//   default  → if v is undefined: emit the default and SKIP inner
+//              (Zod trusts the default; mismatched defaults pass through)
+//   prefault → substitute v with the default when undefined, then ALWAYS
+//              run inner on the substituted value (default is validated)
+//
+// Layout (both): ["default" | "prefault", [innerDnaIdx], defaultValueLiteral]
+
+const default_ = (
+	dnaOpt: [number[], string, tsMeta],
+	_inVarName: string,
+	_outVarName: string,
+	pathVar: string,
+	labelId: tsLaberlId,
+	parentCtx: tsJSParentCtx
+): tsJSStepOp[] => {
+	const innerIdx = dnaOpt[0][0];
+	const defaultLit = dnaOpt[1];
+	const steps: tsJSStepOp[] = [];
+	// Reset `typeChecked` so the inner schema emits its own type guard. Keep
+	// the parent's `breakBlock` so failures propagate one level up naturally.
+	const innerCtx = { ...parentCtx, typeChecked: undefined };
+
+	if (parentCtx.isCond) {
+		// Validator: skip inner on undefined (default trusted); set out=true
+		// at the end. Inner's failure breaks the parent block, bypassing the
+		// trailing assignment.
+		steps.push([STEP.BODY, "if(" + _inVarName + "!==void 0){"]);
+		steps.push([innerIdx, _inVarName, "", pathVar, innerCtx]);
+		steps.push([STEP.BODY, "}" + (_outVarName ? _outVarName + "=true;" : "")]);
+	} else {
+		// Parser: assign the default literal on undefined, otherwise delegate
+		// to the inner which writes into `_outVarName` directly.
+		const assignDef = _outVarName ? _outVarName + "=" + defaultLit + ";" : "";
+		steps.push([STEP.BODY, "if(" + _inVarName + "===void 0){" + assignDef + "}else{"]);
+		steps.push([innerIdx, _inVarName, _outVarName, pathVar, innerCtx]);
+		steps.push([STEP.BODY, "}"]);
+	}
+	return steps;
+};
+export { default_ as default };
+
+export const prefault = (
+	dnaOpt: [number[], string, tsMeta],
+	_inVarName: string,
+	_outVarName: string,
+	pathVar: string,
+	labelId: tsLaberlId,
+	parentCtx: tsJSParentCtx
+): tsJSStepOp[] => {
+	const innerIdx = dnaOpt[0][0];
+	const defaultLit = dnaOpt[1];
+	const idx = labelId();
+	const tmp = "prfV" + idx;
+	const steps: tsJSStepOp[] = [];
+	const innerCtx = { ...parentCtx, typeChecked: undefined };
+
+	// Pure modifier: rewrite `v` via a ternary, then run the inner on the
+	// rewritten value. The inner is unaware of the substitution.
+	steps.push([STEP.BODY, "let " + tmp + "=" + _inVarName + "===void 0?(" + defaultLit + "):" + _inVarName + ";"]);
+	steps.push([innerIdx, tmp, _outVarName, pathVar, innerCtx]);
+	return steps;
+};
+
+// `sym`: matches only Symbol values. Zod's `z.symbol()`.
+export const sym = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	const test = parentCtx.typeChecked === "symbol" ? "" : "typeof " + _inVarName + '==="symbol"';
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/symbol", "Symbol is required") + ERR_UNDEF;
+	parentCtx.typeChecked = "symbol";
+	return _assignOrCond(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+};
+
+// `date`: matches a real `Date` instance (Zod's `z.date()`). Excludes invalid
+// dates (`new Date("nope")` whose `.getTime()` is NaN), aligning with Zod V4.
+export const date = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	// `t===t` is true unless `t` is NaN (NaN is the only value not equal to
+	// itself), so `getTime()===getTime()` rejects invalid dates without an
+	// extra `Number.isNaN(...)` call.
+	const test = _inVarName + " instanceof Date&&" + _inVarName + ".getTime()===" + _inVarName + ".getTime()";
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/date", "Date is required") + ERR_UNDEF;
+	parentCtx.typeChecked = "date";
+	return _assignOrCond(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+};
+
+// `file`: matches a `File` instance. `globalThis.File` is available in
+// browsers and in Node.js >= 20. Read via `globalThis` so the generated code
+// works without an explicit `File` reference in the calling scope.
+export const file = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	const test = _inVarName + " instanceof globalThis.File";
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/file", "File is required") + ERR_UNDEF;
+	parentCtx.typeChecked = "file";
+	return _assignOrCond(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+};
 
 export const trueSchema = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	// `trueSchema` has no lexical index/key context, so it cannot meaningfully
@@ -1599,7 +1763,7 @@ export const not = (dnaOpt: [any], _inVarName: string, _outVarName: string, path
 export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const isCond = parentCtx.isCond;
 	const content = dnaOpt[0][0];
-	const indices: number[] = dnaOpt[0].slice(1);
+	const indices: number[] = dnaOpt[0].slice(1) as number[];
 
 	const idx = labelId();
 	const _block = "anyB" + idx;
@@ -1708,7 +1872,7 @@ export const or = anyOf;
 export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const isCond = parentCtx.isCond;
 	const content = dnaOpt[0][0];
-	const indices: number[] = dnaOpt[0].slice(1);
+	const indices: number[] = dnaOpt[0].slice(1) as number[];
 
 	const idx = labelId();
 	const _block = "alB" + idx;
@@ -1780,7 +1944,7 @@ export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const isCond = parentCtx.isCond;
 	const content = dnaOpt[0][0];
-	const indices: number[] = dnaOpt[0].slice(1);
+	const indices: number[] = dnaOpt[0].slice(1) as number[];
 
 	const idx = labelId();
 	const _block = "oneB" + idx;

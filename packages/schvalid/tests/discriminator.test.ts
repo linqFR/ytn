@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { jschemaToDna, validator, parser } from "../src/index.js";
+import { jschemaToDna } from "../src/index.js";
+import { validator, parser } from "@ytn/dna";
 
 describe("Discriminator", () => {
 	const discriminatorSchema = {

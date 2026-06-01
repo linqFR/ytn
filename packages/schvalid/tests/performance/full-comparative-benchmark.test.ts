@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { jschemaToDna } from "../src/jschema-to-dna.js";
-import { validator, parser } from "../src/dna-to-js.js";
+import { jschemaToDna } from "../../dist/index.js";
+import { validator, parser } from "@ytn/dna";
 import Ajv2020 from "ajv/dist/2020.js";
 const Ajv = (Ajv2020 as any).default ?? Ajv2020;
 import { z } from "zod";

@@ -1,4 +1,4 @@
-import type { tsDnaSeq, tsJSStepAct, tsJSStepOp, tsLaberlId } from "./dna.type.js";
+import type { tsDnaSeq, tsJSStepAct, tsJSStepOp, tsLaberlId, tsValidatorFn, tsParserFn } from "./dna.type.js";
 import jshelpers from "./toJS/jshelpers.js";
 import * as mapperBis from "./toJS/dna-js-full.js";
 import { fastMergeArrays, PARSE_RETURN, STEP } from "./toJS/utils.js";
@@ -208,8 +208,8 @@ export const toJS = (validateMode: boolean = true, externals?: Record<string, st
 // 	};
 // };
 
-export const validator = (dna: tsDnaSeq) => new Function(...toJS(true, mapperBis)(dna));
-export const parser = (dna: tsDnaSeq) => new Function(...toJS(false, mapperBis)(dna));
+export const validator = (dna: tsDnaSeq): tsValidatorFn => new Function(...toJS(true, mapperBis)(dna)) as tsValidatorFn;
+export const parser = (dna: tsDnaSeq): tsParserFn => new Function(...toJS(false, mapperBis)(dna)) as tsParserFn;
 
 // export const parseFactory = (dna: tsDnaSeq, mapper: tsMapper): Function => createCompiler(mapper).parse(dna);
 // export const validateFactory = (dna: tsDnaSeq, mapper: tsMapper): Function => createCompiler(mapper).validate(dna);

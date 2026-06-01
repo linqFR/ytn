@@ -3,8 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { jschemaToDna, OutOfScopeError } from "../src/jschema-to-dna.js";
-import { toJS } from "../src/dna-to-js.js";
-import * as mapper from "../src/toJS/dna-js-full.js";
+import { toJS } from "@ytn/dna";
 
 // Emulate __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -64,7 +63,7 @@ describe("JSON Schema Draft 2020-12 Official Suite (DNA-JS Engine)", () => {
 
           try {
             const dna = jschemaToDna(group.schema, remoteRegistry);
-            const parts = toJS(true, mapper)(dna);
+            const parts = toJS(true)(dna);
             const jsCode = Array.isArray(parts) ? parts.slice(1).join('\n') : parts;
             validate = new Function(parts[0] || "v", jsCode) as (v: any) => boolean;
           } catch (e: any) {
@@ -77,7 +76,7 @@ describe("JSON Schema Draft 2020-12 Official Suite (DNA-JS Engine)", () => {
               console.log(`Schema: ${JSON.stringify(group.schema)}`);
               if (e instanceof SyntaxError) {
                 const dna = jschemaToDna(group.schema, remoteRegistry);
-                const parts = toJS(true, mapper)(dna);
+                const parts = toJS(true)(dna);
                 const jsCode = Array.isArray(parts) ? parts.slice(1).join('\n') : parts;
                 console.log(
                   "FAILED JS CODE:\n",
