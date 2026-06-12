@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { jschemaToDna } from "../../dist/index.js";
-import { validator, parser } from "@ytn/dna";
 import Ajv2020 from "ajv/dist/2020.js";
-const Ajv = (Ajv2020 as any).default ?? Ajv2020;
+import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { jschemaToDna } from "../../dist/index.js";
+import { validator as validatorDnaNormal, parser as parserDnaNormal } from "@ytn/dna";
+import { schvalid as schvalidNormal } from "../../dist/index.js";
+const Ajv = (Ajv2020 as any).default ?? Ajv2020;
 
 const testSchema = {
   type: "object",
@@ -39,33 +40,41 @@ const invalidData = {
   extraProp: "not allowed",
 };
 
-describe("Full Comparative Benchmark: DNA vs AJV vs Zod", () => {
+describe("Full Comparative Benchmark: Schvalid + DNA vs AJV vs Zod", () => {
   let ajvValid: any;
   let ajvErrors: any;
-  let dnaValid: any;
-  let dnaErrors: any;
+  let dnaValidNormal: any;
+  let dnaErrorsNormal: any;
+  let schvalidValidNormal: any;
+  let schvalidErrorsNormal: any;
   let zodSchema: any;
 
   beforeAll(() => {
     const dna = jschemaToDna(testSchema);
-    
+
     // 1. AJV Validation (minimal)
     ajvValid = new Ajv({ validateFormats: false }).compile(testSchema);
-    
+
     // 2. AJV Errors (detailed)
     ajvErrors = new Ajv({ validateFormats: false, allErrors: true }).compile(testSchema);
-    
-    // 3. DNA Validation (pure boolean — break on first failure)
-    dnaValid = validator(dna);
 
-    // 4. DNA Errors (parser — collects ALL errors, returns {success, data|errors})
-    dnaErrors = parser(dna);
-    
-    // 5. Zod
+    // 3. DNA Validation
+    dnaValidNormal = validatorDnaNormal(dna);
+
+    // 4. DNA Parser
+    dnaErrorsNormal = parserDnaNormal(dna);
+
+    // 5. Schvalid Validation
+    schvalidValidNormal = schvalidNormal("validation").compile(testSchema);
+
+    // 6. Schvalid Parser
+    schvalidErrorsNormal = schvalidNormal("parser").compile(testSchema);
+
+    // 7. Zod
     zodSchema = z.object({
       name: z.string().min(1).max(100),
       age: z.number().min(0).max(150),
-      email: z.string().email(),
+      email: z.email(),
       tags: z.array(z.string()).min(1).max(10),
       active: z.boolean()
     });
@@ -74,17 +83,25 @@ describe("Full Comparative Benchmark: DNA vs AJV vs Zod", () => {
   describe("Compilation Performance", () => {
 
     it("Summary - Compilation comparison table", () => {
-      const iterations = 1000;
+      const iterations = 3000;
 
       const schemas = Array.from({ length: iterations }, () => JSON.parse(JSON.stringify(testSchema)));
 
       let start = performance.now();
-      for (let i = 0; i < iterations; i++) validator(jschemaToDna(schemas[i]));
-      const dnaValComp = (performance.now() - start) / iterations;
+      for (let i = 0; i < iterations; i++) validatorDnaNormal(jschemaToDna(schemas[i]));
+      const dnaValCompNormal = (performance.now() - start) / iterations;
 
       start = performance.now();
-      for (let i = 0; i < iterations; i++) parser(jschemaToDna(schemas[i]));
-      const dnaParseComp = (performance.now() - start) / iterations;
+      for (let i = 0; i < iterations; i++) parserDnaNormal(jschemaToDna(schemas[i]));
+      const dnaParseCompNormal = (performance.now() - start) / iterations;
+
+      start = performance.now();
+      for (let i = 0; i < iterations; i++) schvalidNormal("validation").compile(schemas[i]);
+      const schvalidValCompNormal = (performance.now() - start) / iterations;
+
+      start = performance.now();
+      for (let i = 0; i < iterations; i++) schvalidNormal("parser").compile(schemas[i]);
+      const schvalidParseCompNormal = (performance.now() - start) / iterations;
 
       const ajv1 = new Ajv({ validateFormats: false });
       start = performance.now();
@@ -101,7 +118,7 @@ describe("Full Comparative Benchmark: DNA vs AJV vs Zod", () => {
         z.object({
           name: z.string().min(1).max(100),
           age: z.number().min(0).max(150),
-          email: z.string().email(),
+          email: z.email(),
           tags: z.array(z.string()).min(1).max(10),
           active: z.boolean()
         });
@@ -113,15 +130,19 @@ describe("Full Comparative Benchmark: DNA vs AJV vs Zod", () => {
       console.log("=".repeat(80));
       console.log(`| Mode               | Time (ms)    |`);
       console.log("|--------------------|--------------|");
-      console.log(`| DNA Validation     | ${dnaValComp.toFixed(5)}     |`);
-      console.log(`| DNA Parser         | ${dnaParseComp.toFixed(5)}     |`);
+      console.log(`| DNA Validation     | ${dnaValCompNormal.toFixed(5)}     |`);
+      console.log(`| DNA Parser         | ${dnaParseCompNormal.toFixed(5)}     |`);
+      console.log(`| Schvalid Val       | ${schvalidValCompNormal.toFixed(5)}     |`);
+      console.log(`| Schvalid Parse     | ${schvalidParseCompNormal.toFixed(5)}     |`);
       console.log(`| AJV Minimal        | ${ajvMinComp.toFixed(5)}     |`);
       console.log(`| AJV AllErrors      | ${ajvAllComp.toFixed(5)}     |`);
       console.log(`| Zod                | ${zodComp.toFixed(5)}     |`);
       console.log("=".repeat(80));
       console.log("\nSpeedup vs AJV Minimal:");
-      console.log(`  DNA Validation: ${(ajvMinComp / dnaValComp).toFixed(2)}x`);
-      console.log(`  DNA Parser: ${(ajvMinComp / dnaParseComp).toFixed(2)}x`);
+      console.log(`  DNA Validation: ${(ajvMinComp / dnaValCompNormal).toFixed(2)}x`);
+      console.log(`  DNA Parser: ${(ajvMinComp / dnaParseCompNormal).toFixed(2)}x`);
+      console.log(`  Schvalid Val: ${(ajvMinComp / schvalidValCompNormal).toFixed(2)}x`);
+      console.log(`  Schvalid Parse: ${(ajvMinComp / schvalidParseCompNormal).toFixed(2)}x`);
       console.log(`  Zod: ${(ajvMinComp / zodComp).toFixed(2)}x`);
       console.log("=".repeat(80));
 
@@ -133,7 +154,7 @@ describe("Full Comparative Benchmark: DNA vs AJV vs Zod", () => {
 
   describe("Validation Performance", () => {
     it("Summary - Validation comparison table", () => {
-      const iterations = 100000;
+      const iterations = 10000;
 
       let start = performance.now();
       for (let i = 0; i < iterations; i++) ajvValid(validData);
@@ -152,20 +173,36 @@ describe("Full Comparative Benchmark: DNA vs AJV vs Zod", () => {
       const ajvAllInvalid = (performance.now() - start) / iterations;
 
       start = performance.now();
-      for (let i = 0; i < iterations; i++) dnaValid(validData);
-      const dnaValValid = (performance.now() - start) / iterations;
+      for (let i = 0; i < iterations; i++) dnaValidNormal(validData);
+      const dnaValValidNormal = (performance.now() - start) / iterations;
 
       start = performance.now();
-      for (let i = 0; i < iterations; i++) dnaValid(invalidData);
-      const dnaValInvalid = (performance.now() - start) / iterations;
+      for (let i = 0; i < iterations; i++) dnaValidNormal(invalidData);
+      const dnaValInvalidNormal = (performance.now() - start) / iterations;
 
       start = performance.now();
-      for (let i = 0; i < iterations; i++) dnaErrors(validData);
-      const dnaParseValid = (performance.now() - start) / iterations;
+      for (let i = 0; i < iterations; i++) dnaErrorsNormal(validData);
+      const dnaParseValidNormal = (performance.now() - start) / iterations;
 
       start = performance.now();
-      for (let i = 0; i < iterations; i++) dnaErrors(invalidData);
-      const dnaParseInvalid = (performance.now() - start) / iterations;
+      for (let i = 0; i < iterations; i++) dnaErrorsNormal(invalidData);
+      const dnaParseInvalidNormal = (performance.now() - start) / iterations;
+
+      start = performance.now();
+      for (let i = 0; i < iterations; i++) schvalidValidNormal(validData);
+      const schvalidValValidNormal = (performance.now() - start) / iterations;
+
+      start = performance.now();
+      for (let i = 0; i < iterations; i++) schvalidValidNormal(invalidData);
+      const schvalidValInvalidNormal = (performance.now() - start) / iterations;
+
+      start = performance.now();
+      for (let i = 0; i < iterations; i++) schvalidErrorsNormal(validData);
+      const schvalidParseValidNormal = (performance.now() - start) / iterations;
+
+      start = performance.now();
+      for (let i = 0; i < iterations; i++) schvalidErrorsNormal(invalidData);
+      const schvalidParseInvalidNormal = (performance.now() - start) / iterations;
 
       start = performance.now();
       for (let i = 0; i < iterations; i++) zodSchema.safeParse(validData);
@@ -182,13 +219,17 @@ describe("Full Comparative Benchmark: DNA vs AJV vs Zod", () => {
       console.log("|--------------------|-------------|--------------|");
       console.log(`| AJV Minimal        | ${ajvMinValid.toFixed(5)}     | ${ajvMinInvalid.toFixed(5)}       |`);
       console.log(`| AJV AllErrors      | ${ajvAllValid.toFixed(5)}     | ${ajvAllInvalid.toFixed(5)}       |`);
-      console.log(`| DNA Validation     | ${dnaValValid.toFixed(5)}     | ${dnaValInvalid.toFixed(5)}       |`);
-      console.log(`| DNA Parser         | ${dnaParseValid.toFixed(5)}     | ${dnaParseInvalid.toFixed(5)}       |`);
+      console.log(`| DNA Validation     | ${dnaValValidNormal.toFixed(5)}     | ${dnaValInvalidNormal.toFixed(5)}       |`);
+      console.log(`| DNA Parser         | ${dnaParseValidNormal.toFixed(5)}     | ${dnaParseInvalidNormal.toFixed(5)}       |`);
+      console.log(`| Schvalid Val       | ${schvalidValValidNormal.toFixed(5)}     | ${schvalidValInvalidNormal.toFixed(5)}       |`);
+      console.log(`| Schvalid Parse     | ${schvalidParseValidNormal.toFixed(5)}     | ${schvalidParseInvalidNormal.toFixed(5)}       |`);
       console.log(`| Zod                | ${zodValid.toFixed(5)}     | ${zodInvalid.toFixed(5)}       |`);
       console.log("=".repeat(80));
       console.log("\nSpeedup vs AJV Minimal (valid data):");
-      console.log(`  DNA Validation: ${(ajvMinValid / dnaValValid).toFixed(2)}x`);
-      console.log(`  DNA Parser: ${(ajvMinValid / dnaParseValid).toFixed(2)}x`);
+      console.log(`  DNA Validation: ${(ajvMinValid / dnaValValidNormal).toFixed(2)}x`);
+      console.log(`  DNA Parser: ${(ajvMinValid / dnaParseValidNormal).toFixed(2)}x`);
+      console.log(`  Schvalid Val: ${(ajvMinValid / schvalidValValidNormal).toFixed(2)}x`);
+      console.log(`  Schvalid Parse: ${(ajvMinValid / schvalidParseValidNormal).toFixed(2)}x`);
       console.log(`  Zod: ${(ajvMinValid / zodValid).toFixed(2)}x`);
       console.log("=".repeat(80));
 
@@ -205,8 +246,10 @@ describe("Full Comparative Benchmark: DNA vs AJV vs Zod", () => {
       console.log("|--------------------|--------------|");
       console.log(`| AJV Minimal        | ${ajvValid.toString().length}     |`);
       console.log(`| AJV AllErrors      | ${ajvErrors.toString().length}     |`);
-      console.log(`| DNA Validation     | ${dnaValid.toString().length}     |`);
-      console.log(`| DNA Parser         | ${dnaErrors.toString().length}     |`);
+      console.log(`| DNA Validation     | ${dnaValidNormal.toString().length}     |`);
+      console.log(`| DNA Parser         | ${dnaErrorsNormal.toString().length}     |`);
+      console.log(`| Schvalid Val       | ${schvalidValidNormal.toString().length}     |`);
+      console.log(`| Schvalid Parse     | ${schvalidErrorsNormal.toString().length}     |`);
       console.log(`| Zod Schema         | ${JSON.stringify(zodSchema).length}     |`);
       console.log("=".repeat(80));
 

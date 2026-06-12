@@ -1,7 +1,8 @@
+import type { tsDnaSeq } from "@ytn/dna";
 import { isPureObject } from "@ytn/shared/js/object-utils.js";
 import { isValidRegex } from "@ytn/shared/regex/is-valid-regex.js";
 import { resolveUri } from "./dna-helpers.js";
-import { fastMergeArrays } from "./toJS/utils.js";
+import { fastMergeArrays } from "./utils.js";
 
 export class OutOfScopeError extends Error {
   constructor(feature: string) {
@@ -12,7 +13,7 @@ export class OutOfScopeError extends Error {
 
 type tsDnaId = number;
 type tsDna = { [kw: tsDnaId]: any };
-type tsDnaResult = any[];
+type tsDnaResult = any[]; // Legacy type, use tsDnaSeq from @ytn/dna instead
 
 type tsStoreId = tsDnaId;
 
@@ -67,10 +68,12 @@ const META_SET = new Set(META_KEYS);
 const isTrueSchema = (node: true | {}) => (node === true) || (node && Object.keys(node).length === 0 && node.constructor === Object);
 
 
-export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
+export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssertion?: boolean }): tsDnaSeq {
   if (root.$schema && !root.$schema.includes("2020-12")) {
     throw new OutOfScopeError(`JSON Schema version ${root.$schema}`);
   }
+
+  const formatAssertion = options?.formatAssertion ?? false;
 
   const dna: tsDna = { 0: ["T", {}] };
   const store: tsStore = new Map();
@@ -80,7 +83,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
   const parentUriMap = new Map<string, string>();
   const refDNACache = new Map<string, number>();
   const refDNAList: [string, number][] = [];
-  const extraArgs: string[] = []
+  // const extraArgs: string[] = [];
 
   // let count: number = 0;
   let countDNA = 0;
@@ -500,7 +503,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
       if (pseudoTypes.has("const")) {
         const isComplex = typeof node.const === "object" && node.const !== null;
         const opcode = isComplex ? "cD" : "c";
-        if (isComplex) extraArgs.push('deepEqual');
+        // if (isComplex) extraArgs.push('deepEqual');
         storeDNA([node.const, meta], [opcode, JSON.stringify(node.const)], storeMark, storePosition());
         // continue;
       }
@@ -524,7 +527,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
         const maxVal = hasMax ? maxLength : null;
         // if (hasMin || hasMax) extraArgs.push("fCntStr");
         const patternVal = hasPattern ? pattern : null;
-        const formatVal = hasFormat ? format : null;
+        const formatVal = (hasFormat && formatAssertion) ? format : null;
         const pseudoType = type === "string" ? "s" : "_s";
         storeDNA([pseudoType, minLength, maxLength, pattern, format, meta],
           [pseudoType, [minVal, maxVal, patternVal, formatVal]], storeMark, storePosition());
@@ -747,7 +750,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
             else complexity = 0;
           }
           itemToSeq.push(["uniqueItems", complexity]);
-          if (complexity) extraArgs.push('deepEqual');
+          // if (complexity) extraArgs.push('deepEqual');
         }
 
         // Process prefixItems (tuple)
@@ -896,6 +899,7 @@ export function jschemaToDna(root: any, rootPath = "#"): tsDnaResult {
   // console.dir(dna, {depth:null});
   const finalDNA = Object.values(dna);
   const refList = Array.from(new Set(refDNAList.map(it => it[1])));
-  finalDNA.push(refList, Array.from(new Set(extraArgs)));
-  return finalDNA;
+  // finalDNA.push(refList, Array.from(new Set(extraArgs)));
+  finalDNA.push(refList);
+  return finalDNA as tsDnaSeq;
 }

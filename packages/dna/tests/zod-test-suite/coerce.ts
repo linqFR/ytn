@@ -1,0 +1,160 @@
+import { z } from "zod";
+import { dna } from "../../src/builder/index.js";
+
+// Reusable schemas matching Zod official tests
+const coerceStringZod = z.coerce.string();
+const coerceStringDna = dna.coerce.string();
+
+const coerceNumberZod = z.coerce.number();
+const coerceNumberDna = dna.coerce.number();
+
+const coerceBooleanZod = z.coerce.boolean();
+const coerceBooleanDna = dna.coerce.boolean();
+
+const coerceBigintZod = z.coerce.bigint();
+const coerceBigintDna = dna.coerce.bigint();
+
+const coerceDateZod = z.coerce.date();
+const coerceDateDna = dna.coerce.date();
+
+export const coerceTests = [
+  {
+    description: "string coercion",
+    zodSchema: coerceStringZod,
+    dnaSchema: coerceStringDna,
+    tests: [
+      { description: "valid string", data: "sup", valid: true },
+      { description: "valid empty string", data: "", valid: true },
+      { description: "valid number to string", data: 12, valid: true },
+      { description: "valid zero to string", data: 0, valid: true },
+      { description: "valid negative to string", data: -12, valid: true },
+      { description: "valid float to string", data: 3.14, valid: true },
+      { description: "valid bigint to string", data: BigInt(15), valid: true },
+      { description: "valid NaN to string", data: Number.NaN, valid: true },
+      { description: "valid Infinity to string", data: Number.POSITIVE_INFINITY, valid: true },
+      { description: "valid -Infinity to string", data: Number.NEGATIVE_INFINITY, valid: true },
+      { description: "valid true to string", data: true, valid: true },
+      { description: "valid false to string", data: false, valid: true },
+      { description: "valid null to string", data: null, valid: true },
+      { description: "valid undefined to string", data: undefined, valid: true },
+      { description: "valid object to string", data: { hello: "world!" }, valid: true },
+      { description: "valid array to string", data: ["item", "another_item"], valid: true },
+      { description: "valid empty array to string", data: [], valid: true },
+      { description: "valid date to string", data: new Date("2022-01-01T00:00:00.000Z"), valid: true },
+    ],
+  },
+  {
+    description: "number coercion",
+    zodSchema: coerceNumberZod,
+    dnaSchema: coerceNumberDna,
+    tests: [
+      { description: "valid string to number", data: "12", valid: true },
+      { description: "valid zero string to number", data: "0", valid: true },
+      { description: "valid negative string to number", data: "-12", valid: true },
+      { description: "valid float string to number", data: "3.14", valid: true },
+      { description: "valid empty string to number", data: "", valid: true },
+      { description: "invalid string to number", data: "NOT_A_NUMBER", valid: false },
+      { description: "valid number", data: 12, valid: true },
+      { description: "valid zero", data: 0, valid: true },
+      { description: "valid negative", data: -12, valid: true },
+      { description: "valid float", data: 3.14, valid: true },
+      { description: "valid bigint to number", data: BigInt(15), valid: true },
+      { description: "invalid NaN", data: Number.NaN, valid: false },
+      { description: "valid true to number", data: true, valid: true },
+      { description: "valid false to number", data: false, valid: true },
+      { description: "valid null to number", data: null, valid: true },
+      { description: "invalid undefined", data: undefined, valid: false },
+      { description: "invalid object", data: { hello: "world!" }, valid: false },
+      { description: "invalid array", data: ["item", "another_item"], valid: false },
+      { description: "valid empty array to number", data: [], valid: true },
+      { description: "valid date to number", data: new Date(1670139203496), valid: true },
+    ],
+  },
+  {
+    description: "boolean coercion",
+    zodSchema: coerceBooleanZod,
+    dnaSchema: coerceBooleanDna,
+    tests: [
+      { description: "valid 'true' to boolean", data: "true", valid: true },
+      { description: "valid 'false' to boolean", data: "false", valid: true },
+      { description: "valid '0' to boolean", data: "0", valid: true },
+      { description: "valid '1' to boolean", data: "1", valid: true },
+      { description: "valid empty string to boolean", data: "", valid: true },
+      { description: "valid 1 to boolean", data: 1, valid: true },
+      { description: "valid 0 to boolean", data: 0, valid: true },
+      { description: "valid -1 to boolean", data: -1, valid: true },
+      { description: "valid 3.14 to boolean", data: 3.14, valid: true },
+      { description: "valid bigint to boolean", data: BigInt(15), valid: true },
+      { description: "valid NaN to boolean", data: Number.NaN, valid: true },
+      { description: "valid Infinity to boolean", data: Number.POSITIVE_INFINITY, valid: true },
+      { description: "valid -Infinity to boolean", data: Number.NEGATIVE_INFINITY, valid: true },
+      { description: "valid true", data: true, valid: true },
+      { description: "valid false", data: false, valid: true },
+      { description: "valid null to boolean", data: null, valid: true },
+      { description: "valid undefined to boolean", data: undefined, valid: true },
+      { description: "valid object to boolean", data: { hello: "world!" }, valid: true },
+      { description: "valid array to boolean", data: ["item", "another_item"], valid: true },
+      { description: "valid empty array to boolean", data: [], valid: true },
+      { description: "valid date to boolean", data: new Date(1670139203496), valid: true },
+    ],
+  },
+  {
+    description: "bigint coercion",
+    zodSchema: coerceBigintZod,
+    dnaSchema: coerceBigintDna,
+    tests: [
+      { description: "valid string to bigint", data: "5", valid: true },
+      { description: "valid zero string to bigint", data: "0", valid: true },
+      { description: "valid negative string to bigint", data: "-5", valid: true },
+      { description: "invalid float string to bigint", data: "3.14", valid: false },
+      { description: "valid empty string to bigint", data: "", valid: true },
+      { description: "invalid string to bigint", data: "NOT_A_NUMBER", valid: false },
+      { description: "valid number to bigint", data: 5, valid: true },
+      { description: "valid zero to bigint", data: 0, valid: true },
+      { description: "valid negative to bigint", data: -5, valid: true },
+      { description: "invalid float to bigint", data: 3.14, valid: false },
+      { description: "valid bigint", data: BigInt(5), valid: true },
+      { description: "invalid NaN to bigint", data: Number.NaN, valid: false },
+      { description: "invalid Infinity to bigint", data: Number.POSITIVE_INFINITY, valid: false },
+      { description: "invalid -Infinity to bigint", data: Number.NEGATIVE_INFINITY, valid: false },
+      { description: "valid true to bigint", data: true, valid: true },
+      { description: "valid false to bigint", data: false, valid: true },
+      { description: "invalid null to bigint", data: null, valid: false },
+      { description: "invalid undefined to bigint", data: undefined, valid: false },
+      { description: "invalid object to bigint", data: { hello: "world!" }, valid: false },
+      { description: "invalid array to bigint", data: ["item", "another_item"], valid: false },
+      { description: "valid empty array to bigint", data: [], valid: true },
+      { description: "valid date to bigint", data: new Date(1670139203496), valid: true },
+    ],
+  },
+  {
+    description: "date coercion",
+    zodSchema: coerceDateZod,
+    dnaSchema: coerceDateDna,
+    tests: [
+      { description: "valid date string to date", data: new Date().toDateString(), valid: true },
+      { description: "valid ISO string to date", data: new Date().toISOString(), valid: true },
+      { description: "valid UTC string to date", data: new Date().toUTCString(), valid: true },
+      { description: "valid number string to date", data: "5", valid: true },
+      { description: "valid date string to date", data: "2000-01-01", valid: true },
+      { description: "invalid empty string to date", data: "", valid: false },
+      { description: "invalid string to date", data: "NOT_A_DATE", valid: false },
+      { description: "valid number to date", data: 5, valid: true },
+      { description: "valid zero to date", data: 0, valid: true },
+      { description: "valid negative to date", data: -5, valid: true },
+      { description: "valid float to date", data: 3.14, valid: true },
+      { description: "invalid bigint to date", data: BigInt(5), valid: false },
+      { description: "invalid NaN to date", data: Number.NaN, valid: false },
+      { description: "invalid Infinity to date", data: Number.POSITIVE_INFINITY, valid: false },
+      { description: "invalid -Infinity to date", data: Number.NEGATIVE_INFINITY, valid: false },
+      { description: "valid true to date", data: true, valid: true },
+      { description: "valid false to date", data: false, valid: true },
+      { description: "valid null to date", data: null, valid: true },
+      { description: "invalid undefined to date", data: undefined, valid: false },
+      { description: "invalid object to date", data: { hello: "world!" }, valid: false },
+      { description: "invalid array to date", data: ["item", "another_item"], valid: false },
+      { description: "invalid empty array to date", data: [], valid: false },
+      { description: "valid date", data: new Date(), valid: true },
+    ],
+  },
+];

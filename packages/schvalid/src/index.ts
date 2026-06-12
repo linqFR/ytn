@@ -1,42 +1,54 @@
 
 // DNA types now imported from @ytn/dna
-export type * from "@ytn/dna";
-// export * from "./dna-helpers_old.js"; // deprecated, unused
-// export * from "./dna-to-js_old.ts"; // moved to @ytn/dna
-// export * from "./dna-to-zod.js"; // deprecated
-// export * from "./dnaz-processor_deprecated.js";
+// export type * from "@ytn/dna";
 export * from "./jschema-to-dna.js";
-export { dnaToJSchema } from "./dna-to-jschema.js";
 // export * from "./zod-to-dna.js"; // deprecated
 
 // Re-export validation functions from @ytn/dna for convenience
-export { validator, parser, toJS } from "@ytn/dna";
+// Use schvalid-specific versions (canonical DNA opcodes only)
+import { validator, parser, toJS } from "@ytn/dna/toJs";
+import type { tsParserFn, tsValidatorFn } from "@ytn/dna/toJs"
 
 // Convenience functions that combine schema conversion and validation
-import { validator as dnaValidator, parser as dnaParser } from "@ytn/dna";
+// import { validator as dnaValidator, parser as dnaParser } from "@ytn/dna";
 import { jschemaToDna } from "./jschema-to-dna.js";
+export type { tsParserFn, tsValidatorFn };
+export { validator, parser, toJS };
+
 
 /**
- * Validate data against a JSON Schema (fail-fast, boolean result)
- * @param schema - JSON Schema object
- * @param data - Data to validate
- * @returns true if valid, false otherwise
+ * Schvalid builder API - compile schema once, validate many times
+ * @param mode - "validation" for boolean result, "parser" for detailed errors, "both" for both functions
+ * @returns Compiler function
  */
-export function validate(schema: any, data: any): boolean {
-	const dna = jschemaToDna(schema);
-	const validateFn = dnaValidator(dna);
-	return validateFn(data);
-}
+export function schvalid(mode: "validation"): { compile(schema: any, options?: { formatAssertion?: boolean }): tsValidatorFn };
+export function schvalid(mode: "parser"): { compile(schema: any, options?: { formatAssertion?: boolean }): tsParserFn };
+export function schvalid(mode: "both"): { compile(schema: any, options?: { formatAssertion?: boolean }): { validate: tsValidatorFn; parse: tsParserFn } };
+export function schvalid(mode: "validation" | "parser" | "both") {
+	return {
+		/**
+		 * Compile a JSON Schema into a validation function
+		 * @param schema - JSON Schema object
+		 * @param options - Options for schema compilation
+		 * @param options.formatAssertion - Enable format validation (default: false, per Draft 2020-12)
+		 * @returns Validation function
+		 */
+		compile(schema: any, options?: { formatAssertion?: boolean }) {
+			const dna = jschemaToDna(schema, "#", options);
 
-/**
- * Parse data against a JSON Schema (error collection and transformation)
- * @param schema - JSON Schema object
- * @param data - Data to validate
- * @returns Result object with success flag, data, and errors
- */
-export function parse(schema: any, data: any): { success: boolean; data?: any; errors?: any[] } {
-	const dna = jschemaToDna(schema);
-	const parseFn = dnaParser(dna);
-	return parseFn(data);
+			if (mode === "validation") {
+				return validator(dna);
+			}
+			else if (mode === "parser") {
+				return parser(dna);
+			}
+			else {
+				return {
+					validate: validator(dna),
+					parse: parser(dna)
+				};
+			}
+		}
+	};
 }
 

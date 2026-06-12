@@ -1,406 +1,149 @@
-# AGENTS.md (Package: @ytn/dna)
+# AGENTS.md (Package: @ytn/schvalid)
 
 > [!IMPORTANT]
-> This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to the DNA Schema package.
+> This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to the JSON Schema to DNA conversion package.
+
+> [!WARNING]
+> **CRITICAL DEPENDENCY**: This package depends on `@ytn/dna` for DNA bytecode types and the `toJS` compiler. The DNA to JavaScript compilation logic lives in `@ytn/dna/src/toJs/`. Changes to DNA opcodes or toJS in @ytn/dna can break schvalid. Always test both packages together.
 
 ---
 
 ## Core Architecture
 
-The codebase is organized around DNA bytecode conversion and validation. DNA is a compact opcode-based format for high-performance JSON Schema validation.
+This package provides JSON Schema 2020-12 to DNA bytecode conversion. It is the schema parser layer that sits above the DNA runtime engine.
 
 ### Core Modules
 
-- **`src/dna.type.ts`**: Core DNA type definitions and instruction structures. This is the foundation for all DNA operations.
-- **`src/jschema-to-dna.ts`**: Primary JSON Schema to DNA converter using stack-based traversal.
-- **`src/dna-to-jschema.ts`**: DNA to JSON Schema bijection (reverse conversion).
-- **`src/dna-to-zod.ts`**: DNA to Zod schema conversion with full V4 compliance.
-- **`src/zod-to-dna.ts`**: Zod to DNA conversion for bidirectional compatibility.
-- **`src/dnaz-processor.ts`**: DNA validation engine and runtime processor.
+- **`src/jschema-to-dna.ts`**: Primary JSON Schema to DNA converter using stack-based traversal. This is the heart of the package.
 - **`src/dna-helpers.ts`**: Utility functions for DNA manipulation and inspection.
-- **`src/string-formats.ts`**: String format validation utilities.
+- **`src/string-formats.ts`**: String format validation utilities (email, uuid, uri, etc.).
+- **`src/utils.ts`**: General utility functions.
+- **`src/index.ts`**: Public API exports, convenience functions (`validate`, `parse`), and the `schvalid()` builder API.
 
-### Conversion Modules
+### What This Package Does NOT Do
 
-- **`src/dna-to-js.ts`**: DNA to JavaScript validation functions.
-- **`src/toJS/`**: Directory containing JavaScript conversion utilities.
-  - **`kw-to-js-full.ts`**: Full keyword-to-JavaScript conversion handlers.
-  - **`kw-to-js-valid.ts`**: Validation-focused keyword-to-JavaScript conversion (work in progress)
-  - **`jshelpers.ts`**: JavaScript helper functions.
-  - **`utils.ts`**: General utility functions.
+- **DNA to JavaScript compilation**: This is handled by `@ytn/dna/src/toJs/`
+- **DNA runtime validation**: This is handled by `@ytn/dna`'s `validator()` and `parser()` functions
+- **DNA schema builder**: This is handled by `@ytn/dna`'s `dna` fluent API
+- **Zod conversion**: Zod ↔ DNA conversion is NOT in scope for this package
 
 ---
 
-## DNA to JavaScript Code Generation
+## JSON Schema to DNA Conversion
 
-### Code Generation Architecture
+### Conversion Process
 
-The DNA to JavaScript conversion uses a step-based system that generates JavaScript validation functions from DNA opcodes. The core type is `tsJSFn` which can be either a string or an array of steps.
-
-### Core Types
+The `jschemaToDna()` function converts JSON Schema 2020-12 schemas into DNA bytecode:
 
 ```typescript
-type tsJSStepString = string;
-type tsJSStepOp = [number, string, string?, string?, tsJSParentCtx?];
-type tsJSStepAct = [(typeof STEP)[keyof typeof STEP], string];
-type tsJSFn = tsJSStepString | (tsJSStepOp | tsJSStepAct)[];
+import { jschemaToDna } from "@ytn/schvalid";
+
+const schema = {
+  type: "object",
+  properties: {
+    name: { type: "string", minLength: 3 },
+    age: { type: "number", minimum: 0 },
+  },
+};
+
+const dna = jschemaToDna(schema);
+// Returns DNA bytecode array
 ```
 
-- **`tsJSStepString`**: Direct JavaScript expression (e.g., `typeof v==="string"`)
-- **`tsJSStepOp`**: DNA operation tuple with opcode and context
-- **`tsJSStepAct`**: Action step like `STEP.BODY` or `STEP.LET`
-
-### Step Processing
-
-The `dna-to-js.ts` processor handles two types of step results:
-
-1. **String Return**: Directly concatenated to the output body
-2. **Array Return**: Steps are pushed onto a stack and processed in reverse order
-
-```typescript
-if (typeof steps === "string") {
-  sBody += steps; // Direct expression
-} else {
-  // Push steps onto stack for processing
-  stack.push(...steps);
-}
-```
-
-### Execution Modes
-
-#### isCond Mode (Conditional Mode)
-
-Used for validation-only scenarios where no error collection is needed.
-
-- **Purpose**: Generate boolean expressions for validation
-- **Primitives**: Return expressions (e.g., `typeof v==="string"`)
-- **Applicators**: Return step arrays with conditional logic
-- **Key Pattern**: Use `counter` context to capture validation results
-
-Example of counter pattern:
-
-```typescript
-{ ...parentCtx, isCond: true, counter: "tmpVar=true" }
-```
-
-This generates: `expression && (tmpVar=true)`
-
-#### Parser Mode
-
-Used for parsing scenarios where error collection and data transformation are needed.
-
-- **Purpose**: Generate full validation with error reporting
-- **Primitives**: Return assignments with error handling (e.g., `v = expr ? v : err`)
-- **Applicators**: Return step arrays with error collection
-- **Key Pattern**: Use output variable for result assignment
-
-### Primitive vs Applicator Signatures
-
-#### Primitives (type, number, boolean, string, etc.)
-
-**Signature**: `tsJSStepString` (returns string)
-
-**isCond Mode**: Returns expression
-
-```typescript
-return "typeof v==='string'";
-```
-
-**Parser Mode**: Returns assignment with error
-
-```typescript
-return _outVarName + "=" + test + "?" + _inVarName + ":" + err + ";";
-```
-
-#### Applicators (ifThenElse, not, anyOf, allOf, object, array, etc.)
-
-**Signature**: `tsJSStepOp[]` (returns array of steps)
-
-**isCond Mode**: Returns step array with counter pattern for result capture
-
-```typescript
-steps.push([STEP.BODY, "let tmpVar=false;"]);
-steps.push([schemaIdx, inputVar, "", path, { isCond: true, counter: "tmpVar=true" }]);
-steps.push([STEP.BODY, ";"]);
-steps.push([STEP.BODY, "if(tmpVar)"]);
-```
-
-**Parser Mode**: Returns step array with output variable assignment
-
-```typescript
-steps.push([STEP.BODY, "let tmpVar=false;"]);
-steps.push([schemaIdx, inputVar, tmpVar, path, { isCond: true }]);
-steps.push([STEP.BODY, "if(tmpVar)"]);
-```
-
-### Critical Pattern: Counter for Result Capture
-
-In isCond mode, primitives return expressions without assignments. To capture results:
-
-```typescript
-// Counter pattern forces assignment
-{ isCond: true, counter: "resultVar=true" }
-
-// Generates: expression && (resultVar=true)
-```
-
-This is essential for applicators like `ifThenElse`, `not` that need to use the inner schema's result.
-
-### Example: ifThenElse Implementation
-
-The `ifThenElse` keyword demonstrates the complexity of handling both modes:
-
-```typescript
-if (isCond) {
-  // Capture if schema result using counter pattern
-  steps.push([STEP.BODY, "let ifV0=false;"]);
-  steps.push([ifPart, input, "", path, { isCond: true, counter: "ifV0=true" }]);
-  steps.push([STEP.BODY, ";"]);
-  steps.push([STEP.BODY, "if(ifV0)"]);
-
-  // Handle then branch
-  if (thenPart === -1) {
-    steps.push([STEP.BODY, "{valid=ifV0;}"]);
-  } else {
-    steps.push([STEP.BODY, "{"]);
-    steps.push([thenPart, input, output, path, { isCond: true, counter: "valid=true" }]);
-    steps.push([STEP.BODY, ";"]);
-    steps.push([STEP.BODY, "}"]);
-  }
-
-  // Handle else branch
-  if (elsePart === -1) {
-    steps.push([STEP.BODY, "else{valid=true;}"]);
-  } else {
-    steps.push([STEP.BODY, "else{"]);
-    steps.push([elsePart, input, output, path, { isCond: true, counter: "valid=true" }]);
-    steps.push([STEP.BODY, ";"]);
-    steps.push([STEP.BODY, "}"]);
-  }
-}
-```
-
-**Generated Code**:
-
-```javascript
-let valid = false;
-ifB0: {
-  let ifV0 = false;
-  typeof v === "number" && v < 0 && (ifV0 = true);
-  if (ifV0) {
-    valid = ifV0;
-  } else {
-    typeof v === "number" && v % 2 === 0 && (valid = true);
-  }
-}
-return valid;
-```
-
-### Array Handling: contains and itemsIndex
-
-The `contains` keyword requires special handling in array validation, particularly when combined with the `items` keyword.
-
-#### itemsIndex Values
-
-- **number (DNA index)**: Reference to items schema for validation
-- **true**: Accept all extra items, copy as-is
-- **false**: Reject all extra items beyond prefixItems
-- **0 (undefined)**: No items schema, items are not validated
-
-#### contains Behavior
-
-**contains is a control, not an assigner**:
-
-- Validates that at least one item matches the contains schema
-- Does not filter or transform items
-- Original data must be preserved in parser output
-
-#### Loop Generation Logic
-
-The `needLoop` flag determines whether an item loop is generated:
-
-```typescript
-// Triggers needLoop:
-// - prefixItems present
-// - items schema present (itemsIndex !== 0)
-// - contains schema present (containsSteps.length > 0)
-```
-
-#### itemsIndex === 0 Handling
-
-When `itemsIndex === 0` (no items schema):
-
-1. **Without prefixItems**: Direct array copy
-
-   ```typescript
-   if (itemsIndex === 0 && !needLoop) {
-     if (prefixItemsLength > 0) needLoop = true;
-     else steps.push([STEP.BODY, _outVarName + "=" + _inVarName + ";"]);
-   }
-   ```
-
-2. **With prefixItems**: Loop for additional items
-
-   ```typescript
-   // In loop:
-   else {
-       steps.push([STEP.BODY, _outVarName + "[i]=" + loopVar + ";"]);
-   }
-   ```
-
-#### Unique Loop Variable Names
-
-For nested arrays, use unique loop variable names to avoid conflicts:
-
-```typescript
-const loopVar = "val" + idx;
-steps.push([STEP.BODY, "for(let i=" + prefixItemsLength + ";i<" + aLen + ";i++){const " + loopVar + "=" + _inVarName + "[i];"]);
-```
-
-#### Contains Validation Pattern
-
-For non-primitive contains schemas, use temporary variables to avoid labeled blocks in expressions:
-
-```typescript
-// isCond mode:
-steps.push([STEP.BODY, "let tmpContains=false;"]);
-steps.push([STEP.BODY, "if(condition){tmpContains=true;}"]);
-steps.push([STEP.BODY, "if(!tmpContains)++containsCnt;"]);
-
-// Parser mode:
-steps.push([STEP.BODY, "let tmpContains=false;"]);
-steps.push([STEP.BODY, "if(condition){tmpContains=true;}"]);
-steps.push([STEP.BODY, "if(!tmpContains)++containsCnt;"]);
-```
-
-### Common Pitfalls
-
-1. **Missing counter in isCond mode**: Results not captured when needed
-
-   - **Solution**: Use `counter: "var=true"` pattern
-
-2. **Invalid syntax with missing branches**: `if(true){}` when then/else absent
-
-   - **Solution**: Generate explicit assignments or empty blocks
-
-3. **Signature mismatch**: Treating primitives as applicators or vice versa
-
-   - **Solution**: Check return type and handle string vs array accordingly
-
-4. **Context propagation**: Not passing correct `isCond` flag to child schemas
-
-   - **Solution**: Always propagate `isCond` in parentCtx, override only when needed
-
-5. **Variable naming conflicts in nested loops**: Using the same loop variable name across nested array levels
-
-   - **Solution**: Use unique loop variable names per level: `loopVar = "val" + idx`
-
-6. **NEVER treat Contains as assigner**: Trying to use contains as an assigner or transformer is incorrect.
-
-   - **Solution**: Contains is ALWAYS a control (check), NEVER an assigner. It validates that at least one item matches the schema but does not transform the data.
-
-7. **Labeled blocks in expressions**: Using labeled breaks inside expressions causes syntax errors
-   - **Solution**: Use temporary variables and separate if-blocks for contains validation
-
-### Debugging Code Generation
-
-1. **View generated function**: Use `validator.toString()` to inspect generated code
-2. **Check syntax errors**: Look for missing semicolons or invalid constructs
-3. **Verify counter pattern**: Ensure `&& (var=true)` is present when needed
-4. **Test both modes**: Validate isCond and parser mode separately
+### Supported JSON Schema Features
+
+- **Primitive Types**: string, number, integer, boolean, null
+- **Compound Types**: object, array
+- **Keywords**: properties, required, items, additionalProperties, minItems, maxItems, minLength, maxLength, minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, pattern, format, const, enum
+- **Logic Keywords**: anyOf, allOf, oneOf, if/then/else, not
+- **OpenAPI 3.1**: discriminator keyword for polymorphic schemas
+- **References**: Internal `$ref` within the same document only
+
+### Unsupported Features
+
+- **External References**: No support for `$ref` pointing to HTTP URIs, URNs, or external files
+- **Custom Formats**: Limited support for JSON Schema `format` keyword (only standard formats)
+- **Schema Extensions**: Does not handle vendor-specific extensions
+- **Remote Schemas**: No support for loading schemas from remote URLs
 
 ---
 
-## DNA Format Specification
+## Public API
 
-### DNA Structure
+### Convenience Functions
+
+The package provides convenience functions that combine schema conversion and validation:
 
 ```typescript
-type tsDna = [tsDnaOpcode, ...any[]];
-type tsDnaSeq = tsDna[];
-type tsDnaOpcode = "string" | "number" | "boolean" | "object" | "array" | ...;
+import { validate, parse } from "@ytn/schvalid";
+
+// Fast boolean validation (fail-fast)
+validate(schema, data); // returns boolean
+
+// Full parsing with error collection
+parse(schema, data); // returns { success: true, data: ... } | { success: false, errors: [...] }
 ```
 
-### Key Principles
+### Builder API
 
-- **Array-Based Instructions**: DNA instructions are tuples with opcode first, followed by parameters.
-- **Categorized Opcodes**: Opcodes are organized by logical groups (Primitive Types, Constraints, Object Structure, etc.).
-- **Reference-Based**: Complex structures use numeric references to avoid duplication.
-- **Stack Processing**: Iterative stack-based traversal with store mechanism for reference resolution.
+The `schvalid()` builder API allows compiling a schema once and reusing the validation function:
+
+```typescript
+import { schvalid } from "@ytn/schvalid";
+
+const compiler = schvalid("validation");
+const validate = compiler.compile(schema);
+
+validate(data); // boolean
+```
+
+Modes:
+- **"validation"**: Returns boolean validator (fail-fast)
+- **"parser"**: Returns parser with error collection
+- **"both"**: Returns object with both `validate` and `parse` functions
 
 ---
 
 ## Development Guidelines
 
-### Testing DNA Conversions
+### Testing
 
-- **Bijection Testing**: Always test both directions (Schema ↔ DNA ↔ Schema) to ensure lossless conversion.
-- **Use `./sandbox/`**: Create test files in the sandbox directory for experimentation.
-- **Reference Validation**: Compare DNA output against known valid patterns.
-- **IMPORTANT**: When debugging, use `console.dir(obj, {depth: null})` instead of `JSON.stringify(obj, null, 2)` - the latter is considered bad practice.
+- **JSON Schema Test Suite**: The package includes the official JSON Schema 2020-12 test suite (1160 passing, 44 skipped)
+- **Skipped Tests**: The 44 skipped tests involve external references (refRemote.json, dynamicRef.json, content.json, vocabulary.json) which are out of scope
+- **Discriminator Tests**: Full coverage of OpenAPI 3.1 discriminator keyword
+- **Performance Benchmarks**: Comparative benchmarks against AJV
 
-### Performance Considerations
+### Code Style
 
-- **Direct Generation**: Avoid intermediate AST representations when possible.
-- **Numeric Sentinels**: Use `-1` and `null` for absent constraints to minimize memory.
-- **Lazy Evaluation**: Implement stack-based processing for complex schemas.
+- **Stack-Based Traversal**: The converter uses a stack-based approach for handling nested schemas
+- **Reference Resolution**: Internal `$ref` pointers are resolved within the same document
+- **Numeric Sentinels**: Use `-1` and `null` for absent constraints to minimize memory
 
----
+### Common Pitfalls
 
-## Module-Specific Instructions
+1. **External References**: Attempting to use external `$ref` will fail
+   - **Solution**: Only use internal references within the same schema document
 
-### jschema-to-dna.ts
+2. **Format Validation**: Not all JSON Schema formats are supported
+   - **Solution**: Check `src/string-formats.ts` for supported formats
 
-- **Stack Management**: Properly handle stack-based traversal and store mechanism.
-- **Keyword Processing**: Use the `keywords/` directory for complex JSON Schema keywords.
-- **Reference Resolution**: Handle `$ref` pointers within the same document only.
-
-### dna-to-zod.ts
-
-- **V4 Patterns**: Use `z.strictObject()`, `z.looseObject()` over method calls.
-- **Error Handling**: Use `{ error: ... }` parameter instead of deprecated `{ message: ... }`.
-- **Pipeline Support**: Handle `.in` and `.out` for transforms correctly.
-
-### dnaz-processor.ts
-
-- **Runtime Validation**: Implement efficient opcode execution.
-- **Error Reporting**: Provide clear, actionable validation errors.
-- **Performance**: Optimize for high-throughput validation scenarios.
+3. **Circular References**: Circular `$ref` chains can cause stack overflow
+   - **Solution**: The converter handles basic circular references, but deeply nested cycles may need manual schema restructuring
 
 ---
 
-## Testing Workflow
+## Debugging
 
-### Required Test Types
+When debugging conversion issues:
 
-1. **Unit Tests**: Individual opcode and conversion function tests.
-2. **Integration Tests**: End-to-end Schema ↔ DNA ↔ Schema bijection tests.
-3. **Performance Tests**: Validation throughput benchmarks.
-4. **Type Tests**: Verify TypeScript type correctness with `expectTypeOf`.
+```typescript
+import { jschemaToDna } from "@ytn/schvalid";
 
-### Test Organization
+const dna = jschemaToDna(schema);
+console.dir(dna, { depth: null }); // Inspect DNA bytecode
+```
 
-- **`tests/`**: Main test suite with comprehensive coverage.
-- **`sandbox/`**: Experimental test files and validation scripts.
-- **Bijection Verification**: Always include round-trip conversion tests.
-
----
-
-## Conversion Workflows
-
-### JSON Schema → DNA → Zod
-
-1. Parse JSON Schema using `jschema-to-dna.ts`
-2. Optimize DNA structure if needed
-3. Convert to Zod using `dna-to-zod.ts`
-4. Validate bijection by converting back
-
-### Zod → DNA → JSON Schema
-
-1. Convert Zod to DNA using `zod-to-dna.ts`
-2. Process DNA with validation engine
-3. Convert back to JSON Schema using `dna-to-jschema.ts`
-4. Verify structural equivalence
+**IMPORTANT**: Use `console.dir(obj, { depth: null })` instead of `JSON.stringify(obj, null, 2)` for debugging objects.
 
 ---
 
@@ -408,27 +151,35 @@ type tsDnaOpcode = "string" | "number" | "boolean" | "object" | "array" | ...;
 
 ### Current Limitations
 
-- **External References**: No support for external `$ref` URIs (HTTP/remote files).
-- **Custom Formats**: Limited support for JSON Schema `format` keyword.
-- **Schema Extensions**: Does not handle vendor-specific extensions.
+- **External References**: No support for external `$ref` URIs (HTTP/remote files)
+- **Custom Formats**: Limited support for JSON Schema `format` keyword
+- **Schema Extensions**: Does not handle vendor-specific extensions
 
 ### Design Constraints
 
-- **Memory Efficiency**: Prioritize compact DNA representation.
-- **Validation Speed**: Optimize for runtime performance over conversion time.
-- **Type Safety**: Maintain strict TypeScript compliance throughout.
+- **Memory Efficiency**: Prioritize compact DNA representation
+- **Conversion Speed**: Optimize for fast schema compilation
+- **Type Safety**: Maintain strict TypeScript compliance throughout
 
 ---
 
-## Debugging Guidelines
+## Testing Workflow
 
-### Common Issues
+### Test Commands
 
-- **Reference Loops**: Detect and handle circular references in schemas.
-- **Type Mismatches**: Ensure DNA opcodes match expected types.
-- **Memory Leaks**: Monitor DNA store cleanup in complex conversions.
+```bash
+# Run JSON Schema test suite only
+npm test
 
-### Debug Tools
+# Run all tests including discriminator and performance benchmarks
+npm run test:full
 
-- Create sandbox scripts to isolate conversion issues.
-- **IMPORTANT**: When debugging, use `console.dir(obj, {depth: null})` instead of `JSON.stringify(obj, null, 2)` - the latter is considered bad practice.
+# Run performance benchmarks only
+npm run test:performance
+```
+
+### Test Coverage
+
+- **JSON Schema Test Suite**: 1160 passing, 44 skipped (external references)
+- **Discriminator Tests**: Full coverage of OpenAPI 3.1 discriminator
+- **Performance Benchmarks**: Comparative benchmarks against AJV

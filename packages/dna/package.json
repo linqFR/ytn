@@ -1,0 +1,44 @@
+{
+  "name": "@ytn/dna",
+  "version": "0.1.0",
+  "description": "DNA-based schema builder with Zod-like syntax and native DNA bytecode serialization",
+  "author": "linqFR",
+  "license": "MIT",
+  "keywords": [
+    "schema",
+    "validation",
+    "dna",
+    "bytecode",
+    "zod",
+    "typescript"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./toJs": {
+      "import": "./dist/toJs.js",
+      "types": "./dist/toJS.d.ts"
+    },
+    "./min": {
+      "import": "./dist/index.min.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "devDependencies": {
+    "@ytn/shared": "*",
+    "@types/node": "^25.9.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.3"
+  }
+}

@@ -1,6 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { jschemaToDna } from "../src/index.js";
-import { validator, parser } from "@ytn/dna";
+import { describe, expect, it } from "vitest";
+import { schvalid } from "../src/index.js";
 
 describe("Discriminator", () => {
 	const discriminatorSchema = {
@@ -33,41 +32,32 @@ describe("Discriminator", () => {
 	const dogData = { type: "dog", name: "Rex", barks: true };
 	const invalidData = { type: "bird", name: "Tweety" };
 
-	let dna: any;
+	let validate: any;
+	let parse: any;
 
-	it("should convert discriminator schema to DNA", () => {
-		dna = jschemaToDna(discriminatorSchema);
-		expect(dna).toBeDefined();
-		expect(Array.isArray(dna)).toBe(true);
-	});
-
-	it("should generate a validator function", () => {
-		const validate = validator(dna);
+	it("should compile discriminator schema to validator", () => {
+		validate = schvalid("validation").compile(discriminatorSchema);
 		expect(typeof validate).toBe("function");
 	});
 
+	it("should compile discriminator schema to parser", () => {
+		parse = schvalid("parser").compile(discriminatorSchema);
+		expect(typeof parse).toBe("function");
+	});
+
 	it("should validate cat data correctly", () => {
-		const validate = validator(dna);
 		expect(validate(catData)).toBe(true);
 	});
 
 	it("should validate dog data correctly", () => {
-		const validate = validator(dna);
 		expect(validate(dogData)).toBe(true);
 	});
 
 	it("should reject invalid discriminator value", () => {
-		const validate = validator(dna);
 		expect(validate(invalidData)).toBe(false);
 	});
 
-	it("should generate a parser function", () => {
-		const parse = parser(dna);
-		expect(typeof parse).toBe("function");
-	});
-
 	it("should parse cat data correctly", () => {
-		const parse = parser(dna);
 		const result = parse(catData);
 		expect(result.success).toBe(true);
 		if (result.success) {
@@ -76,7 +66,6 @@ describe("Discriminator", () => {
 	});
 
 	it("should parse dog data correctly", () => {
-		const parse = parser(dna);
 		const result = parse(dogData);
 		expect(result.success).toBe(true);
 		if (result.success) {
@@ -85,7 +74,6 @@ describe("Discriminator", () => {
 	});
 
 	it("should return error for invalid discriminator value in parser mode", () => {
-		const parse = parser(dna);
 		const result = parse(invalidData);
 		expect(result.success).toBe(false);
 		if (!result.success) {

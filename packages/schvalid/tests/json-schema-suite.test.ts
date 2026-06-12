@@ -1,9 +1,9 @@
-import { describe, it, expect, afterAll, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { jschemaToDna, OutOfScopeError } from "../src/jschema-to-dna.js";
-import { toJS } from "@ytn/dna";
+import { afterAll, describe, expect, it } from "vitest";
+import { schvalid } from "../src/index.js";
+import { OutOfScopeError } from "../src/jschema-to-dna.js";
 
 // Emulate __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -62,10 +62,7 @@ describe("JSON Schema Draft 2020-12 Official Suite (DNA-JS Engine)", () => {
           // console.log(`Compiling: ${file} > ${group.description}`);
 
           try {
-            const dna = jschemaToDna(group.schema, remoteRegistry);
-            const parts = toJS(true)(dna);
-            const jsCode = Array.isArray(parts) ? parts.slice(1).join('\n') : parts;
-            validate = new Function(parts[0] || "v", jsCode) as (v: any) => boolean;
+            validate = schvalid("validation").compile(group.schema);
           } catch (e: any) {
             if (e instanceof OutOfScopeError) {
               console.log(`\x1b[33mOUT OF SCOPE: ${file} > ${group.description} - ${e.message}\x1b[0m`);
@@ -74,15 +71,6 @@ describe("JSON Schema Draft 2020-12 Official Suite (DNA-JS Engine)", () => {
               compileError = e;
               console.log(`ERROR in group: ${file} > ${group.description}`);
               console.log(`Schema: ${JSON.stringify(group.schema)}`);
-              if (e instanceof SyntaxError) {
-                const dna = jschemaToDna(group.schema, remoteRegistry);
-                const parts = toJS(true)(dna);
-                const jsCode = Array.isArray(parts) ? parts.slice(1).join('\n') : parts;
-                console.log(
-                  "FAILED JS CODE:\n",
-                  jsCode,
-                );
-              }
             }
           }
 

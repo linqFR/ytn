@@ -7,6 +7,22 @@ DNA JSON Schema processing and validation.
 
 > **Important**: This package only supports and validates JSON Schema 2020-12 with internal references. External `$ref` (HTTP URIs, URNs, or external files) are not supported.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Installation](#installation)
+- [Limitations](#limitations)
+- [Usage](#usage)
+  - [Converting JSON Schema to DNA](#converting-json-schema-to-dna)
+  - [Converting DNA back to JSON Schema](#converting-dna-back-to-json-schema)
+  - [Validation with DNA](#validation-with-dna)
+  - [Compile Once, Validate Many](#compile-once-validate-many)
+  - [Discriminator Support](#discriminator-support)
+- [Performance](#performance)
+- [Development](#development)
+- [Peer Dependencies](#peer-dependencies)
+- [Dependencies](#dependencies)
+
 ## Overview
 
 `@ytn/schvalid` provides JSON Schema to DNA bytecode conversion and validation using the high-performance DNA engine from `@ytn/dna`. It serves as the primary interface for JSON Schema validation in the YTN ecosystem.
@@ -86,6 +102,47 @@ const validateFn = validator(dna);
 const parseFn = parser(dna);
 ```
 
+### Compile Once, Validate Many
+
+For performance-critical scenarios, use the `schvalid()` builder API to compile a schema once and reuse the validation function:
+
+```typescript
+import { schvalid } from "@ytn/schvalid";
+
+const schema = {
+  type: "object",
+  properties: {
+    name: { type: "string", minLength: 3 },
+    age: { type: "number", minimum: 0 },
+  },
+};
+
+// Compile once
+const compiler = schvalid("validation");
+const validate = compiler.compile(schema);
+
+// Validate many times efficiently
+validate({ name: "John", age: 30 }); // true
+validate({ name: "Jo", age: -1 }); // false
+```
+
+The `schvalid()` function accepts three modes:
+
+- **"validation"**: Returns a boolean validator function (fail-fast)
+- **"parser"**: Returns a parser function with error collection
+- **"both"**: Returns an object with both `validate` and `parse` functions
+
+```typescript
+import { schvalid } from "@ytn/schvalid";
+
+// Get both validator and parser
+const compiler = schvalid("both");
+const { validate, parse } = compiler.compile(schema);
+
+validate(data); // boolean
+parse(data); // { success: true, data: ... } | { success: false, errors: [...] }
+```
+
 ### Discriminator Support
 
 DNA Schema supports the OpenAPI 3.1 `discriminator` keyword for optimized validation of polymorphic schemas:
@@ -137,10 +194,10 @@ The discriminator is optimized with a `switch` statement in the generated JavaSc
 
 **Benchmark Results** (vs AJV 2020):
 
-- Compilation: **14x faster** than AJV
-- Validation (valid data): **more than 1.15x faster** than AJV Minimal
-- Generated code size: **4x smaller** than AJV
-- Parser mode: Collects first blocking error with **30-40% smaller** standalone code than AJV validation function with **performance close** to AJV minimal.
+- Compilation: **~20-25x faster** than AJV Minimal
+- Validation (valid data): **~1.5-2x faster** than AJV Minimal
+- Generated code size: **4x smaller** than AJV (1295 bytes vs 5293 bytes)
+- Parser mode: Collects first blocking error with **~35% smaller** standalone code than AJV validation function with **comparable or faster** validation performance.
 
 ## Development
 
