@@ -8,7 +8,8 @@ Each package is designed to be **lightweight**, **type-safe**, and **independent
 | --------------------------------------: | :----------: | :------------------------ | :----------------------------------------------------------- |
 | **[@ytn/qb](./packages/query-builder)** | QueryBuilder | **SQLite Query Builder**  | `QB.table("users").select(["id"]).where(["active"]).build()` |
 |  **[@ytn/czvo](./packages/cli-to-zvo)** |  Cli-to-Zvo  | **CLI Contract & Parser** | `const result = execute(contract, args);`                    |
-| **[@ytn/dna](./packages/dna-schema)** | DNA | **JSON Schema Processing** | `const dna = jschemaToDna(schema); const validate = validator(dna);` |
+| **[@ytn/dna](./packages/dna)** | DNA | **Schema Builder** | `const schema = dna.string().min(5); const dna = schema.toDna();` |
+| **[@ytn/schvalid](./packages/schvalid)** | Schvalid | **JSON Schema Processing** | `const dna = jschemaToDna(schema); const validate = validator(dna);` |
 
 ---
 
@@ -67,12 +68,24 @@ if (result.success) {
 }
 ```
 
-#### [@ytn/dna](./packages/dna-schema/README.md)
+#### [@ytn/dna](./packages/dna/README.md)
+
+DNA-based schema builder with Zod-like syntax and native DNA bytecode serialization.
+
+```typescript
+import { dna } from "@ytn/dna";
+
+const schema = dna.string().min(5).max(10);
+const dna = schema.toDna();
+// Returns: ["s", [5, 10, null, null], {}]
+```
+
+#### [@ytn/schvalid](./packages/schvalid/README.md)
 
 Convert JSON Schema to high-performance DNA bytecode for ultra-fast validation.
 
 ```typescript
-import { jschemaToDna, validator, parser } from "@ytn/dna";
+import { jschemaToDna, validator, parser } from "@ytn/schvalid";
 
 const schema = {
   type: "object",
@@ -107,6 +120,7 @@ const result = parse({ name: "John", age: 30 });
 npm install @ytn/qb
 npm install @ytn/czvo
 npm install @ytn/dna
+npm install @ytn/schvalid
 ```
 
 #### For development (monorepo)
@@ -148,6 +162,10 @@ npm test -w @ytn/czvo
 # Example for DNA
 npm run build -w @ytn/dna
 npm test -w @ytn/dna
+
+# Example for Schvalid
+npm run build -w @ytn/schvalid
+npm test -w @ytn/schvalid
 ```
 
 ## License

@@ -10,7 +10,11 @@ export default defineConfig({
       "**/node_modules/**",
       "**/dist/**",
       "sandbox/**",
+      "_archive/**",
+      "_archives/**",
       "**/sandbox/**",
+      "**/_archive/**",
+      "**/_archives/**",
     ],
   },
 });

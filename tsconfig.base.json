@@ -14,16 +14,26 @@
     "isolatedModules": true,
     "ignoreDeprecations": "6.0",
     "rootDir": ".",
-    "types": ["node"]
+    "types": [ "node" ]
   },
-  "include": ["shared/**/*.ts", "packages/**/*.ts"],
+  "include": [
+    "shared/**/*.ts",
+    "packages/**/*.ts"
+  ],
   "exclude": [
-    "**/node_modules",
+    "**/_archive",
+    "**/_archives",
+    "**/_docs",
+    "**/*_deprecated.ts",
+    "**/*_old.ts",
+    "**/archive",
+    "**/archives",
+    "**/dev_tools",
     "**/dist",
     "**/docs",
-    "**/dev_tools",
+    "**/node_modules",
     "**/sandbox",
-    "**/archive",
-    "sandbox"
+    "**/wf-runner",
+    "sandbox",
   ]
 }

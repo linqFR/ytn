@@ -3,6 +3,7 @@
 > [!IMPORTANT] > **ABSOLUTE RULES**:
 
 - A QUESTION IS A QUESTION IS A QUESTION and REQUIRES AN ANSWER, NOT AN ACTION.
+- **NO PROACTIVE ACTION ON QUESTIONS**: When a USER request is a question, you MUST provide a purely conceptual or informative response. You may create a **new** demonstration file to illustrate your proposal, but you must NEVER modify existing project code without prior validation and explicit approval.
 - NEVER ERASE ENTIRE BLOCKS OF TEXT TO REWRITE THEM ELSEWHERE WITHOUT EXPLICIT PRIOR APPROVAL. Provide only minimal code changes. Do not rewrite unchanged blocks.
 - NEVER CHANGE THE DOCUMENT STRUCTURE OR MOVE/SUMMARIZE EXISTING PARAGRAPHS OR CODE WITHOUT EXPLICIT PRIOR APPROVAL.
 - **NEVER PERFORM ANY OPTIMIZATIONS WITHOUT PRIOR VALIDATION AND APPROVAL.**
@@ -34,7 +35,7 @@ This is a monorepo for the **YTN project**, maintained by **linqFR**. It contain
 
 - **`@ytn/qb`** (`packages/query-builder`): A fluent SQLite query builder with Zod integration.
 - **`@ytn/czvo`** (`packages/cli-to-zvo`): A CLI contract definition and routing engine.
-- **`@ytn/wf-router`** (`packages/wf-router`): A high-performance workflow router.
+- **`@ytn/wf`** (`packages/wf-runner`): A high-performance workflow router.
 
 ### Monorepo Structure
 
@@ -52,12 +53,14 @@ This is a monorepo for the **YTN project**, maintained by **linqFR**. It contain
 ## Environment & Tech Stack
 
 - **Runtime**: Node.js (>=24.0.0)
-- **Language**: TypeScript (ES2022)
+- **Language**: TypeScript 6.0 (ES2025)
 - **Module System**: Pure ESM (`"type": "module"`)
 - **Package Manager**: `npm` with workspaces
 - **TypeScript Configuration** in order to comply with `Zod V4`:
   - **Strict Mode**: Mandatory (**`strict: true`** in `tsconfig.json`).
   - **Resolution**: **`NodeNext`** for both module and moduleResolution.
+  - **Interoperability**: **`verbatimModuleSyntax: true`** is mandatory to ensure clear ESM/CJS boundaries and compatibility.
+  - **Metadata**: Use **`declarationMap: true`** and **`sourceMap: true`** for public packages to ensure a premium developer experience (Go To Definition).
 
 ### Windows Specifics
 
@@ -80,11 +83,18 @@ This is a monorepo for the **YTN project**, maintained by **linqFR**. It contain
 
 ## Instructions for Agents (CRITICAL)
 
+### 0. Package-Specific Instructions (MANDATORY)
+
+- **ALWAYS Read Package AGENTS.md First**: Before working on any package, you MUST read the package-specific `AGENTS.md` file located in that package's directory (e.g., `packages/query-builder/AGENTS.md`).
+- **Precedence Rule**: Package-specific AGENTS.md instructions take precedence over global instructions when there is a conflict.
+- **Global Foundation**: The global AGENTS.md (this file) provides the foundation. Package-specific files build upon it with package-specific context.
+
 ### 1. Surgical Edits & Formatting
 
 - **NEVER MODIFY FORMATTING OR LAYOUT.**
 - **NO UNSOLICITED MODIFICATIONS TO COMMENTS.**
 - Be surgical: modify only the logical code or necessary typing, point by point, respecting surrounding text and whitespace.
+- **NO JSON.stringify FORMATTING**: NEVER use `JSON.stringify(obj, null, 2)` for console output. It is unreadable. Use `console.dir(obj, { depth: null })` or `console.log(JSON.stringify(obj))` directly for better readability.
 
 ### 2. Documentation, JSDocs & READMEs
 
@@ -130,8 +140,8 @@ This is a monorepo for the **YTN project**, maintained by **linqFR**. It contain
   - `I*`: Interfaces/Types for Input/Config data (e.g., `IContract`). Defines the entry shape.
   - `O*`: Interfaces/Types for Output/Result data (e.g., `OResult`). Defines the resulting shape.
   - `$*`: Type-modifiers / active functional types (e.g., `$KebabToCamel<S>`). Internal type algebra and logic.
-  - `u*`: High-level exported **Utility** types (e.g., `uValidateContract<T>`). Final tools for the developer.
   - `ts*`: Simple **static** type aliases (e.g., `tsContractIN`). Represents a fixed structure without complex logic.
+  - `u*`: High-level exported **Utility** function to type correctly a complex object (e.g., `uDefineWf`). Final tools for the developer.
 
 #### Zod Schema Namings
 
@@ -150,8 +160,12 @@ Reminder: Use Zod V4 exclusively.
 
 ## Testing Guidelines
 
-- **Framework**: `vitest`
+- **Framework**: **Vitest 4** (Pure ESM)
 - **Rule**: All new features or bug fixes MUST include corresponding tests. The entire suite must pass before finalizing.
+- **Type Testing**: For complex DSLs and type-modifiers, ALWAYS include type-regression tests using **`expectTypeOf`** or **`assertType`**.
+- **Typecheck Command**: To validate type assertions during tests, use **`npm.cmd test -- --typecheck`**.
+
+---
 
 ## Commits & Versions
 
@@ -190,6 +204,7 @@ Reminder: Use Zod V4 exclusively.
 - **Top-level Validation**: Use `z.email()`, `z.uuid()`, `z.url()` instead of method chaining.
 - **Top-level Objects**: Favor **`z.strictObject()`** or **`z.looseObject()`** over `.strict()` or `.loose()` method calls.
 - **No `.passthrough()`**: The method `.passthrough()` is deprecated in V4; always use **`.loose()`** or **`z.looseObject()`**.
+- **Error Customization**: Use the `{ error: ... }` parameter instead of the deprecated `{ message: ... }`. `invalid_type_error` and `required_error` are removed.
 - **Interface**: Can use `z.infer<schema>` for object schemas for better TypeScript optional property handling.
 - **JSON Schema**: Use the native `.toJSONSchema()` method.
 
@@ -199,6 +214,7 @@ All access to global utilities MUST use the namespaces defined in `@ytn/shared`:
 
 - **Private Status**: `@ytn/shared` is a **strictly private** toolbox. It will NEVER be published to npm.
 - **Mandatory Inlining**: Because it handles internal logic and is not published, it MUST always be inlined into the `dist/` of public packages using `noExternal: ["@ytn/shared"]` in `tsup`. This ensures public packages remain standalone.
+- **Dependency Type**: To ensure it NEVER appears as a runtime requirement for end-users, `@ytn/shared` MUST be declared in **`devDependencies`**, never in `dependencies`.
 - `safe.*`: Deterministic error management (`[err, res]`).
 - `lockobj.*`: Data integrity protection (Lockable Proxies).
 - `fsops.*`: Secure and deterministic I/O primitives.
@@ -211,3 +227,21 @@ All access to global utilities MUST use the namespaces defined in `@ytn/shared`:
 - **Immutability**: Every "Tool" or "Context" object injected into an engine MUST be protected by `lockobj.protectObject` to ensure no mutations occur within user-defined layers.
 
 ---
+
+### TypeScript 6.0+ Protocol
+
+#### Native API First (Performance & Standard)
+
+- **Regex**: ALWAYS use `RegExp.escape(str)` for escaping. NEVER write manual regex escapes.
+- **Maps**: Use `map.getOrInsert(key, default)` or `map.getOrInsertComputed(key, () => ...)` for lazy initialization.
+- **Temporal**: Prefer the `Temporal` API for new date/time logic over the legacy `Date` object (requires Node 20+).
+
+#### Module Resolution & Paths
+
+- **NO `baseUrl`**: This option is deprecated. Use explicit `paths` mappings in `tsconfig.json`.
+- **Subpath Imports**: Favor `#/*` syntax for internal package aliases, compatible with `nodenext`.
+- **Explicit Types**: Always ensure `"types": ["node"]` (or other required globals) is present in `tsconfig.json` since TS 6.0 defaults to an empty array `[]`.
+
+#### DSL & Inferred Contexts
+
+- **this-less Inference**: You can safely use method shorthand `name(args) { ... }` in object literal DSLs (like `@ytn/wf`) if `this` is not required; TS 6.0 inference is now stable for these "this-less" functions, unlike previous versions where they were often inferred as `unknown`.
