@@ -3,7 +3,7 @@ import { Builder } from "./builder.js";
 import { DDLEngine } from "./ddl.js";
 import { Introspector } from "./introspection.js";
 import { PragmaBuilder } from "./pragma.js";
-import { DDLOptions } from "./types.js";
+import type { IDDLOptions } from "./types.js";
 
 /**
  * Fluent SQL Query Builder for agnostic DDL and DML generation.
@@ -58,7 +58,7 @@ export class QueryBuilder {
    *
    * @param {string} tableName - Name of the table to create.
    * @param {z.ZodTypeAny} schema - Zod schema (typically ZodObject, but handles wrappers/pipes).
-   * @param {DDLOptions} [options={}] - Manual overrides and configuration.
+   * @param {IDDLOptions} [options={}] - Manual overrides and configuration.
    *
    * @returns {string} Compiled SQL DDL.
    * @throws {Error} If the schema cannot be resolved to a ZodObject shape.
@@ -66,7 +66,7 @@ export class QueryBuilder {
   public static createTableFromZod(
     tableName: string,
     schema: z.ZodTypeAny,
-    options: DDLOptions = {},
+    options: IDDLOptions = {},
   ): string {
     return DDLEngine.createTableFromZod(tableName, schema, options);
   }
@@ -79,7 +79,7 @@ export class QueryBuilder {
    * @param {z.ZodTypeAny} schema - Zod schema defining the table structure.
    * @returns {Record<string, string>} Mapping of operation names (getAll, getById, insert, update, delete, upsert) to SQL strings.
    */
-   public static generateCRUD(
+  public static generateCRUD(
     tableName: string,
     schema: z.ZodTypeAny,
   ): Record<string, string> {

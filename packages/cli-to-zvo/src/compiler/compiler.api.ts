@@ -4,8 +4,8 @@ import {
   type IExportedContract,
 } from "./exporter.js";
 import type { tsContractIN } from "../schema/contract.schema.js";
-import { createContract, type uValidateContract } from "../editor.js";
-import { IProcessedContract } from "../index.js";
+import { defineContract, type tsValidateContract } from "../editor.js";
+import type { IProcessedContract } from "../core.js";
 
 /**
  * @function compileProcessedContract
@@ -32,9 +32,9 @@ export function compileProcessedContract(
  * @returns {IExportedContract} The static, serializable contract metadata.
  */
 export function compileContract<I extends tsContractIN = tsContractIN>(
-  contract: uValidateContract<I>,
+  contract: tsValidateContract<I>,
 ): IExportedContract {
-  const processed = createContract(contract);
+  const processed = defineContract(contract);
   return compileProcessedContract(processed);
 }
 
@@ -47,9 +47,9 @@ export function compileContract<I extends tsContractIN = tsContractIN>(
  * @param {string} outPath - The absolute or relative destination file path (e.g. "./contract.compiled.json").
  */
 export function compileContractToFile<I extends tsContractIN = tsContractIN>(
-  contract: uValidateContract<I>,
+  contract: tsValidateContract<I>,
   outPath: string,
 ): void {
-  const processed = createContract(contract);
+  const processed = defineContract(contract);
   serializeToFile(processed, outPath);
 }

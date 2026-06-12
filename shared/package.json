@@ -1,11 +1,14 @@
 {
   "name": "@ytn/shared",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Global shared utilities for the YTN project",
   "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
   "peerDependencies": {
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "exports": {
     ".": {
@@ -19,6 +22,10 @@
     "./dirpath/*.js": {
       "types": "./dirpath/*.ts",
       "import": "./dirpath/*.ts"
+    },
+    "./regex/*.js": {
+      "types": "./regex/*.ts",
+      "import": "./regex/*.ts"
     },
     "./js/*.js": {
       "types": "./js/*.ts",
@@ -51,6 +58,10 @@
     "./zod": {
       "types": "./zod/index.ts",
       "import": "./zod/index.ts"
+    },
+    "./polyfill/*.js": {
+      "types": "./polyfill/*.ts",
+      "import": "./polyfill/*.ts"
     }
   }
 }

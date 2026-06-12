@@ -276,6 +276,8 @@ export interface IProcessedContract {
   zvoSchema: tsGate;
   /** The high-performance bitwise router instance. */
   router: tsBitRouter;
+  /** Pre-compiled validator for runtime optimization (combines resultParser and zvoGate). */
+  compiledValidator: ZodType;
   /** Help metadata for all arguments. */
   help: Record<tsTargetFieldName, tsProcessedDataModel>;
   /** Optional fallback schema for catch-all behavior. */

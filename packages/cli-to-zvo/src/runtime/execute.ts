@@ -1,15 +1,16 @@
 import { argv } from "node:process";
+import { parseArgs } from "node:util";
 import type {
   IProcessedContract,
   OSafeResult,
 } from "../types/contract.types.js";
-import { parseCli } from "./cli-parser.js";
+import { setZodConfig } from "../config/zod-config.js";
 
 /**
  * @static
  * @method execute
  * @description Low-level execution of a previously compiled contract metadata against raw arguments.
- * Useful in serverless or pre-compiled environments where you don't want to re-run the DSL compiler.
+ * Uses pre-compiled validators for optimal runtime performance.
  *
  * @param {IProcessedContract} processedContract - The compiled contract metadata.
  * @param {string[]} [args=argv.slice(2)] - Arguments to parse.
@@ -19,10 +20,18 @@ export function execute(
   processedContract: IProcessedContract,
   args: string[] = argv.slice(2),
 ): OSafeResult {
-  return parseCli(
+  const raw = parseArgs({
     args,
-    processedContract.parsingArgs,
-    processedContract.parseArgsResultParser,
-    processedContract.zvoSchema,
-  );
+    options: processedContract.parsingArgs.options,
+    allowPositionals: true,
+    allowNegative: processedContract.parsingArgs.allowNegative,
+    strict: false,
+  });
+
+  setZodConfig();
+
+  // Use pre-compiled validator (created once at contract definition)
+  return processedContract.compiledValidator.safeParse(raw, {
+    reportInput: true,
+  }) as OSafeResult;
 }

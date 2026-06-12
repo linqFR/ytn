@@ -47,7 +47,7 @@ export const funcCodec = z.codec(
  */
 export const vmCodecFactory = <T extends Function = Function>(
   sandbox: tsVMSandbox,
-): z.ZodType<T> => {
+) => {
   // 1. Pre-create the execution context once for this factory instance
   const vmCtx = createContext(sandbox);
 

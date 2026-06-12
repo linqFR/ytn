@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { $NamespaceSealed, type $Sealed } from "./sealer.types.js";
+import type { $NamespaceSealed, $Sealed } from "./sealer.types.js";
 import {
   isForbidden,
   isSchemaCompatible,

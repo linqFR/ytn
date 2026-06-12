@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { compileContractToFile } from "../compiler/compiler.api.js";
-import { defineContract } from "../editor/contract-create.js";
-import { IProcessedContract } from "../index.js";
-import { tsHandler } from "../launcher/czvo-launcher.js";
+import { defineContract } from "../editor/define-contract.js";
+import type { IProcessedContract } from "../types/contract.types.js"
+import type { tsHandler } from "../launcher/czvo-launcher.js";
 
 /**
  * @constant AOT_CONTRACT

@@ -1,5 +1,6 @@
 import vm from "node:vm";
-import { tsSafeResult, safeResultErr, safeResultOk } from "../safe/safemode.js";
+import { safeResultErr, safeResultOk } from "../safe/safemode.js";
+import type { tsSafeResult } from "../safe/safemode.js";
 
 /** @type {Record<string, unknown>} tsVMSandbox */
 export type tsVMSandbox = Record<string, unknown>;

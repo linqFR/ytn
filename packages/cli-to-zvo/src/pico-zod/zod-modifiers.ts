@@ -3,8 +3,8 @@ import { z } from "zod";
  * Internal Zod properties that should always be hidden (branding, metadata).
  * Uses template literals to automatically match all _prop and ~prop.
  */
-export type InternalKeys = "def" | "~standard" | `_${string}` | `~${string}`;
-export type tsForbidden = InternalKeys | (typeof FORBIDDEN_MODIFIERS)[number];
+export type tsInternalKeys = "def" | "~standard" | `_${string}` | `~${string}`;
+export type tsForbidden = tsInternalKeys | (typeof FORBIDDEN_MODIFIERS)[number];
 
 /**
  * Zod modifiers that we block to keep the CLI contract predictable.

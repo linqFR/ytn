@@ -3,6 +3,10 @@
  * Rules: use '$*' prefix for active type modifiers.
  */
 
+/* -------------------------------------------------------------------------- */
+/*                            LOGICAL & STRUCTURAL                            */
+/* -------------------------------------------------------------------------- */
+
 /**
  * @type {$Without} $Without
  * @description Internal primitive that ensures a type T does not contain any keys from U.
@@ -37,6 +41,10 @@ export type $RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<
   {
     [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>;
   }[Keys];
+
+/* -------------------------------------------------------------------------- */
+/*                               TRANSFORMATIONS                              */
+/* -------------------------------------------------------------------------- */
 
 /**
  * @type {$DeepReadonly} $DeepReadonly
@@ -79,3 +87,27 @@ export type $Keys<T> = (keyof T)[];
 export type $RecordSetToArray<T extends Record<string, Set<any>>> = {
   [K in keyof T]: T[K] extends Set<infer I> ? I[] : never;
 };
+
+/* -------------------------------------------------------------------------- */
+/*                                  UTILITIES                                 */
+/* -------------------------------------------------------------------------- */
+
+/** Converts a union type to an intersection type. */
+export type $UnionToIntersection<U> = 
+  (U extends any ? (k: U) => void : never) extends ((k: infer I) => void) ? I : never;
+
+/** Ensures a given property is required and not null/undefined. */
+export type $RequiredNotNull<T, K extends keyof T> = T & { [P in K]-?: Exclude<T[P], null | undefined> };
+
+/* -------------------------------------------------------------------------- */
+/*                            STRING PATTERN HELPERS                          */
+/* -------------------------------------------------------------------------- */
+
+/** Checks if a single-character string is a digit. */
+export type $IsDigit<C extends string> = C extends "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ? true : false;
+
+/** Checks if a single-character string is a lowercase letter. */
+export type $IsLower<C extends string> = C extends Lowercase<C> ? (C extends Uppercase<C> ? false : true) : false;
+
+/** Checks if a single-character string is an uppercase letter. */
+export type $IsUpper<C extends string> = C extends Uppercase<C> ? (C extends Lowercase<C> ? false : true) : false;

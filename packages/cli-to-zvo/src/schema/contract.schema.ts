@@ -1,13 +1,16 @@
-import { z } from "zod";
 import * as setOp from "@ytn/shared/js/set-ops.js";
+import { z } from "zod";
 
-import { getZodValue } from "../shared/zod-tbx.js";
+import {
+  hasZodValueDeep,
+  isZodDefaultDeep,
+  isZodOptionalDeep,
+} from "@ytn/shared/zod/zod-reflection.js";
 import {
   contractCliToParseArgs,
   contractCliToParseArgSchema,
   contractCliToParseArgsParser,
 } from "../cli-engine/build-tools.js";
-import { compileZvoGate } from "../core/gate.js";
 import {
   contractCliSchema,
   contractFallbackSchema,
@@ -23,30 +26,25 @@ import {
   type tsTargetFieldName,
   type tsTargetName,
 } from "../config/parse-args.js";
+import { compileZvoGate } from "../core/gate.js";
 import { picoTypeToZod } from "../pico-zod/index.js";
+import { getZodValue } from "../shared/zod-tbx.js";
 import type {
   tsBitCodes,
-  tsBitGroups,
-  tsBitRouterSet,
-  tsPossibleValuesArray,
-  tsRoutingMasksSet,
+  tsBitGroups, tsPossibleValuesArray
 } from "../types/bit-router.types.js";
 import type {
   IProcessedContract,
   tsDiscriminantMap,
   tsGate,
+  tsParsedCLI,
   tsPossibleValuesSet,
   tsProcessedCliOUT,
   tsProcessedDataModel,
   tsProcessedFlag,
   tsProcessedPositional,
-  tsProcessedTarget,
+  tsProcessedTarget
 } from "../types/contract.types.js";
-import {
-  hasZodValueDeep,
-  isZodDefaultDeep,
-  isZodOptionalDeep,
-} from "@ytn/shared/zod/zod-reflection.js";
 
 const baseContractSchema = z.object({
   name: z.string().min(1),
@@ -93,11 +91,11 @@ export const ContractSchema = baseContractSchema.transform((data, ctx) => {
   // Map kebab-case CLI names to camelCase internal target field names.
   const positionals = cli.positionals ?? [];
   const paPostionals = positionals.map((v) =>
-    FlagNameToObjectName<tsTargetFieldName>(v),
+    FlagNameToObjectName(v) as tsTargetFieldName,
   );
   const flags = cli.flags ?? {};
   const paFlags = Object.keys(flags).map((v) =>
-    FlagNameToObjectName<tsTargetFieldName>(v),
+    FlagNameToObjectName(v) as tsTargetFieldName,
   );
   const knownKeys = new Set<tsTargetFieldName>([...paPostionals, ...paFlags]);
 
@@ -132,7 +130,7 @@ export const ContractSchema = baseContractSchema.transform((data, ctx) => {
 
   // Initialize help metadata and bitwise records for flags.
   Object.entries(cli.flags ?? {}).forEach(([cliName, def]) => {
-    const paName = FlagNameToObjectName<tsTargetFieldName>(cliName);
+    const paName = FlagNameToObjectName(cliName) as tsTargetFieldName;
     const entry = {
       ...def,
       long: cliName as tsParseArgString,
@@ -310,10 +308,11 @@ export const ContractSchema = baseContractSchema.transform((data, ctx) => {
       cliProcessed,
       options.allowNegative,
     ),
-    parseArgsResultParser: {} as any, // Placeholder for Phase 6
+    parseArgsResultParser: {} as z.ZodType<tsParsedCLI>, // Placeholder for Phase 6
     parseArgsConfig: contractCliToParseArgs(cliProcessed.flags),
     zvoSchema: {} as tsGate, // Placeholder for Phase 7
     router: {}, // Placeholder for Phase 6
+    compiledValidator: {} as z.ZodType, // Placeholder for Phase 8
     help: dataModels,
     allowNegative: options.allowNegative ?? false,
   };
@@ -339,6 +338,11 @@ export const ContractSchema = baseContractSchema.transform((data, ctx) => {
   // Phase 7: Gate Initialization
   // The Gate creates the final Zod Discriminated Union based on the router signatures.
   processed.zvoSchema = compileZvoGate(processed);
+
+  // Phase 8: Pre-compilation for Runtime Optimization
+  // Pre-compile the validator pipeline to avoid .pipe() creation at runtime
+  processed.compiledValidator = processed.parseArgsResultParser.pipe(processed.zvoSchema);
+
   return processed;
 });
 

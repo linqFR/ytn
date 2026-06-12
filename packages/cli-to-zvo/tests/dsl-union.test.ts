@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createContract, pico } from "../src/editor.js";
+import { defineContract, pico } from "../src/editor.js";
 
 describe("DSL Union Support", () => {
   it("should support pipe unions in DSL via createContract", () => {
@@ -18,6 +18,6 @@ describe("DSL Union Support", () => {
       },
     };
 
-    expect(() => createContract(myContract as any)).not.toThrow();
+    expect(() => defineContract(myContract as any)).not.toThrow();
   });
 });

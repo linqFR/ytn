@@ -1,69 +1,47 @@
 import { z } from "zod";
+import type {
+  tsCamelCase,
+  tsKebabCase,
+  tsPascalCase,
+  tsScreamingSnakeCase,
+  tsSnakeCase,
+} from "../types/str.type.js";
+import {
+  rgxCamelCase,
+  rgxKebabCase,
+  rgxPascalCase,
+  rgxScreamingSnakeCase,
+  rgxSnakeCase,
+} from "../regex/str-cases.js";
 
 /**
  * Zod schemas for validated string case naming conventions.
  */
 
-/**
- * @constant {z.ZodBranded<z.ZodString, "tsSnakeCase">} schSnakeCase
- * @description Validates snake_case strings.
- */
 export const schSnakeCase = z
   .string()
-  .regex(/^[a-zA-Z0-9_]+$/, "Must be snake_case (no spaces or hyphens)")
+  .regex(rgxSnakeCase, "Must be snake_case")
   .brand<"tsSnakeCase">();
 
-/**
- * @type {string} tsSnakeCase
- * @description A branded string type representing a validated snake_case value.
- */
-export type tsSnakeCase = z.infer<typeof schSnakeCase>;
+type sch = z.infer<typeof schSnakeCase>;
+z.core["$brand"]
 
-/**
- * @constant {z.ZodBranded<z.ZodString, "tsKebabCase">} schKebabCase
- * @description Validates kebab-case strings.
- */
 export const schKebabCase = z
   .string()
-  .regex(
-    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-    "Must be kebab-case (lowercase and hyphens)",
-  )
+  .regex(rgxKebabCase, "Must be kebab-case")
   .brand<"tsKebabCase">();
 
-/**
- * @type {string} tsKebabCase
- * @description A branded string type representing a validated kebab-case value.
- */
-export type tsKebabCase = z.infer<typeof schKebabCase>;
-
-/**
- * @constant {z.ZodBranded<z.ZodString, "tsCamelCase">} schCamelCase
- * @description Validates camelCase strings.
- */
 export const schCamelCase = z
   .string()
-  .regex(
-    /^[a-z][a-zA-Z0-9]*$/,
-    "Must be camelCase (starts with lowercase, alphanumeric only)",
-  )
+  .regex(rgxCamelCase, "Must be camelCase")
   .brand<"tsCamelCase">();
 
-/**
- * @type {string} tsCamelCase
- * @description A branded string type representing a validated camelCase value.
- */
-export type tsCamelCase = z.infer<typeof schCamelCase>;
+export const schScreamingSnakeCase = z
+  .string()
+  .regex(rgxScreamingSnakeCase, "Must be SCREAMING_SNAKE_CASE")
+  .brand<"tsScreamingSnakeCase">();
 
-/**
- * @function kebabToCamel
- * @description Manual transformation logic to convert a kebab-case string into camelCase.
- * Performs a regex search-and-replace for hyphenated characters.
- *
- * @template {tsCamelCase} T
- * @param {string} str - The kebab-case input string.
- * @returns {T} The resulting camelCase string.
- */
-export const kebabToCamel = <T extends tsCamelCase>(str: string): T => {
-  return str.replace(/-([a-z0-9])/g, (_, char) => char.toUpperCase()) as T;
-};
+export const schPascalCase = z
+  .string()
+  .regex(rgxPascalCase, "Must be PascalCase")
+  .brand<"tsPascalCase">();

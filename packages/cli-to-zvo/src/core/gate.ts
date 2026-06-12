@@ -1,11 +1,34 @@
 import { z } from "zod";
-import { tsTargetName, type tsTargetFieldName } from "../config/parse-args.js";
+import { type tsTargetName, type tsTargetFieldName } from "../config/parse-args.js";
 import type { tsPossibleValuesArray } from "../types/bit-router.types.js";
 import type {
   IProcessedContract,
   tsGate,
   tsProcessedCliOUT,
 } from "../types/contract.types.js";
+
+
+/**
+ * @inner
+ * @function forge
+ * @description Wraps a target's Zod schema with its specific routing signature.
+ * 
+ * @param {string} sig - The unique routing signature.
+ * @param {tsTargetName} name - The name of the target to wrap.
+ * @returns {z.ZodType} A Zod schema that validates the signature and returns the target payload.
+ */
+const forge = (targets: IProcessedContract["targets"], sig: string, name: tsTargetName, overlap: boolean = false): z.ZodType =>
+  targets[name].zod
+    .extend({ discriminant: z.literal(sig) })
+    .transform(({ discriminant, ...data }: any) => ({
+      route: name,
+      data,
+    }))
+    .meta({
+      route: name,
+      signature: sig,
+      overlap,
+    });
 
 /**
  * @function compileZvoGate
@@ -23,33 +46,17 @@ export function compileZvoGate(processed: IProcessedContract): tsGate {
   const _discriminantKeys: tsTargetFieldName[] = routing.discriminantKeys;
   const _possibleValues: tsPossibleValuesArray = routing.possibleValues || {};
 
-  /**
-   * @inner
-   * @function forge
-   * @description Wraps a target's Zod schema with its specific routing signature.
-   * 
-   * @param {string} sig - The unique routing signature.
-   * @param {tsTargetName} name - The name of the target to wrap.
-   * @returns {z.ZodType} A Zod schema that validates the signature and returns the target payload.
-   */
-  const forge = (sig: string, name: tsTargetName): z.ZodType =>
-    targets[name].zod
-      .extend({ discriminant: z.literal(sig) })
-      .transform(({ discriminant, ...data }: any) => ({
-        route: name,
-        data,
-      }));
-
   // Build one Zod branch per signature in the flat routing table.
   const branches = Object.entries(routing.router).map(([sig, names]) => {
     const targetNames = Array.isArray(names) ? names : [names];
 
-    if (targetNames.length === 1) return forge(sig, targetNames[0]!);
+    if (targetNames.length === 1) return forge(targets, sig, targetNames[0]!);
 
     // In case of overlap, use a Zod Union within the signature branch for disambiguation.
+    // TODO: extract z.union to a separate result variable for better readability
     return z
-      .looseObject({ discriminant: z.literal(sig) })
-      .pipe(z.union(targetNames.map((n) => forge(sig, n)) as any));
+      .looseObject({ discriminant: z.literal(sig) }).meta({ overlap: true , signature: sig })
+      .pipe(z.union(targetNames.map((n) => forge(targets, sig, n, true)) as any));
   });
 
   // The final result is a native Discriminated Union for maximum parsing speed.

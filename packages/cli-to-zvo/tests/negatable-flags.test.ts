@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { createContract, pico } from "../src/editor.js";
+import { defineContract, pico } from "../src/editor.js";
 import { parseCli } from "../src/runtime/cli-parser.js";
 
 describe("🧪 Negative  Flags (--no-flag) Support", () => {
-  const tools = createContract({
+  const tools = defineContract({
     name: "Negative -cli",
     description: "Testing Negative  flags",
     cli: {

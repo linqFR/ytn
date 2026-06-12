@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { pico, createContract } from "../src/editor.js";
+import { pico, defineContract } from "../src/editor.js";
 
 describe("CliContract Validation", () => {
   it("should validate a correct hybrid contract", () => {
-    const processed = createContract({
+    const processed = defineContract({
       name: "ytn",
       description: "YT Downloader",
       cli: {
@@ -25,7 +25,7 @@ describe("CliContract Validation", () => {
 
   it("should throw on invalid contract", () => {
     expect(() => {
-      createContract({
+      defineContract({
         name: "err",
         description: "err",
         cli: { positionals: [] },

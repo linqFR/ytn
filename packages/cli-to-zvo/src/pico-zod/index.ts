@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dslSchema, dslToZod, DslType } from "./dsl-converter.zod.js";
+import { dslSchema, dslToZod, type DslType } from "./dsl-converter.zod.js";
 import { PICO_FACTORIES } from "./pico-overrides.js";
 import {
   bridgeZod,
@@ -7,7 +7,7 @@ import {
   isSealed,
   sealZod,
   toZod,
-  tsPicoFactories,
+  type tsPicoFactories,
 } from "./sealer.js";
 import { isSchemaCompatible } from "./zod-modifiers.js";
 

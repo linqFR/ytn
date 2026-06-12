@@ -1,4 +1,5 @@
-import { catchAsyncFn, tsSafeResult } from "../safe/safemode.js";
+import { catchAsyncFn } from "../safe/safemode.js";
+import type { tsSafeResult } from "../safe/safemode.js";
 
 /**
  * Async timing and promise control utilities.

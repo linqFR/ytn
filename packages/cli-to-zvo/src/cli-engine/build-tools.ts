@@ -1,16 +1,16 @@
 import { unique as arrUnique } from "@ytn/shared/js/array-ops.js";
-import { $Entries } from "@ytn/shared/types/modifiers.type.js";
+import type { $Entries } from "@ytn/shared/types/modifiers.type.js";
 import type {
   ParseArgsConfig,
   ParseArgsOptionDescriptor,
   ParseArgsOptionsConfig,
 } from "node:util";
 import { z } from "zod";
-import { tsTargetName, type tsParseArgString } from "../config/parse-args.js";
-import {
+import type { tsTargetName, tsParseArgString } from "../config/parse-args.js";
+import type {
   tsPossibleValuesData,
-  type tsBitCodes,
-  type tsPossibleValuesArray,
+  tsBitCodes,
+  tsPossibleValuesArray,
 } from "../types/bit-router.types.js";
 import type {
   tsParseArgSchema,

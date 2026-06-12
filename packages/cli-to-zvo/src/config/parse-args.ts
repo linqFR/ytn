@@ -1,11 +1,12 @@
 import {
-  kebabToCamel,
   schCamelCase,
   schKebabCase,
-  type tsCamelCase,
-  type tsKebabCase,
 } from "@ytn/shared/zod/zod-strcases.js";
+import {
+  toCamelCase,
+} from "@ytn/shared/js/string-cases.js";
 import type { ZodRecord, ZodType } from "zod";
+import type { tsCamelCase, tsKebabCase } from "@ytn/shared/types/str.type.js";
 
 /**
  * @constant {z.ZodSchema} ParseArgFlagNameSchema
@@ -47,9 +48,9 @@ export type tsTargetFieldName = tsParseArgObjectName & {
 
 /**
  * @function FlagNameToObjectName
- * @description Utility mapping function, alias of {@link kebabToCamel}.
+ * @description Utility mapping function, alias of {@link toCamelCase}.
  */
-export const FlagNameToObjectName = kebabToCamel;
+export const FlagNameToObjectName = toCamelCase;
 
 export type tsParseArgsResult = ReturnType<
   typeof import("node:util").parseArgs

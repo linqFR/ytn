@@ -1,15 +1,15 @@
-import { ContractSchema, tsContractIN } from "../schema/contract.schema.js";
-import { IProcessedContract } from "../types/contract.types.js";
-import { uValidateContract } from "./contract-create.type.js";
+import { ContractSchema, type tsContractIN } from "../schema/contract.schema.js";
+import type { IProcessedContract } from "../types/contract.types.js";
+import type { tsValidateContract } from "./define-contract.type.js";
 
 /**
- * @method createContrat
+ * @method defineContract
  * @description The primary entry point for defining a CLI contract.
  * This method uses TypeScript's type system to validate your contract definition
  * at compile-time, ensuring targets are properly defined.
  *
  * @template I - The shape of the input contract.
- * @param {uValidateContract<I>} contract - The full CLI contract definition object.
+ * @param {tsValidateContract<I>} contract - The full CLI contract definition object.
  * @param {string} contract.name - The name of your CLI tool.
  * @param {string} contract.description - What your CLI tool does (used in help).
  * @param {string} [contract.version] - Version of your CLI tool.
@@ -47,7 +47,7 @@ import { uValidateContract } from "./contract-create.type.js";
  * @returns {Contract<I>} A validated and compiled Contract instance.
  */
 export function defineContract<I extends tsContractIN>(
-  contract: uValidateContract<I>,
+  contract: tsValidateContract<I>,
 ): IProcessedContract {
   const res = ContractSchema.safeParse(contract);
   if (!res.success) {

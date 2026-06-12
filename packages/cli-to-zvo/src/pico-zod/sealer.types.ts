@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { type ISealedInterface } from "./sealer.js";
-import { FORBIDDEN_MODIFIERS, InternalKeys } from "./zod-modifiers.js";
+import { FORBIDDEN_MODIFIERS, type tsInternalKeys } from "./zod-modifiers.js";
 
-export type tsForbidden = InternalKeys | (typeof FORBIDDEN_MODIFIERS)[number];
+export type tsForbidden = tsInternalKeys | (typeof FORBIDDEN_MODIFIERS)[number];
 
 /**
  * Utility type to "seal" a Zod type or factory.

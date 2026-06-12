@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type * as z4 from "zod/v4/core/schemas.js";
 
 /**
  * Zod Schema inspection and unwrapping helpers.
@@ -371,4 +372,27 @@ export function getZodShapeDeep(schema: any): any {
   }
 
   return null;
+}
+
+/**
+ * @function getZodInternals
+ * @description Access the internal Zod V4 structure using official types.
+ * Uses the $-prefixed types from zod/v4/core which are stable and documented.
+ *
+ * @param {z.ZodType} schema - The Zod schema.
+ * @returns {z4.$ZodTypeInternals} The internal structure.
+ */
+export function getZodInternals(schema: z.ZodType): z4.$ZodTypeInternals {
+  return (schema as z4.$ZodType)._zod;
+}
+
+/**
+ * @function getZodDef
+ * @description Access the Zod type definition using official types.
+ *
+ * @param {z.ZodType} schema - The Zod schema.
+ * @returns {z4.$ZodTypeDef} The type definition.
+ */
+export function getZodDef(schema: z.ZodType): z4.$ZodTypeDef {
+  return getZodInternals(schema).def;
 }

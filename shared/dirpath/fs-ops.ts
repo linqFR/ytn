@@ -1,9 +1,10 @@
-import fs from "node:fs";
+import fs, { type Dirent, type PathLike } from "node:fs";
 import {
   catchAsyncFn,
   catchSyncFn,
   safeResultErr,
-  safeResultOk
+  safeResultOk,
+  type tsSafeResult
 } from "../safe/safemode.js";
 
 /**
@@ -125,6 +126,25 @@ export function copyDeep(
     recursive: true,
     force: overwrite,
   });
+}
+
+/**
+ * @function readdirSyncSafe
+ * @description Synchronously reads the contents of a directory and returns a SafeResult.
+ */
+export function readdirSyncSafe(
+  path: PathLike,
+  options?:
+    | { encoding?: BufferEncoding | null; withFileTypes?: false | undefined }
+    | BufferEncoding
+    | null,
+): tsSafeResult<string[]>;
+export function readdirSyncSafe(
+  path: PathLike,
+  options: { encoding?: BufferEncoding | null; withFileTypes: true },
+): tsSafeResult<Dirent[]>;
+export function readdirSyncSafe(path: PathLike, options?: any): tsSafeResult<any> {
+  return catchSyncFn(fs.readdirSync)(path, options);
 }
 
 /**

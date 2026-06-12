@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createContract, pico } from "../src/editor.js";
+import { defineContract, pico } from "../src/editor.js";
 import { execute } from "../src/index.js";
 
 describe("🧪 CLI-to-ZVO: Robustness and Error Testing", () => {
@@ -7,7 +7,7 @@ describe("🧪 CLI-to-ZVO: Robustness and Error Testing", () => {
     it("must reject a contract if a target uses a field not defined in the CLI", () => {
       let error: any;
       try {
-        createContract({
+        defineContract({
           name: "broken-cli",
           description: "Test CLI",
           cli: { flags: { "valid-flag": { type: "string" } } },
@@ -24,7 +24,7 @@ describe("🧪 CLI-to-ZVO: Robustness and Error Testing", () => {
     it("must reject an empty target", () => {
       let error: any;
       try {
-        createContract({
+        defineContract({
           name: "broken-cli",
           description: "Test CLI",
           cli: { flags: { verbose: { type: "boolean" } } },
@@ -43,7 +43,7 @@ describe("🧪 CLI-to-ZVO: Robustness and Error Testing", () => {
     it("must reject a contract without flags or positionals", () => {
       let error: any;
       try {
-        createContract({
+        defineContract({
           name: "broken-cli",
           description: "Test CLI",
           cli: { flags: {}, positionals: [] },
@@ -61,7 +61,7 @@ describe("🧪 CLI-to-ZVO: Robustness and Error Testing", () => {
   });
 
   describe("Step 2: Parsing and Routing Errors (Runtime CLI)", () => {
-    const tools = createContract({
+    const tools = defineContract({
       name: "test-cli",
       description: "A valid contract",
       cli: {
@@ -139,7 +139,7 @@ describe("🧪 CLI-to-ZVO: Robustness and Error Testing", () => {
   });
 
   describe("Step 3: List Tests and Restrictive Transformations", () => {
-    const tools = createContract({
+    const tools = defineContract({
       name: "list-cli",
       description: "Test list parsing",
       cli: {
@@ -171,7 +171,7 @@ describe("🧪 CLI-to-ZVO: Robustness and Error Testing", () => {
 
     let error: any;
     try {
-      createContract({
+      defineContract({
         name: "max-capacity-cli",
         description: "Testing the absolute limit of the bitwise engine",
         cli: { flags: maxFlags },
@@ -197,7 +197,7 @@ describe("🧪 CLI-to-ZVO: Robustness and Error Testing", () => {
 
     let error: any;
     try {
-      createContract({
+      defineContract({
         name: "overflow-cli",
         description: "Testing the overflow prevention",
         cli: { flags: overflowFlags },

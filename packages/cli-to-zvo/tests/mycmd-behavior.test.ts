@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createContract, pico } from "../src/editor.js";
+import { defineContract, pico } from "../src/editor.js";
 import { execute } from "../src/index.js";
 
 describe("mycmd.ts Behavioral Matrix", () => {
@@ -10,7 +10,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
 
   const localHelp = pico.help("Command Step Help");
 
-  const tools = createContract({
+  const tools = defineContract({
     name: "footprint",
     description: "commande system for my footprint",
     cli: {

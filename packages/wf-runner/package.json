@@ -1,0 +1,45 @@
+{
+  "name": "@ytn/wf",
+  "version": "0.1.0",
+  "description": "Workflow Router for the YTN project",
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run"
+  },
+  "bin": {
+    "wf-compile": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./core": {
+      "import": "./dist/core.js",
+      "types": "./dist/core.d.ts"
+    },
+    "./editor": {
+      "import": "./dist/editor.js",
+      "types": "./dist/editor.d.ts"
+    },
+    "./min": {
+      "import": "./dist/index.min.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "peerDependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@ytn/shared": "*",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.3",
+    "zod": "^4.4.3",
+    "@types/node": "^25.9.1"
+  }
+}

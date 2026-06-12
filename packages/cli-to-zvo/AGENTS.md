@@ -29,4 +29,4 @@ This package follows the global naming standards. Refer to the examples below fo
 
 ### 6. High-level Utility Types (`u*`)
 
-- **Example**: `uValidateContract<T>`. Final type-level tool for contract definition.
+- **Example**: `uDefineWF`. Final type-level tool to help developer to type correctly a contract definition.

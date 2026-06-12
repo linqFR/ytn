@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 // import { cliToZod, ContractSchema, pico, tsContract } from "../src/index.js";
 
-import { ContractSchema, createContract, pico, type tsContract } from "../src/editor.js";
+import { ContractSchema, defineContract, pico, type tsContract } from "../src/editor.js";
 import { compileZvoTestGate } from "./zvo-gate.test.js";
 // import { createContract } from "../src/editor/contract-create.js";
 
@@ -28,7 +28,7 @@ describe("cli-to-zvo basic verification", () => {
 
     const processed = ContractSchema.parse(contract);
     const testSchema = compileZvoTestGate(processed);
-    const tools = createContract(contract);
+    const tools = defineContract(contract);
     expect(testSchema).toBeDefined();
     expect(tools.router).toBeDefined();
 

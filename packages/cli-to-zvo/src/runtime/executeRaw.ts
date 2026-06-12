@@ -1,5 +1,5 @@
-import { defineContract } from "../editor/contract-create.js";
-import { uValidateContract } from "../editor/contract-create.type.js";
+import { defineContract } from "../editor/define-contract.js";
+import type { tsValidateContract } from "../editor/define-contract.type.js";
 import { parseCli } from "./cli-parser.js";
 import { formatOutput } from "./response.js";
 import { type tsContractIN } from "../schema/contract.schema.js";
@@ -22,7 +22,7 @@ import type { OResponseErr, OResponseOk } from "../types/contract.types.js";
  * @returns {OResponseOk} A validated object containing matched route data or an error.
  */
 export function executeRaw<I extends tsContractIN>(
-  contract: uValidateContract<I>,
+  contract: tsValidateContract<I>,
   args: string[] = process.argv.slice(2),
 ): OResponseOk | OResponseErr {
   const tools = defineContract(contract);

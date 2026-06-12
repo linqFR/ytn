@@ -1,11 +1,11 @@
-import {
-  CaseBranch,
-  JoinDefinition,
-  OrderByDefinition,
-  QueryMode,
-  WhereDefinition,
-  WhereInDefinition,
-  WindowDefinition,
+import type {
+  ICaseBranch,
+  IJoinDefinition,
+  IOrderByDefinition,
+  tsQueryMode,
+  tsWhereDefinition,
+  IWhereInDefinition,
+  IWindowDefinition,
 } from "./types.js";
 
 /**
@@ -15,10 +15,10 @@ import {
  */
 export class Builder {
   #table: string;
-  #mode: QueryMode = "SELECT";
+  #mode: tsQueryMode = "SELECT";
   #fields: string[] = ["*"];
   #rawFunctionFields: string[] = [];
-  #whereFields: WhereDefinition[] = [];
+  #whereFields: tsWhereDefinition[] = [];
   #whereColumnFields: { col1: string; col2: string }[] = [];
   #whereLiteralFields: { col: string; value: string }[] = [];
   #whereRawFields: string[] = [];
@@ -26,11 +26,11 @@ export class Builder {
   #conflictTargets: string[] = [];
   #limit: number | null = null;
   #searchFields: string[] = [];
-  #orderBy: OrderByDefinition[] = [];
-  #joins: JoinDefinition[] = [];
+  #orderBy: IOrderByDefinition[] = [];
+  #joins: IJoinDefinition[] = [];
   #groupBy: string[] = [];
   #offset: number | null = null;
-  #whereInFields: WhereInDefinition[] = [];
+  #whereInFields: IWhereInDefinition[] = [];
   #indexName: string = "";
   #indexColumns: string[] = [];
   #ifNotExists: boolean = false;
@@ -58,7 +58,9 @@ export class Builder {
    * @returns {Builder} A new Builder instance with the same state.
    */
   public clone(): Builder {
-    const tableName = this.#tableAlias ? `${this.#table} ${this.#tableAlias}` : this.#table;
+    const tableName = this.#tableAlias
+      ? `${this.#table} ${this.#tableAlias}`
+      : this.#table;
     const cloned = new Builder(tableName);
 
     cloned.#mode = this.#mode;
@@ -77,13 +79,17 @@ export class Builder {
     cloned.#indexColumns = [...this.#indexColumns];
     cloned.#returningFields = [...this.#returningFields];
 
-    cloned.#whereFields = this.#whereFields.map(f => typeof f === 'string' ? f : { ...f });
-    cloned.#whereColumnFields = this.#whereColumnFields.map(f => ({ ...f }));
-    cloned.#whereLiteralFields = this.#whereLiteralFields.map(f => ({ ...f }));
-    cloned.#orderBy = this.#orderBy.map(f => ({ ...f }));
-    cloned.#joins = this.#joins.map(f => ({ ...f }));
+    cloned.#whereFields = this.#whereFields.map((f) =>
+      typeof f === "string" ? f : { ...f },
+    );
+    cloned.#whereColumnFields = this.#whereColumnFields.map((f) => ({ ...f }));
+    cloned.#whereLiteralFields = this.#whereLiteralFields.map((f) => ({
+      ...f,
+    }));
+    cloned.#orderBy = this.#orderBy.map((f) => ({ ...f }));
+    cloned.#joins = this.#joins.map((f) => ({ ...f }));
 
-    cloned.#whereInFields = this.#whereInFields.map(f => ({
+    cloned.#whereInFields = this.#whereInFields.map((f) => ({
       col: f.col,
       target: Array.isArray(f.target) ? [...f.target] : f.target,
     }));
@@ -181,7 +187,7 @@ export class Builder {
    * @returns {this} The current Builder instance for chaining.
    * @usage `.where(['status', { col: 'type_id', param: 'type' }])`
    */
-  public where(fields: WhereDefinition[]): this {
+  public where(fields: tsWhereDefinition[]): this {
     this.#whereFields = [...this.#whereFields, ...fields];
     return this;
   }
@@ -311,7 +317,7 @@ export class Builder {
    */
   public selectCase(
     alias: string,
-    branches: CaseBranch[],
+    branches: ICaseBranch[],
     elseValue?: string,
   ): this {
     const branchStrings = branches
@@ -335,7 +341,7 @@ export class Builder {
    * @returns {this} The current Builder instance for chaining.
    * @usage `.selectWindow('row_num', { func: 'ROW_NUMBER()', partitionBy: ['dept'] })`
    */
-  public selectWindow(alias: string, def: WindowDefinition): this {
+  public selectWindow(alias: string, def: IWindowDefinition): this {
     const parts: string[] = [];
     if (def.partitionBy && def.partitionBy.length > 0) {
       parts.push(`PARTITION BY ${def.partitionBy.join(", ")}`);
@@ -467,7 +473,7 @@ export class Builder {
    */
   public search(
     searchFields: string[],
-    additionalFilters: WhereDefinition[] = [],
+    additionalFilters: tsWhereDefinition[] = [],
   ): this {
     this.#mode = "SELECT";
     this.#searchFields = searchFields;

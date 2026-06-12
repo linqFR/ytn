@@ -1,7 +1,7 @@
 import { z } from "zod";
 import * as fs from "node:fs";
 import type { tsContractIN } from "../schema/contract.schema.js";
-import type { IProcessedContract } from "../types/contract.types.js";
+import type { IProcessedContract, tsGate, tsParsedCLI } from "../types/contract.types.js";
 import {
   contractCliToParseArgsParser,
   contractCliToParseArgSchema,
@@ -142,8 +142,7 @@ export function rehydrateContract(
     fullTargets[name] = {
       name,
       zod: z.object(preSchema),
-      // Other fields (bit, mask) aren't strictly needed for the Gate if we have the Router signatures
-    } as any;
+    } as tsProcessedTarget;
   }
 
   // 2. Build the basic Processed object structure
@@ -158,9 +157,10 @@ export function rehydrateContract(
     parsingArgs: contractCliToParseArgSchema(data.cli, data.allowNegative),
     parseArgsConfig: contractCliToParseArgs(data.cli.flags),
     // placeholders
-    parseArgsResultParser: {} as any,
-    zvoSchema: {} as any,
+    parseArgsResultParser: {} as z.ZodType<tsParsedCLI>,
+    zvoSchema: {} as tsGate,
     router: data.routing.router,
+    compiledValidator: {} as z.ZodType, // Placeholder
     help: data.dataModels,
   };
 
@@ -178,6 +178,9 @@ export function rehydrateContract(
 
   // 4. Re-compile the Zod Gate (the final discriminated union)
   processed.zvoSchema = compileZvoGate(processed);
+
+  // 5. Pre-compile the validator pipeline for runtime optimization
+  processed.compiledValidator = processed.parseArgsResultParser.pipe(processed.zvoSchema);
 
   return processed;
 }

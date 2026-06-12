@@ -2,7 +2,7 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![Zod](https://img.shields.io/badge/Zod-v4%20Compatible-darkred.svg)](https://zod.dev/)
-[![Tests](https://img.shields.io/badge/Tests-87%2F87%20Passed-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-87%2F87%20Passed-brightgreen.svg)](#tests)
 
 > Transform your command line arguments into **Zod-Validated Objects (ZVO)** with a single **String DSL** or **pico API** Contract.
 
@@ -12,8 +12,8 @@
 
 - **Hybrid Contract**: Mix simple string types (e.g., `"filepath"`) with custom Zod schemas using the `pico` API.
 - **Fail-Fast Validation**: Your CLI contract is validated upon instantiation to catch configuration errors early.
-- **Smart O(1) Routing**: Instantly matches your inputs to the correct subcommand, regardless of how many routes you have.
-- **Pure Zod Output**: Every target is compiled into a pure Zod schema for deep validation.
+- **Smart O(1) Routing**: Bitmask-based routing instantly matches inputs to subcommands (constant-time lookup).
+- **Pure Zod Output**: Every target is compiled into a pure Zod schema for comprehensive validation.
 - **Rich Help Data**: Generates structured metadata for easy help screen formatting.
 
 ---
@@ -35,49 +35,51 @@ import { execute } from "@ytn/czvo";
 // 1. Define the Contract (using String DSL or pico API)
 // Use createContract to compile your configuration into a reactive engine.
 const contract = createContract({
-  name: "ytn",
-  description: "YouTube Downloader",
-  cli: {
-    positionals: ["url"],
-    flags: {
-      quality: { short: "q", type: "string", desc: "Video quality (144-2160)" },
-      verbose: {
-        short: "v",
-        type: "boolean",
-        desc: "Enable logging",
-      },
-    },
-  },
-  targets: {
-    dl: {
-      url: "url", // Simple String DSL
-      quality: pico.number().optional(), // pico API (for complex logic)
-      verbose: "boolean", // Simple String DSL
-    },
-  },
-  // 2. Global Catch-all (optional)
-  fallbacks: {
-    help: { verbose: "boolean" },
-  },
-  // 3. Global Engine Options (optional)
-  options: {
-    onlyAllowedValues: false, // If true, restricts inputs for literal/enum fields at the entry level (fail-fast) (default: true)
-    allowNegative: false, // If true, Allows explicitly setting boolean options to false by prefixing the option name with --no- (default: false)
-  },
+	name: "ytn",
+	description: "YouTube Downloader",
+	cli: {
+		positionals: ["url"],
+		flags: {
+			quality: { short: "q", type: "string", desc: "Video quality (144-2160)" },
+			verbose: {
+				short: "v",
+				type: "boolean",
+				desc: "Enable logging",
+			},
+		},
+	},
+	targets: {
+		dl: {
+			url: "url", // Simple String DSL
+			quality: pico.number().optional(), // pico API (for complex logic)
+			verbose: "boolean", // Simple String DSL
+		},
+	},
+	// 2. Global Catch-all (optional)
+	fallbacks: {
+		help: { verbose: "boolean" },
+	},
+	// 3. Global Engine Options (optional)
+	options: {
+		onlyAllowedValues: false, // If true, restricts inputs for literal/enum fields at the entry level (fail-fast) (default: true)
+		allowNegative: false, // If true, Allows explicitly setting boolean options to false by prefixing the option name with --no- (default: false)
+	},
 });
 
 // 4. Parse and Validate
 // execute() returns an OSafeResult (Zod-compatible success/error object)
-const result = execute(contract, process.argv.slice(2));
+// args parameter is optional (defaults to process.argv.slice(2))
+const result = execute(contract);
+// Or: const result = execute(contract, ["--verbose", "my-url"]);
 
 if (result.success) {
-  const { route, data } = result.data;
-  if (route === "dl") {
-    console.log(`Downloading ${data.url}...`);
-    if (data.verbose) console.log("Verbose mode ON");
-  }
+	const { route, data } = result.data;
+	if (route === "dl") {
+		console.log(`Downloading ${data.url}...`);
+		if (data.verbose) console.log("Verbose mode ON");
+	}
 } else {
-  console.error("Validation failed:", result.error.issues);
+	console.error("Validation failed:", result.error.issues);
 }
 ```
 
@@ -135,6 +137,30 @@ targets: {
 }
 ```
 
+#### C. Optional Fields Syntax
+
+**String DSL does NOT support optional fields**:
+
+```typescript
+// These will cause validation errors
+flag: "boolean?"; // Invalid
+verbose: "string?"; // Invalid
+```
+
+**Use pico API for optional fields**:
+
+```typescript
+// Correct syntax
+flag: pico.boolean().optional(); // Valid
+verbose: pico.string().optional(); // Valid
+param: pico.number().optional(); // Valid
+```
+
+**Why this distinction?**
+
+- **String DSL**: Simple types only (`"string"`, `"number"`, `"boolean"`, `"filepath"`)
+- **pico API**: Full Zod modifiers (`.optional()`, `.min()`, `.max()`, `.regex()`, etc.)
+
 ## pico API Reference
 
 `pico` provides specialized validators optimized for CLI coercion.
@@ -187,14 +213,16 @@ Unlike traditional CLI routers that iterate through definitions sequentially (**
 
 1. **Bitmask Compilation**: During contract creation, each CLI argument (positional or flag) is assigned a unique bit (`1 << n`).
 2. **State Calculation**: At runtime, the engine calculates a single numeric bitmask representing exactly which arguments were provided by the user.
-3. **O(1) Resolution**: This bitmask serves as a primary key. If multiple targets share the same bitmask, the engine performs a "Literal Jump"—matching specific values (like subcommands) to find the correct route.
+3. **O(1) Resolution**: This bitmask serves as a primary key for constant-time Map lookup. If multiple targets share the same bitmask, the engine performs a "Literal Jump" matching specific values (like subcommands) to find the correct route.
 4. **Zod V4 Jumping**: Once identified, the engine jumps directly to the corresponding Zod schema for full validation.
 
 ### Key Benefits
 
-- **Lightning Fast**: Route identification happens in constant time (**O(1)**), regardless of whether you have 5 or 500 routes.
+- **Lightning Fast Routing**: Route identification happens in constant time (**O(1)**) via Map lookup, regardless of whether you have 5 or 500 routes.
 - **Order Independent**: Since bits don't care about order, your interface remains robust even if users swap flags and positionals.
 - **Deterministic**: No complex regex or ambiguous matching. The bitmask logic ensures that each input set maps to a single, predictable target.
+
+> **Note**: Only the routing component is O(1). Zod validation scales with schema complexity but provides comprehensive type safety.
 
 > [!IMPORTANT] > **Scalability Note**: The current bitmask engine is limited to **31 unique CLI arguments** (total flags + positionals across all targets). To ensure bitwise safety, the compiler will **aggressively reject** any contract exceeding this limit before runtime.
 
@@ -226,13 +254,13 @@ For flags that trigger a global action (like `--help` or `--version`), define a 
 
 ```typescript
 const contract = {
-  cli: { flags: { help: { short: "h", type: "boolean" } } },
-  targets: {
-    /* your specific routes */
-  },
-  fallbacks: {
-    help: { help: "boolean" },
-  },
+	cli: { flags: { help: { short: "h", type: "boolean" } } },
+	targets: {
+		/* your specific routes */
+	},
+	fallbacks: {
+		help: { help: "boolean" },
+	},
 };
 ```
 
@@ -243,15 +271,21 @@ For flags that modify the behavior of multiple commands (like `--verbose`), use 
 - **Logic**: Including the flag in all (or some) targets ensures they stay in sync with the CLI parser while maintaining O(1) routing performance for that specific combination.
 
 ```typescript
-const common = { verbose: "boolean?" };
+const common = { verbose: pico.boolean().optional() };
 
 const contract = {
-  targets: {
-    dl: { ...common, url: "string" },
-    info: { ...common, id: "number" },
-  },
+	targets: {
+		dl: { ...common, url: "string" },
+		info: { ...common, id: "number" },
+	},
 };
 ```
+
+---
+
+## Performance & Deployment
+
+For detailed performance analysis, routing engine details, and deployment considerations (serverless vs traditional server), see [PERFORMANCE.md](./PERFORMANCE.md).
 
 ---
 
@@ -259,12 +293,12 @@ const contract = {
 
 `cli-to-zvo` ensures that your CLI parser and your Zod schemas are always in sync:
 
-| CLI `type`  | Zod Expectation                                | Behavior                                          |
-| :---------- | :--------------------------------------------- | :------------------------------------------------ |
-| `"boolean"` | `pico.boolean()`                               | Switch flag. Consumes **0** extra arguments.      |
-| `"string"`  | `pico.bool()`                                  | Boolean option. Consumes **1** argument (`true`). |
-| `"string"`  | `pico.string()`, `pico.number()`, `pico.url()` | Valued option. Consumes **1** argument.           |
-| `"string"`  | `pico.stringList()`, `pico.numList()`          | CSV splitting. Consumes **1** argument.           |
+| CLI `type`  | Zod Expectation                                | Behavior                                                             |
+| :---------- | :--------------------------------------------- | :------------------------------------------------------------------- |
+| `"boolean"` | `pico.boolean()`                               | Switch flag. Consumes **0** extra arguments.                         |
+| `"string"`  | `pico.bool()`                                  | Boolean option with value. Consumes **1** argument (`true`/`false`). |
+| `"string"`  | `pico.string()`, `pico.number()`, `pico.url()` | Valued option. Consumes **1** argument.                              |
+| `"string"`  | `pico.stringList()`, `pico.numList()`          | CSV splitting. Consumes **1** argument.                              |
 
 ---
 
@@ -285,6 +319,32 @@ const { zvoSchema, parsingArgs } = contract;
 const result = zvoSchema.safeParse({ url: "...", quality: "1080" });
 ```
 
+### Loading Contracts from Disk
+
+For loading pre-compiled contracts from disk (useful for serverless environments):
+
+```typescript
+import { execWithFile } from "@ytn/czvo";
+
+// Load contract from .json or .ts file and execute
+const result = await execWithFile("./my-contract.json", process.argv.slice(2));
+```
+
+### Raw Execution
+
+For executing contracts with raw, pre-parsed CLI arguments:
+
+```typescript
+import { executeRaw } from "@ytn/czvo/core.js";
+import { parseArgs } from "node:util";
+
+const contract = createContract(config);
+const parsed = parseArgs({ args: process.argv.slice(2), options: contract.parsingArgs });
+
+// Execute with pre-parsed arguments
+const result = executeRaw(contract, parsed);
+```
+
 ### High-Level Launcher
 
 For most applications, use `launchCzvo` to handle routing and error reporting automatically:
@@ -293,15 +353,30 @@ For most applications, use `launchCzvo` to handle routing and error reporting au
 import { createContract } from "@ytn/czvo/editor.js";
 import { launchCzvo } from "@ytn/czvo/launcher.js";
 
-const contract = createContract(config);
+const contract = createContract({
+	name: "my-cli",
+	description: "My CLI Application",
+	cli: {
+		positionals: ["url"],
+		flags: {
+			verbose: { short: "v", type: "boolean", desc: "Verbose output" },
+		},
+	},
+	targets: {
+		dl: {
+			url: "url",
+			verbose: "boolean",
+		},
+	},
+});
 
 const handlers = {
-  dl: async (data) => {
-    console.log("Processing download...", data);
-  },
-  error: (err) => {
-    console.error("Custom error handler:", err);
-  }
+	dl: async data => {
+		console.log("Processing download...", data);
+	},
+	error: err => {
+		console.error("Custom error handler:", err);
+	},
 };
 
 // Automatically parses process.argv and calls the right handler
@@ -318,6 +393,12 @@ const contract = createContract(config);
 const helpData = buildHelp(contract);
 // Returns structured metadata for help display.
 ```
+
+---
+
+## Troubleshooting
+
+For common errors and solutions, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
 ---
 

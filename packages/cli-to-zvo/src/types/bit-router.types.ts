@@ -1,4 +1,4 @@
-import { tsTargetFieldName, tsTargetName } from "../config/parse-args.js";
+import { type tsTargetFieldName, type tsTargetName } from "../config/parse-args.js";
 
 /**
  * @type tsBitCodes

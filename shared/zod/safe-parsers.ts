@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { safeResultErr, safeResultOk, tsSafeResult } from "../safe/safemode.js";
+import { safeResultErr, safeResultOk } from "../safe/safemode.js";
+import type { tsSafeResult } from "../safe/safemode.js";
 
 /**
  * Zod operational adapters and high-level functions.

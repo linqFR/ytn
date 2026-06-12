@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createContract, pico } from "../src/editor.js";
+import { defineContract, pico } from "../src/editor.js";
 import { launchCzvo } from "../src/launcher/czvo-launcher.js";
 
 describe("🚀 launchCzvo: Universal Command Launcher Integration", () => {
-  const contract = createContract({
+  const contract = defineContract({
     name: "test-launcher",
     description: "Integration test for the launcher",
     cli: {

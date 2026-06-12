@@ -11,7 +11,7 @@
  * @type {string | number | boolean | null} JSONPrimitive
  * @description The base set of primitives allowed in a JSON structure.
  */
-export type JSONPrimitive = string | number | boolean | null;
+export type tsJSONPrimitive = string | number | boolean | null;
 
 /**
  * @type {T} ValidJSON
@@ -20,20 +20,20 @@ export type JSONPrimitive = string | number | boolean | null;
  *
  * @template T - The type to validate.
  */
-export type ValidJSON<T> = 0 extends 1 & T
+export type tsValidJSON<T> = 0 extends 1 & T
   ? T
-  : T extends JSONPrimitive
+  : T extends tsJSONPrimitive
   ? T
   : T extends symbol | bigint | ((...args: any[]) => any)
   ? never
   : T extends Array<infer U>
   ? undefined extends U
     ? never
-    : Array<ValidJSON<U>>
+    : Array<tsValidJSON<U>>
   : T extends object
   ? {
       [K in keyof T]:
-        | ValidJSON<Exclude<T[K], undefined>>
+        | tsValidJSON<Exclude<T[K], undefined>>
         | (undefined extends T[K] ? undefined : never);
     }
   : never;

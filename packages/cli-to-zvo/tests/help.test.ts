@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createContract, type tsContract, pico } from "../src/editor.js";
+import { defineContract, type tsContract, pico } from "../src/editor.js";
 
 describe("CLI Help Verification", () => {
   it("should provide help support manually via cli definition", () => {
@@ -30,7 +30,7 @@ describe("CLI Help Verification", () => {
       },
     };
 
-    const processed = createContract(contract);
+    const processed = defineContract(contract);
     expect(processed.router).toBeDefined();
   });
 });

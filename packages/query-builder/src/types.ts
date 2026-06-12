@@ -1,8 +1,8 @@
 /**
- * @interface ForeignKeyDefinition
+ * @interface IForeignKeyDefinition
  * @description Defines a foreign key constraint.
  */
-export interface ForeignKeyDefinition {
+export interface IForeignKeyDefinition {
   /** Target table name. */
   table: string;
   /** Target column name in the foreign table. */
@@ -14,14 +14,14 @@ export interface ForeignKeyDefinition {
 }
 
 /**
- * @interface DDLOptions
+ * @interface IDDLOptions
  * @description Configuration options for Data Definition Language (DDL) generation.
  */
-export interface DDLOptions {
+export interface IDDLOptions {
   /** Override for the primary key (string or composite array). */
   primaryKey?: string | string[];
   /** Map of columns to their foreign key definitions. */
-  foreignKeys?: Record<string, string | ForeignKeyDefinition>;
+  foreignKeys?: Record<string, string | IForeignKeyDefinition>;
   /** Map of columns to their default SQL values. */
   defaults?: Record<string, string>;
   /** List of columns that must have a UNIQUE constraint. */
@@ -29,10 +29,10 @@ export interface DDLOptions {
 }
 
 /**
- * @type QueryMode
+ * @type tsQueryMode
  * @description Supported SQL operation modes for the Builder.
  */
-export type QueryMode =
+export type tsQueryMode =
   | "SELECT"
   | "INSERT"
   | "UPDATE"
@@ -42,10 +42,10 @@ export type QueryMode =
   | "CREATE_INDEX";
 
 /**
- * @interface JoinDefinition
+ * @interface IJoinDefinition
  * @description Internal structure for SQL JOIN clauses.
  */
-export interface JoinDefinition {
+export interface IJoinDefinition {
   /** Type of join (e.g., 'INNER', 'LEFT', 'RIGHT'). */
   type: string;
   /** Table name or compiled subquery. */
@@ -55,10 +55,10 @@ export interface JoinDefinition {
 }
 
 /**
- * @interface OrderByDefinition
+ * @interface IOrderByDefinition
  * @description Internal structure for SQL ORDER BY clauses.
  */
-export interface OrderByDefinition {
+export interface IOrderByDefinition {
   /** Column name to sort by. */
   field: string;
   /** Sort direction. */
@@ -66,12 +66,12 @@ export interface OrderByDefinition {
 }
 
 /**
- * @type WhereDefinition
+ * @type tsWhereDefinition
  * @description Definition for standard WHERE conditions.
  * - string: column name (defaults to 'col = @col')
  * - object: map column to a specific parameter name.
  */
-export type WhereDefinition =
+export type tsWhereDefinition =
   | string
   | {
       /** The database column name. */
@@ -81,10 +81,10 @@ export type WhereDefinition =
     };
 
 /**
- * @interface WhereInDefinition
+ * @interface IWhereInDefinition
  * @description Structure for WHERE IN clauses.
  */
-export interface WhereInDefinition {
+export interface IWhereInDefinition {
   /** The database column name. */
   col: string;
   /** List of literal values or a subquery Builder. */
@@ -92,10 +92,10 @@ export interface WhereInDefinition {
 }
 
 /**
- * @interface CaseBranch
+ * @interface ICaseBranch
  * @description Represents a single branch in a CASE WHEN expression.
  */
-export interface CaseBranch {
+export interface ICaseBranch {
   /** The condition after WHEN. */
   when: string;
   /** The result after THEN. */
@@ -103,14 +103,14 @@ export interface CaseBranch {
 }
 
 /**
- * @interface WindowDefinition
+ * @interface IWindowDefinition
  * @description Configuration for Window Functions (OVER clause).
  */
-export interface WindowDefinition {
+export interface IWindowDefinition {
   /** The function call (e.g., 'ROW_NUMBER()'). */
   func: string;
   /** Optional columns for the PARTITION BY clause. */
   partitionBy?: string[];
   /** Optional ordering within the window. */
-  orderBy?: OrderByDefinition[];
+  orderBy?: IOrderByDefinition[];
 }

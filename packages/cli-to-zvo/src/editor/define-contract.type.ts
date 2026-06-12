@@ -28,20 +28,20 @@ type $GetFallbacks<T> = T extends { fallbacks?: infer Fal } ? Fal : object;
 type $ValidateFields<Fields, AllowedKeys> = string extends AllowedKeys
   ? Fields
   : keyof Fields extends never
-    ? "ERROR: Target fields cannot be empty. Use 'fallbacks' for catch-all (with at least one field)."
-    : {
-        [F in keyof Fields]: F extends AllowedKeys
-          ? Fields[F]
-          : `ERROR: Field '${F &
-              string}' is not defined in 'cli'. Is it misspelled?`;
-      };
+  ? "ERROR: Target fields cannot be empty. Use 'fallbacks' for catch-all (with at least one field)."
+  : {
+      [F in keyof Fields]: F extends AllowedKeys
+        ? Fields[F]
+        : `ERROR: Field '${F &
+            string}' is not defined in 'cli'. Is it misspelled?`;
+    };
 
 /**
- * @type uValidateContract
+ * @type tsValidateContract
  * @description A top-level validation helper enforcing both non-empty targets AND
  * ensuring all field names sync correctly with the 'cli' definition (camelCase conversion).
  */
-export type uValidateContract<T> = T & {
+export type tsValidateContract<T> = T & {
   targets: {
     [K in keyof $GetTargets<T>]: T extends { targets: Record<K, infer Fields> }
       ? $ValidateFields<Fields, $GetAllowedKeys<T>>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pico, type tsContract } from "../src/editor.js";
-import { createContract } from "../src/editor.js";
+import { defineContract } from "../src/editor.js";
 import { execute } from "../src/index.js";
 
 describe("README CLI Example", () => {
@@ -27,7 +27,7 @@ describe("README CLI Example", () => {
       },
     };
     // 2. Encapsulated Parsing & Validation (following README Step 4)
-    const processed = createContract(contract);
+    const processed = defineContract(contract);
     const result = execute(processed, ["prod", "--verbose"]);
 
     // Assertions
@@ -61,7 +61,7 @@ describe("README CLI Example", () => {
         },
       },
     };
-    const processed = createContract(contract);
+    const processed = defineContract(contract);
     const result = execute(processed, ["dev", "-v"]);
 
     expect(result.success).toBe(true);

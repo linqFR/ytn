@@ -1,5 +1,26 @@
 # @ytn/qb
 
+## 2.0.2
+
+### Patch Changes
+
+- bac7fd2: # Major stabilization and Zod V4 compliance
+
+  ## @ytn/qb
+
+  - Stabilized `Introspector.getSchemaShape` to correctly handle ZodPipe (transforms/preprocess) and ZodLazy schemas using Zod V4 public APIs.
+  - Implemented "First Object Wins" structural discovery for DDL generation.
+
+  ## @ytn/czvo
+
+  - Removed obsolete `intercept` (global flags) property from codebase and tests (feature removed in v2.1.0).
+
+  ## Global
+
+  - Standardized monorepo path exclusions in `tsconfig.base.json` using recursive glob patterns (`**/`) for `node_modules`, `dist`, `sandbox`, and `archive` folders.
+
+- d45a558: Standardize tsup build configuration using the centralized `buildConfig` helper and update dependencies. (commit: fea085c)
+
 ## 2.0.1
 
 ### Patch Changes

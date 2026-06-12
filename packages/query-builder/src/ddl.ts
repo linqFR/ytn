@@ -1,7 +1,11 @@
-import { isZodDefault, isZodOptional, unwrapZodDeep } from "@ytn/shared/zod/zod-reflection.js";
+import {
+  isZodDefault,
+  isZodOptional,
+  unwrapZodDeep,
+} from "@ytn/shared/zod/zod-reflection.js";
 import { z } from "zod";
 import { Introspector } from "./introspection.js";
-import { DDLOptions } from "./types.js";
+import type { IDDLOptions } from "./types.js";
 
 /**
  * @class DDLEngine
@@ -27,14 +31,14 @@ export class DDLEngine {
    *
    * @param {string} tableName - Name of the table to create.
    * @param {z.ZodType} schema - The schema to introspect.
-   * @param {DDLOptions} [options={}] - Manual overrides and configuration.
+   * @param {IDDLOptions} [options={}] - Manual overrides and configuration.
    *
    * @returns {string} Compiled SQL DDL.
    */
   public static createTableFromZod(
     tableName: string,
     schema: z.ZodType,
-    options: DDLOptions = {},
+    options: IDDLOptions = {},
   ): string {
     const shape = Introspector.getSchemaShape(schema);
 
@@ -55,9 +59,7 @@ export class DDLEngine {
       let constraints = "";
 
       const meta = Introspector.getColumnMeta(schemaItem);
-      const isOptional =
-        isZodOptional(schemaItem) ||
-        isZodDefault(schemaItem);
+      const isOptional = isZodOptional(schemaItem) || isZodDefault(schemaItem);
       const isUniqueFromDoc =
         meta.unique || (Array.isArray(uniques) && uniques.includes(key));
 
@@ -69,7 +71,7 @@ export class DDLEngine {
       if (baseType === "number") {
         const checks = internals.checks || [];
         const isInt = checks.some(
-          (c:any) =>
+          (c: any) =>
             ("isInt" in c && c.isInt === true) ||
             ("format" in c &&
               ["int32", "uint32", "safeint"].includes(c.format as string)),

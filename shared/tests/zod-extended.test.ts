@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { zod, safe } from "../index.js";
+import { zod, safe, str } from "../index.js";
 
 describe("shared/zod-extended (Functional & Rupture)", () => {
   describe("Safe Parsers", () => {
@@ -26,7 +26,7 @@ describe("shared/zod-extended (Functional & Rupture)", () => {
     });
 
     it("should transform kebab to camel", () => {
-      const res = zod.strcases.kebabToCamel("hello-world-123");
+      const res = str.toCamelCase ("hello-world-123");
       expect(res).toBe("helloWorld123");
     });
   });

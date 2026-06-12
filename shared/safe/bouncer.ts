@@ -3,8 +3,8 @@ import {
   catchAsyncFn,
   catchSyncFn,
   safeResultPack,
-  tsSafeResult,
 } from "./safemode.js";
+import type { tsSafeResult } from "./safemode.js";
 
 /**
  * Generic bouncer signatures for sync/async pipelines.
@@ -19,7 +19,15 @@ export type tsBouncerAsync<A = any, E = any> = (
 ) => Promise<tsSafeResult<A, E> | tsSafeResult<A, null>>;
 
 /**
- * Pipeline finalizer (Sync).
+ * @function failfastBouncer
+ * @description Orchestrates a sequence of synchronous fallible blocks. 
+ * If any block returns an error (via SafeResult), the execution stops and returns the error.
+ * Supports isolated mode via object protection.
+ *
+ * @template A - The argument and result type for the pipeline.
+ * @template E - The error type expected on failure.
+ * @param {...Array<(...args: A[]) => A>} fnBlocks - The sequence of functions to execute.
+ * @returns {tsBouncerSync<A, E>} A synchronized bouncer function.
  */
 export const failfastBouncer =
   <A = any, E = any>(
@@ -36,7 +44,15 @@ export const failfastBouncer =
   };
 
 /**
- * Pipeline finalizer (Async).
+ * @function failfastBouncerAsync
+ * @description Orchestrates a sequence of asynchronous fallible blocks.
+ * If any block returning a Promise resolves to an error (via SafeResult), 
+ * the execution stops and returns the error.
+ *
+ * @template A - The argument and result type for the pipeline.
+ * @template E - The error type expected on failure.
+ * @param {...Array<(...args: A[]) => A>} fnBlocks - The sequence of async functions to execute.
+ * @returns {tsBouncerAsync<A, E>} An asynchronous bouncer function.
  */
 export const failfastBouncerAsync =
   <A = any, E = any>(

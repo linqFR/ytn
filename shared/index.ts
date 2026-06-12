@@ -62,6 +62,10 @@ export type * as tsVms from "./js/vm-ops.js";
 export * as fn from "./js/fn-reflect.js";
 export type * as tsFn from "./js/fn-reflect.js";
 
+// Module Loading & Dynamic Imports
+export * as loader from "./js/loader.js";
+export type * as tsLoader from "./js/loader.js";
+
 /* -------------------------------------------------------------------------- */
 /*                                     FS OPS                                 */
 /* -------------------------------------------------------------------------- */
@@ -74,6 +78,8 @@ export type * as tsDirops from "./dirpath/dir-ops.js";
 
 export * as pathops from "./dirpath/path-ops.js";
 export type * as tsPathops from "./dirpath/path-ops.js";
+
+export * as rgxStrCase from "./regex/str-cases.js";
 
 /* -------------------------------------------------------------------------- */
 /*                                  TEMPLATES                                 */
