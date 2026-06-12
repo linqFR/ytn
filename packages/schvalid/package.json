@@ -1,6 +1,6 @@
 {
   "name": "@ytn/schvalid",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "DNA JSON Schema processing and validation",
   "author": "linqFR",
   "license": "MIT",

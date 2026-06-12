@@ -1,6 +1,6 @@
 {
   "name": "@ytn/dna",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DNA-based schema builder with Zod-like syntax and native DNA bytecode serialization",
   "author": "linqFR",
   "license": "MIT",
