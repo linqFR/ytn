@@ -5,7 +5,7 @@
  * Similar to Zod's Infer<Schema> functionality.
  */
 
-import type {tsDna} from "./dna.types.js";
+import type {tsDna} from "./core.types.js";
 
 /**
  * @type InferDNA

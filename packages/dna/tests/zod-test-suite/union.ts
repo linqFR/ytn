@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dna } from "../../src/builder/index.js";
+import { dna } from "../../src/index.js";
 
 // Reusable schemas matching Zod official tests
 const functionParsingZod = z.union([z.string().refine(() => false), z.number().refine(() => false)]);

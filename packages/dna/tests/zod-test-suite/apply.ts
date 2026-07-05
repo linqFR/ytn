@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dna } from "../../src/builder/index.js";
+import { dna } from "../../src/index.js";
 
 // Reusable schemas matching Zod official tests
 const applyZod = z.object({ a: z.number(), b: z.string() }).apply((s) => s.omit({ b: true }));

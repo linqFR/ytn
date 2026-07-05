@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { dna } from "../src/builder/index.js";
+import { dna } from "../_archives/index.js";
 import { validatorBuilder as validator, parserBuilder as parser } from "../src/toJs.js";
 import { z } from "zod";
 

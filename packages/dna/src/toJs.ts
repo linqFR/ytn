@@ -6,4 +6,4 @@
 
 // Export only main public API functions
 export { toJS, validator, parser} from "./toJs/dna-to-js.js";
-export type { tsParserFn, tsValidatorFn } from "./types/dna.types.js";
+export type { tsParserFn, tsValidatorFn } from "./shared/runtime.types.js";

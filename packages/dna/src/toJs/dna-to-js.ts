@@ -1,7 +1,7 @@
 import { STEP } from "../shared/stackstep.js";
-import type { tsDnaSeq } from "../types/dna-core.types.js";
+import type { tsDnaSeq } from "../types/core.types.js";
 import type { tsJSParentCtx, tsLaberlId, tsStackFrame } from "../types/dna-js.types.js";
-import type { tsExternals, tsParserFn, tsValidatorFn } from "../types/dna.types.js";
+import type { tsExternals, tsParserFn, tsValidatorFn } from "../shared/runtime.types.js";
 import * as basicHandlers from "./dna-js-json.js";
 import * as builderHandlers from "./dna-js-builder.js";
 import jshelpers from "./jshelpers.js";

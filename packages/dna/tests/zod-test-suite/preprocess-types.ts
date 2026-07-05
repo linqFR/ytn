@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { dna } from "../../src/builder/index.js";
+import { dna } from "../../src/index.js";
 
 export const preprocessTypesTests = [
   {

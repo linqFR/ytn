@@ -51,3 +51,42 @@ export const STRING_FORMAT_PATTERNS: Record<string,string> = {
 } as const;
 
 export type tsStringFormat = keyof typeof STRING_FORMAT_PATTERNS;
+
+/**
+ * Escape special regex characters in a string
+ */
+export function escReg(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Generate a regex pattern for number ranges
+ */
+export function numRegex(
+  min: number | bigint | null,
+  exclMin: boolean,
+  max: number | bigint | null,
+  exclMax: boolean,
+  isFloat: boolean
+): string {
+  if (min === null && max === null) return isFloat ? '-?\\d+(?:\\.\\d+)?' : '-?\\d+';
+  
+  let pattern = '';
+  
+  if (min !== null && max !== null) {
+    // Range pattern
+    const minVal = Number(min);
+    const maxVal = Number(max);
+    if (minVal === maxVal) {
+      pattern = String(minVal);
+    } else {
+      pattern = `${exclMin ? minVal + 1 : minVal}-${exclMax ? maxVal - 1 : maxVal}`;
+    }
+  } else if (min !== null) {
+    pattern = `${exclMin ? Number(min) + 1 : min},`;
+  } else if (max !== null) {
+    pattern = `,${exclMax ? Number(max) - 1 : max}`;
+  }
+  
+  return isFloat ? `-?\\d+(?:\\.\\d+)?` : `-?\\d+`;
+}
