@@ -50,3 +50,5 @@ export const ABSENT_TOLERANT_WRAPPERS = [
   WRAPPERS_PREPROCESS.preprocess,
 ];
 
+
+export const INT32Bounds = {min : -(2 ** 31), max : 2 ** 31 - 1};

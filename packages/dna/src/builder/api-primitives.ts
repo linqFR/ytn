@@ -8,14 +8,18 @@ import { DnaIssueCodes } from "../shared/error-codes.js";
 import type { tsDecodeFn, tsEncodeFn, tsTmplLitArg, tsTransformFn } from "../shared/handlers-builder.types.js";
 import type { tsDnaMeta } from "../shared/meta-context.type.js";
 import type { tsExternalsDecl } from "../shared/runtime.types.js";
+import { initDna } from "./dna-core.js";
 
 import type {
   tsDnaCustom,
   tsDnaDescribeCheck,
+  tsDnaEnumValues,
+  tsDnaEnumValueType,
   tsDnaJson,
   tsDnaMetaCheck,
   tsDnaPropertyCheck
 } from "../types/api-builder.types.js";
+import type { $EnumKeys, $EnumValues, $EnumObj, $EnumAsObj, $ToEnum, $Input } from "../types/helpers.types.js";
 
 // Import public API types from api-builder.types.ts
 import type {
@@ -34,33 +38,65 @@ import type {
 import {
   AllOfImpl,
   ArrayImpl,
-  BigIntImpl,
-  BooleanImpl,
+  DnaBigInt,
+  DnaBoolean,
   CodecImpl,
-  Coerce, DateImpl,
+  Coerce, DnaDate,
   DiscriminatorImpl,
   DnaGenericWrapped,
-  EnumImpl,
+  DnaString,
+  DnaEmail,
+  DnaHttpUrl,
+  DnaHostname,
+  DnaUUID,
+  DnaE164,
+  DnaEmoji,
+  DnaBase64,
+  DnaBase64Url,
+  DnaHex,
+  DnaNanoId,
+  DnaCuid,
+  DnaCuid2,
+  DnaUlid,
+  DnaXid,
+  DnaKsuid,
+  DnaIpv4,
+  DnaIpv6,
+  DnaMac,
+  DnaCidrv4,
+  DnaCidrv6,
+  DnaHash,
+  DnaEnum,
   GetterSchemaImpl,
-  Int32Impl,
-  IntImpl,
-  Iso, LiteralImpl,
+  DnaInt32,
+  DnaInt,
+  Iso, DnaLiteral,
   NumberImpl,
   ObjectImpl,
   pipeFactory,
   preprocessFactory,
-  PromiseImpl,
-  PropCheckImpl,
-  RecordImpl, StringBoolImpl,
-  StringImpl,
-  TemplateLiteralImpl,
-  TemplateLiteralMutateImpl,
+  DnaPromise,
+  DnaProperty,
+  DnaTemplateLiteral,
+  DnaTmplLiteralMutate,
   transformFactory,
-  TupleImpl,
+  DnaTuple,
   UnionImpl,
-  UrlImpl,
-  withMeta
-} from "./core.js";
+  DnaUrl,
+  DnaNumber,
+  DnaStringBool,
+  DnaRecord,
+  DnaType,
+  DnaPrefault,
+  DnaOptional,
+  DnaNullable,
+  DnaNullish,
+  DnaCoerceString,
+  DnaCoerceNumber,
+  DnaCoerceBoolean,
+  DnaCoerceBigInt,
+  DnaCoerceDate
+} from "./dna-interfaces.js";
 
 // ============================================
 // Schema Factory (returns discriminated types, Zod V4 style)
@@ -71,8 +107,12 @@ import {
 export { DnaIssueCodes as IssueCodes };
 
 
-export const stringbool = (options?: string | { truthy?: string[]; falsy?: string[]; case?: "sensitive" | "insensitive"; error?: string; message?: string }, meta?: string | tsDnaMeta): tsDnaBoolean =>
-  withMeta(StringBoolImpl.init(options), meta);
+export const stringbool = (options?: string | { truthy?: string[]; falsy?: string[]; case?: "sensitive" | "insensitive"; error?: string; message?: string }, meta?: string | tsDnaMeta) => {
+  let _meta, _opt;
+  if (typeof options === "string") { _meta = options; _opt = {} }
+  else { _opt = options, _meta = meta }
+  initDna(DnaStringBool, _opt, _meta);
+}
 
 /**
  * Template literal schema - combines string literals and schemas.
@@ -80,8 +120,7 @@ export const stringbool = (options?: string | { truthy?: string[]; falsy?: strin
  * inner transformations (`.toUpperCase()`, `.trim()`, ...) are ignored for output.
  * Use `templateLiteralMutate` to actually apply them. Alias: `tl`.
  */
-export const templateLiteral = (parts: tsTmplLitArg[], meta?: string | tsDnaMeta): tsDnaTmplLit =>
-  withMeta(TemplateLiteralImpl.init(parts), meta);
+export const templateLiteral = (parts: tsTmplLitArg[], meta?: string | tsDnaMeta) => initDna(DnaTemplateLiteral, {parts}, meta);
 
 /** Alias for {@link templateLiteral}. */
 export const tl = templateLiteral;
@@ -91,27 +130,27 @@ export const tl = templateLiteral;
  * transformations ARE applied, so the parsed output reflects them. Alias: `tlm`.
  */
 export const templateLiteralMutate = (parts: tsTmplLitArg[], meta?: string | tsDnaMeta): tsDnaTmplLit =>
-  withMeta(TemplateLiteralMutateImpl.init(parts), meta);
+  initDna(DnaTmplLiteralMutate,{parts}, meta);
 
 /** Alias for {@link templateLiteralMutate}. */
 export const tlm = templateLiteralMutate;
 
 export const coerce = {
-  string: (meta?: string | tsDnaMeta) => withMeta(Coerce.string(), meta),
-  number: (meta?: string | tsDnaMeta): tsDnaNumber => withMeta(Coerce.number(), meta),
-  boolean: (meta?: string | tsDnaMeta): tsDnaBoolean => withMeta(Coerce.boolean(), meta),
-  bigint: (meta?: string | tsDnaMeta): tsDnaBigInt => withMeta(Coerce.bigint(), meta),
-  date: (meta?: string | tsDnaMeta): tsDnaDate => withMeta(Coerce.date(), meta),
+  string: (meta?: string | tsDnaMeta) => initDna(DnaCoerceString, undefined, meta),
+  number: (meta?: string | tsDnaMeta) => initDna(DnaCoerceNumber, undefined, meta),
+  boolean: (meta?: string | tsDnaMeta)=>initDna(DnaCoerceBoolean, undefined, meta),
+  bigint: (meta?: string | tsDnaMeta) => initDna(DnaCoerceBigInt, undefined, meta),
+  date: (meta?: string | tsDnaMeta): tsDnaDate => initDna(DnaCoerceDate, undefined, meta),
 };
 
 export const iso = {
   datetime: (options?: { local?: boolean; offset?: boolean; precision?: number; message?: string; error?: string; }) => Iso.datetime(options),
-  date: (meta?: string | tsDnaMeta) => withMeta(Iso.date(), meta),
-  time: (options?: { precision?: number }, meta?: string | tsDnaMeta) => withMeta(Iso.time(options), meta),
-  duration: (meta?: string | tsDnaMeta) => withMeta(Iso.duration(), meta),
+  date: (meta?: {message?: string; error?: string;}) => Iso.date(meta),
+  time: (options?: { precision?: number, message?: string; error?: string;}) => Iso.time(options),
+  // duration: (meta?: string | tsDnaMeta) => withMeta(Iso.duration(), meta),
 };
 
-export const any = (meta?: string | tsDnaMeta): tsDnaAny => withMeta(DnaGenericWrapped.init<any>("any", ["T"]), meta);
+export const any = (meta?: string | tsDnaMeta): tsDnaAny => initDna(DnaGenericWrapped, undefined, meta);
 
 export const unknown = (meta?: string | tsDnaMeta): tsDnaUnknown => withMeta(DnaGenericWrapped.init<unknown>("unknown", ["T"]), meta);
 
@@ -127,29 +166,33 @@ export const json = (meta?: string | tsDnaMeta): tsDnaJson<any> => {
     _null(),
     array((jsonSchema as any)()),
     record(string() as any, (jsonSchema as any)()),
-  ]));
-  return withMeta(jsonSchema, meta);
+  ]).meta(meta));
+  return jsonSchema;
 };
 
-export const string = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create(), meta);
+export const string = (meta?: string | tsDnaMeta) => initDna(DnaString, undefined, meta);
 
-export const number = (meta?: string | tsDnaMeta) => withMeta(NumberImpl.init(), meta);
+export const number = (meta?: string | tsDnaMeta) => initDna(DnaNumber, undefined, meta);
 
-export const bigint = (meta?: string | tsDnaMeta) => withMeta(BigIntImpl.create(), meta);
+export const bigint = (meta?: string | tsDnaMeta) => initDna(DnaBigInt, undefined, meta);
 
-export const int = (meta?: string | tsDnaMeta) => withMeta(IntImpl.create(), meta);
+export const int = (meta?: string | tsDnaMeta) => initDna(DnaInt, undefined, meta);
 
-export const int32 = (meta?: string | tsDnaMeta) => withMeta(Int32Impl.create(), meta);
+export const int32 = (meta?: string | tsDnaMeta) => initDna(DnaInt32, undefined, meta);
 
-export const boolean = (meta?: string | tsDnaMeta) => withMeta(BooleanImpl.create(), meta);
+export const boolean = (meta?: string | tsDnaMeta) => initDna(DnaBoolean, undefined, meta);
 
-export const date = (meta?: string | tsDnaMeta) => withMeta(DateImpl.create(), meta);
+export const date = (meta?: string | tsDnaMeta) => initDna(DnaDate, undefined, meta);
 const _null = (meta?: string | tsDnaMeta) => withMeta(DnaGenericWrapped.init<null, null>("null", ["n0"]), meta);
 
 export const undefined = (meta?: string | tsDnaMeta) => withMeta(DnaGenericWrapped.init<undefined, undefined>("undefined", ["undefined"]), meta);
 
-export const literal = <T>(value: T, meta?: string | tsDnaMeta) => withMeta(LiteralImpl.init(value), meta);
-const _enum = <T extends tsDnaEnumInput>(values: T, error?: string | tsDnaMeta) => withMeta(EnumImpl.init(values), error);
+export const literal = <T>(value: T, meta?: string | tsDnaMeta) => withMeta(DnaLiteral.init(value), meta);
+
+function _enum<const T extends tsDnaEnumInput>(values: T, error?: string | tsDnaMeta) {
+  const enumObj: Record<string, tsDnaEnumValueType> = Array.isArray(values) ? values.reduce((acc, v) => { acc[v] = v; return acc }, {}) : values;
+  return initDna(DnaEnum<T extends tsDnaEnumValues ? $ToEnum<T[number]> : T>, enumObj, error);
+}
 
 export const union = <S extends tsDnaTupleSchemaBase>(schemas: S, meta?: string | tsDnaMeta) =>
   withMeta(UnionImpl.create<S>(schemas), meta);
@@ -160,26 +203,26 @@ export const intersection = <S1 extends tsDnaType<any>, S2 extends tsDnaType<any
 export const discriminatedUnion = <K extends string, S extends tsDnaTupleSchemaBase>(discriminator: K, schemas: S, meta?: string | tsDnaMeta) =>
   withMeta(DiscriminatorImpl.init(discriminator, schemas), meta);
 
-export const record = <K extends tsDnaType<PropertyKey, any>, V extends tsDnaType<any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta): tsDnaRecord<K, V> =>
-  withMeta(RecordImpl.init(keySchema, valueSchema, "standard"), meta);
+export const record = <K extends tsDnaType<PropertyKey>, V extends tsDnaType<any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
+  initDna(DnaRecord<K,V>, {keySchema, valueSchema, type:"standard"}, meta);
 
-export const partialRecord = <K extends tsDnaType<PropertyKey, any>, V extends tsDnaType<any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta): tsDnaRecord<K, V> =>
-  withMeta(RecordImpl.init(keySchema, valueSchema, "partial"), meta);
+export const partialRecord = <K extends tsDnaType<PropertyKey>, V extends tsDnaType<any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
+  initDna(DnaRecord<K,V>, {keySchema, valueSchema, type:"partial"}, meta);
 
-export const looseRecord = <K extends tsDnaType<PropertyKey, any>, V extends tsDnaType<any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta): tsDnaRecord<K, V> =>
-  withMeta(RecordImpl.init(keySchema, valueSchema, "loose"), meta);
+export const looseRecord = <K extends DnaType<PropertyKey, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
+  initDna(DnaRecord<K,V>, {keySchema, valueSchema, type:"loose"}, meta);
 
 // top-level format functions
 
-export const email = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "email" }), meta);            // url: (meta?: string | tsMeta) => withMeta(new StringImpl({ format: "url" }), meta),
+export const email = (meta?: string | tsDnaMeta) => initDna(DnaEmail, undefined, meta);
 
 export const url = (options?: { normalize?: boolean, protocol?: RegExp, hostname?: RegExp }, meta?: string | tsDnaMeta) => {
   // Always use UrlImpl for proper URL validation with new URL()
   // Options control normalize and constraints
-  return withMeta(UrlImpl.init(options), meta);
+  return withMeta(DnaUrl.init(options), meta);
 };
 
-export const httpUrl = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "httpUrl" }), meta);
+export const httpUrl = (meta?: string | tsDnaMeta) => initDna(DnaHttpUrl, undefined, meta);
 
 export const _instanceof = <T extends abstract new (...args: any[]) => any, O = InstanceType<T>>(constructor: T, meta?: string | tsDnaMeta) =>
   withMeta(DnaGenericWrapped.init<O, O>("instanceOf", ["instanceOf", constructor.name]), meta);
@@ -195,48 +238,48 @@ export const file = (meta?: string | tsDnaMeta): tsDnaInstanceOf<File> =>
   withMeta(DnaGenericWrapped.init<File, File>("file", ["instanceOf", "File"]), meta);
 
 export const promise = <T>(schema: tsDnaType<T>, meta?: string | tsDnaMeta): any =>
-  withMeta(PromiseImpl.init(schema), meta);
+  withMeta(DnaPromise.init(schema), meta);
 
-export const hostname = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "hostname" }), meta);
+export const hostname = (meta?: string | tsDnaMeta) => initDna(DnaHostname, undefined, meta);
 
-export const uuid = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "uuid" }), meta);
+export const uuid = (meta?: string | tsDnaMeta) => initDna(DnaUUID, undefined, meta);
 
-export const e164 = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "e164" }), meta);
+export const e164 = (meta?: string | tsDnaMeta) => initDna(DnaE164, undefined, meta);
 
-export const emoji = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "emoji" }), meta);
+export const emoji = (meta?: string | tsDnaMeta) => initDna(DnaEmoji, undefined, meta);
 
-export const base64 = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "base64" }), meta);
+export const base64 = (meta?: string | tsDnaMeta) => initDna(DnaBase64, undefined, meta);
 
-export const base64url = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "base64url" }), meta);
+export const base64url = (meta?: string | tsDnaMeta) => initDna(DnaBase64Url, undefined, meta);
 
-export const hex = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "hex" }), meta);
+export const hex = (meta?: string | tsDnaMeta) => initDna(DnaHex, undefined, meta);
 
-// export const jwt = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "jwt" }), meta);
+// export const jwt = (meta?: string | tsDnaMeta) => withMeta(DnaString.create({ format: "jwt" }), meta);
 export const jwt = (meta?: string | tsDnaMeta): tsDnaAny => any(); // DONT TOUCH DONT EDIT
 
-export const nanoid = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "nanoid" }), meta);
+export const nanoid = (meta?: string | tsDnaMeta) => initDna(DnaNanoId, undefined, meta);
 
-export const cuid = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "cuid" }), meta);
+export const cuid = (meta?: string | tsDnaMeta) => initDna(DnaCuid, undefined, meta);
 
-export const cuid2 = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "cuid2" }), meta);
+export const cuid2 = (meta?: string | tsDnaMeta) => initDna(DnaCuid2, undefined, meta);
 
-export const ulid = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "ulid" }), meta);
+export const ulid = (meta?: string | tsDnaMeta) => initDna(DnaUlid, undefined, meta);
 
-export const xid = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "xid" }), meta);
+export const xid = (meta?: string | tsDnaMeta) => initDna(DnaXid, undefined, meta);
 
-export const ksuid = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "ksuid" }), meta);
+export const ksuid = (meta?: string | tsDnaMeta) => initDna(DnaKsuid, undefined, meta);
 
-export const ipv4 = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "ipv4" }), meta);
+export const ipv4 = (meta?: string | tsDnaMeta) => initDna(DnaIpv4, undefined, meta);
 
-export const ipv6 = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "ipv6" }), meta);
+export const ipv6 = (meta?: string | tsDnaMeta) => initDna(DnaIpv6, undefined, meta);
 
-export const mac = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "mac" }), meta);
+export const mac = (meta?: string | tsDnaMeta) => initDna(DnaMac, undefined, meta);
 
-export const cidrv4 = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "cidrv4" }), meta);
+export const cidrv4 = (meta?: string | tsDnaMeta) => initDna(DnaCidrv4, undefined, meta);
 
-export const cidrv6 = (meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: "cidrv6" }), meta);
+export const cidrv6 = (meta?: string | tsDnaMeta) => initDna(DnaCidrv6, undefined, meta);
 
-export const hash = (algorithm: "sha1" | "sha256" | "sha384" | "sha512" | "md5", meta?: string | tsDnaMeta) => withMeta(StringImpl.create({ format: `hash:${algorithm}` }), meta);
+export const hash = (algorithm: "sha1" | "sha256" | "sha384" | "sha512" | "md5", meta?: string | tsDnaMeta) => initDna(DnaHash, { format: `hash:${algorithm}` }, meta);
 
 export const object = <T extends Record<string, any>>(shape: T, meta?: string | tsDnaMeta): any => withMeta(ObjectImpl.init(shape, 'standard'), meta);
 
@@ -244,12 +287,12 @@ export const strictObject = <T extends Record<string, any>>(shape: T, meta?: str
 
 export const looseObject = <T extends Record<string, any>>(shape: T, meta?: string | tsDnaMeta): any => withMeta(ObjectImpl.init(shape, 'loose'), meta);
 
-export const property = <K extends string | number, S>(key: K, schema: tsDnaType<S>): tsDnaPropertyCheck<K> => PropCheckImpl.init(key, schema);
+export const property = <K extends string | number, S>(key: K, schema: DnaType<S>) => initDna(DnaProperty, {key, schema});
 
 export const array = <T extends tsDnaType<any, any>>(item: T, meta?: string | tsDnaMeta): tsDnaArray<T> => withMeta(ArrayImpl.init(item), meta);
 
 export const tuple = <S extends tsDnaTupleSchemaRO, R = never>(items: S, rest?: tsDnaType<R>, meta?: string | tsDnaMeta) =>
-  withMeta(TupleImpl.init(items, rest), meta);
+  withMeta(DnaTuple.init(items, rest), meta);
 
 
 export const codec = <I, O>(inSchema: tsDnaType<I>, outSchema: tsDnaType<O>, options: { decode: tsDecodeFn<I, O>, encode: tsEncodeFn<O, I>, externals?: tsExternalsDecl }, meta?: string | tsDnaMeta): tsDnaCodec<I, O> =>
@@ -303,19 +346,19 @@ export const NEVER = undefined as never;
 //   return impl;
 // };
 
-export const prefault = <T, I = unknown>(schema: tsDnaType<T, I>, value: I): tsDnaPrefault<T, I> => {
+export const prefault = <S extends DnaType<any, any>>(schema: S, value: $Input<S>): DnaPrefault<S> => {
   return schema.prefault(value);
 };
 
-export const optional = <T, I = unknown>(schema: tsDnaType<T, I>): tsDnaOptional<T, I> => {
+export const optional = <S extends DnaType<any, any>>(schema: S, value: $Input<S>): DnaOptional<S> => {
   return schema.optional();
 };
 
-export const nullable = <T, I = unknown>(schema: tsDnaType<T, I>): tsDnaNullable<T, I> => {
+export const nullable = <S extends DnaType<any, any>>(schema: S): DnaNullable<S> => {
   return schema.nullable();
 };
 
-export const nullish = <T, I = unknown>(schema: tsDnaType<T, I>): tsDnaNullish<T, I> => {
+export const nullish = <S extends DnaType<any, any>>(schema: S): DnaNullish<S> => {
   return schema.nullish();
 };
 

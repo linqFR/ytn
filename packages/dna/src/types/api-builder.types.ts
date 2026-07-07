@@ -14,9 +14,9 @@ import type {
   IObjectMethods,
   IPseudoTypeMethods,
   ISetMethods,
-  IStringMethods,
   IUrlMethods
 } from "../builder/method-interfaces.types.js";
+import type { DnaString } from "../builder/dna-interfaces.js";
 
 // Import IDnaSchemaBase and helper types from base.types.ts
 import type {
@@ -136,56 +136,6 @@ export type tsDnaInferOutput<S> = S extends { _output: infer O } ? O : S extends
 export type tsDnaInferInput<S> = S extends { _input: infer I } ? I : S extends tsDnaType<any, infer I> ? I : never;
 export type tsDnaInfer<S> = tsDnaInferOutput<S>;
 
-export type $ApiClass<C> =
-  C extends tsDnaString ? tsDnaString
-  : C extends tsDnaNumber ? tsDnaNumber
-  : C extends tsDnaInteger ? tsDnaInteger
-  : C extends tsDnaInteger32 ? tsDnaInteger32
-  : C extends tsDnaBigInt ? tsDnaBigInt
-  : C extends tsDnaBoolean ? tsDnaBoolean
-  : C extends tsDnaDate ? tsDnaDate
-  : C extends tsDnaUrl ? tsDnaUrl
-  : C extends tsDnaAny ? tsDnaAny
-  : C extends tsDnaUnknown ? tsDnaUnknown
-  : C extends tsDnaUndefined ? tsDnaUndefined
-  : C extends tsDnaNull ? tsDnaNull
-  : C extends tsDnaInstanceOf<infer T> ? tsDnaInstanceOf<T>
-  : C extends tsDnaObject<infer T, infer I> ? tsDnaObject<T, I>
-  : C extends tsDnaArray<infer S> ? tsDnaArray<S>
-  : C extends tsDnaMap<infer K, infer V> ? tsDnaMap<K, V>
-  : C extends tsDnaSet<infer S> ? tsDnaSet<S>
-  : C extends tsDnaRecord<infer K, infer V> ? tsDnaRecord<K, V>
-  : C extends tsDnaUnion<infer S> ? tsDnaUnion<S>
-  : C extends tsDnaIntersection<infer S, infer I> ? tsDnaIntersection<S, I>
-  : C extends tsDnaXorUnion<infer T> ? tsDnaXorUnion<T>
-  : C extends tsDnaTmplLit ? tsDnaTmplLit
-  : C extends tsDnaTemplateLiteral ? tsDnaTemplateLiteral
-  : C extends tsDnaTemplateLiteralMutate ? tsDnaTemplateLiteralMutate
-  : C extends tsDnaLazy<infer S> ? tsDnaLazy<S>
-  : C extends tsDnaPipe<infer T, infer I> ? tsDnaPipe<T, I>
-  : C extends tsDnaNonOptional<infer T, infer I> ? tsDnaNonOptional<T, I>
-  : C extends tsDnaEnum<infer T> ? tsDnaEnum<T>
-  : C extends tsDnaLiteral<infer T> ? tsDnaLiteral<T>
-  : C extends tsDnaNever ? tsDnaNever
-  : C extends tsDnaOptional<infer T, infer I> ? tsDnaOptional<T, I>
-  : C extends tsDnaNullable<infer T, infer I> ? tsDnaNullable<T, I>
-  : C extends tsDnaNullish<infer T, infer I> ? tsDnaNullish<T, I>
-  : C extends tsDnaDefault<infer T, infer I> ? tsDnaDefault<T, I>
-  : C extends tsDnaPrefault<infer T, infer I> ? tsDnaPrefault<T, I>
-  : C extends tsDnaCatch<infer R, infer T, infer I> ? tsDnaCatch<R, T, I>
-  : C extends tsDnaMutate<infer T, infer I> ? tsDnaMutate<T, I>
-  : C extends tsDnaSymbol ? tsDnaSymbol
-  : C extends tsDnaNaN ? tsDnaNaN
-  : C extends tsDnaVoid ? tsDnaVoid
-  : C extends tsDnaCustom<infer T, infer I> ? tsDnaCustom<T, I>
-  : C extends tsDnaJson<infer T, infer I> ? tsDnaJson<T, I>
-  : C extends tsDnaPromise<infer T> ? tsDnaPromise<T>
-  : C extends tsDnaFunction<infer I, infer O> ? tsDnaFunction<I, O>
-  : C extends tsDnaCodec<infer I, infer O> ? tsDnaCodec<I, O>
-  : C extends tsDnaTuple<infer S, infer R> ? tsDnaTuple<S, R>
-  : C;
-
-
 // ============================================
 // String Format Type Aliases
 // ============================================
@@ -210,7 +160,7 @@ export interface tsDnaUnknown extends tsDnaType<unknown>, IPseudoTypeMethods<unk
 export interface tsDnaUndefined extends tsDnaType<undefined>, IPseudoTypeMethods<undefined> { }
 export interface tsDnaNull extends tsDnaType<null>, IPseudoTypeMethods<null> { }
 
-export interface tsDnaString extends tsDnaType<string, unknown, tsStateString>, IStringMethods { }
+export type tsDnaString = DnaString;
 export interface tsDnaCoerceString extends tsDnaString { _coerce: true; }
 export interface tsDnaNumber extends tsDnaType<number, unknown, tsStateNumber<number>>, INumberMethods<number> { }
 export interface tsDnaCoerceNumber extends tsDnaNumber { _coerce: true; }

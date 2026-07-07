@@ -45,8 +45,9 @@ export type tsStateFull<T extends tsStateDef = tsStateDef> = {
   coerce?: boolean;
   coerceCode?: string;
   refinerList: tsCheckOpt[];
-  dna?: tsDnaNoMeta;
-  innerState: T;
+  rawDna: tsDnaNoMeta;
+  templateRegex:string;
+  seed: T;
   fullDna?: tsDnaSeq;
   cachedParser?: tsParserFn;
   cachedValidator?: tsValidatorFn;
@@ -54,179 +55,179 @@ export type tsStateFull<T extends tsStateDef = tsStateDef> = {
 
 
 
-// ============================================
-// Primitive State Types
-// ============================================
+// // ============================================
+// // Primitive State Types
+// // ============================================
 
-export type tsStateLiteral<T> = { value: T };
+// export type tsStateLiteral<T> = { value: T };
 
-export type tsStateString = {
-  min: number | null;
-  max: number | null;
-  pattern: RegExp | null;
-  format: string | null;
-  startsWith?: string;
-  endsWith?: string;
-  includes?: string;
-  sequence: tsDna[];
-};
+// export type tsStateString = {
+//   min: number | null;
+//   max: number | null;
+//   pattern: RegExp | null;
+//   format: string | null;
+//   startsWith?: string;
+//   endsWith?: string;
+//   includes?: string;
+//   sequence: tsDna[];
+// };
 
-export type tsStateNumber<T extends number | bigint> = {
-  min: T | null;
-  max: T | null;
-  exclMin: boolean;
-  exclMax: boolean;
-  multOf: T | null;
-};
+// export type tsStateNumber<T extends number | bigint> = {
+//   min: T | null;
+//   max: T | null;
+//   exclMin: boolean;
+//   exclMax: boolean;
+//   multOf: T | null;
+// };
 
-export type tsStateBoolean = {};
+// export type tsStateBoolean = {};
 
-export type tsStateDate = {
-  min: Date | null;
-  max: Date | null;
-};
+// export type tsStateDate = {
+//   min: Date | null;
+//   max: Date | null;
+// };
 
-export type tsStateUrl = {
-  protocol: RegExp | null;
-  hostname: RegExp | null;
-  normalize: boolean;
-};
+// export type tsStateUrl = {
+//   protocol: RegExp | null;
+//   hostname: RegExp | null;
+//   normalize: boolean;
+// };
 
-// ============================================
-// Complex State Types
-// ============================================
+// // ============================================
+// // Complex State Types
+// // ============================================
 
-export type tsStateEnum<T extends tsDnaEnumInput> = {
-  enumList: tsDnaEnumValues;
-  isObject: boolean;
-};
+// export type tsStateEnum<T extends tsDnaEnumInput> = {
+//   enumList: tsDnaEnumValues;
+//   isObject: boolean;
+// };
 
-export type tsStateArray<S extends tsDnaType<any, any>> = {
-  min: number | null;
-  max: number | null;
-  length: number | null;
-  itemSchema: S;
-};
+// export type tsStateArray<S extends tsDnaType<any, any>> = {
+//   min: number | null;
+//   max: number | null;
+//   length: number | null;
+//   itemSchema: S;
+// };
 
-export type tsStateObject<PS extends Record<string,tsDnaType<any, any>> = Record<string,tsDnaType<any, any>>, ADP extends true | false | tsDnaType<any, any> | undefined = undefined> = {
-  propertySchemas?: PS;
-  addPropSchema?: ADP | true | false | undefined;
-  objType: 'strict' | 'loose' | 'standard';
-  requiredKeys: string[];
-};
+// export type tsStateObject<PS extends Record<string,tsDnaType<any, any>> = Record<string,tsDnaType<any, any>>, ADP extends true | false | tsDnaType<any, any> | undefined = undefined> = {
+//   propertySchemas?: PS;
+//   addPropSchema?: ADP | true | false | undefined;
+//   objType: 'strict' | 'loose' | 'standard';
+//   requiredKeys: string[];
+// };
 
-export type tsStateRecord<K extends tsDnaType<any>, V extends tsDnaType<any>, I = Record<$Output<K>, $Output<V>>> = {
-  keySchema: K;
-  valueSchema: V;
-  type: "partial" | "loose" | "standard";
-};
+// export type tsStateRecord<K extends tsDnaType<any>, V extends tsDnaType<any>, I = Record<$Output<K>, $Output<V>>> = {
+//   keySchema: K;
+//   valueSchema: V;
+//   type: "partial" | "loose" | "standard";
+// };
 
-export type tsStateTuple<S, R> = {
-  items: S;
-  rest?: tsDnaType<R>;
-};
+// export type tsStateTuple<S, R> = {
+//   items: S;
+//   rest?: tsDnaType<R>;
+// };
 
-export type tsStateStringBool = {
-  map: { truthy: string[]; falsy: string[]; case: boolean };
-  case: boolean;
-};
+// export type tsStateStringBool = {
+//   map: { truthy: string[]; falsy: string[]; case: boolean };
+//   case: boolean;
+// };
 
-export type tsStateTemplateLiteral = {
-  parts: tsTmplLitArg[];
-  canMutate: false;
-};
+// export type tsStateTemplateLiteral = {
+//   parts: tsTmplLitArg[];
+//   canMutate: false;
+// };
 
-export type tsStateTemplateLiteralMutate = {
-  parts: tsTmplLitArg[];
-  canMutate: true;
-};
+// export type tsStateTemplateLiteralMutate = {
+//   parts: tsTmplLitArg[];
+//   canMutate: true;
+// };
 
-// ============================================
-// Special State Types
-// ============================================
+// // ============================================
+// // Special State Types
+// // ============================================
 
-export type tsStatePromise<T, I> = {
-  innerSchema: tsDnaType<T, I>;
-};
+// export type tsStatePromise<T, I> = {
+//   innerSchema: tsDnaType<T, I>;
+// };
 
-export type tsStateMap<K extends tsDnaType<any>, V extends tsDnaType<any>> = {
-  min: number | null;
-  max: number | null;
-  size: number | null;
-  keySchema: K;
-  valueSchema: V;
-};
+// export type tsStateMap<K extends tsDnaType<any>, V extends tsDnaType<any>> = {
+//   min: number | null;
+//   max: number | null;
+//   size: number | null;
+//   keySchema: K;
+//   valueSchema: V;
+// };
 
-export type tsStateSet<T extends tsDnaType<any>> = {
-  min: number | null;
-  max: number | null;
-  size: number | null;
-  itemSchema: T;
-};
+// export type tsStateSet<T extends tsDnaType<any>> = {
+//   min: number | null;
+//   max: number | null;
+//   size: number | null;
+//   itemSchema: T;
+// };
 
-export type tsStateFunction<I extends tsDnaFunctionInput, O> = {
-  input: I;
-  output: tsDnaType<O>;
-};
+// export type tsStateFunction<I extends tsDnaFunctionInput, O> = {
+//   input: I;
+//   output: tsDnaType<O>;
+// };
 
-export type tsStateCodec<I, O> = {
-  inSchema: tsDnaType<I>;
-  outSchema: tsDnaType<O>;
-  decodeTwin: tsDnaType<O>;
-  encodeTwin: tsDnaType<I>;
-  cachedEncodeValidator?: any;
-  cachedEncodeParser?: any;
-};
+// export type tsStateCodec<I, O> = {
+//   inSchema: tsDnaType<I>;
+//   outSchema: tsDnaType<O>;
+//   decodeTwin: tsDnaType<O>;
+//   encodeTwin: tsDnaType<I>;
+//   cachedEncodeValidator?: any;
+//   cachedEncodeParser?: any;
+// };
 
-export type tsStateGetter<T, I> = {
-  getter: () => any;
-};
+// export type tsStateGetter<T, I> = {
+//   getter: () => any;
+// };
 
-// ============================================
-// Sequence State Types
-// ============================================
+// // ============================================
+// // Sequence State Types
+// // ============================================
 
-export type tsStateSeqRaw = {
-  dnaSteps: any[];
-};
+// export type tsStateSeqRaw = {
+//   dnaSteps: any[];
+// };
 
-export type tsStateSeq<T, I, U = I | unknown> = {
-  dnaSteps: tsDnaType<any, any>[];
-};
+// export type tsStateSeq<T, I, U = I | unknown> = {
+//   dnaSteps: tsDnaType<any, any>[];
+// };
 
-// ============================================
-// Wrapper State Types
-// ============================================
+// // ============================================
+// // Wrapper State Types
+// // ============================================
 
-export type tsStateWrp<T, I, Inner extends tsDnaType<T, I> = tsDnaType<T, I>> =
-  | { wrapperType: "optional" | "nullable" | "nullish"; inner: Inner; value?: undefined }
-  | { wrapperType: "default"; inner: Inner; value: T }
-  | { wrapperType: "prefault"; inner: Inner; value: I }
-  | { wrapperType: "catch"; inner: Inner; value: $CatchValue<T, I> };
+// export type tsStateWrp<T, I, Inner extends tsDnaType<T, I> = tsDnaType<T, I>> =
+//   | { wrapperType: "optional" | "nullable" | "nullish"; inner: Inner; value?: undefined }
+//   | { wrapperType: "default"; inner: Inner; value: T }
+//   | { wrapperType: "prefault"; inner: Inner; value: I }
+//   | { wrapperType: "catch"; inner: Inner; value: $CatchValue<T, I> };
 
-// ============================================
-// Discriminator State Types
-// ============================================
+// // ============================================
+// // Discriminator State Types
+// // ============================================
 
-export type tsStateDiscriminator<K extends string, S extends tsDnaTupleSchemaBase, I> = {
-  discriminator: K;
-  schemas: S;
-};
+// export type tsStateDiscriminator<K extends string, S extends tsDnaTupleSchemaBase, I> = {
+//   discriminator: K;
+//   schemas: S;
+// };
 
-// ============================================
-// Combinator State Types
-// ============================================
+// // ============================================
+// // Combinator State Types
+// // ============================================
 
-export type tsStateCombinator<S extends tsDnaTupleSchemaBase> = {
-  schemas: S;
-  combinatorType: "anyOf" | "allOf" | "oneOf";
-};
+// export type tsStateCombinator<S extends tsDnaTupleSchemaBase> = {
+//   schemas: S;
+//   combinatorType: "anyOf" | "allOf" | "oneOf";
+// };
 
-// ============================================
-// Property Check State Type
-// ============================================
+// // ============================================
+// // Property Check State Type
+// // ============================================
 
-export type tsStatePropCheck<K extends string | number, S extends tsDnaType<any, any, any>> = {
-  property: K;
-  schema: S;
-};
+// export type tsStatePropCheck<K extends string | number, S extends tsDnaType<any, any, any>> = {
+//   property: K;
+//   schema: S;
+// };

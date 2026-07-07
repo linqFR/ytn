@@ -1,10 +1,27 @@
+import type { DnaType } from "../builder/dna-interfaces.js";
 import type { IContext } from "../shared/meta-context.type.js";
 
-// Simple helpers for internal use (extract directly from schema properties)
-export type $Output<S> = S extends { _output: infer O } ? O : unknown;
-export type $Input<S> = S extends { _input: infer I } ? I : unknown;
 
-export type $State<S> = S extends { _stateDef: infer I } ? I : {};
+// =================================
+// infering tools for Dna
+// =================================
+
+// Simple helpers for internal use (extract directly from schema properties)
+export type $Output<S> = S extends { _output: infer O } ? O : never;
+export type $Input<S> = S extends { _input: infer I } ? I : never;
+export type $InputHead<T> = T extends { _head: infer H }
+? unknown extends H
+? $Input<T>
+: $InputHead<H>
+: $Input<T>;
+export type infer<T> = $Output<T>;
+
+// export type $State<S> = S extends { _stateDef: infer I } ? I : {};
+
+// =================================
+// tools for combinaisons
+// =================================
+
 
 // Union -> intersection (for allOf member value types)
 export type $UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
@@ -26,7 +43,26 @@ export type $HasProperty<T, K extends PropertyKey> = K extends keyof T ? T : nev
 export type $PropertyCheck<T, K extends PropertyKey, S> = K extends keyof T ? T : { [P in K]: S };
 
 // Helper type to add brand conditionally
-export type $WithBrand<T, B extends string = never, D extends "out" | "in" | "inout" = "out"> = B extends never ? T : D extends "out" ? T & { __brand: B } : T & { __brand: B, __BrandDirection: D };
+// export type $WithBrand<T, B extends PropertyKey = never, D extends "out" | "in" | "inout" = "out"> = B extends never ? T : D extends "out" ? T & { __brand: B } : T & { __brand: B, __BrandDirection: D };
+
+// Brand symbol (like Zod's $brand)
+export declare const $brand: unique symbol;
+export type $brand<T extends PropertyKey = PropertyKey> = {
+  [$brand]: {
+    [k in T]: true;
+  };
+};
+
+// Helper type for branded schemas (like Zod's $ZodBranded)
+// Modifies _input and _output to include the brand directly
+export type $DnaBranded<T extends DnaType<any, any>, Brand extends PropertyKey, Dir extends "in" | "out" | "inout" = "out"> = T & (Dir extends "inout" ? {
+  _input: $Input<T> & $brand<Brand>;
+  _output: $Output<T> & $brand<Brand>;
+} : Dir extends "in" ? {
+  _input: $Input<T> & $brand<Brand>;
+} : {
+  _output: $Output<T> & $brand<Brand>;
+});
 
 // Helper to unwrap Promise<T> to T (like Zod's MaybePromise)
 export type $MaybeAsync<T> = T | Promise<T>;
@@ -39,3 +75,25 @@ export type $InferReturnType<F> = F extends (...args: any[]) => $MaybeAsync<infe
 
 // Helper for .catch() recovery value: either a plain fallback value or a recovery function
 export type $CatchValue<T, I> = T | ((ctx: IContext<I>) => T);
+
+// Enum type helpers
+// Extract keys from an enum object
+export type $EnumKeys<T> = T extends Record<infer K, any> ? K : never;
+
+// Extract values from an enum object or array
+export type $EnumValues<T> = T extends (infer V)[] ? V : T extends Record<string, infer V> ? V : never;
+
+// Convert array or object to normalized enum object type (like Zod)
+export type $EnumAsObj<T> = T extends (infer V)[] ? { readonly [K in V as V]: V } : T extends Record<string, infer V> ? { readonly [K in keyof T]: V } : never;
+
+// Extract the full enum object type (keys and values)
+export type $EnumObj<T> = T extends Record<string, infer V> ? Record<string, V> : never;
+
+// Helper for array types
+export type $ArrayItem<T> = T extends (infer I)[] ? I : never;
+
+// Helper to flatten types (like Zod's Flatten)
+export type $Flatten<T> = { [K in keyof T]: T[K] } & {};
+
+// Helper to convert array values to enum object keys (like Zod's ToEnum)
+export type $ToEnum<T extends string | number | bigint> = $Flatten<{ [K in T as K extends string | number | symbol ? K : never]: K }>;

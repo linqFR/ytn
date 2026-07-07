@@ -238,11 +238,17 @@ export const instanceOf = (dnaOpt: [string, tsMeta], _inVarName: string, _outVar
 	const className = "cls"+idx;
 	const test = _inVarName + " instanceof "+className;
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/instanceOf", "Instance of " + constructorName + " is required") + ERR_UNDEF;
-	return [
-		[STEP.OUT_CONST, className+"="+constructorName],
-		[STEP.OUT_ARG, constructorName],
-		[STEP.BODY, simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true)]
-	];
+
+	const steps: tsStackFrame[] = [];
+	const isBuiltin = ["Object", "Array", "Function", "String", "Number", "Boolean", "Date", "RegExp", "Error", "Promise", "Map", "Set", "WeakMap", "WeakSet"].includes(constructorName);
+
+	if (!isBuiltin) {
+		steps.push([STEP.OUT_CONST, className + "=" + constructorName]);
+		steps.push([STEP.OUT_ARG, constructorName]);
+	}
+	steps.push([STEP.BODY, simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true)]);
+
+	return steps;
 };
 
 // `codec`: bidirectional encode/decode transformation
@@ -266,4 +272,139 @@ export const codec = (dnaOpt: [[number, number, string, string], tsMeta], _inVar
 	steps.push([outSchemaId, _inVarName, _outVarName, pathVar, parentCtx]);
 
 	return steps;
+};
+
+// Template literal handler
+// Format: ["template", [strParts, partIds], meta]
+// strParts: array of literals and "\x00" placeholders for schemas
+// partIds: array of schema IDs (only for schema positions)
+export const template = (dnaOpt: [string[], number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx
+): tsStackFrame[] => {
+	const idx = labelId();
+	const strParts = dnaOpt[0];
+	const partIds = dnaOpt[1];
+
+	const isCond = parentCtx.isCond;
+	const childrenCtx: tsJSParentCtx = { ...parentCtx, isCond, typeChecked: "string" };
+	const tmpVar = "tmpLit" + idx;
+	const steps: tsStackFrame[] = [];
+
+	// Build capture regex: escape literals, replace schemas with capture groups
+	const regexParts: string[] = [];
+
+	for (let i = 0; i < strParts.length; i++) {
+		const part = strParts[i];
+		if (part === "\x00") regexParts.push("(.+?)");
+		else regexParts.push(String(part).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+	}
+
+	// Build regex string
+	const regexStr = "^" + regexParts.join("") + "$";
+	const regexObj = "new RegExp(" + JSON.stringify(regexStr) + ",'u')";
+
+	// Type check first
+	const typeTest = "typeof " + _inVarName + '==="string';
+	const typeErr = _err(parentCtx, _inVarName, pathVar + "/template", "Template literal must be a String") + ERR_UNDEF;
+	steps.push([STEP.BODY, simpleNodeToJs(parentCtx, _inVarName, _outVarName, typeErr, typeTest, "", "", true)]);
+
+	// Apply regex and capture parts
+	const matchTest = _inVarName + ".match(" + regexObj + ")";
+	const matchErr = _err(parentCtx, _inVarName, pathVar + "/template", "Template literal does not match pattern") + ERR_UNDEF;
+	steps.push([STEP.BODY, simpleNodeToJs(parentCtx, _inVarName, _outVarName, matchErr, matchTest, "", "", true)]);
+
+	// Extract parts for validation
+	if (!isCond) {
+		steps.push([STEP.LET, "const parts=" + _inVarName + ".match(" + regexObj + ")"]);
+	}
+
+	// Validate each captured part with its schema
+	for (let i = 0; i < partIds.length; i++) {
+		const captureVar = "parts[" + (i + 1) + "]";
+		steps.push([partIds[i], captureVar, _outVarName, pathVar + "/template/" + i, childrenCtx]);
+	}
+
+	return steps;
+};
+
+// `transform`: applies custom schema transformation to the value
+export const transform = (dnaOpt: [[string, number], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+	const [fnStr, fnLength] = dnaOpt[0];
+	const isCond = parentCtx.isCond;
+	const steps: tsStackFrame[] = [];
+
+	// Apply transform
+	const ctxArg = !isCond && fnLength > 1 ? ",{issues:errors}" : "";
+	const mutation = "(" + fnStr + ")(" + _inVarName + ctxArg + ")";
+	steps.push([STEP.BODY, _inVarName + "=" + mutation + (parentCtx.isCond ? ";" : "")]);
+
+	return steps;
+};
+
+// `preprocess`: transform function applied before validation
+// Format: ["preprocess", [schemaId, fnStr, fnLength], meta]
+// transformFn: function to transform input before schema validation
+export const preprocess = (dnaOpt: [[number, string, number], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+	const [schemaId, fnStr, fnLength] = dnaOpt[0];
+	const isCond = parentCtx.isCond;
+
+	const steps: tsStackFrame[] = [];
+
+	// Apply preprocess transformation
+	const ctxArg = !isCond && fnLength > 1 ? ",{issues:errors}" : "";
+	const preprocessCall = "(" + fnStr + ")(" + _inVarName + ctxArg + ")";
+	steps.push([STEP.BODY, _inVarName + "=" + preprocessCall + ";"]);
+
+	// Call schema for validation of transformed value
+	steps.push([schemaId, _inVarName, _outVarName, pathVar, parentCtx]);
+
+	return steps;
+};
+
+// `pipe`: chain input schema → transform → output schema
+// Format: ["pipe", [inSchemaId, outSchemaId, transformFn, arity], meta]
+// Similar to codec but for one-way transformation (decode only)
+export const pipe = (dnaOpt: [[number, number, string, number], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+	const [inSchemaId, outSchemaId, transformFn, fnLength] = dnaOpt[0];
+	const isCond = parentCtx.isCond;
+
+	const steps: tsStackFrame[] = [];
+
+	// Call inSchema for validation
+	steps.push([inSchemaId, _inVarName, _outVarName, pathVar, parentCtx]);
+
+	// Apply transform
+	const ctxArg = !isCond && fnLength > 1 ? ",{issues:errors}" : "";
+	const transformCall = "(" + transformFn + ")(" + _inVarName + ctxArg + ")";
+	steps.push([STEP.BODY, _inVarName + "=" + transformCall + ";"]);
+
+	// Call outSchema for validation of transformed value
+	steps.push([outSchemaId, _inVarName, _outVarName, pathVar, parentCtx]);
+
+	return steps;
+};
+
+const functionHandler = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	const test = "typeof " + _inVarName + '==="function';
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/function", "Function is required") + ERR_UNDEF;
+	parentCtx.typeChecked = "function";
+	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+};
+
+const voidHandler = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	const test = _inVarName + "===void 0";
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/void", "Undefined is required") + ERR_UNDEF;
+	parentCtx.typeChecked = "undefined";
+	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+};
+
+export const promise = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	const test = _inVarName + " instanceof Promise";
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/promise", "Promise is required") + ERR_UNDEF;
+	parentCtx.typeChecked = "promise";
+	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+};
+
+export {
+	functionHandler as function,
+	voidHandler as void,
 };

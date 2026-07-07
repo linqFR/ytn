@@ -1,64 +1,12 @@
 import type {
-  AllOfImpl,
-  ArrayImpl,
-  BigIntImpl,
-  BooleanImpl,
-  CodecImpl,
-  CombinatorImpl,
-  DateImpl,
-  DiscriminatorImpl,
-  EnumImpl,
-  GetterSchemaImpl,
-  Int32Impl,
-  IntImpl,
-  IntersectionImpl,
-  LiteralImpl,
-  MutateImpl,
-  NumberImpl,
-  ObjectImpl,
-  PromiseImpl,
-  PropCheckImpl,
-  RecordImpl,
-  SchemaImpl,
-  SeqSchemaImpl,
-  StringBoolImpl,
-  StringImpl,
-  TemplateLiteralImpl,
-  TemplateLiteralMutateImpl,
-  TupleImpl,
-  UnionImpl,
-  UrlImpl,
-  WrapperImpl,
-  XorImpl
-} from "./core.js"
+  DnaType
+} from "./dna-interfaces.js"
 import type {
-  FunctionImpl,
-  MapImpl,
-  SetImpl
-} from "./api-enhanced.js"
-import type {
-  tsStateArray,
-  tsStateBoolean,
-  tsStateCodec,
-  tsStateCombinator,
-  tsStateDate,
-  tsStateDiscriminator,
-  tsStateEnum,
-  tsStateFunction,
-  tsStateGetter,
-  tsStateLiteral,
-  tsStateMap,
-  tsStateNumber,
-  tsStateObject,
-  tsStatePromise,
-  tsStatePropCheck,
-  tsStateRecord,
-  tsStateSeq,
-  tsStateSet,
+  tsStateDef,
   tsStateString,
-  tsStateStringBool,
-  tsStateTuple,
-  tsStateUrl,
+  tsStateNumber,
+  tsStateBoolean,
+  tsStateDate,
   tsStateWrp
 } from "./state.types.js"
 import type {
@@ -128,8 +76,9 @@ import type {
 } from "../types/api-builder.types.js"
 import type { tsDnaType, $DnaInfer } from "../shared/base.types.js";
 
-export type $toAPIClass<C extends SchemaImpl<any, any, any>> =
-  C extends SchemaImpl<infer T, infer I, infer S> ? (
+// Pure state-based mapper: completely dynamic, no static _apiType dependency
+export type $toAPIClass<C extends DnaType<any, any, any>> =
+  C extends DnaType<infer T, infer I, infer S> ? (
     S extends tsStateDef ? (
       S extends { type: "string" } ? (
         S extends { coerce: true } ? tsDnaCoerceString
@@ -177,12 +126,12 @@ export type $toAPIClass<C extends SchemaImpl<any, any, any>> =
       : S extends { type: "seq" } ? tsDnaPipe<T, I>
       : S extends { type: "mutate" } ? tsDnaMutate<T, I>
       : S extends { type: "wrp" } ? (
-        S extends { wrapperType: "optional" } ? tsDnaOptional<T, I>
-        : S extends { wrapperType: "nullable" } ? tsDnaNullable<T, I>
-        : S extends { wrapperType: "nullish" } ? tsDnaNullish<T, I>
-        : S extends { wrapperType: "default" } ? tsDnaDefault<T, I>
-        : S extends { wrapperType: "prefault" } ? tsDnaPrefault<T, I>
-        : S extends { wrapperType: "catch" } ? tsDnaCatch<T, I, S extends { value: infer V } ? V : unknown>
+        S extends tsStateWrp & { wrapperType: "optional" } ? tsDnaOptional<T, I>
+        : S extends tsStateWrp & { wrapperType: "nullable" } ? tsDnaNullable<T, I>
+        : S extends tsStateWrp & { wrapperType: "nullish" } ? tsDnaNullish<T, I>
+        : S extends tsStateWrp & { wrapperType: "default" } ? tsDnaDefault<T, I>
+        : S extends tsStateWrp & { wrapperType: "prefault" } ? tsDnaPrefault<T, I>
+        : S extends tsStateWrp & { wrapperType: "catch" } ? tsDnaCatch<T, I, S extends { value: infer V } ? V : unknown>
         : tsDnaType<T, I>
       )
       : S extends { type: "any" } ? tsDnaAny

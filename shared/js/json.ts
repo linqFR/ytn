@@ -50,3 +50,24 @@ export function safeStringify(
     space,
   );
 }
+
+/**
+ * @function stringify
+ * @description JSON.stringify with built-in bigint support (converts bigint to string).
+ *
+ * @param {tsJSONStringifyArgs[0]} val - The value to stringify.
+ * @param {tsJSONStringifyArgs[1]} [replacer] - Optional property filter (bigint handling is applied first).
+ * @param {tsJSONStringifyArgs[2]} [space] - Indentation spacing.
+ * @returns {string} JSON string with bigint values converted to strings.
+ */
+export function stringify(
+  val: tsJSONStringifyArgs[0],
+  replacer?: (key: string, value: any) => any,
+  space?: tsJSONStringifyArgs[2],
+): string {
+  const bigintReplacer: (key: string, value: any) => any = (key, value) => {
+    if (typeof value === 'bigint') return value.toString()+"n";
+    return replacer ? replacer(key, value) : value;
+  };
+  return JSON.stringify(val, bigintReplacer, space);
+}

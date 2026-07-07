@@ -5,23 +5,6 @@ import type { tsDnaType } from "../shared/base.types.js";
 // Method Interfaces (Internal)
 // ============================================
 
-export interface IStringMethods {
-  min(length: number, meta?: string | tsDnaMeta): this;
-  max(length: number, meta?: string | tsDnaMeta): this;
-  length(length: number, meta?: string | tsDnaMeta): this;
-  pattern(regex: RegExp, meta?: string | tsDnaMeta): this;
-  regex(regex: RegExp, meta?: string | tsDnaMeta): this;
-  trim(): this;
-  toLowerCase(): this;
-  toUpperCase(): this;
-  uppercase(meta?: string | tsDnaMeta): this;
-  lowercase(meta?: string | tsDnaMeta): this;
-  normalize(): this;
-  includes(inc: string, meta?: string | tsDnaMeta): this;
-  startsWith(start: string, meta?: string | tsDnaMeta): this;
-  endsWith(end: string, meta?: string | tsDnaMeta): this;
-}
-
 export interface INumberMethods<T = number> {
   min(value: T, meta?: tsDnaMeta): this;
   max(value: T, meta?: tsDnaMeta): this;
