@@ -52,7 +52,7 @@
     "czvo-compile": "./dist/cli.js"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
+    "@types/node": "^26.1.1",
     "@ytn/shared": "*",
     "tsup": "^8.5.1",
     "tsx": "^4.22.3",
