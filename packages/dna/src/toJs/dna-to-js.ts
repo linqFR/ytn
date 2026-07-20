@@ -1,15 +1,15 @@
-import { STEP } from "../shared/stackstep.js";
+import { STEP } from "../shared/const-steps.js";
 import type { tsDnaSeq } from "../types/core.types.js";
 import type { tsJSParentCtx, tsLaberlId, tsStackFrame } from "../types/dna-js.types.js";
-import type { tsExternals, tsParserFn, tsValidatorFn } from "../shared/runtime.types.js";
+import type { tsDnaExternals, tsDnaParserFn, tsDnaValidatorFn } from "../shared/runtime.types.js";
 import * as basicHandlers from "./dna-js-json.js";
 import * as builderHandlers from "./dna-js-builder.js";
-import jshelpers from "./jshelpers.js";
+import { getRegisteredExternals } from "./registry.js";
 import { fastMergeArrays, PARSE_RETURN } from "./utils.js";
 
 type tsMapperIndex = Record<string, any>;
 
-
+export type tsToJSResult = { code: string[]; requiredExternals: string[]; };
 
 type namerFn = (idx: number | string) => string;
 const namer: namerFn = (idx: number | string) => "L" + idx.toString().padStart(4, "0");
@@ -19,13 +19,15 @@ const namer: namerFn = (idx: number | string) => "L" + idx.toString().padStart(4
 
 
 
-export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = false) => {
+export function toJS(validateMode: boolean, enhancedMapper: false): (dna: tsDnaSeq) => string[];
+export function toJS(validateMode: boolean, enhancedMapper: true): (dna: tsDnaSeq) => tsToJSResult;
+export function toJS(validateMode: boolean = true, enhancedMapper: boolean = false) {
 
 	// Mapper for @ytn/schvalid (canonical DNA opcodes only)
 	// Mapper for DNA builder (canonical + builder-specific opcodes)
 	const mapper: tsMapperIndex = enhancedMapper ? { ...basicHandlers, ...builderHandlers } : basicHandlers;
 
-	return (dna: tsDnaSeq): string[] => {
+	return (dna: tsDnaSeq): string[] | tsToJSResult => {
 
 		if (dna.length < 2) throw new Error("Invalid DNA");
 
@@ -36,12 +38,13 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 		// const extHelpers = externals ? { ...jshelpers, ...externals } : jshelpers;
 		const refList = new Set<number>(dna.slice(-1)[0]);
 
-		//  TOD: change them for hashmaps
+		//  TODO: change them for hashmaps
 		const outerCtxArg = new Set<string>();;
 		const outerCtxConst = new Set<string>();;
 		const constBody = new Set<string>();
 		const letBody = new Set<string>();
 		const initBody = new Set<string>();
+		let isAsync: boolean = false;
 
 		let target = "data";
 		let defaultCtx: tsJSParentCtx = {} as tsJSParentCtx;
@@ -52,7 +55,7 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 		} else {
 			defaultCtx = { isCond: false, failCase: "if(errors.length)return{success:false,errors};", outerblock: "" };
 			target = "data";
-			outerCtxConst.add("errors=[]");
+			constBody.add("errors=[]");
 		}
 		letBody.add(target);
 
@@ -80,15 +83,24 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 				// `typeChecked`) MUST NOT leak across siblings. A previous ref
 				// setting `typeChecked = "number"` would otherwise suppress the
 				// type check in the next ref's body.
-				const refDefaultCtx = { ...defaultCtx, unEvalArr: "_ea", unEvalObj: "_eo" };
-				const refSteps = mapper[refDna[0]](refDna.slice(1), "v", "d", refDna[refDna.length - 1]["uri"], labelId, refDefaultCtx);
+				const refDefaultCtx:tsJSParentCtx = { ...defaultCtx, unEvalArr: "_ea", unEvalObj: "_eo" };
+				// Inject the runtime `_p` param into every baked-in error path this ref's
+				// body produces: handlers build paths via plain string concatenation
+				// (`pathVar + "/required/foo"`), and `_err` embeds the result inside a
+				// single-quoted literal (`"path:'" + path + "'"`). Starting `pathVar`
+				// as `"'+_p+'"` hijacks those quote boundaries so the FINAL generated
+				// code reads `path:''+_p+'/required/foo'` — a real runtime concatenation
+				// of the caller's actual path (`_p`) with this ref's own literal suffix,
+				// instead of a fixed path baked in at compile time (wrong for a shared
+				// function referenced from multiple call sites with different paths).
+				const refSteps = mapper[refDna[0]](refDna.slice(1), "v", "d", validateMode ? "#" : "'+_p+'", labelId, refDefaultCtx);
 				if (typeof refSteps === "string") {
 					refStack.push([STEP.STR_REF, refSteps, refIdx, "", refDefaultCtx]);
 					continue;
 				}
 				refStack.push([STEP.START_REF, ""])
 				fastMergeArrays(refStack, refSteps)
-				refStack.push([STEP.END_REF, refIdx])
+				refStack.push([STEP.END_REF, refIdx, "", "", refDefaultCtx])
 			}
 		}
 		if (refStack.length > 0) {
@@ -109,7 +121,7 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 			const dnaId = frame[0];
 			const ctx = frame[1];
 			const outVar = frame[2] ?? "";
-			const parentCtx = frame[4] ?? {}; // Additional metadata for special handling
+			const parentCtx = frame[4] ?? {} as tsJSParentCtx; // Additional metadata for special handling
 
 			switch (dnaId) {
 				case STEP.BODY:
@@ -126,15 +138,20 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 					sBody = "";
 					continue;
 				case STEP.END_REF: {
-					let letD = "let d;", returnD = "d;";
-					if (parentCtx.isCond) { letD = ""; returnD = "!!d;" }
+					let letD = "let d;", returnD = parentCtx.isCond ? "!!d;":"d;";
+					// `_p` is the caller's current path (a runtime string, since a single
+					// compiled ref function is shared by every call site referencing it —
+					// see the `ref` handler, which passes its own `pathVar` as `_p`). Only
+					// needed in parse mode: `_err` (and thus any path) is never built when
+					// `isCond` (see `_errMode` in `utils.ts`).
+					const params = parentCtx.isCond ? "(v,_ea={},_eo={})" : '(v,errors,_p="#",_ea={},_eo={})';
 
 					// Prelude: if caller didn't pass eval sets (`_ea`/`_eo` undefined),
 					// allocate dummy ones so the body's `.add()` calls don't crash.
 					// The dummies are discarded after return — no propagation.
-					const fnName = namer(ctx);
+					const fnName = namer(ctx as number | string);
 					const visit = fnName + ".visit";
-					outerCtxConst.add(fnName + "=(v,_ea={},_eo={})=>{"
+					outerCtxConst.add(fnName + "=" + params + "=>{"
 						// + visit + "??=new Map();"
 						+ "if(" + visit + ".has(v))return " + visit + ".get(v);" + visit + ".set(v,true);"
 						+ letD
@@ -148,15 +165,17 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 					continue;
 				}
 				case STEP.STR_REF: {
-					// Same signature as END_REF: `(v, _ea, _eo)` with dummy-init prelude
-					// so callers can pass eval-set names for in-place applicator propagation.
-					let letD = "let d;", returnD = "d;";
-					if (parentCtx.isCond) { letD = ""; returnD = "!!d;" }
+					// Same signature as END_REF: `(v, _ea, _eo)` in validate mode, `(v, errors, _p, _ea, _eo)`
+					// in parse mode — dummy-init prelude so callers can pass eval-set names
+					// for in-place applicator propagation.
+					let letD = "let d;", returnD = parentCtx.isCond ? "!!d;":"d;";
+					const params = parentCtx.isCond ? "(v,_ea={},_eo={})" : '(v,errors,_p="#",_ea={},_eo={})';
+					
 					const fnName = namer(outVar);
 					const visit = fnName + ".visit";
-					outerCtxConst.add(fnName + "=(v,_ea={},_eo={})=>{"
+					outerCtxConst.add(fnName + "=" + params + "=>{"
 						// + visit+"??=new Map();"
-						+ "if(" + visit + ".has(v))return " + visit + ".get(v);" + visit + ".set(v, true);"
+						+ "if(" + visit + ".has(v))return " + visit + ".get(v);" + visit + ".set(v,true);"
 						+ letD
 						+ ctx + visit + ".set(v,d);return " + returnD
 						+ "}"
@@ -166,6 +185,7 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 				}
 				case STEP.OUT_ARG: outerCtxArg.add(ctx as string); continue;
 				case STEP.OUT_CONST: outerCtxConst.add(ctx as string); continue;
+				case STEP.ASYNC: isAsync = true; continue;
 			}
 
 			const step = dna[dnaId];
@@ -206,10 +226,10 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 		if (outerCtxArg.size) toJSArgFn.push("{" + Array.from(outerCtxArg) + "}");
 		toJSArgFn.push(
 			(outerCtxConst.size ? "const " + Array.from(outerCtxConst).join(",") + ";" : "")
-			+ "return function(" + jsFnArgs.join(",") + "){" + body + "};"
+						+ "return " + (isAsync ? "async " : "") + "function(" + jsFnArgs.join(",") + "){" + body + "};"
 		)
 
-		return toJSArgFn;
+		return enhancedMapper ? { code: toJSArgFn, requiredExternals: Array.from(outerCtxArg) } : toJSArgFn;
 	};
 };
 
@@ -223,14 +243,22 @@ export const toJS = (validateMode: boolean = true, enhancedMapper: boolean = fal
 // };
 
 // schvalid-specific validator/parser (canonical DNA opcodes only)
-export const validator = (dna: tsDnaSeq, externals?: tsExternals): tsValidatorFn => new Function(...toJS(true, false)(dna))() as tsValidatorFn;
-export const parser = (dna: tsDnaSeq, externals?: tsExternals): tsParserFn => new Function(...toJS(false, false)(dna))() as tsParserFn;
+export const validator = (dna: tsDnaSeq /* , externals?: tsDnaExternals */): tsDnaValidatorFn => new Function(...toJS(true, false)(dna))() as tsDnaValidatorFn;
+export const parser = (dna: tsDnaSeq/* , externals?: tsDnaExternals */): tsDnaParserFn => new Function(...toJS(false, false)(dna))() as tsDnaParserFn;
 
 // Default validator/parser use builderMapper (for DNA builder API)
-export const validatorBuilder = (dna: tsDnaSeq, externals?: tsExternals): tsValidatorFn => new Function(...toJS(true, true)(dna))(externals) as tsValidatorFn;
-export const parserBuilder = (dna: tsDnaSeq, externals?: tsExternals): tsParserFn => new Function(...toJS(false, true)(dna))(externals) as tsParserFn;
+export const validatorBuilder = (dna: tsDnaSeq, externals?: tsDnaExternals) => {
+	const { code, requiredExternals } = toJS(true, true)(dna);
+	const fn = new Function(...code)({ ...getRegisteredExternals(), ...externals });
+	fn.requiredExternals = requiredExternals;
+	return fn as tsDnaValidatorFn & {requiredExternals:string[]};
+};
+export const parserBuilder = (dna: tsDnaSeq, externals?: tsDnaExternals) => {
+	const { code, requiredExternals } = toJS(false, true)(dna);
+	const fn = new Function(...code)({ ...getRegisteredExternals(), ...externals });
+	fn.requiredExternals = requiredExternals;
+	return fn as tsDnaParserFn & {requiredExternals:string[]};
+};
 
-// export const parseFactory = (dna: tsDnaSeq, mapper: tsMapper): Function => createCompiler(mapper).parse(dna);
-// export const validateFactory = (dna: tsDnaSeq, mapper: tsMapper): Function => createCompiler(mapper).validate(dna);
 
 

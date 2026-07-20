@@ -1,5 +1,6 @@
 import type { DnaType } from "../builder/dna-interfaces.js";
 import type { IContext } from "../shared/meta-context.type.js";
+import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
 
 
 // =================================
@@ -7,13 +8,13 @@ import type { IContext } from "../shared/meta-context.type.js";
 // =================================
 
 // Simple helpers for internal use (extract directly from schema properties)
-export type $Output<S> = S extends { _output: infer O } ? O : never;
-export type $Input<S> = S extends { _input: infer I } ? I : never;
+export type $Output<S> = S extends { _output: infer O } ? O : unknown;
+export type $Input<S> = S extends { _input: infer I } ? I : unknown;
 export type $InputHead<T> = T extends { _head: infer H }
-? unknown extends H
-? $Input<T>
-: $InputHead<H>
-: $Input<T>;
+  ? unknown extends H
+  ? $Input<T>
+  : $InputHead<H>
+  : $Input<T>;
 export type infer<T> = $Output<T>;
 
 // export type $State<S> = S extends { _stateDef: infer I } ? I : {};
@@ -30,6 +31,7 @@ export type $UnionToIntersection<U> = (U extends any ? (k: U) => void : never) e
 // Falls back to a plain union for non-object types.
 export type $Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
 export type $Xor<T, U> = (T | U) extends object ? ($Without<T, U> & U) | ($Without<U, T> & T) : T | U;
+export type $Or<T, U> = T | U;
 
 // Helper type for property check compatibility (Zod V4 style)
 // Creates a mapped type from T to enable structural type checking
@@ -84,7 +86,7 @@ export type $EnumKeys<T> = T extends Record<infer K, any> ? K : never;
 export type $EnumValues<T> = T extends (infer V)[] ? V : T extends Record<string, infer V> ? V : never;
 
 // Convert array or object to normalized enum object type (like Zod)
-export type $EnumAsObj<T> = T extends (infer V)[] ? { readonly [K in V as V]: V } : T extends Record<string, infer V> ? { readonly [K in keyof T]: V } : never;
+export type $EnumAsObj<T> = T extends (infer V)[] ? { readonly [K in V as string]: V } : T extends Record<string, infer V> ? { readonly [K in keyof T]: V } : never;
 
 // Extract the full enum object type (keys and values)
 export type $EnumObj<T> = T extends Record<string, infer V> ? Record<string, V> : never;
@@ -92,8 +94,47 @@ export type $EnumObj<T> = T extends Record<string, infer V> ? Record<string, V> 
 // Helper for array types
 export type $ArrayItem<T> = T extends (infer I)[] ? I : never;
 
+// Helper to remove undefined from a type (distributive)
+export type $RemoveUndefined<T> = T extends any ? T extends undefined ? never : T : never;
+
 // Helper to flatten types (like Zod's Flatten)
 export type $Flatten<T> = { [K in keyof T]: T[K] } & {};
 
 // Helper to convert array values to enum object keys (like Zod's ToEnum)
 export type $ToEnum<T extends string | number | bigint> = $Flatten<{ [K in T as K extends string | number | symbol ? K : never]: K }>;
+
+// Map object schemas to their output types
+export type $DnaObjectOutput<T extends Record<string, DnaType<any, any>>> = {
+  [K in keyof T]: $Output<T[K]>
+};
+
+// Map object schemas to their input types
+export type $DnaObjectInput<T extends Record<string, DnaType<any, any>>> = {
+  [K in keyof T]: $Input<T[K]>
+};
+
+// Helper to infer template literal type from parts array
+// Adapted from Zod's approach to handle runtime arrays
+type $UndefinedToEmptyString<T> = T extends undefined ? "" : T;
+type $ResolvePart<T> = T extends DnaType<any, any> ? $Output<T> : T;
+
+export type $AppendToTemplateLiteral<Template extends string, Suffix extends tsTmplLitPart> =
+  Suffix extends tsPrimitiveLiteral ?
+  `${Template}${$UndefinedToEmptyString<Suffix>}`
+  : Suffix extends DnaType<any, any> ?
+  `${Template}${$Output<Suffix> extends infer T extends tsPrimitiveLiteral ? $UndefinedToEmptyString<T> : never}`
+  : never;
+
+/**
+ * Recursively builds the template literal string type from a parts tuple.
+ * `Parts` is `readonly` because `templateLiteral()` uses `readonly [...PP]`, so the
+ * helper must accept readonly tuples. `readonly [...infer Rest, infer Last]` is the
+ * tuple-safe way to destructure the last element while preserving the rest of the tuple.
+ */
+export type $TemplateLiteral<Parts extends readonly tsTmplLitPart[]> =
+  [] extends Parts ? ``
+  : Parts extends readonly [...infer Rest, infer Last extends tsTmplLitPart]
+  ? Rest extends readonly tsTmplLitPart[] ?  $AppendToTemplateLiteral<$TemplateLiteral<Rest>, Last>
+  : never
+  : never;
+

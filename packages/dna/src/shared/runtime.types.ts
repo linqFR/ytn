@@ -18,33 +18,33 @@ export type tsResExc<T = any> = { success: true; data: T } | { success: false; e
  * DNA (so codegen can normalize bundler-mangled refs and expose `const name = externals.name`);
  * the VALUES are supplied at validate/parse time via the externals argument. */
 
-export type tsExternals = Record<string, string | Function>;
+export type tsDnaExternals = Record<string, string | Function>;
 
 /** Declaration form for externals (array or object) used in transform/refine/check/codec.
  * Array form: named functions with `.name` (e.g., `[myFn]`). Arrow functions or anonymous
  * functions are NOT allowed — use the object form `{ myHelper: (v) => v }` to explicitly name them.
  * Object form: `{ myHelper: fn }` where values can be functions or other values (e.g., strings for codec). */
-export type tsExternalsDeclArray = readonly (Function & { name: string })[];
-export type tsExternalsDeclObject = Record<string, unknown>;
-export type tsExternalsDecl = tsExternalsDeclArray | tsExternalsDeclObject;
+export type tsDnaExternalsDeclArray = readonly (Function & { name: string })[];
+export type tsDnaExternalsDeclObject = Record<string, unknown>;
+export type tsDnaExternalsDecl = tsDnaExternalsDeclArray | tsDnaExternalsDeclObject;
 
 
 /**
- * @type tsValidatorFn
+ * @type tsDnaValidatorFn
  * @description Function signature for DNA validator - returns boolean.
  */
-export type tsValidatorFn = (value: unknown) => boolean;
+export type tsDnaValidatorFn = (value: unknown) => boolean;
 
 /**
- * @type tsParserResult
+ * @type tsDnaParserResult
  * @description Result object returned by DNA parser.
  */
-export type tsParserResult<O = any> =
+export type tsDnaParserResult<O = any> =
 	| { success: true; data: O }
 	| { success: false; errors: tsParserError[] };
 
 /**
- * @type tsParserFn
+ * @type tsDnaParserFn
  * @description Function signature for DNA parser - returns parser result.
  */
-export type tsParserFn<I = unknown, O = any> = (value: I) => tsParserResult<O>;
+export type tsDnaParserFn<I = unknown, O = any> = (value: I) => tsDnaParserResult<O>;

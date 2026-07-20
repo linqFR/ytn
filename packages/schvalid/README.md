@@ -15,7 +15,6 @@ DNA JSON Schema processing and validation.
 - [Usage](#usage)
   - [Converting JSON Schema to DNA](#converting-json-schema-to-dna)
   - [Converting DNA back to JSON Schema](#converting-dna-back-to-json-schema)
-  - [Validation with DNA](#validation-with-dna)
   - [Compile Once, Validate Many](#compile-once-validate-many)
   - [Discriminator Support](#discriminator-support)
 - [Performance](#performance)
@@ -56,50 +55,13 @@ const dna = jschemaToDna(schema);
 // Returns DNA bytecode array
 ```
 
-### Converting DNA back to JSON Schema
+### Converting DNA back to JSON Schema (soon)
 
 ```typescript
 import { dnaToJSchema } from "@ytn/schvalid";
 
 const schema = dnaToJSchema(dna);
 // Returns original JSON Schema
-```
-
-### Validation with DNA
-
-`@ytn/schvalid` provides convenience functions that combine JSON Schema conversion and validation in a single call:
-
-```typescript
-import { validate, parse } from "@ytn/schvalid";
-
-const schema = {
-  type: "object",
-  properties: {
-    name: { type: "string", minLength: 3 },
-    age: { type: "number", minimum: 0 },
-  },
-};
-
-// Fast boolean validator (fail-fast, no error collection)
-const isValid = validate(schema, { name: "John", age: 30 }); // true
-
-// Full parser with error collection and data transformation
-const result = parse(schema, { name: "John", age: 30 });
-// Returns: { success: true, data: { name: "John", age: 30 } }
-
-const invalidResult = parse(schema, { name: "Jo", age: -1 });
-// Returns: { success: false, errors: [...] }
-```
-
-For advanced use cases, you can also convert to DNA first and then use the `@ytn/dna` validation engine directly:
-
-```typescript
-import { jschemaToDna } from "@ytn/schvalid";
-import { validator, parser } from "@ytn/dna";
-
-const dna = jschemaToDna(schema);
-const validateFn = validator(dna);
-const parseFn = parser(dna);
 ```
 
 ### Compile Once, Validate Many
@@ -148,8 +110,7 @@ parse(data); // { success: true, data: ... } | { success: false, errors: [...] }
 DNA Schema supports the OpenAPI 3.1 `discriminator` keyword for optimized validation of polymorphic schemas:
 
 ```typescript
-import { jschemaToDna } from "@ytn/schvalid";
-import { validator, parser } from "@ytn/dna";
+import { schvalid } from "@ytn/schvalid";
 
 const schema = {
   type: "object",
@@ -177,9 +138,7 @@ const schema = {
   ],
 };
 
-const dna = jschemaToDna(schema);
-const validate = validator(dna);
-const parse = parser(dna);
+const { validate, parse } = schvalid("both").compile(schema);
 
 validate({ type: "cat", name: "Whiskers", meows: true }); // true
 validate({ type: "bird", name: "Tweety" }); // false
@@ -194,10 +153,9 @@ The discriminator is optimized with a `switch` statement in the generated JavaSc
 
 **Benchmark Results** (vs AJV 2020):
 
-- Compilation: **~20-25x faster** than AJV Minimal
-- Validation (valid data): **~1.5-2x faster** than AJV Minimal
-- Generated code size: **4x smaller** than AJV (1295 bytes vs 5293 bytes)
-- Parser mode: Collects first blocking error with **~35% smaller** standalone code than AJV validation function with **comparable or faster** validation performance.
+- Compilation: **~5x faster** than AJV Minimal
+- Validation (valid data): **~1.10 faster** than AJV Minimal
+- Parser mode: Collects first blocking error with **~20% smaller** standalone code than AJV validation function with **comparable or faster** validation performance.
 
 ## Development
 
@@ -217,14 +175,14 @@ npm test
 npm run test:full
 
 # Run performance benchmarks only
-npm run test:performance
+npm run test:bench
 ```
 
-**Test Coverage**: 1160 passing, 44 skipped.
+**Test Coverage of JSON validation Suite**: 1157 passing, 44 skipped.
 
 - The 44 skipped tests are from the JSON Schema Test Suite and involve external references (`$ref` to HTTP URIs, URNs, or external files), which are explicitly out of scope for DNA Schema (only internal references are supported).
 
-The test suite includes:
+The full test suite includes:
 
 - **JSON Schema Test Suite**: Comprehensive validation against official JSON Schema 2020-12 test cases. For more information, read [JSON Schema Validation Suite](tests/json-schema-suite/README.md). Skipped: `refRemote.json`, `dynamicRef.json`, `content.json`, `vocabulary.json`.
 - **Discriminator Tests**: Full coverage of OpenAPI 3.1 discriminator keyword with validator and parser modes.

@@ -32,7 +32,9 @@ export const fastMergeArrays = <T = any>(target: T[], source: T[]): T[] => {
 
 // Helper functions for DNA to JS compilation
 // These are shared between dna-js-full.ts and dna-js-builder.ts
-import type { tsJSParentCtx } from "../types/index.js";
+import { STEP } from "../shared/const-steps.js";
+import { serializeRaw } from "../shared/utils.js";
+import type { tsDnaExternals, tsJSParentCtx, tsStackFrame } from "../types/index.js";
 
 /**
  * DNA → JS CODE CONVENTIONS
@@ -63,6 +65,34 @@ import type { tsJSParentCtx } from "../types/index.js";
 
 export const _err = (ctx: tsJSParentCtx, _inVarName: string, path: string, msg: string, isLiteral = true) =>
 	"errors.push({message:" + (isLiteral ? JSON.stringify(msg) : escStr(msg)) + ",path:'" + path + "',input:" + _inVarName + "})";
+
+/**
+ * Detects whether a stringified function (`fn.toString().trim()`, as stored in the
+ * DNA `refinerList`/transform payload) is declared `async`. Purely a
+ * compile-time (codegen) check — evaluated once per `.refine()`/`.transform()`
+ * during DNA→JS compilation, never at validation call time.
+ */
+export const isAsyncFnStr = (fnStrTrimed: string): boolean => /^async(?:\s|[^\w])/.test(fnStrTrimed);
+
+/**
+ * Prefixes a generated call expression with `await` when the underlying
+ * function is async. Callers are also responsible for signaling `[STEP.ASYNC]`
+ * so the enclosing compiled function is emitted as `async function(...)`.
+ */
+export const withAwait = (isAsync: boolean, call: string): string => isAsync ? "await " + call : call;
+
+/**
+ * Given a DNA node's meta (or a raw externals map), emits one `[STEP.OUT_ARG, name]`
+ * per captured external — this is how a stringified function (`.refine()`,
+ * `.transform()`, `.catch()`, ...) gets access to values from OUTSIDE the
+ * compiled closure: each name is destructured from the top-level `externals`
+ * argument passed to `validatorBuilder`/`parserBuilder` (see `dna-to-js.ts`).
+ */
+export const externalsOutArgs = (externals: tsDnaExternals | undefined): tsStackFrame[] =>
+	externals ? Object.keys(externals).map((name): tsStackFrame => [STEP.OUT_ARG, name]) : [];
+
+export const _errMode = (isCond: boolean | undefined, cond: string, err: string) =>
+	isCond ? cond : "((" + cond + ")||" + err + ")";
 
 export const simpleNodeToJs = (
 	parentCtx: tsJSParentCtx,
@@ -171,11 +201,29 @@ export const simpleNodeToJs = (
 		// In validator mode it is woven into the emitted statements; in parser
 		// mode (ternary assignment) we MUST prepend it as a leading statement,
 		// otherwise reads in the ternary observe an undefined value.
-		const counterExpr = counter ? (Array.isArray(counter) ? "(" + counter.map(c => "(++" + c + ")").join("&&") + ")&&" : "(++" + counter + ")&&") : "";
-		const bodyExpr = _body ? "(" + _body + ")&&" : "";
-		const failExpr = (mustMatchType && condErr) ? condErr : _inVarName;
-		if (test)	return preBody + _outVarName + "=" + test + "?" + bodyExpr + counterExpr + _inVarName + ":" + failExpr + ";" + parentCtx.failCase;
-		return preBody + _outVarName + "=" + bodyExpr + counterExpr + _inVarName + ";" + parentCtx.failCase;
+		const bodyExpr = _body ? "(" + _body + ")" : "";
+		const counterExpr = counter ? (Array.isArray(counter) ? "(" + counter.map(c => "(" + c + ")").join("&&") + ")" : "(" + counter + ")") : "";
+		const InAssigned = _inVarName ;
+		const trail = [bodyExpr, counterExpr, InAssigned].filter(Boolean).join("&&");
+
+		const outAssigned =  _outVarName + "=" ;
+		
+		const failExpr = (mustMatchType && condErr) ? condErr : _outVarName.length ? _inVarName : "";
+		
+		if (test) return preBody + outAssigned + test + (trail.length ? "?" + trail + ":" : "||") + failExpr + ";" + parentCtx.failCase;
+		return preBody + outAssigned + trail + (trail.length ? ";" : "") + parentCtx.failCase;
 	}
 };
 
+/**
+ * Converts a value to a JavaScript code string representation.
+ * Unlike JSON.stringify, this generates valid JS code literals.
+ * Handles bigint and regex recursively in objects/arrays with memoization.
+ *
+ * @param value - The value to convert
+ * @param cache - Internal WeakMap for memoization (prevents infinite loops)
+ * @returns A string representation suitable for JS code generation
+ */
+export function tojsStr(value: any, cache = new WeakMap<object, string>()): string {
+	return serializeRaw(value, { mode: "js", sortKeys: false, cache });
+}

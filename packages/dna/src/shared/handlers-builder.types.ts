@@ -1,16 +1,15 @@
-
-import type { tsDnaType } from "./base.types.js";
+import type { DnaType } from "../builder/dna-interfaces.js";
 import type { IRefinerErrorOpt, IRefinerPayload } from "./error.types.js";
 import type { IContext, ITransformContext } from "./meta-context.type.js";
+import type { $MaybeAsync } from "../types/helpers.types.js";
+import type { tsPrimitiveLiteral } from "./base.types.js";
+import type { tsDnaExternals } from "./runtime.types.js";
 
-// Transform function type: can be simple (value only) or with context, sync or async, or a constant value
+// Transform function type: can be simple (value only) or with context, sync or async
 export type tsTransformFn<T, R> =
-  | R
-  | ((value: T) => R)
-  | ((value: T) => Promise<R>)
-  | ((value: T, ctx: ITransformContext<T>) => R)
-  | ((value: T, ctx: ITransformContext<T>) => Promise<R>)
-  | ((ctx: ITransformContext<T>) => R);
+  | ((value: T) => $MaybeAsync<R>)
+  | ((value: T, ctx: ITransformContext<T>) => $MaybeAsync<R>)
+  | ((ctx: ITransformContext<T>) => $MaybeAsync<R>);
 
 // Refine function type: validation function returning boolean
 export type tsRefineFn<T> = (value: T) => boolean;
@@ -36,21 +35,19 @@ export type tsTransformOpt = [string, number]; // [function string, arity]
 export type tsCheckFn<T> = (ctx: IRefinerPayload<T>) => Promise<void> | void;
 
 export type tsRefinerOpt =
-| ["func", string, number]
-| ["func", string, number, IRefinerErrorOpt]
-| ["func", string, number, IRefinerErrorOpt, Record<string, string>]
-| ["func", string, number, IRefinerErrorOpt, Record<string, string>, Record<string, string>]
-| ["func", string, number, IRefinerErrorOpt, Record<string, string>, Record<string, string>, Record<string, string>];
+  | ["func", string, number]
+  | ["func", string, number, IRefinerErrorOpt]
+  | ["func", string, number, IRefinerErrorOpt, tsDnaExternals];
 
 
 // Check opcode options: built-in checks or custom functions
-export type tsCheckOpt<Flag extends "dna"|"opt"="dna"> =
+export type tsCheckOpt<Flag extends "dna" | "opt" = "dna"> =
   | ["lowercase"]
   | ["uppercase"]
   | ["startsWith", string]
   | ["endsWith", string]
   | ["includes", string, number?]
-  | ["property", string | number, Flag extends"dna" ? tsDnaType<any> : number]
+  | ["property", string | number, Flag extends "dna" ? DnaType<any, any> : number]
   | tsRefinerOpt;
 
 
@@ -59,6 +56,3 @@ export type tsPreprocessOpt = [number, string, number]; // [schemaId, function s
 
 // Pipe opcode options: chain input schema → transform → output schema
 export type tsPipeOpt = [number, number, string, number]; // [inSchemaId, outSchemaId, transformFn, arity]
-
-export type tsTmplPartPrimitives = string | number | bigint | boolean | null | undefined ;
-export type tsTmplLitArg = tsTmplPartPrimitives | tsDnaType<any>;

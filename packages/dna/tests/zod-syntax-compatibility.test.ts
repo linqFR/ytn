@@ -2,8 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { dna } from "../_archives/index.js";
-import { validatorBuilder as validator, parserBuilder as parser } from "../src/toJs.js";
+import { dna } from "../src/index.js";
 import { z } from "zod";
 
 // Emulate __dirname in ESM
@@ -36,8 +35,36 @@ describe("DNA Schema Builder API", () => {
     expect(dna.union).toBeDefined();
     expect(dna.record).toBeDefined();
     expect(dna.bigint).toBeDefined();
-    expect(dna.default).toBeDefined();
+    // @ts-expect-error
+    expect(dna.default).not.toBeDefined();
     expect(dna.prefault).toBeDefined();
+    expect(dna.function).toBeDefined();
+  });
+
+  it("zod exports core schema builders", () => {
+    expect(z.string).toBeDefined();
+    expect(z.number).toBeDefined();
+    expect(z.boolean).toBeDefined();
+    expect(z.object).toBeDefined();
+    expect(z.array).toBeDefined();
+    expect(z.email).toBeDefined();
+    expect(z.url).toBeDefined();
+    expect(z.uuid).toBeDefined();
+    expect(z.lazy).toBeDefined();
+    expect(z.literal).toBeDefined();
+    expect(z.enum).toBeDefined();
+    expect(z.null).toBeDefined();
+    expect(z.undefined).toBeDefined();
+    expect(z.any).toBeDefined();
+    expect(z.unknown).toBeDefined();
+    expect(z.never).toBeDefined();
+    expect(z.union).toBeDefined();
+    expect(z.record).toBeDefined();
+    expect(z.bigint).toBeDefined();
+    expect(z.function).toBeDefined();
+    // @ts-expect-error
+    expect(z.default).not.toBeDefined();
+    expect(z.prefault).not.toBeDefined();
   });
 });
 
@@ -51,14 +78,10 @@ describe("DNA vs Zod Compatibility Tests", () => {
       return;
     }
     
-    let dnaValidate: any;
-    let dnaParse: any;
     let dnaCompileError: any = null;
 
     try {
-      const dnaBytecode = dnaSchema.toDna();
-      dnaValidate = validator(dnaBytecode);
-      dnaParse = parser(dnaBytecode);
+      dnaSchema.toDna();
     } catch (e: any) {
       dnaCompileError = e;
       console.log(`ERROR in group: ${fileName} > ${description}`);
@@ -70,30 +93,52 @@ describe("DNA vs Zod Compatibility Tests", () => {
 
     describe(description, () => {
       for (const test of tests) {
-        it(test.description, () => {
+        it(test.description, async () => {
           if (dnaCompileError) throw dnaCompileError;
 
+          const isAsyncError = (e: any) =>
+            e?.message?.includes("synchronously") ||
+            e?.message?.includes("Promise") ||
+            e?.message?.includes("async");
+
           // Test Zod
-          const zodResult = zodSchema.safeParse(test.data, { reportInput: true });
+          let zodResult: any;
+          try {
+            zodResult = zodSchema.safeParse(test.data, { reportInput: true });
+          } catch (e: any) {
+            if (isAsyncError(e)) {
+              zodResult = await zodSchema.safeParseAsync(test.data, { reportInput: true });
+            } else {
+              throw e;
+            }
+          }
           const zodValid = zodResult.success;
 
-          // Test DNA validator
+          // Test DNA validatorBuilder
           let dnaValid = false;
           try {
-            dnaValid = dnaValidate(test.data);
+            dnaValid = dnaSchema.validate(test.data);
           } catch (e: any) {
-            dnaValid = false;
+            if (isAsyncError(e)) {
+              dnaValid = await dnaSchema.validateAsync(test.data);
+            } else {
+              dnaValid = false;
+            }
           }
 
           // Test DNA parser
           let dnaParseResult: any;
           try {
-            dnaParseResult = dnaParse(test.data);
+            dnaParseResult = dnaSchema.safeParse(test.data);
           } catch (e: any) {
-            dnaParseResult = { success: false, errors: [e] };
+            if (isAsyncError(e)) {
+              dnaParseResult = await dnaSchema.safeParseAsync(test.data);
+            } else {
+              dnaParseResult = { success: false, errors: [e] };
+            }
           }
 
-          // Compare Zod and DNA validator results
+          // Compare Zod and DNA validatorBuilder results
           try {
             expect(dnaValid).toBe(zodValid);
           } catch (e: any) {

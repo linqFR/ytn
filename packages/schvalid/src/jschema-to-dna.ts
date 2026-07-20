@@ -1,8 +1,8 @@
-import type { tsDnaSeq } from "@ytn/dna";
 import { isPureObject } from "@ytn/shared/js/object-utils.js";
 import { isValidRegex } from "@ytn/shared/regex/is-valid-regex.js";
 import { resolveUri } from "./dna-helpers.js";
 import { fastMergeArrays } from "./utils.js";
+import type { tsDnaSeq } from "@ytn/dna/toJs";
 
 export class OutOfScopeError extends Error {
   constructor(feature: string) {
@@ -12,11 +12,8 @@ export class OutOfScopeError extends Error {
 }
 
 type tsDnaId = number;
-type tsDna = { [kw: tsDnaId]: any };
-type tsDnaResult = any[]; // Legacy type, use tsDnaSeq from @ytn/dna instead
-
+type tsDnaObj = { [kw: tsDnaId]: any };
 type tsStoreId = tsDnaId;
-
 type tsStore = Map<tsStoreId, any>;
 
 
@@ -68,14 +65,20 @@ const META_SET = new Set(META_KEYS);
 const isTrueSchema = (node: true | {}) => (node === true) || (node && Object.keys(node).length === 0 && node.constructor === Object);
 
 
-export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssertion?: boolean }): tsDnaSeq {
+export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssertion?: boolean; strict?: boolean; validateSchema?: boolean }): tsDnaSeq {
+  if (root === null || (typeof root !== "object" && typeof root !== "boolean") || Array.isArray(root)) {
+    throw new Error("Invalid schema: root must be an object or boolean");
+  }
+
   if (root.$schema && !root.$schema.includes("2020-12")) {
     throw new OutOfScopeError(`JSON Schema version ${root.$schema}`);
   }
 
+  // DFAULT VALUES OF OPTIONS
   const formatAssertion = options?.formatAssertion ?? false;
+  const doValidate = options?.strict !== false && options?.validateSchema !== false;
 
-  const dna: tsDna = { 0: ["T", {}] };
+  const dna: tsDnaObj = { 0: ["T", {}] };
   const store: tsStore = new Map();
   const dnaCache = new Map();
 
@@ -202,9 +205,7 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
       continue;
     }
     if (node === null) {
-      const uri = parentUriMap.get(parentPath);
-      storeDNA(["#/null", uri ? { uri } : {}], ["n0"], storeMark, storePosition());
-      continue;
+      throw new Error("Invalid schema: schema must be an object or boolean");
     }
 
     if (typeof node === "object") {
@@ -234,9 +235,25 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
 
       const type = node.type;
 
-      // Validate type keyword: must be string, array of strings, or undefined
-      if (type !== undefined && typeof type !== "string" && !Array.isArray(type)) {
-        throw new Error(`Invalid type value: ${JSON.stringify(type)}. Type must be a string or array of strings.`);
+      if (doValidate) {
+        const VALID_TYPES = ["string", "number", "integer", "boolean", "null", "array", "object"];
+
+        // Validate type keyword: must be string, array of strings, or undefined
+        if (type !== undefined) {
+          if (typeof type === "string") {
+            if (!VALID_TYPES.includes(type)) {
+              throw new Error(`Invalid type value: ${JSON.stringify(type)}`);
+            }
+          } else if (Array.isArray(type)) {
+            for (const t of type) {
+              if (typeof t !== "string" || !VALID_TYPES.includes(t)) {
+                throw new Error(`Invalid type value in array: ${JSON.stringify(t)}`);
+              }
+            }
+          } else {
+            throw new Error(`Invalid type value: ${JSON.stringify(type)}. Type must be a string or array of strings.`);
+          }
+        }
       }
       // const declaredTypes = new Set(typeof type === "undefined" ? [] : Array.isArray(type) ? type : [type]);
 
@@ -248,7 +265,10 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
       if (typeof node.const !== "undefined") pseudoTypes.add("const");
       // Empty enum (`enum: []`) is a valid JSON Schema construct that matches
       // nothing — keep it in pseudoTypes so the opcode is still emitted.
-      if (typeof node.enum !== "undefined" && Array.isArray(node.enum)) pseudoTypes.add("enum");
+      if (typeof node.enum !== "undefined") {
+        if (doValidate && !Array.isArray(node.enum)) throw new Error("enum must be an array");
+        if (Array.isArray(node.enum)) pseudoTypes.add("enum");
+      }
 
       const {
         // string
@@ -264,9 +284,14 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
       // const { minLength, maxLength, pattern, format } = node;
       const hasMin = typeof minLength === 'number' && minLength >= 0;
       const hasMax = typeof maxLength === 'number' && maxLength >= 0;
-      const hasPattern = isValidRegex(pattern);
+      const hasValidPattern = isValidRegex(pattern);
       const hasFormat = typeof format === "string";
-      if (type === "string" || hasMin || hasMax || hasPattern || hasFormat) pseudoTypes.add("string");
+      if (doValidate) {
+        if (minLength !== undefined && !hasMin) throw new Error("minLength must be >= 0");
+        if (maxLength !== undefined && !hasMax) throw new Error("maxLength must be >= 0");
+        if (pattern !== undefined && !hasValidPattern) throw new Error("Invalid pattern: must be a valid regular expression string");
+      }
+      if (type === "string" || hasMin || hasMax || hasValidPattern || hasFormat) pseudoTypes.add("string");
 
       // const { minimum, maximum, multipleOf, exclusiveMinimum, exclusiveMaximum } = node;
       const hasNumMin = typeof minimum === "number";
@@ -274,6 +299,7 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
       const hasMultOf = typeof multipleOf === "number";
       const hasExclMin = typeof exclusiveMinimum === "number";
       const hasExclMax = typeof exclusiveMaximum === "number";
+      if (doValidate && multipleOf !== undefined && (typeof multipleOf !== "number" || multipleOf <= 0 || Number.isNaN(multipleOf))) throw new Error("multipleOf must be > 0");
       if (type === "number" || type === "integer" || type === "bigint" || hasNumMin || hasNumMax || hasMultOf || hasExclMin || hasExclMax)
         pseudoTypes.add("number");
 
@@ -282,7 +308,7 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
 
       // const { required, minProperties, maxProperties, properties, patternProperties, propertyNames, additionalProperties, unevaluatedProperties, dependentRequired } = node;
 
-      const hasRequired = required != null && Array.isArray(required) && required.length > 0;
+      const hasRequired = required != null && Array.isArray(required) && required.length > 0 && required.every(r => typeof r === "string");
       const hasMinProp = typeof minProperties === 'number' && minProperties >= 0;
       const hasMaxProp = typeof maxProperties === 'number' && maxProperties >= 0;
       const hasProperties = properties != null && typeof properties === "object" && Object.keys(properties).length > 0;
@@ -302,6 +328,12 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
       const hasDependentSchemas = isPureObject(dependentSchemas)
         && Object.keys(dependentSchemas).length > 0;
       const hasAdditionalProp = typeof additionalProperties !== "undefined";
+
+      if (doValidate) {
+        if (required !== undefined && (!Array.isArray(required) || !required.every(r => typeof r === "string"))) throw new Error("required must be an array of strings");
+        if (minProperties !== undefined && !hasMinProp) throw new Error("minProperties must be >= 0");
+        if (maxProperties !== undefined && !hasMaxProp) throw new Error("maxProperties must be >= 0");
+      }
 
       const isDiscriminator = typeof node.discriminator?.propertyName === "string"
         && node.type === "object"
@@ -326,6 +358,10 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
       // const { items, minItems, maxItems, uniqueItems, contains, prefixItems, unevaluatedItems, minContains, maxContains } = node;
       const hasMinItems = typeof minItems === "number" && minItems > -1;
       const hasMaxItems = typeof maxItems === "number" && maxItems > -1;
+      if (doValidate) {
+        if (minItems !== undefined && !hasMinItems) throw new Error("minItems must be >= 0");
+        if (maxItems !== undefined && !hasMaxItems) throw new Error("maxItems must be >= 0");
+      }
       const hasContains = contains !== undefined && (typeof contains === "boolean" || isPureObject(contains))
       const hasMinContains = typeof minContains === "number" && minContains > 0;
       const hasMaxContains = typeof maxContains === "number" && maxContains > -1;
@@ -479,6 +515,9 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
           refNode = resolvePointer(ref, root);
           if (typeof refNode !== "undefined") uriMap.set(refAbs, refNode);
         }
+        if (!refNode) {
+          throw new Error(`Cannot resolve $ref: ${ref}`);
+        }
         const pPath = parentPath + "/" + "$ref/" + ref;
         parentUriMap.set(pPath, refNode[1]);
         stack.push([pPath, refNode[0], refStoreId, 1]);
@@ -504,7 +543,7 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
         const isComplex = typeof node.const === "object" && node.const !== null;
         const opcode = isComplex ? "cD" : "c";
         // if (isComplex) extraArgs.push('deepEqual');
-        storeDNA([node.const, meta], [opcode, JSON.stringify(node.const)], storeMark, storePosition());
+        storeDNA([node.const, meta], [opcode, node.const], storeMark, storePosition());
         // continue;
       }
       if (pseudoTypes.has("enum")) {
@@ -526,7 +565,7 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
         const minVal = hasMin ? minLength : null;
         const maxVal = hasMax ? maxLength : null;
         // if (hasMin || hasMax) extraArgs.push("fCntStr");
-        const patternVal = hasPattern ? pattern : null;
+        const patternVal = hasValidPattern ? new RegExp(pattern as string, "u").source : null;
         const formatVal = (hasFormat && formatAssertion) ? format : null;
         const pseudoType = type === "string" ? "s" : "_s";
         storeDNA([pseudoType, minLength, maxLength, pattern, format, meta],
@@ -568,21 +607,24 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
         const discriminSubSch = node.oneOf;
         let kLen = discriminSubSch.length;
 
-        const discriminDef = new Array(kLen);
+        const discriminDef = new Array(1 + kLen);
         const discriminKeys = new Array(kLen);
         const discriminStoreId = setStore(discriminDef);
 
+        const discRequired = [discriminator, ...(hasRequired ? required.filter(r => r !== discriminator) : [])];
+
+        
         for (; kLen--;) {
           const sch = discriminSubSch[kLen];
           const key = sch.properties[discriminator].const;
-          discriminKeys[kLen] = JSON.stringify(key);
-          const _sch = { ...sch};
-          const {[discriminator]:_, ...rest} = sch.properties;
+          discriminKeys[kLen] = key;
+          const _sch = { ...sch };
+          const { [discriminator]: _, ...rest } = sch.properties;
           _sch.properties = rest;
-          discriminDef[kLen] = -1;
-          stack.push([parentPath + "/" + discriminator + "/" + String(kLen), _sch, discriminStoreId, kLen])
+          stack.push([parentPath + "/" + discriminator + "/" + String(kLen), _sch, discriminStoreId, 1+ kLen])
         }
-        storeDNA([discriminator, discriminateContent, meta], ["discriminator", JSON.stringify(discriminator), discriminKeys, discriminDef], storeMark, storePosition());
+        stack.push([parentPath + "/" + discriminator, { type: "object", required: discRequired }, discriminStoreId, 0]);
+        storeDNA([discriminator, discriminateContent, meta], ["discriminator", discriminator, discriminKeys, discriminDef], storeMark, storePosition());
         continue;
       }
 

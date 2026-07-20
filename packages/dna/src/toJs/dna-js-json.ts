@@ -1,15 +1,15 @@
-import type { tsJSStepAct } from "../shared/stackstep.js";
-import { STEP } from "../shared/stackstep.js";
-import { STRING_FORMAT_PATTERNS } from "../shared/string-format.js";
+import type { tsDnaInnerMeta } from "../shared/meta-context.type.js";
+import { STEP } from "../shared/const-steps.js";
+import { getStringFormatPattern } from "../shared/string-format.js";
 import type {
 	tsArrayDNA,
 	tsConstDNA, tsIfThenElseDNA,
 	tsJSFn,
 	tsJSFuncReturn, tsJSParentCtx,
+	tsJSStepAct,
 	tsJSStepOp,
 	tsJSStepString,
 	tsLaberlId,
-	tsMeta,
 	tsNumberDNA,
 	tsObjectDNA,
 	tsOfList,
@@ -19,30 +19,20 @@ import type {
 import {
 	simpleNodeToJs,
 	_err,
+	_errMode,
 	ERR_UNDEF,
 	ERR_UNDEF_,
 	fastMergeArrays,
-	namer
+	namer,
+	tojsStr
 } from "./utils.js";
+import { FN_cidrV6, FN_dEq, FN_fCount } from "./inline-func.js";
 
-/* This file contains the logic to accumulate all errors in fail fast mode */
+// Shared type test
 
-const FN_fCount = "fCount=s=>{let i=s.length,c=0;while(i--){if((s.charCodeAt(i)&0xFC00)!==0xDC00)c++}return c}";
-const FN_dEq = 'dEq=(a,b)=>{const s=[[a, b]];while(s.length){const [c,d]=s.pop();let i;if(c===d)continue;if(c&&d&&"object"===typeof c&&"object"===typeof d){if(c.constructor!==d.constructor)return !1;if(Array.isArray(c)){if(c.length!==d.length)return !1;i=c.length;for(;i--;)s.push([c[i], d[i]]);}else{const k=Object.keys(c);if(k.length!==Object.keys(d).length)return !1;i=k.length;for(;i--;){const f=k[i];if(!Object.hasOwn(d,f))return !1;s.push([c[f],d[f]]);}}}else if(c!==d)return !1;}return !0;};';
-
-// `_errMode` shapes a single body item.
-//  - Validator: just `cond` (the bare test).
-//  - Parser: `(cond || errors.push(...) && undefined)` — wrapped in parens so
-//    that when multiple items are joined by `&&` (and later `&&`-ed with
-//    `_inVarName` in the ternary), JS precedence (`&&` > `||`) doesn't
-//    collapse the chain. Without the parens, `cond1||err1 && cond2||err2`
-//    short-circuits to `true` on success and `_outVarName` gets `true`
-//    instead of the value.
-const _errMode = (isCond: boolean | undefined, cond: string, err: string) =>
-	isCond ? cond : "((" + cond + ")||" + err + ")";
-
-const _assignOut = (_outVarName: string = "", val: string) => _outVarName.length ? _outVarName + "=" + val + ";" : val;
-
+const TEST_STRING = (inVar: string) => "typeof " + inVar + '==="string"';
+const TEST_OBJECT = (inVar: string) => "typeof " + inVar + '==="object"&&' + inVar + "!==null&&!Array.isArray(" + inVar + ")";
+const TEST_NUMBER = (inVar: string) => "typeof " + inVar + '==="number"&&Number.isFinite(' + inVar + ")";
 
 
 /**
@@ -179,7 +169,8 @@ const _unEvalEnv = (parentCtx: tsJSParentCtx, opts: { kind: tsUnEvalKind; idx: n
 
 	const typePosTest = isArr
 		? "Array.isArray(" + inVar + ")"
-		: '(typeof ' + inVar + '==="object"&&' + inVar + '!==null&&!Array.isArray(' + inVar + '))';
+		// : '(typeof ' + inVar + '==="object"&&' + inVar + '!==null&&!Array.isArray(' + inVar + '))';
+		: "(" + TEST_OBJECT(inVar) + ")";
 
 	const beenTested = parentCtx.typeChecked === typeChecked;
 	// `innerBreak_` exits the local block as a *vacuous success* (skip-OK on
@@ -306,12 +297,12 @@ const _unEvalEnv = (parentCtx: tsJSParentCtx, opts: { kind: tsUnEvalKind; idx: n
 	return steps;
 };
 
-export const assign = (dnaOpt: [number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) => {
+export const assign = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) => {
 	if (parentCtx.isCond) return (parentCtx.counter ? parentCtx.counter + ";" : "");
 	else return _outVarName + "=" + _inVarName + ";";
 }
 
-export const seq = (dnaOpt: [number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const seq = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const seq = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 	const idx = labelId();
@@ -350,7 +341,7 @@ export const seq = (dnaOpt: [number[], tsMeta], _inVarName: string, _outVarName:
 	return steps;
 }
 
-export const ref = (dnaOpt: [number, tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFuncReturn => {
+export const ref = (dnaOpt: [number, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFuncReturn => {
 	const opt = dnaOpt[0];
 	// Forward caller's eval-sets to the ref'd function when present (in-place
 	// applicator semantic — e.g. `$ref` sibling of `unevaluatedProperties`).
@@ -358,23 +349,48 @@ export const ref = (dnaOpt: [number, tsMeta], _inVarName: string, _outVarName: s
 	// or no uneval context), we pass `undefined` and the function preludes a
 	// dummy set internally → no propagation back to caller.
 	const ea = parentCtx.unEvalArr, eo = parentCtx.unEvalObj;
-	const res = (ea || eo)
-		? namer(opt) + "(" + _inVarName + "," + (ea ?? "undefined") + "," + (eo ?? "undefined") + ")"
-		: namer(opt) + "(" + _inVarName + ")";
-	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, "", res, "", "", true);
+	const refArgs = [_inVarName];
+	// The compiled ref function has 2 signatures: (v, _ea, _eo) in Validate (isCond) Mode and (v, errors, _p, _ea, _eo) in Parse Mode.
+	// `_p` only exists in parse mode: `_err` (and thus any path) is never built
+	// when `isCond` (see `_errMode` in `utils.ts`), so validate mode has nothing
+	// to pass a path for.
+	if (!parentCtx.isCond) {
+		refArgs.push("errors");
+		// `_p` is THIS call site's actual path (e.g. "#/self") — the ref function is
+		// shared across every place that references it, so its baked-in error paths
+		// are compiled relative to a runtime `_p` param instead of a fixed literal
+		// (see `dna-to-js.ts`'s `'+_p+'` injection). Every call site must pass its
+		// own path here for that runtime concatenation to produce a correct result.
+		// Wrapped the SAME way `_err` wraps paths (single quotes, not JSON.stringify):
+		// when this call site is itself INSIDE another ref's body, `pathVar` already
+		// contains a `'+_p+'` injection marker — JSON.stringify would re-escape it
+		// into inert text instead of leaving it as a live runtime expression.
+		refArgs.push("'" + pathVar + "'");
+	}
+	if (ea || eo) {
+		refArgs.push(ea ?? "undefined");
+		refArgs.push(eo ?? "undefined");
+	}
+	const res = namer(opt) + "(" + refArgs.join(",") + ")";
+	// In parser mode, `L####` returns the parsed value (or an error object); do not
+	// wrap it in a `test ? input : input` ternary that discards transforms/defaults.
+	if (parentCtx.isCond) {
+		return simpleNodeToJs(parentCtx, _inVarName, _outVarName, "", res, "", "", true);
+	}
+	return _outVarName + "=" + res + ";" + parentCtx.failCase;
 }
 
-export const type = (dnaOpt: [string[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const type = (dnaOpt: [string[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const indices = dnaOpt[0];
 	const tests: string[] = [];
 	for (let i = 0; i < indices.length; i++) {
 		switch (indices[i]) {
-			case "string": tests.push('typeof ' + _inVarName + '==="string"'); break;
-			case "number": tests.push('typeof ' + _inVarName + '==="number"'); break;
+			case "string": tests.push(TEST_STRING(_inVarName)); break;
+			case "number": tests.push(TEST_NUMBER(_inVarName)); break;
 			case "integer": tests.push('typeof ' + _inVarName + '==="number"&&Number.isInteger(' + _inVarName + ')'); break;
 			case "boolean": tests.push('typeof ' + _inVarName + '==="boolean"'); break;
 			case "null": tests.push(_inVarName + '===null'); break;
-			case "object": tests.push('typeof ' + _inVarName + '==="object"&&' + _inVarName + '!==null&&!Array.isArray(' + _inVarName + ')'); break;
+			case "object": tests.push(TEST_OBJECT(_inVarName)); break;
 			case "array": tests.push('Array.isArray(' + _inVarName + ')'); break;
 		}
 	}
@@ -391,7 +407,7 @@ const string = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pa
 	const opt = dnaOpt[0], min = opt[0], max = opt[1], pattern = opt[2], format = opt[3];
 	const isCond = parentCtx.isCond;
 	const body: string[] = [];
-	const test = parentCtx.typeChecked === "string" ? "" : "typeof " + _inVarName + '==="string"';
+	const test = parentCtx.typeChecked === "string" ? "" : TEST_STRING(_inVarName);
 	const steps: tsJSStepAct[] = [];
 
 	if (min !== null || max !== null) {
@@ -414,8 +430,10 @@ const string = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pa
 		_err(parentCtx, _inVarName, pathVar + "/string/pattern", "String must match pattern " + pattern) + ERR_UNDEF
 	));
 
-	if (format !== null && STRING_FORMAT_PATTERNS[format]) body.push(_errMode(isCond,
-		"/" + STRING_FORMAT_PATTERNS[format] + "/.test(" + _inVarName + ")",
+
+	const formatPattern = format !== null ? getStringFormatPattern(format) : undefined;
+	if (formatPattern) body.push(_errMode(isCond,
+		"/" + formatPattern + "/" + (["emoji"].includes(format) ? "u" : "") + ".test(" + _inVarName + ")",
 		_err(parentCtx, _inVarName, pathVar + "/string/format", "String must match format :" + format) + ERR_UNDEF
 	));
 
@@ -443,7 +461,7 @@ const number = (dnaOpt: tsNumberDNA, type = "n", _inVarName: string, _outVarName
 	switch (type) {
 		case "n":
 			typeName = "number";
-			test = "typeof " + _inVarName + '==="number"';
+			test = TEST_NUMBER(_inVarName);
 
 			break;
 		case "i":
@@ -498,7 +516,7 @@ export const i = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, 
 export const bi = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString =>
 	number(dnaOpt, "bi", _inVarName, _outVarName, pathVar, labelId, parentCtx, true);
 
-export const boolean = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const boolean = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = parentCtx.typeChecked === "boolean" ? "" : "typeof " + _inVarName + '==="boolean"';
 	const testErr = _err(parentCtx, _inVarName, pathVar + "/boolean", "Boolean is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "boolean";
@@ -508,13 +526,13 @@ export const boolean = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: strin
 // `v !== v` is true ONLY when v is NaN (NaN is the only JS value not equal to
 // itself), so no upstream `typeof === "number"` is needed. This is the fastest
 // possible test (single inequality, no function call, no temp).
-export const nan = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const nan = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = _inVarName + "!==" + _inVarName;
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/nan", "NaN is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "nan";
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
-export const nullType = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const nullType = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = parentCtx.typeChecked === "null" ? "" : _inVarName + "===null";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/null", "Null is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "null";
@@ -525,7 +543,7 @@ export const n0 = nullType;
 // `undefined` opcode (Zod's `z.undefined()` and `z.void()`): only the value
 // `undefined` passes. Exported under its actual opcode name via `export {}`
 // since `undefined` is a JS global and unsafe as a local identifier.
-const undefinedType = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+const undefinedType = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = _inVarName + "===void 0";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/undefined", "Undefined is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "undefined";
@@ -533,7 +551,7 @@ const undefinedType = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string
 };
 export { undefinedType as undefined };
 
-export const trueSchema = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const trueSchema = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	// `trueSchema` has no lexical index/key context, so it cannot meaningfully
 	// emit `set.add(...)`. The convention is: the dispatching parent (e.g.
 	// `prefixItems` / items loop / `_unEvalEnv` schema branch) is responsible
@@ -541,7 +559,7 @@ export const trueSchema = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: st
 	const ctx = { isCond: parentCtx.isCond, failCase: parentCtx.failCase, counter: parentCtx.counter, outerblock: parentCtx.outerblock };
 	return simpleNodeToJs(ctx, _inVarName, _outVarName, "", "", "", "", true);
 };
-export const falseSchema = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const falseSchema = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	// `false` schema always rejects. Cannot go through `_assignOrCond` because
 	// that helper's success path emits the OK code (counter/outAssign) — we want
 	// the opposite.
@@ -559,8 +577,9 @@ export const falseSchema = (dnaOpt: [tsMeta], _inVarName: string, _outVarName: s
 
 export const constType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const check = dnaOpt[0];
-	const test = _inVarName + "===" + check;
-	const condErr = _err(parentCtx, _inVarName, pathVar + "/const", "Const value is expected:" + check) + ERR_UNDEF;
+	const checkStr = tojsStr(check);
+	const test = _inVarName + "===" + checkStr;
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/const", "Const value is expected:" + checkStr) + ERR_UNDEF;
 	// parentCtx.typeChecked = "const";
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
@@ -569,11 +588,13 @@ export const constTypeComplex = (dnaOpt: tsConstDNA, _inVarName: string, _outVar
 	const steps: tsJSStepAct[] = [];
 	// For complex constants (objects/arrays), use deepEqual
 	steps.push([STEP.OUT_CONST, FN_dEq])
-	const test = "dEq(" + _inVarName + "," + check + ")";
-	const condErr = _err(parentCtx, _inVarName, pathVar + "/const", "Const value is expected:" + check) + ERR_UNDEF;
+	const checkStr = tojsStr(check);
+	const test = "dEq(" + _inVarName + "," + checkStr + ")";
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/const", "Const value is expected:" + checkStr) + ERR_UNDEF;
 
 	let res: string;
-	if (parentCtx.isCond) res = _assignOut(_outVarName, test);
+	if (parentCtx.isCond) res = _outVarName.length ? _outVarName + "=" + test + ";" : test;
+
 	else res = _outVarName + "=" + test + "?" + check + ":" + condErr + ";";
 
 	steps.push([STEP.BODY, res]);
@@ -585,16 +606,10 @@ export const literal = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: str
 	// Use a switch-like expression for strict type checking
 	let enumLen = enumList.length;
 	const checks = new Array(enumLen);
-	if (enumLen) for (; enumLen--;) { const v = enumList[enumLen]; checks[enumLen] = _inVarName + "===" + JSON.stringify(v) }
+	if (enumLen) for (; enumLen--;) { const v = enumList[enumLen]; checks[enumLen] = _inVarName + "===" + tojsStr(v) }
 	const test = "(" + checks.join(")||(") + ")";
-	const condErr = _err(parentCtx, _inVarName, pathVar + "/const", "Const value is expected:" + JSON.stringify(enumList)) + ERR_UNDEF;
-
-	let res: string;
-	if (parentCtx.isCond) res = _assignOut(_outVarName, test);
-	else res = _outVarName + "=" + test + "?" + _inVarName + ":" + condErr + ";";
-
-	// parentCtx.typeChecked = "literal";
-	return res;
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/const", "Const value is expected:" + tojsStr(enumList)) + ERR_UNDEF;
+	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
 /**
  * `enumType` — primitive-only enum (strings, numbers, booleans, null).
@@ -607,9 +622,9 @@ export const literal = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: str
 export const enumType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const enumList = dnaOpt[0];
 	const checks: string[] = new Array(enumList.length);
-	for (let i = enumList.length; i--;) checks[i] = _inVarName + "===" + JSON.stringify(enumList[i]);
+	for (let i = enumList.length; i--;) checks[i] = _inVarName + "===" + tojsStr(enumList[i]);
 	const test = checks.length === 0 ? "false" : "(" + checks.join("||") + ")";
-	const condErr = _err(parentCtx, _inVarName, pathVar + "/enum", "Value must be one of: " + JSON.stringify(enumList)) + ERR_UNDEF;
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/enum", "Value must be one of: " + tojsStr(enumList)) + ERR_UNDEF;
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
 
@@ -625,18 +640,18 @@ export const enumTypeDeep = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName
 	for (let i = enumList.length; i--;) {
 		const v = enumList[i];
 		checks[i] = (v !== null && typeof v === "object")
-			? "dEq(" + _inVarName + "," + JSON.stringify(v) + ")"
-			: _inVarName + "===" + JSON.stringify(v);
+			? "dEq(" + _inVarName + "," + tojsStr(v) + ")"
+			: _inVarName + "===" + tojsStr(v);
 	}
 	steps.push([STEP.CONST, FN_dEq]);
 	const test = checks.length === 0 ? "false" : "(" + checks.join("||") + ")";
-	const condErr = _err(parentCtx, _inVarName, pathVar + "/enum", "Value must be one of: " + JSON.stringify(enumList)) + ERR_UNDEF;
+	const condErr = _err(parentCtx, _inVarName, pathVar + "/enum", "Value must be one of: " + tojsStr(enumList)) + ERR_UNDEF;
 	steps.push([STEP.BODY, simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true)]);
 	return steps;
 };
 
 
-export const unevaluatedProperties = (dnaOpt: [number, number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
+export const unevaluatedProperties = (dnaOpt: [number, number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
 	_unEvalEnv(parentCtx, {
 		kind: "properties",
 		idx: labelId(),
@@ -679,6 +694,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	let objectCheck: [string, string][] = [];
 
 	let propertiesChecks: any[] = [];
+	let defaultPropertiesChecks: any[] = [];
 	let dependentSchemasChecks: any[] = [];
 	let patternPropChecks: any[] = [];
 	let patternPropertiesBooleanChecks: boolean | undefined;
@@ -735,6 +751,9 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			case "properties":
 				propertiesChecks = data;
 				break;
+			case "defaultProperties":
+				defaultPropertiesChecks = data;
+				break;
 			case "dependentSchemas":
 				dependentSchemasChecks = data;
 				break;
@@ -782,7 +801,8 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	if (regexConstants.length) fastMergeArrays(neededConstants, regexConstants);
 
 	const preDecls = neededConstants.length ? "const " + neededConstants.join(",") + ";" : "";
-	const typePosTest = "typeof " + inVar + '==="object"&&' + inVar + "!==null&&!Array.isArray(" + inVar + ")";
+	// const typePosTest = "typeof " + inVar + '==="object"&&' + inVar + "!==null&&!Array.isArray(" + inVar + ")";
+	const typePosTest = TEST_OBJECT(inVar);
 	const typeErrMsg = _err(parentCtx, inVar, pathVar + "/object", "Object is required");
 
 	// Build innerSteps depending on mode
@@ -797,8 +817,9 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	// Required keys use the fast-fail form `if(!hasOwn(K)) break;` upfront
 	// (no `else` clause).
 	const childrenCtx: tsJSParentCtx = { isCond, failCase: parentCtx.failCase || "break " + block + ";", outerblock: parentCtx.outerblock || block };
-	const propMap = new Map<string, number>(propertiesChecks.map((c: any) => [c[0], c[1]]));
+	const propMap = new Map<string, number>([...propertiesChecks, ...defaultPropertiesChecks].map((c: any) => [c[0], c[1]]));
 	const requiredSet = new Set(requiredList);
+	const defaultSet = new Set<string>(defaultPropertiesChecks.map((c: any) => c[0]));
 	const depSchMap = new Map<string, number | boolean>(dependentSchemasChecks.map((c: any) => [c[0], c[1]]));
 
 	// Stable key order: properties order first, then any extras introduced by
@@ -807,89 +828,68 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	const seenKey = new Set<string>();
 	const pushKey = (k: string) => { if (!seenKey.has(k)) { seenKey.add(k); declaredKeyOrder.push(k); } };
 	for (const c of propertiesChecks) pushKey(c[0]);
+	for (const c of defaultPropertiesChecks) pushKey(c[0]);
 	for (const r of requiredList) pushKey(r);
 	for (const t of depReqMap.keys()) pushKey(t);
 	for (const c of dependentSchemasChecks) pushKey(c[0]);
 
-	// Shared helpers parameterised by mode.
-	const failBreak = (errMsg: string) =>
-		isCond ? break_ : (errMsg ? "{" + errMsg + _break_ + "}" : _break_);
-	const postSubFail = isCond ? "" : ("if(errors.length)" + break_);
+	// Per-key emission split by mode.
 	const propValCounter = { n: 0 };
 
 	for (const k of declaredKeyOrder) {
 		const _name = JSON.stringify(k);
 		const propDnaIdx = propMap.get(k);
 		const isReq = requiredSet.has(k);
+		const isDefault = defaultSet.has(k);
 		const deps = depReqMap.get(k) || [];
 		const depSchSub = depSchMap.get(k);
 
-		// Open per-key emission. Two shapes:
-		//  - required → fast-fail `if(!hasOwn) break;` then statements live
-		//    in the surrounding scope (no extra block, no second hasOwn check).
-		//  - optional → `if(hasOwn){...}` gate (closed at the end of the loop).
-		if (isReq) {
-			const reqErr = isCond ? "" : _err(parentCtx, inVar, pathVar + "/object/required/" + k, 'Required property "' + k + '" is missing');
-			innerSteps.push([STEP.BODY,
-			"if(!Object.hasOwn(" + inVar + "," + _name + "))" + failBreak(reqErr)
-			]);
+		const propVal = propDnaIdx !== undefined ? "ob" + idx + "pp" + propValCounter.n++ : "";
+		const objKey = inVar + "[" + _name + "]";
+		const evalMark = propDnaIdx !== undefined && evalParent.length ? evalParent + "[" + _name + "]=" + _name + ";" : "";
+		const passMark = propDnaIdx !== undefined && passedIdx ? passedIdx + "[" + _name + "]=" + _name + ";" : "";
+
+		if (isCond) {
+			// Validator mode: fail-fast, no output allocation.
+			if (isReq) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + _name + "))" + break_]);
+			else if (!isDefault) innerSteps.push([STEP.BODY, "if(Object.hasOwn(" + inVar + "," + _name + ")){"]);
+			for (const r of deps) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + "))" + break_]);
+			if (depSchSub === false) innerSteps.push([STEP.BODY, break_]);
+			else if (typeof depSchSub === "number") {
+				const depChildrenCtx: tsJSParentCtx = { ...childrenCtx, unEvalArr: parentCtx.unEvalArr, unEvalObj: parentCtx.unEvalObj };
+				innerSteps.push([depSchSub, inVar, "", pathVar + "/object/dependentSchemas/" + k, depChildrenCtx]);
+			}
+			if (propDnaIdx !== undefined) {
+				innerSteps.push(
+					[STEP.BODY, "let " + propVal + "=" + objKey + ";"],
+					[propDnaIdx, propVal, "", pathVar + "/object/properties/" + k, { ...childrenCtx }],
+				);
+				const marks = evalMark + passMark;
+				if (marks) innerSteps.push([STEP.BODY, marks]);
+			}
+			if (!isReq && !isDefault) innerSteps.push([STEP.BODY, "}"]);
 		} else {
-			innerSteps.push([STEP.BODY,
-			"if(Object.hasOwn(" + inVar + "," + _name + ")){"
-			]);
+			// Parser mode: push errors and allocate output.
+			if (isReq) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + _name + ")){" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + ";" + break_ + "}"]);
+			else if (!isDefault) innerSteps.push([STEP.BODY, "if(Object.hasOwn(" + inVar + "," + _name + ")){"]);
+			for (const r of deps) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + ")){" + _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k + "/" + r, "Dependent required property missing: " + r) + ";" + break_ + "}"]);
+			if (depSchSub === false) {
+				innerSteps.push([STEP.BODY, _err(parentCtx, inVar, pathVar + "/object/dependentSchemas/" + k, "Dependent schema forbidden for property: " + k) + ";" + break_]);
+			} else if (typeof depSchSub === "number") {
+				const depChildrenCtx: tsJSParentCtx = { ...childrenCtx, unEvalArr: parentCtx.unEvalArr, unEvalObj: parentCtx.unEvalObj };
+				innerSteps.push([depSchSub, inVar, "", pathVar + "/object/dependentSchemas/" + k, depChildrenCtx]);
+			}
+			if (propDnaIdx !== undefined) {
+				const outDest = outVar + "[" + _name + "]";
+				innerSteps.push(
+					[STEP.BODY, "let " + propVal + "=" + objKey + ";"],
+					[propDnaIdx, propVal, outDest, pathVar + "/object/properties/" + k, { ...childrenCtx }],
+				);
+				const marks = evalMark + passMark;
+				if (marks) innerSteps.push([STEP.BODY, marks]);
+			}
+			if (!isReq && !isDefault) innerSteps.push([STEP.BODY, "}"]);
 		}
-
-		// 3. `dependentRequired[k]` triggered: required-list checks.
-		for (const r of deps) {
-			const dReqErr = isCond ? "" : _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k, 'Property "' + r + '" is required when "' + k + '" is present');
-			innerSteps.push([STEP.BODY,
-			"if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + "))" + failBreak(dReqErr)
-			]);
-		}
-
-		// 4. `dependentSchemas[k]`: false → fail; number → apply sub-DNA to v.
-		if (depSchSub === false) {
-			const dSchErr = isCond ? "" : _err(parentCtx, inVar, pathVar + "/dependentSchemas/" + k, 'Property "' + k + '" must not be present');
-			innerSteps.push([STEP.BODY, failBreak(dSchErr)]);
-		} else if (typeof depSchSub === "number") {
-			const depChildrenCtx: tsJSParentCtx = {
-				...childrenCtx,
-				unEvalArr: parentCtx.unEvalArr,
-				unEvalObj: parentCtx.unEvalObj,
-			};
-			const outDest = isCond ? "" : outVar;
-			innerSteps.push([depSchSub, inVar, outDest, pathVar + "/dependentSchemas/" + k, depChildrenCtx]);
-			if (postSubFail) innerSteps.push([STEP.BODY, postSubFail]);
-		}
-
-		// 5. `properties[k]` validation on v[k]. Fresh context per sibling
-		// avoids `typeChecked = "number"` pollution between siblings that
-		// share a cached sub-DNA.
-		if (propDnaIdx !== undefined) {
-			const propVal = "ob" + idx + "pp" + propValCounter.n++;
-			const objKey = inVar + "[" + _name + "]";
-			const propChildrenCtx: tsJSParentCtx = { ...childrenCtx };
-			const outDest = isCond ? "" : outVar + "[" + _name + "]";
-			innerSteps.push(
-				[STEP.BODY, "let " + propVal + "=" + objKey + ";"],
-				[propDnaIdx, propVal, outDest, pathVar + "/properties/" + k, propChildrenCtx],
-			);
-			if (postSubFail) innerSteps.push([STEP.BODY, postSubFail]);
-		}
-
-		// 6. Mark the key as evaluated for parent `unevaluatedProperties` and
-		// as "passed" for `additionalProperties`. Only marks if the key is
-		// actually declared via `properties` (other keywords don't "evaluate"
-		// the key per JSON-Schema semantics).
-		if (propDnaIdx !== undefined) {
-			const evalMark = evalParent.length ? evalParent + "[" + _name + "]=" + _name + ";" : "";
-			const passMark = passedIdx ? passedIdx + "[" + _name + "]=" + _name + ";" : "";
-			if (evalMark || passMark) innerSteps.push([STEP.BODY, evalMark + passMark]);
-		}
-
-		// Close the optional `if(hasOwn){...}` gate (required keys have no
-		// enclosing block since their statements live in the outer scope).
-		if (!isReq) innerSteps.push([STEP.BODY, "}"]);
 	}
 
 	if (isCond) {
@@ -905,7 +905,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 					}
 				} else {
 					innerSteps.push(
-						[propertyNamesCheck, "key", "", pathVar + "/propertyNames", childrenCtx],
+						[propertyNamesCheck, "key", "", pathVar + "/object/propertyNames", { ...childrenCtx }],
 						// [STEP.BODY, evalParentKey_]
 					);
 				}
@@ -919,14 +919,14 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 					// by a pattern is NOT an "additional" property.
 					innerSteps.push(
 						[STEP.BODY, "if(" + el[0] + ".test(key)){"],
-						[el[2], loopVar, "", pathVar + "/patternProperties/" + el[1], childrenCtx],
+						[el[2], loopVar, "", pathVar + "/object/patternProperties/" + el[1], { ...childrenCtx }],
 						[STEP.BODY, (evalParent.length ? evalParent + "[key]=key;" : "") + passedIdxAddKey_ + "}"]
 					);
 				}
 			}
 			if (patternPropertiesBooleanChecks !== undefined) {
 				if (patternPropertiesBooleanChecks === false) {
-					innerSteps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/propertyNames", "Property names not allowed") + _break_]);
+					innerSteps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/object/propertyNames", "Property names not allowed") + _break_]);
 				}
 				innerSteps.push([STEP.BODY, evalParentKey_ + passedIdxAddKey_]);
 			}
@@ -945,7 +945,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 					// schema for additionalProperties → on sub-DNA success, mark key as evaluated.
 					innerSteps.push(
 						[STEP.BODY, "if(!" + passedIdx + "[key]){"],
-						[additionalPropertiesCheck, loopVar, "", pathVar + "/additionalProperties/", childrenCtx],
+						[additionalPropertiesCheck, loopVar, "", pathVar + "/object/additionalProperties/", { ...childrenCtx }],
 						[STEP.BODY, (evalParent.length ? evalParent + "[key]=1;" : "") + "}}"]
 					);
 				}
@@ -964,15 +964,15 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			if (propertyNamesCheck !== undefined) {
 				if (typeof propertyNamesCheck === "boolean") {
 					if (propertyNamesCheck === false) {
-						innerSteps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/propertyNames", "Property names not allowed") + _break_]);
+						innerSteps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/object/propertyNames", "Property names not allowed") + _break_]);
 					} else {
 						innerSteps.push([STEP.BODY, outVar + "[key]=" + loopVar + ";" + evalParentKey_ + passedIdxAddKey_]);
 					}
 				} else {
 					innerSteps.push(
-						[propertyNamesCheck, "key", outVar + "[key]", pathVar + "/propertyNames", childCtx],
+						[propertyNamesCheck, "key", outVar + "[key]", pathVar + "/object/propertyNames", { ...childCtx }],
 						[STEP.BODY, "if(errors.length){"
-							+ _err(parentCtx, oVarIdx, pathVar + "/propertyNames", "Property name does not match schema")
+							+ _err(parentCtx, oVarIdx, pathVar + "/object/propertyNames", "Property name does not match schema")
 							+ _break_ + "}"
 							+ outVar + "[key]=" + loopVar + ";"
 							+ evalParentKey_ + passedIdxAddKey_
@@ -984,13 +984,13 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 				const el = patternPropChecks[i];
 				innerSteps.push(
 					[STEP.BODY, "if(" + el[0] + ".test(key)){"],
-					[el[2], loopVar, outVar + "[key]", pathVar + "/patternProperties/" + el[1], childCtx],
+					[el[2], loopVar, outVar + "[key]", pathVar + "/object/patternProperties/" + el[1], childCtx],
 					[STEP.BODY, evalParentKey_ + passedIdxAddKey_ + "}"]
 				);
 			}
 			if (patternPropertiesBooleanChecks !== undefined) {
 				if (patternPropertiesBooleanChecks === false) {
-					innerSteps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/propertyNames", "Property names not allowed") + _break_]);
+					innerSteps.push([STEP.BODY, _err(parentCtx, "key", pathVar + "/object/propertyNames", "Property names not allowed") + _break_]);
 				}
 				innerSteps.push([STEP.BODY, outVar + "[key]=" + loopVar + ";" + evalParentKey_ + passedIdxAddKey_]);
 			}
@@ -1000,7 +1000,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 						innerSteps.push([STEP.BODY, "if(!" + passedIdx + "[key]){" + outVar + "[key]=" + loopVar + ";" + evalParentKey_ + "}"]);
 					} else {
 						innerSteps.push([STEP.BODY, "if(Object.keys(" + passedIdx + ").length<" + oLen + "){"
-							+ _err(parentCtx, loopVar, pathVar + "/additionalProperties", "Additional properties not allowed")
+							+ _err(parentCtx, loopVar, pathVar + "/object/additionalProperties", "Additional properties not allowed")
 							+ _innerIfErrFail_ + evalParentKey_ + "}"]);
 					}
 				} else {
@@ -1008,7 +1008,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 					// mark key as evaluated in the parent eval set.
 					innerSteps.push(
 						[STEP.BODY, "if(!" + passedIdx + "[key]){"],
-						[additionalPropertiesCheck, loopVar, outVar.length ? outVar + "[key]" : "", pathVar + "/additionalProperties/", childCtx],
+						[additionalPropertiesCheck, loopVar, outVar.length ? outVar + "[key]" : "", pathVar + "/object/additionalProperties/", { ...childCtx }],
 						[STEP.BODY, innerIfErrFail_ + (evalParent.length ? evalParent + "[key]=1;" : "") + "}"]
 					);
 				}
@@ -1016,7 +1016,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			innerSteps.push([STEP.BODY, "}"]);
 		} else if (hasDynamicProps && additionalPropertiesCheck === false) {
 			innerSteps.push([STEP.BODY, "if(Object.keys(" + passedIdx + ").length<" + oLen + "){"
-				+ _err(parentCtx, inVar, pathVar + "/additionalProperties", "Additional properties not allowed")
+				+ _err(parentCtx, inVar, pathVar + "/object/additionalProperties", "Additional properties not allowed")
 				+ _break_ + "}"]);
 		}
 	}
@@ -1043,7 +1043,7 @@ export const _o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string,
 	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, false);
 
 
-export const unevaluatedItems = (dnaOpt: [number, number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
+export const unevaluatedItems = (dnaOpt: [number, number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
 	_unEvalEnv(parentCtx, {
 		kind: "items",
 		idx: labelId(),
@@ -1581,9 +1581,10 @@ export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 			]
 		);
 	} else {
+		const childrenCtx: tsJSParentCtx = { isCond: true, failCase: "", outerblock: block, counter: count + "++" };
 		for (let i = 0; i < indices.length; i++) {
 			steps.push(
-				[indices[i], _inVarName, "", pathVar + "/anyOf/" + i, { ...ctx, counter: count }],
+				[indices[i], _inVarName, "", pathVar + "/anyOf/" + i, childrenCtx],
 				[STEP.BODY, "if(" + count + "){" + _outVarName + "=" + _inVarName + ";" + innerFail_ + "}"]
 			);
 		}
@@ -1778,23 +1779,21 @@ export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 	return steps;
 };
 
-export const discriminator = (dnaOpt: [string, any[], number[], tsMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const isCond = parentCtx.isCond;
-	const propertyName = dnaOpt[0];
-	const discriminKeys = dnaOpt[1]; // ["cat", "dog"]
-	const indices: number[] = dnaOpt[2];
+	const [discriminatorName, discriminKeys, indices] = dnaOpt;
+	const discriminator = tojsStr(discriminatorName);
 
 	const idx = labelId();
 	const discValVar = "discVal" + idx;
 	const block = "discB" + idx;
-	const innerBreak_ = "break " + block + ";";
 	const outerBreak_ = parentCtx.failCase;
 
 	// Setup eval sets for unevaluated properties/items
 	const declareLet: string[] = [];
 	const initEvals: string[] = [];
 	const propagateEvals: string[] = [];
-	const childCtx: tsJSParentCtx = { isCond, failCase: "break " + block + ";", outerblock: block };
+	const childCtx: tsJSParentCtx = { isCond, outerblock: block, typeChecked: "object", failCase: outerBreak_ };
 
 	if (parentCtx.unEvalArr) {
 		const evalSet = "discEvalArr" + idx;
@@ -1815,7 +1814,8 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsMeta], _inVarN
 
 	const steps: tsStackFrame[] = [];
 	steps.push(
-		[STEP.BODY, block + ":{const " + discValVar + "=" + _inVarName + "[" + propertyName + "];"]
+		[indices[0], _inVarName, _outVarName, pathVar + "/discriminator", parentCtx],
+		[STEP.BODY, block + ":{const " + discValVar + "=" + _inVarName + "[" + discriminator + "];"],
 	);
 
 	// Initialize eval sets
@@ -1824,23 +1824,23 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsMeta], _inVarN
 	// Generate switch with cases
 	steps.push([STEP.BODY, "switch(" + discValVar + "){"]);
 
-	for (let i = 0; i < indices.length; i++) {
-		const key = discriminKeys[i];
+	for (let i = 1; i < indices.length; i++) {
+		const key = tojsStr(discriminKeys[i - 1]);
 		steps.push(
 			[STEP.BODY, "case " + key + ":"],
 			// Call sub-schema
-			[indices[i], _inVarName, _outVarName, pathVar + "/discriminator/" + i, childCtx],
+			[indices[i], _inVarName, _outVarName, pathVar + "/discriminator/" + i, { ...childCtx }],
 			[STEP.BODY, "break;"]
 		);
 	}
 
 	if (isCond) {
-		steps.push([STEP.BODY, outerBreak_ + "}"]);
+		steps.push([STEP.BODY, "default:" + outerBreak_ + "}"]);
 	} else {
 		steps.push(
 			[STEP.BODY, "default:"
-				+ _err(parentCtx, _inVarName, pathVar + "/discriminator", "Discriminator value not recognized") + ";"
-				+ _outVarName + "=undefined;}if(!errors.length)" + _outVarName + "[" + propertyName + "]=" + discValVar + ";"
+				+ _err(parentCtx, _inVarName, pathVar + "/discriminator/" + discriminatorName, "Discriminator value not recognized") + ";"
+				+ _outVarName + "=undefined;}if(!errors.length)" + _outVarName + "[" + discriminator + "]=" + discValVar + ";"
 			]);
 	}
 	steps.push([STEP.BODY, (outerCounter ? outerCounter + ";" : "") + propagateEvals.join("") + "}"]);

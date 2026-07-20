@@ -2,61 +2,8 @@
  * Utility functions for DNA schema builder 
  */
 
+import { serializeRaw } from "../shared/utils.js";
 
-/**
- * Converts a value to a JavaScript code string representation.
- * Unlike JSON.stringify, this generates valid JS code literals.
- * Handles bigint and regex recursively in objects/arrays with memoization.
- * 
- * @param value - The value to convert
- * @param preserveSpaces - If true, adds spaces after commas in arrays/objects for better readability
- * @param cache - Internal WeakMap for memoization (prevents infinite loops)
- * @returns A string representation suitable for JS code generation
- */
-export function tojsStr(value: any, preserveSpaces = false, cache = new WeakMap<object, string>()): string {
-	if (typeof value === 'bigint') {
-		return value + 'n'; // BigInt literal: 42n
-	}
-	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-		return JSON.stringify(value);
-	}
-	if (value === null) {
-		return 'null';
-	}
-	if (value === undefined) {
-		return 'undefined';
-	}
-	if (value instanceof RegExp) {
-		return value.toString(); // Regex literal: /pattern/flags
-	}
-	if (typeof value === 'object' && value !== null) {
-		if (cache.has(value)) {
-			return cache.get(value)!;
-		}
-		
-		let result: string;
-		const separator = preserveSpaces ? ', ' : ',';
-		if (Array.isArray(value)) {
-			const items: string[] = [];
-			for (let i = 0; i < value.length; i++) {
-				items.push(tojsStr(value[i], preserveSpaces, cache));
-			}
-			result = '[' + items.join(separator) + ']';
-		} else {
-			const props: string[] = [];
-			const keys = Object.keys(value);
-			for (let i = 0; i < keys.length; i++) {
-				const k = keys[i];
-				props.push(JSON.stringify(k) + ':' + (preserveSpaces ? ' ' : '') + tojsStr(value[k], preserveSpaces, cache));
-			}
-			result = '{' + props.join(separator) + '}';
-		}
-		cache.set(value, result);
-		return result;
-	}
-	// Fallback
-	return JSON.stringify(value);
-}
 
 /**
  * Converts a base64 string to a Uint8Array.
@@ -122,7 +69,7 @@ export function uint8ArrayToBase64url(bytes: Uint8Array): string {
  * // => Uint8Array([72, 101, 108, 108, 111])
  * ```
  */
-export function hexToUint8Array(hex: string): Uint8Array {
+export function hexToUint8Array(hex: string): Uint8Array<ArrayBuffer> {
   const cleanHex = hex.replace(/^0x/, "");
   if (cleanHex.length % 2 !== 0) {
     throw new Error("Invalid hex string length");
@@ -147,8 +94,22 @@ export function hexToUint8Array(hex: string): Uint8Array {
  * // => "48656c6c6f"
  * ```
  */
-export function uint8ArrayToHex(bytes: Uint8Array): string {
+export function uint8ArrayToHex(bytes: Uint8Array<ArrayBuffer>): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+
+/**
+ * Internal generic serializer used by both `cacheKey` and `tojsStr`.
+ * Use `cacheKey` for cache keys and `tojsStr` (exported from toJs/utils.ts) for JS code generation.
+ */
+/**
+ * Stable, JavaScript-agnostic serialization for cache keys.
+ * Distinguishes values that JSON.stringify conflates (undefined, null, NaN,
+ * Infinity, -Infinity, bigint) using explicit type tags instead of JS literals.
+ */
+export function cacheKey(value: any, cache = new WeakMap<object, string>()): string {
+	return serializeRaw(value, { mode: "cache", sortKeys: true, cache });
 }

@@ -1,5 +1,5 @@
 import type { IIssue } from "./error.types.js";
-import type { tsExternals } from "./runtime.types.js";
+import type { tsDnaExternals } from "./runtime.types.js";
 
 //============================================
 // Refine Context Types
@@ -65,7 +65,7 @@ export type tsDnaInnerMeta<D = unknown, P = unknown, C = unknown, T = unknown> =
   coerced?: boolean;
   default?: D;
   exactOptional?: boolean;
-  externals?: tsExternals;
+  externals?: tsDnaExternals;
   nullable?: boolean;
   nullish?: boolean;
   optional?: boolean;

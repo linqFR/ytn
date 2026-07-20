@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { afterAll, describe, expect, it } from "vitest";
-import { schvalid } from "../src/index.js";
-import { OutOfScopeError } from "../src/jschema-to-dna.js";
+import { schvalid } from "../../src/index.js";
+import { OutOfScopeError } from "../../src/jschema-to-dna.js";
 
 // Emulate __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -11,10 +11,10 @@ const __dirname = path.dirname(__filename);
 
 const suiteDir = path.resolve(
   __dirname,
-  "./json-schema-suite/tests/draft2020-12",
+  "../json-schema-suite/tests/draft2020-12",
 );
 
-const remotesDir = path.resolve(__dirname, "./json-schema-suite/remotes");
+const remotesDir = path.resolve(__dirname, "../json-schema-suite/remotes");
 const remoteRegistry = new Map<string, any>();
 
 function loadRemotes(dir: string, base: string = "") {

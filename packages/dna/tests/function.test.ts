@@ -2,11 +2,10 @@ import { expect, expectTypeOf, test } from "vitest";
 import {dna} from "../src/index.js";
 import * as z from "zod/v4";
 
-const args1 = dna.tuple([dna.string()]);
+const args1 = [dna.string()] as const;
 const returns1 = dna.number();
 const func1 = dna.function({
   input: args1,
-
   output: returns1,
 });
 
@@ -38,7 +37,7 @@ test("method parsing", () => {
     property: dna.number(),
     method: dna
       .function()
-      .input(dna.tuple([dna.string()]))
+      .input([dna.string()])
       .output(dna.number()),
   });
   const methodInstance = {
@@ -72,7 +71,7 @@ test("args method", () => {
   expectTypeOf<t1>().toEqualTypeOf<(...args_1: never[]) => unknown>();
   t1._input;
 
-  const t2args = dna.tuple([dna.string()], dna.unknown());
+  const t2args = [dna.string(), dna.unknown()] as const;
 
   const t2 = t1.input(t2args);
   type t2 = (typeof t2)["_input"];
@@ -187,12 +186,9 @@ test("input validation error", () => {
     expect(e.issues).toMatchInlineSnapshot(`
       [
         {
-          "code": "too_small",
-          "inclusive": true,
-          "message": "Too small: expected array to have >=1 items",
-          "minimum": 1,
-          "origin": "array",
-          "path": [],
+          "input": [],
+          "message": "Array requires at least 1 items",
+          "path": "#/array/minItems",
         },
       ]
     `);
@@ -239,10 +235,9 @@ test("output validation error", () => {
     expect(e.issues).toMatchInlineSnapshot(`
       [
         {
-          "code": "invalid_type",
-          "expected": "string",
-          "message": "Invalid input: expected string, received number",
-          "path": [],
+          "input": 1234,
+          "message": "String is required",
+          "path": "#/string",
         },
       ]
     `);
@@ -276,16 +271,15 @@ test("function with async refinements", async () => {
 });
 
 test("implement async with transforms", async () => {
-  const typeGuard = (data: string): data is "1234" => data === "1234";
   const codeSchema = dna.string().transform((data, ctx) => {
-    if (typeGuard(data)) {
+    if (data === "1234") {
       return data;
     } else {
       ctx.addIssue({
-        code: dna.DnaIssueCode.custom,
+        code: "custom",
         message: "Invalid code",
       });
-      return dna.NEVER;
+      return data;
     }
   });
   const inputSchema = dna.object({

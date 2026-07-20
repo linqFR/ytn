@@ -30,15 +30,22 @@
       "import": "./dist/toJs.js",
       "types": "./dist/toJS.d.ts"
     },
+    "./toJs/min": {
+      "import": "./dist/toJs.min.js",
+      "types": "./dist/toJS.d.ts"
+    },
     "./min": {
       "import": "./dist/index.min.js",
       "types": "./dist/index.d.ts"
     }
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@ytn/shared": "*",
-    "@types/node": "^25.9.1",
-    "tsup": "^8.5.1",
-    "tsx": "^4.22.3"
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.1"
+  },
+  "dependencies": {
+    "jose": "^6.2.3"
   }
 }

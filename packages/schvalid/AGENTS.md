@@ -70,21 +70,25 @@ const dna = jschemaToDna(schema);
 
 ## Public API
 
-### Convenience Functions
+### Two-Step Conversion + Validation for debugging
 
-The package provides convenience functions that combine schema conversion and validation:
+There is no one-shot `validate(schema, data)` / `parse(schema, data)` function. Convert the
+schema to DNA once, then use `@ytn/schvalid`'s `validator`/`parser` (re-exported from
+`@ytn/dna/toJs`) on the result:
 
 ```typescript
-import { validate, parse } from "@ytn/schvalid";
+import { jschemaToDna, validator, parser } from "@ytn/schvalid";
+
+const dna = jschemaToDna(schema);
 
 // Fast boolean validation (fail-fast)
-validate(schema, data); // returns boolean
+const isValid = validator(dna)(data); // returns boolean
 
 // Full parsing with error collection
-parse(schema, data); // returns { success: true, data: ... } | { success: false, errors: [...] }
+const result = parser(dna)(data); // returns { success: true, data: ... } | { success: false, errors: [...] }
 ```
 
-### Builder API
+### Public API
 
 The `schvalid()` builder API allows compiling a schema once and reusing the validation function:
 

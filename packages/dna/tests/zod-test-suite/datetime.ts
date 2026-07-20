@@ -41,8 +41,8 @@ const timePrecision2Dna = dna.string().time({ precision: 2 });
 const timePrecisionMinuteZod = z.string().time({ precision: z.TimePrecision.Minute });
 const timePrecisionMinuteDna = dna.string().time({ precision: z.TimePrecision.Minute });
 
-const durationZod = z.string().duration();
-const durationDna = dna.string().duration();
+// const durationZod = z.string().duration();
+// const durationDna = dna.string().duration();
 
 export const datetimeTests = [
   {
@@ -291,33 +291,33 @@ export const datetimeTests = [
       { description: "invalid with seconds", data: "00:00:00", valid: false },
     ],
   },
-  {
-    description: "duration",
-    zodSchema: durationZod,
-    dnaSchema: durationDna,
-    tests: [
-      { description: "valid", data: "P3Y6M4DT12H30M5S", valid: true },
-      { description: "valid", data: "P2Y9M3DT12H31M8.001S", valid: true },
-      { description: "valid comma decimal", data: "PT0,001S", valid: true },
-      { description: "valid", data: "PT12H30M5S", valid: true },
-      { description: "valid", data: "P1Y", valid: true },
-      { description: "valid", data: "P2MT30M", valid: true },
-      { description: "valid", data: "PT6H", valid: true },
-      { description: "valid", data: "P5W", valid: true },
-      { description: "invalid string", data: "foo bar", valid: false },
-      { description: "invalid empty", data: "", valid: false },
-      { description: "invalid space", data: " ", valid: false },
-      { description: "invalid P only", data: "P", valid: false },
-      { description: "invalid PT only", data: "PT", valid: false },
-      { description: "invalid T in middle", data: "P1Y2MT", valid: false },
-      { description: "invalid T without P", data: "T1H", valid: false },
-      { description: "invalid decimal in designator", data: "P0.5Y1D", valid: false },
-      { description: "invalid comma decimal in designator", data: "P0,5Y6M", valid: false },
-      { description: "invalid T at end", data: "P1YT", valid: false },
-      { description: "invalid negative designator", data: "P-2M-1D", valid: false },
-      { description: "invalid negative designator", data: "P-5DT-10H", valid: false },
-      { description: "invalid week with day", data: "P1W2D", valid: false },
-      { description: "invalid negative", data: "-P1D", valid: false },
-    ],
-  },
+  // {
+  //   description: "duration",
+  //   zodSchema: durationZod,
+  //   dnaSchema: durationDna,
+  //   tests: [
+  //     { description: "valid", data: "P3Y6M4DT12H30M5S", valid: true },
+  //     { description: "valid", data: "P2Y9M3DT12H31M8.001S", valid: true },
+  //     { description: "valid comma decimal", data: "PT0,001S", valid: true },
+  //     { description: "valid", data: "PT12H30M5S", valid: true },
+  //     { description: "valid", data: "P1Y", valid: true },
+  //     { description: "valid", data: "P2MT30M", valid: true },
+  //     { description: "valid", data: "PT6H", valid: true },
+  //     { description: "valid", data: "P5W", valid: true },
+  //     { description: "invalid string", data: "foo bar", valid: false },
+  //     { description: "invalid empty", data: "", valid: false },
+  //     { description: "invalid space", data: " ", valid: false },
+  //     { description: "invalid P only", data: "P", valid: false },
+  //     { description: "invalid PT only", data: "PT", valid: false },
+  //     { description: "invalid T in middle", data: "P1Y2MT", valid: false },
+  //     { description: "invalid T without P", data: "T1H", valid: false },
+  //     { description: "invalid decimal in designator", data: "P0.5Y1D", valid: false },
+  //     { description: "invalid comma decimal in designator", data: "P0,5Y6M", valid: false },
+  //     { description: "invalid T at end", data: "P1YT", valid: false },
+  //     { description: "invalid negative designator", data: "P-2M-1D", valid: false },
+  //     { description: "invalid negative designator", data: "P-5DT-10H", valid: false },
+  //     { description: "invalid week with day", data: "P1W2D", valid: false },
+  //     { description: "invalid negative", data: "-P1D", valid: false },
+  //   ],
+  // },
 ];

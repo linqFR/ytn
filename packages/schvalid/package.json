@@ -8,9 +8,10 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run tests/json-schema-suite.test.ts",
+    "test": "vitest run tests/schemas",
     "test:full": "vitest run",
-    "test:performance": "vitest run tests/performance"
+    "test:bench": "vitest run tests/bench",
+    "test:perf": "vitest run tests/bench"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -28,9 +29,9 @@
     "@ytn/dna": "*"
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.1.1",
     "@ytn/shared": "*",
     "ajv": "^8.20.0",
-    "tsup": "^8.5.1"
+    "tsup": "^8.3.5"
   }
 }

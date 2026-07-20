@@ -1,22 +1,6 @@
-import type { tsDna, tsDnaId, tsDnaSeq } from "../types/core.types.js";
-import type { tsExternals } from "./runtime.types.js";
-import type { tsDnaInnerMeta, tsDnaMeta } from "./meta-context.type.js";
-import type { IRefineContext, ISuperRefineContext, ITransformContext } from "./meta-context.type.js";
-import type { tsRefineOptions } from "./error.types.js";
-import type { tsExternalsDecl, tsParserResult } from "./runtime.types.js";
-import type { tsStateDef } from "../builder/state.types.js";
-import type { IDnaCollector } from "../builder/collector.types.js";
-import type { $MaybeAsync, $Output, $WithBrand, $Xor } from "../types/helpers.types.js";
 
-import type {
-  tsDnaNullable,
-  tsDnaOptional,
-  tsDnaNullish,
-  tsDnaDefault,
-  tsDnaPrefault,
-  tsDnaCatch
-} from "../types/api-builder.types.js";
 import type { DnaType } from "../builder/dna-interfaces.js";
+
 
 
 
@@ -54,7 +38,10 @@ export type tsPrimitive =
 export type tsPrimitiveFunction = Function;
 export type tsPrimitiveClass<A extends any[] = any[], R = any> = abstract new (...args: A) => R;
 export type tsPrimitiveEnum = Enumerator;
-export type tsPrimitiveLiteral = string | number | bigint | boolean | null | undefined | symbol;
+
+export type tsPrimitiveLiteral = string | number | bigint | boolean | null | undefined;
+export type tsTmplLitPart = tsPrimitiveLiteral | DnaType<any, any>;
+
 
 // All primitive types combined
 export type tsPrimitiveAll =
@@ -98,12 +85,10 @@ export type $SeqLastOutput<Schemas extends readonly any[]> =
 // Type inference helpers
 // ============================================
 
-
-
 // Robust helpers with fallback on IDnaSchemaBase generics (for public API)
-export type $DnaInferOutput<S> = S extends { _output: infer O } ? O : S extends DnaType<infer V, any> ? V : never;
-export type $DnaInferInput<S> = S extends { _input: infer I } ? I : S extends DnaType<any, infer I> ? I : never;
-export type $DnaInfer<S> = $DnaInferOutput<S>;
+// export type $DnaInferOutput<S> = S extends { _output: infer O } ? O : S extends DnaType<infer V, any> ? V : never;
+// export type $DnaInferInput<S> = S extends { _input: infer I } ? I : S extends DnaType<any, infer I> ? I : never;
+// export type $DnaInfer<S> = $DnaInferOutput<S>;
 
 
 // Parcourt le tuple en s'assurant que l'Input de l'étape N correspond à l'Output de N-1

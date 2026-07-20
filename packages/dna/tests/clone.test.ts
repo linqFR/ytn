@@ -10,7 +10,7 @@ describe("Schema Cloning", () => {
     expect(schema).not.toBe(schemaWithMin);
 
     // Cloned schema should have min constraint
-    expect(schemaWithMin._stt.min).toBe(3);
+    expect(schemaWithMin._state.min).toBe(3);
   });
 
   it("schema.meta() should return a clone with custom meta", () => {
@@ -36,9 +36,9 @@ describe("Schema Cloning", () => {
     expect(schema2).not.toBe(schema3);
 
     // Each should have its own min value
-    expect(schema1._stt.min).toBe(3);
-    expect(schema2._stt.min).toBe(5);
-    expect(schema3._stt.min).toBe(7);
+    expect(schema1._state.min).toBe(3);
+    expect(schema2._state.min).toBe(5);
+    expect(schema3._state.min).toBe(7);
   });
 
   it("clone() method should create an independent copy", () => {
@@ -49,7 +49,7 @@ describe("Schema Cloning", () => {
     expect(schema).not.toBe(cloned);
 
     // They should have the same state
-    expect(schema._stt.min).toBe(cloned._stt.min);
+    expect(schema._state.min).toBe(cloned._state.min);
   });
 
   it("cloning should handle RegExp correctly", () => {
@@ -60,8 +60,8 @@ describe("Schema Cloning", () => {
     expect(schema).not.toBe(cloned);
 
     // The RegExp should be cloned correctly
-    expect(schema._stt.pattern).toEqual(cloned._stt.pattern);
-    expect(schema._stt.pattern).not.toBe(cloned._stt.pattern); // Different RegExp instances
+    expect(schema._state.pattern).toEqual(cloned._state.pattern);
+    expect(schema._state.pattern).not.toBe(cloned._state.pattern); // Different RegExp instances
   });
 });
 
@@ -113,7 +113,7 @@ describe("Schema Cloning - Validation", () => {
       const originalResult = schema.safeParse(value);
       const clonedResult = cloned.safeParse(value);
       expect(originalResult.success).toBe(clonedResult.success);
-      expect(originalResult.data).toBe(clonedResult.data);
+      expect(originalResult.success && originalResult.data).toBe(clonedResult.success && clonedResult.data);
     });
   });
 
@@ -137,7 +137,7 @@ describe("Schema Cloning - Validation", () => {
     const cloned = schema.clone();
 
     const validData = ["hello"];
-    const invalidData = [];
+    const invalidData:[]= [];
 
     const originalValid = schema.safeParse(validData);
     const clonedValid = cloned.safeParse(validData);

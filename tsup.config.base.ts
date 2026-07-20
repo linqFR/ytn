@@ -7,22 +7,16 @@ import zodAot from "zod-aot/esbuild";
  * @constant commonConfig
  * @description Common build configuration for all YTN packages.
  * Targets Modern ESM with full source maps and clean outputs.
- * Default policy is "Minimalist": no code splitting to avoid chunk-XYZ.js clutter.
  */
 export const commonConfig: Options = {
   format: ["esm"],
   dts: { resolve: false },
-  splitting: false, // Default: No splitting for cleaner, self-contained files
+  splitting: false,
   sourcemap: true,
   clean: true,
   target: "esnext",
   outDir: "dist",
   external: ["acorn", "acorn-walk", "zod"],
-  /**
-   * @ytn/shared is a PRIVATE internal toolbox.
-   * It is never published to npm and MUST always be inlined into public packages
-   * to ensure they remain standalone and zero-dependency for internal logic.
-   */
   noExternal: ["@ytn/shared"],
   treeshake: true,
   esbuildPlugins: [
@@ -43,41 +37,20 @@ export const commonConfig: Options = {
 export const minConfig: Options = {
   ...commonConfig,
   minify: true,
-  sourcemap: true,
-  clean: false, // Must be false to preserve standard builds
   dts: false,
+  clean: false, // Must be false to preserve standard builds
 };
-
-/**
- * @function createDualEntries
- * @description Generates entries with a `.min` identifier.
- * Used internally to trigger a separate minified build pass.
- */
-export function createDualEntries(entries: Record<string, string>) {
-  const minifiedEntries: Record<string, string> = {};
-  for (const [key, value] of Object.entries(entries)) {
-    minifiedEntries[`${key}.min`] = value;
-  }
-  return minifiedEntries;
-}
 
 /**
  * @function buildConfig
  * @description The primary orchestration helper for YTN package builds.
- *
- * To achieve a "Premium & Minimalist" output, this helper implements an **Isolation Mode**:
- * 1. It calculates every entry point defined in `package.json` (exports & bin).
- * 2. It generates an independent build configuration for **EACH** entry point.
- * 3. By processing entries separately, we prevent `tsup` from creating shared `chunk-XYZ.js` files.
- * 4. This isolation also allows the DTS bundler to perfectly merge internal types into a
- *    single `.d.ts` file per export, without orphan side-effect imports or common type chunks.
  *
  * @param {string} cwd - The workspace directory of the package (process.cwd()).
  * @param {Object} [options] - Configuration overrides.
  * @param {Record<string, Options>} [options.overrides] - Specific tsup options per entry point name.
  * @param {Options} [options.base] - Override the commonConfig defaults.
  * @param {string[]} [options.external] - Libraries to exclude from bundling.
- * @param {boolean} [options.min] - Toggle automatic .min.js generation for 'index'. Default: true.
+ * @param {boolean} [options.min] - Toggle automatic .min.js generation for public entries. Default: true.
  */
 export function buildConfig(
   cwd: string,
@@ -85,7 +58,6 @@ export function buildConfig(
     overrides?: Record<string, Options>;
     base?: Options;
     external?: string[];
-    /** @default true */
     min?: boolean;
   } = {},
 ) {
@@ -93,9 +65,6 @@ export function buildConfig(
   const { entries, dts } = getEntriesFromPackage(cwd);
   const configs: Options[] = [];
 
-  // Phase: Isolation Pass
-  // Each entry point is built as a standalone unit to ensure zero-chunking
-  // and perfect type bundling.
   for (const [name, entryPath] of Object.entries(entries)) {
     const isPublic = dts.entry.includes(entryPath);
     const entryOptions: Options = {
@@ -103,20 +72,17 @@ export function buildConfig(
       ...(external ? { external } : {}),
       ...overrides[name],
       entry: { [name]: entryPath },
-      // Resolve types into a single file only for public exports
       dts: isPublic,
       tsconfig: join(cwd, "tsconfig.json"),
-      // Only clean on the very first pass
       clean: configs.length === 0,
     };
 
     configs.push(entryOptions);
 
-    // Phase: Minification Pass (Restricted to index.ts for minimalism)
-    if (min && name === "index" && isPublic) {
+    if (min && isPublic) {
       configs.push({
         ...minConfig,
-        entry: { "index.min": entryPath },
+        entry: { [`${name}.min`]: entryPath },
         dts: false,
         clean: false,
       });
@@ -136,7 +102,7 @@ export function buildConfig(
  * - Validation: Strictly enforces that every defined export/bin has a matching file in `src/`.
  *
  * @param {string} cwd - The package directory.
- * @returns {Object} An object containing the entry map and targeting for DTS generation.
+ * @returns {Object} An object containing the entry map.
  */
 export function getEntriesFromPackage(cwd: string) {
   const pkgPath = resolve(cwd, "package.json");
@@ -146,9 +112,9 @@ export function getEntriesFromPackage(cwd: string) {
   const entries: Record<string, string> = {};
   const publicKeys = new Set<string>();
 
-  // Process Public Exports
   for (const [key] of Object.entries(exports)) {
-    if (key === "./min") continue;
+    // if (key === "./min" || key.endsWith("/min")) continue;
+    if (key.endsWith("/min")) continue;
     const entryName = key === "." ? "index" : key.replace("./", "");
     const tsFile = `${entryName}.ts`;
     const srcPath = join(cwd, "src", tsFile);
@@ -161,7 +127,6 @@ export function getEntriesFromPackage(cwd: string) {
     publicKeys.add(entryName);
   }
 
-  // Process Private Binaries
   for (const [binName, distPath] of Object.entries(bins)) {
     const fileName = (distPath as string)
       .split("/")
@@ -182,7 +147,7 @@ export function getEntriesFromPackage(cwd: string) {
   return {
     entries,
     dts: {
-      resolve: false, // Default for internal mapping, overridden in buildConfig
+      resolve: false,
       entry: Array.from(publicKeys).map((k) => entries[k]),
     },
     tsconfig: join(cwd, "tsconfig.json"),

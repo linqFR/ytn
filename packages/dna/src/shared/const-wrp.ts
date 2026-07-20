@@ -35,7 +35,12 @@ export const WRAPPER_XFAULT_NAMES = Object.values(WRAPPERS_XFAULT);
 // the key is absent): default, prefault, and preprocess.
 export const ALWAYS_EVALUATED_NAMES = [...WRAPPER_XFAULT_NAMES, WRAPPERS_PREPROCESS.preprocess];
 
-export const isWrapped=(meta:tsDnaInnerMeta)=>ALWAYS_EVALUATED_NAMES.some(it=>meta[it]) && !meta[WRAPPERS_KEYOPT.nonoptional];
+const hasValue = (m: tsDnaInnerMeta, k: "defaultValue" | "prefaultValue") => Object.prototype.hasOwnProperty.call(m, k);
+export const isWrapped=(meta:tsDnaInnerMeta)=>(
+  hasValue(meta, "defaultValue") ||
+  hasValue(meta, "prefaultValue") ||
+  !!meta.preprocess
+) && !meta[WRAPPERS_KEYOPT.nonoptional];
 
 // Object property keys are NON-required when they carry any wrapper that accepts
 // an absent key. Per Zod object semantics that is every wrapper EXCEPT `nullable`
@@ -43,7 +48,6 @@ export const isWrapped=(meta:tsDnaInnerMeta)=>ALWAYS_EVALUATED_NAMES.some(it=>me
 export const ABSENT_TOLERANT_WRAPPERS = [
   WRAPPERS_OPT.optional,
   WRAPPERS_OPT.nullish,
-  WRAPPERS_OPT.catch,
   WRAPPERS_XFAULT.default,
   WRAPPERS_XFAULT.prefault,
   WRAPPERS_KEYOPT.exactOptional,

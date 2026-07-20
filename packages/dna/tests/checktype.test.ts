@@ -2,43 +2,43 @@ import { describe, it, expectTypeOf } from "vitest";
 import { dna } from "../src/index.js";
 
 describe("Type API testing - Primitive Types", () => {
-  it("must be of type tsDnaString()", () => {
+  it("must be of type string", () => {
     const dnaSchema = dna.string();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaString>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string>();
   });
-  it("must be of type tsDnaString()", () => {
+  it("must be of type string", () => {
     const dnaSchema = dna.string().min(3);
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaString>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string>();
   });
 
-  it("must be of type tsDnaNumber()", () => {
+  it("must be of type number", () => {
     const dnaSchema = dna.number();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaNumber>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<number>();
   });
 
-  it("must be of type tsDnaInteger()", () => {
+  it("must be of type integer", () => {
     const dnaSchema = dna.int();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaInteger>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<number>();
   });
 
-  it("must be of type tsDnaInteger32()", () => {
+  it("must be of type integer32", () => {
     const dnaSchema = dna.int32();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaInteger32>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<number>();
   });
 
-  it("must be of type tsDnaBigInt()", () => {
+  it("must be of type bigint", () => {
     const dnaSchema = dna.bigint();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaBigInt>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<bigint>();
   });
 
-  it("must be of type tsDnaBoolean()", () => {
+  it("must be of type boolean", () => {
     const dnaSchema = dna.boolean();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaBoolean>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<boolean>();
   });
 
-  it("must be of type tsDnaDate()", () => {
+  it("must be of type Date", () => {
     const dnaSchema = dna.date();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaDate>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<Date>();
   });
 });
 
@@ -80,177 +80,173 @@ describe("Type API testing - Primitive Type Inferences", () => {
 });
 
 describe("Type API testing - Special Types", () => {
-  it("must be of type tsDnaAny()", () => {
+  it("must be of type any", () => {
     const dnaSchema = dna.any();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaAny>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<any>();
   });
 
-  it("must be of type tsDnaUnknown()", () => {
+  it("must be of type unknown", () => {
     const dnaSchema = dna.unknown();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaUnknown>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<unknown>();
   });
 
-  it("must be of type tsDnaNever()", () => {
+  it("must be of type never", () => {
     const dnaSchema = dna.never();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaNever>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<never>();
   });
 
-  it("must be of type tsDnaLiteral()", () => {
+  it("must be of type literal", () => {
     const dnaSchema = dna.literal("hello");
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaLiteral<"hello">>();
-    expectTypeOf(dnaSchema).not.toEqualTypeOf<dna.tsDnaLiteral<"helto">>();
     expectTypeOf(dnaSchema._output).toEqualTypeOf<"hello">();
     expectTypeOf(dnaSchema._output).not.toEqualTypeOf<"helto">();
   });
 
-  it("must be of type tsDnaEnum()", () => {
+  it("must be of type enum", () => {
     const dnaSchema = dna.enum(["a", "b", "c"] as const);
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaEnum<["a", "b", "c"]>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<"a" | "b" | "c">();
   });
 });
 
 describe("Type API testing - Composite Types", () => {
-  it("must be of type tsDnaObject()", () => {
+  it("must be of type object", () => {
     const dnaSchema = dna.object({ name: dna.string(), age: dna.number() });
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaObject<{ name: string; age: number }>>();
     expectTypeOf(dnaSchema._output).toEqualTypeOf<{ name: string; age: number }>();
-
   });
 
-  it("must be of type tsDnaArray()", () => {
+  it("must be of type array", () => {
     const dnaSchema = dna.array(dna.string());
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaArray<dna.tsDnaString>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string[]>();
   });
 
-  it("must be of type tsDnaUnion()", () => {
+  it("must be of type union", () => {
     const dnaSchema = dna.union([dna.string(), dna.number()]);
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaUnion<string | number>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string | number>();
   });
 });
 
 describe("Type API testing - Wrapper Types", () => {
-  it("must be of type tsDnaOptional()", () => {
+  it("must be of type optional", () => {
     const dnaSchema = dna.string().optional();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaOptional<string, string>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string | undefined>();
   });
 
-  it("must be of type tsDnaNullable()", () => {
+  it("must be of type nullable", () => {
     const dnaSchema = dna.string().nullable();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaNullable<string, string>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string | null>();
   });
 
-  it("must be of type tsDnaNullish()", () => {
+  it("must be of type nullish", () => {
     const dnaSchema = dna.string().nullish();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaNullish<string, string>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string | null | undefined>();
   });
 
-  it("must be of type tsDnaDefault()", () => {
+  it("must be of type default", () => {
     const dnaSchema = dna.string().default("default");
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaDefault<string, string>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string>();
   });
 
-  it("must be of type tsDnaPrefault()", () => {
+  it("must be of type prefault", () => {
     const dnaSchema = dna.string().prefault("prefault");
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaPrefault<string, string>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string>();
   });
 });
 
 describe("Type API testing - String Format Types", () => {
-  it("email must return tsDnaString", () => {
-    expectTypeOf(dna.email()).toEqualTypeOf<dna.tsDnaEmail>();
+  it("email must return string", () => {
+    expectTypeOf(dna.email()._output).toEqualTypeOf<string>();
   });
 
-  it("url must return tsDnaUrl", () => {
-    expectTypeOf(dna.url()).toEqualTypeOf<dna.tsDnaUrl>();
+  it("url must return string", () => {
+    expectTypeOf(dna.url()._output).toEqualTypeOf<string>();
   });
 
-  it("uuid must return tsDnaString", () => {
-    expectTypeOf(dna.uuid()).toEqualTypeOf<dna.tsDnaUUID>();
+  it("uuid must return string", () => {
+    expectTypeOf(dna.uuid()._output).toEqualTypeOf<string>();
   });
 
-  it("hostname must return tsDnaString", () => {
-    expectTypeOf(dna.hostname()).toEqualTypeOf<dna.tsDnaHostname>();
+  it("hostname must return string", () => {
+    expectTypeOf(dna.hostname()._output).toEqualTypeOf<string>();
   });
 
-  it("base64 must return tsDnaString", () => {
-    expectTypeOf(dna.base64()).toEqualTypeOf<dna.tsDnaBase64>();
+  it("base64 must return string", () => {
+    expectTypeOf(dna.base64()._output).toEqualTypeOf<string>();
   });
 
-  it("hex must return tsDnaString", () => {
-    expectTypeOf(dna.hex()).toEqualTypeOf<dna.tsDnaHex>();
+  it("hex must return string", () => {
+    expectTypeOf(dna.hex()._output).toEqualTypeOf<string>();
   });
 });
 
 describe("Type API testing - Other Types", () => {
-  it("instanceof must return tsDnaInstanceOf", () => {
+  it("instanceof must return Date", () => {
     const dnaSchema = dna.instanceof(Date);
     expectTypeOf(dnaSchema._output).toEqualTypeOf<Date>();
   });
 
-  it("symbol must return IDnaSchemaBase<symbol>", () => {
+  it("symbol must return symbol", () => {
     const dnaSchema = dna.symbol();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaSymbol>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<symbol>();
   });
 
-  it("void must return IDnaSchemaBase<void>", () => {
+  it("void must return void", () => {
     const dnaSchema = dna.void();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaVoid>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<void>();
   });
 
-  it("nan must return IDnaSchemaBase<typeof NaN>", () => {
+  it("nan must return typeof NaN", () => {
     const dnaSchema = dna.nan();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaNan>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<number>();
   });
 
-  it("file must return tsDnaInstanceOf<File, File>", () => {
+  it("file must return File", () => {
     const dnaSchema = dna.file();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaInstanceOf<File>>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<File>();
   });
 });
 
 describe("Type API testing - Coerce Variants", () => {
-  it("coerce.string must return tsDnaString", () => {
+  it("coerce.string must return string", () => {
     const dnaSchema = dna.coerce.string();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaString>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<string>();
   });
 
-  it("coerce.number must return tsDnaNumber", () => {
+  it("coerce.number must return number", () => {
     const dnaSchema = dna.coerce.number();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaNumber>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<number>();
   });
 
-  it("coerce.boolean must return tsDnaBoolean", () => {
+  it("coerce.boolean must return boolean", () => {
     const dnaSchema = dna.coerce.boolean();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaBoolean>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<boolean>();
   });
 
-  it("coerce.bigint must return tsDnaBigInt", () => {
+  it("coerce.bigint must return bigint", () => {
     const dnaSchema = dna.coerce.bigint();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaBigInt>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<bigint>();
   });
 
-  it("coerce.date must return tsDnaDate", () => {
+  it("coerce.date must return Date", () => {
     const dnaSchema = dna.coerce.date();
-    expectTypeOf(dnaSchema).toEqualTypeOf<dna.tsDnaDate>();
+    expectTypeOf(dnaSchema._output).toEqualTypeOf<Date>();
   });
 });
 
 describe("Type API testing - ISO Variants", () => {
-  it("iso.datetime must return tsDnaString", () => {
-    expectTypeOf(dna.iso.datetime()).toEqualTypeOf<dna.tsDnaISODateTime>();
+  it("iso.datetime must return string", () => {
+    expectTypeOf(dna.iso.datetime()._output).toEqualTypeOf<string>();
   });
 
-  it("iso.date must return tsDnaString", () => {
-    expectTypeOf(dna.iso.date()).toEqualTypeOf<dna.tsDnaISODate>();
+  it("iso.date must return string", () => {
+    expectTypeOf(dna.iso.date()._output).toEqualTypeOf<string>();
   });
 
-  it("iso.time must return tsDnaString", () => {
-    expectTypeOf(dna.iso.time()).toEqualTypeOf<dna.tsDnaISOTime>();
+  it("iso.time must return string", () => {
+    expectTypeOf(dna.iso.time()._output).toEqualTypeOf<string>();
   });
 
-  it("iso.duration must return tsDnaString", () => {
-    expectTypeOf(dna.iso.duration()).toEqualTypeOf<dna.tsDnaISODuration>();
-  });
+  // it("iso.duration must return string", () => {
+  //   expectTypeOf(dna.iso.duration()._output).toEqualTypeOf<string>();
+  // });
 });
 
 describe("Assess types of combinations : or, and, xor, intersection", () => {

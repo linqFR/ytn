@@ -2,7 +2,7 @@
 // DNA Error Types (inspired by Zod V4)
 // ============================================
 
-import type { $DnaInferInput, $DnaInferOutput } from "./base.types.js";
+import type { $Input, $Output } from "../types/helpers.types.js";
 import type {
   tsDnaIssueCodeValues,
   tsDnaIssueCodeCustom,
@@ -180,6 +180,20 @@ export interface ODnaError<T = unknown> extends Error {
   name: string;
 }
 
+export class DnaError<T = unknown> extends Error {
+	public type: T;
+	public issues: tsParserError[];
+	public _dna: { output: T; def: tsParserError[] };
+	constructor(issues: tsParserError[], type?: T) {
+		super(issues[0]?.message ?? "DNA validation error");
+		this.name = "DnaError";
+		this.issues = issues;
+		this.type = (type ?? undefined) as unknown as T;
+		this._dna = { output: undefined as unknown as T, def: this.issues };
+		if (Error.captureStackTrace) Error.captureStackTrace(this, DnaError);
+	}
+}
+
 ///////////////////    ERROR UTILITIES (TYPES ONLY)   ////////////////////////
 
 export type tsDnaFlattenedError<T, U = string> = {
@@ -224,7 +238,7 @@ export interface IRefineOptions<I> {
   message?: string;
   path?: string[];
   abort?: boolean;
-  when?: (payload: { value: $DnaInferOutput<I> }) => boolean;
+  when?: (payload: { value: $Output<I> }) => boolean;
   params?: Record<string, unknown>;
   // External references used inside the refine fn (imports/helpers), declared so codegen
   // can expose them (`const name = externals.name`); values supplied at validate/parse.
@@ -236,7 +250,7 @@ export type tsRefineOptions<I> = string | IRefineOptions<I>;
 
 // Payload for refiner functions
 export interface IRefinerPayload<T = unknown> {
-  value: $DnaInferOutput<T>;
+  value: $Output<T>;
   issues: IIssue<T>[];
   aborted?: boolean;
   fallback?: boolean | undefined;

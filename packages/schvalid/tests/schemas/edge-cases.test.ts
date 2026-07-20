@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { schvalid, jschemaToDna, OutOfScopeError } from "../src/index.js";
+import { schvalid, jschemaToDna, OutOfScopeError } from "../../src/index.js";
 
 describe("Edge Cases & Failure Detection Tests", () => {
 	
@@ -58,10 +58,7 @@ describe("Edge Cases & Failure Detection Tests", () => {
 
 			it("should reject multipleOf as NaN", () => {
 				const schema = { type: "number", multipleOf: NaN };
-				// NaN <= 0 is false, so it passes the validation check
-				// But it's still invalid - AJV rejects it
-				const validate = schvalid("validation").compile(schema);
-				expect(typeof validate).toBe("function");
+				expect(() => schvalid("validation").compile(schema)).toThrow("multipleOf must be > 0");
 			});
 
 			it("should reject minItems as negative", () => {
@@ -110,15 +107,12 @@ describe("Edge Cases & Failure Detection Tests", () => {
 
 			it("should reject required as non-array", () => {
 				const schema = { type: "object", required: "not-an-array" };
-				const validate = schvalid("validation").compile(schema);
-				expect(typeof validate).toBe("function");
-				// Validation behavior may vary
+				expect(() => schvalid("validation").compile(schema)).toThrow("required must be an array of strings");
 			});
 
-			it("should handle required with non-string elements", () => {
+			it("should reject required with non-string elements", () => {
 				const schema = { type: "object", required: [123, true] };
-				const validate = schvalid("validation").compile(schema);
-				expect(typeof validate).toBe("function");
+				expect(() => schvalid("validation").compile(schema)).toThrow("required must be an array of strings");
 			});
 
 			it("should handle empty enum", () => {
@@ -128,10 +122,9 @@ describe("Edge Cases & Failure Detection Tests", () => {
 				expect(typeof validate).toBe("function");
 			});
 
-			it("should handle enum with non-array", () => {
+			it("should reject enum with non-array", () => {
 				const schema = { enum: "not-an-array" };
-				const validate = schvalid("validation").compile(schema);
-				expect(typeof validate).toBe("function");
+				expect(() => schvalid("validation").compile(schema)).toThrow("enum must be an array");
 			});
 
 			it("should handle const as null", () => {
@@ -140,16 +133,14 @@ describe("Edge Cases & Failure Detection Tests", () => {
 				expect(typeof validate).toBe("function");
 			});
 
-			it("should handle pattern as invalid regex", () => {
+			it("should reject pattern as invalid regex", () => {
 				const schema = { type: "string", pattern: "[invalid(" };
-				const validate = schvalid("validation").compile(schema);
-				expect(typeof validate).toBe("function");
+				expect(() => schvalid("validation").compile(schema)).toThrow("Invalid pattern");
 			});
 
-			it("should handle pattern as non-string", () => {
+			it("should reject pattern as non-string", () => {
 				const schema = { type: "string", pattern: 123 };
-				const validate = schvalid("validation").compile(schema);
-				expect(typeof validate).toBe("function");
+				expect(() => schvalid("validation").compile(schema)).toThrow("Invalid pattern");
 			});
 
 			it("should handle allOf with empty array", () => {
@@ -250,9 +241,7 @@ describe("Edge Cases & Failure Detection Tests", () => {
 					type: "string",
 					pattern: "[invalid(regex"
 				};
-				// Invalid patterns are silently ignored (isValidRegex returns false)
-				const validate = schvalid("validation").compile(schema);
-				expect(typeof validate).toBe("function");
+				expect(() => schvalid("validation").compile(schema)).toThrow("Invalid pattern");
 			});
 
 			it("should handle very long patterns", () => {
@@ -1615,6 +1604,29 @@ describe("Edge Cases & Failure Detection Tests", () => {
 			const { validate, parse } = schvalid("both").compile(schema);
 			expect(typeof validate).toBe("function");
 			expect(typeof parse).toBe("function");
+		});
+	});
+
+	// =============================================================================
+	// STRICT / VALIDATE SCHEMA OPTIONS
+	// =============================================================================
+	describe("Strict / validateSchema options", () => {
+
+		it("should throw by default on invalid minLength", () => {
+			const schema = { type: "string", minLength: -1 };
+			expect(() => schvalid("validation").compile(schema)).toThrow("minLength must be >= 0");
+		});
+
+		it("should allow invalid minLength with strict: false", () => {
+			const schema = { type: "string", minLength: -1 };
+			const validate = schvalid("validation").compile(schema, { strict: false });
+			expect(typeof validate).toBe("function");
+		});
+
+		it("should allow invalid minLength with validateSchema: false", () => {
+			const schema = { type: "string", minLength: -1 };
+			const validate = schvalid("validation").compile(schema, { validateSchema: false });
+			expect(typeof validate).toBe("function");
 		});
 	});
 });

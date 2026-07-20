@@ -40,6 +40,10 @@ export type tsDnaOpcode =
   | "promise" // Promise 
   | "instanceOf"
 
+  // specifics
+  | "cidrv6"
+  | "jwt"
+
   // Unions
   | "anyOf"
   | "oneOf"
@@ -53,11 +57,13 @@ export type tsDnaOpcode =
   | "else" // conditional schemas
 
   // wrappers
-  | "wrp" // wrapper for default/prefault
+  | "wrp" // dnaopcode
   | "optional"
   | "nullable"
+  | "nullish"
   | "default"
   | "prefault"
+  | "catch"
 
   // modifiers : wrappers
 

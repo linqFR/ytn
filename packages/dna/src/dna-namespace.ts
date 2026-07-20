@@ -16,19 +16,12 @@ export * from "../src/builder/api-enhanced.js"
 export * as util from "./builder/util.js"
 
 // Type exports
-export type * from "./types/api-builder.types.js";
-export type * as ts from "./types/api-builder.types.js";
+// export type * from "./types/api-builder.types.js";
+// export type * as ts from "./types/api-builder.types.js";
 export type { tsDna, tsDnaOpcode as tsDnaOpcode, tsDnaSeq } from "./types/core.types.js";
+export type { DnaFunctionOptions as tsDnaFunctionOptions } from "./types/api-builder.types.js";
 
-// Type inference helper
-// export type output<T> = T extends { _output: infer O } ? O : never;
-// export type inputLocal<T> = T extends { _input: infer I } ? I : never;
-// export type input<T> = T extends { _head: infer H }
-//   ? unknown extends H
-//     ? inputLocal<T>
-//     : input<H>
-//   : inputLocal<T>;
-// export type infer<T> = output<T>;
+
 
 export type output<S> = $Output<S>;
 export type infer<S> = $Output<S>;
@@ -38,7 +31,7 @@ export type input<S> = $InputHead<S>;
 
 // Constructor registry for instanceof validation
 export {
-  registerConstructor,
-  getConstructor,
-} from "./toJs/jshelpers.js";
+  registerExternal as registerConstructor,
+  getExternal as getConstructor,
+} from "./toJs/registry.js";
 

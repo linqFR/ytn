@@ -90,6 +90,8 @@ const invalidResult = parse({ name: "Jo", age: -1 });
 ```typescript
 import { toJS } from "@ytn/dna";
 
+// FALSE : to rewrite
+
 const dna = /* DNA bytecode array */;
 
 // Compile in validation mode (fail-fast)

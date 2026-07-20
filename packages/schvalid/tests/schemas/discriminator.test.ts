@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { schvalid } from "../src/index.js";
+import { schvalid } from "../../src/index.js";
 
 describe("Discriminator", () => {
 	const discriminatorSchema = {
