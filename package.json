@@ -21,12 +21,12 @@
     "tag": "changeset tag"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.0",
-    "@types/node": "^25.9.1",
+    "@changesets/cli": "^2.31.1",
+    "@types/node": "^26.1.1",
     "acorn": "^8.16.0",
     "acorn-walk": "^8.3.5",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.7",
-    "zod-aot": "^0.20.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "zod-aot": "^0.21.0"
   }
 }

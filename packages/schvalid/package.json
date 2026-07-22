@@ -28,7 +28,7 @@
     "@ytn/dna": "*"
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.1.1",
     "@ytn/shared": "*",
     "ajv": "^8.20.0",
     "tsup": "^8.5.1"
