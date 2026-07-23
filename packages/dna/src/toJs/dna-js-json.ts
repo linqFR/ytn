@@ -1023,11 +1023,14 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		}
 	}
 
-	// Parser-mode init: always allocate an empty container.
-	// The schema (via DNA opcodes) is the SOLE source of what ends up in `outVar`.
-	// Defaults like `additionalProperties: true` (JSON Schema) or strict-by-default
-	// (Zod) are resolved upstream by `jschemaToDna` / `zodToDna`, never assumed here.
-	const parserOutInit = outVar + "={..." + inVar + "};";
+	// Parser-mode init: only copy the whole input object when we need to preserve
+	// unknown keys (default/additionalProperties:true) or merge with a previous
+	// seq result (unevaluatedProperties). Otherwise start empty to avoid the spread.
+	const parserOutInit = parentCtx.unEvalObj
+		? outVar + "={..." + inVar + ",..." + outVar + "};"
+		: (additionalPropertiesCheck === false || typeof additionalPropertiesCheck === "number")
+			? outVar + "={};"
+			: outVar + "={..." + inVar + "};"
 
 	return _assignOrCondEnv(parentCtx, inVar, outVar, {
 		block, break_, _break_, mustMatchType: declared, typeChecked: "object",
@@ -1297,10 +1300,13 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 
 	}
 
-	// Parser-mode init: when a reconstructing loop exists (prefixItems/items/contains),
-	// pre-size the container and copy every input item. Otherwise, preserve the original array unchanged.
+	// Parser-mode init: only copy all input items when unevaluatedItems needs to
+	// merge with a previous seq result. If a reconstructing loop exists, let it
+	// fill the remaining positions. Otherwise, preserve the original array.
 	const parserOutInit = (prefixItemsLength || needLoop)
-		? outVar + "=new Array(" + aLen + ");for(let i=0;i<" + aLen + ";i++)" + outVar + "[i]=" + inVar + "[i];"
+		? (parentCtx.unEvalArr
+			? outVar + "=new Array(" + aLen + ");for(let i=0;i<" + aLen + ";i++)" + outVar + "[i]=" + inVar + "[i];"
+			: outVar + "=new Array(" + aLen + ");")
 		: outVar + "=" + inVar + ";"
 
 	return _assignOrCondEnv(parentCtx, inVar, outVar, {
