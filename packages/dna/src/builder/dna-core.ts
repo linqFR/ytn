@@ -8,7 +8,7 @@ import type { DnaType } from "./dna-interfaces.js";
 import type { tsStateDef, tsStateFull } from "./state.types.js";
 
 
-export const initDna = <Cls extends new () => any, State extends tsStateDef = tsStateDef>(cls: Cls, state?: State, meta?: string | tsDnaMeta): InstanceType<Cls> => {
+export const initDna = <Cls extends new () => any, State extends tsStateDef = tsStateDef>(cls: Cls, state?: State, meta?: string | tsDnaInnerMeta): InstanceType<Cls> => {
   const inst = new cls();
   if (state) Object.assign(inst._core.seed, state);
   if (meta) inst._core.rawMeta(meta);

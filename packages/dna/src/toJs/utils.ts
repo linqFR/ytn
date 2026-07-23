@@ -64,7 +64,7 @@ import type { tsDnaExternals, tsJSParentCtx, tsStackFrame } from "../types/index
  */
 
 export const _err = (ctx: tsJSParentCtx, _inVarName: string, path: string, msg: string, isLiteral = true) =>
-	"errors.push({message:" + (isLiteral ? JSON.stringify(msg) : escStr(msg)) + ",path:'" + path + "',input:" + _inVarName + "})";
+	"errors.push({message:" + (isLiteral ? JSON.stringify(msg) : escStr(msg)) + ",path:" + JSON.stringify(path) + ",input:" + _inVarName + "})"; //TODO: check if stringify is needed
 
 /**
  * Detects whether a stringified function (`fn.toString().trim()`, as stored in the
@@ -72,14 +72,15 @@ export const _err = (ctx: tsJSParentCtx, _inVarName: string, path: string, msg: 
  * compile-time (codegen) check — evaluated once per `.refine()`/`.transform()`
  * during DNA→JS compilation, never at validation call time.
  */
-export const isAsyncFnStr = (fnStrTrimed: string): boolean => /^async(?:\s|[^\w])/.test(fnStrTrimed);
-
+export const isAsyncFnStr = (fnStrTrimed: string): boolean =>{
+	return /^async(?:\s|[^\w])/.test(fnStrTrimed) || /\bPromise\b/.test(fnStrTrimed);
+}
 /**
  * Prefixes a generated call expression with `await` when the underlying
  * function is async. Callers are also responsible for signaling `[STEP.ASYNC]`
  * so the enclosing compiled function is emitted as `async function(...)`.
  */
-export const withAwait = (isAsync: boolean, call: string): string => isAsync ? "await " + call : call;
+export const withAwait = (isAsync: boolean, call: string): string => isAsync ? "await(" + call + ")" : call;
 
 /**
  * Given a DNA node's meta (or a raw externals map), emits one `[STEP.OUT_ARG, name]`
@@ -194,7 +195,7 @@ export const simpleNodeToJs = (
 
 		// Handle trueSchema case in parser mode: if test is empty/true and body/counter are empty, just assign
 		if ((!test || test === "true") && !_body && !parentCtx.counter) {
-			return _outVarName + "=" + _inVarName + ";";
+			return _outVarName ? _outVarName + "=" + _inVarName + ";" : _inVarName + ";"; // TODO: investigate to check the usefullness of returning only _inVarname
 		}
 		// `preBody` is a STATEMENT (e.g. `strCnt = fCount(v);`) that prepares
 		// state read by `_body`/`test` (e.g. surrogate-aware string length).
@@ -206,12 +207,13 @@ export const simpleNodeToJs = (
 		const InAssigned = _inVarName ;
 		const trail = [bodyExpr, counterExpr, InAssigned].filter(Boolean).join("&&");
 
-		const outAssigned =  _outVarName + "=" ;
-		
-		const failExpr = (mustMatchType && condErr) ? condErr : _outVarName.length ? _inVarName : "";
-		
-		if (test) return preBody + outAssigned + test + (trail.length ? "?" + trail + ":" : "||") + failExpr + ";" + parentCtx.failCase;
-		return preBody + outAssigned + trail + (trail.length ? ";" : "") + parentCtx.failCase;
+		const hasOut = _outVarName.length > 0;
+		const outAssigned = hasOut ? _outVarName + "=" : "";
+
+		const failExpr = (mustMatchType && condErr) ? condErr : _inVarName;
+
+		if (test) return preBody + outAssigned + test + (trail.length ? "?" + trail + ":" : (hasOut ? "||" : "?")) + failExpr + ";" + parentCtx.failCase;
+		return preBody + outAssigned + trail + (trail.length ? ";" : (hasOut ? "" : ";")) + parentCtx.failCase;
 	}
 };
 

@@ -51,8 +51,5 @@ export type tsCheckOpt<Flag extends "dna" | "opt" = "dna"> =
   | tsRefinerOpt;
 
 
-// Preprocess opcode options: transform function applied before validation
-export type tsPreprocessOpt = [number, string, number]; // [schemaId, function string, arity]
-
 // Pipe opcode options: chain input schema → transform → output schema
 export type tsPipeOpt = [number, number, string, number]; // [inSchemaId, outSchemaId, transformFn, arity]

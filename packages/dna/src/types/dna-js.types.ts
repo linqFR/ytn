@@ -39,7 +39,8 @@ export type tsJSParentCtx = {
 	
 	unEvalObj?: string,
 	unEvalArr?: string,
-	// onFailure?: string,
+	
+	fastFail?: boolean,
 }; 
 
 

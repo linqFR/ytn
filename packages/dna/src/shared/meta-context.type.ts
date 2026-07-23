@@ -74,4 +74,5 @@ export type tsDnaInnerMeta<D = unknown, P = unknown, C = unknown, T = unknown> =
   nonoptional?: boolean;
   preprocess?: boolean;
   catch?: C;
+  passDefault?: boolean;
 };

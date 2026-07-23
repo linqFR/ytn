@@ -474,7 +474,7 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
         const seqDef = new Array(innerCount);
         const seqStoreId = setStore(seqDef);
         seqDef.fill(seqStoreId);
-        storeDNA([node, meta], ["seq", seqDef], storeMark, storePosition());
+        storeDNA([node, meta], ["chk", seqDef], storeMark, storePosition());
         storeMark = seqStoreId;
         storePosition.count();
       }

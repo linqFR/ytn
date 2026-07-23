@@ -1,4 +1,4 @@
-import type { tsDnaInnerMeta, tsDnaMeta } from "./meta-context.type.js";
+import type { tsDnaInnerMeta } from "./meta-context.type.js";
 
 export const WRAPPERS_XFAULT:Record<string, keyof tsDnaInnerMeta> = {
   default:"default" ,
@@ -35,12 +35,11 @@ export const WRAPPER_XFAULT_NAMES = Object.values(WRAPPERS_XFAULT);
 // the key is absent): default, prefault, and preprocess.
 export const ALWAYS_EVALUATED_NAMES = [...WRAPPER_XFAULT_NAMES, WRAPPERS_PREPROCESS.preprocess];
 
-const hasValue = (m: tsDnaInnerMeta, k: "defaultValue" | "prefaultValue") => Object.prototype.hasOwnProperty.call(m, k);
 export const isWrapped=(meta:tsDnaInnerMeta)=>(
-  hasValue(meta, "defaultValue") ||
-  hasValue(meta, "prefaultValue") ||
-  !!meta.preprocess
-) && !meta[WRAPPERS_KEYOPT.nonoptional];
+  Object.hasOwn(meta, WRAPPERS_XFAULT.default) ||
+  Object.hasOwn(meta, WRAPPERS_XFAULT.prefault) ||
+  Object.hasOwn(meta, WRAPPERS_PREPROCESS.preprocess)
+) && !Object.hasOwn(meta, WRAPPERS_KEYOPT.nonoptional);
 
 // Object property keys are NON-required when they carry any wrapper that accepts
 // an absent key. Per Zod object semantics that is every wrapper EXCEPT `nullable`

@@ -1,6 +1,8 @@
 import type { tsDnaInnerMeta } from "../shared/meta-context.type.js";
+import type { tsWrpPhase } from "../builder/state.types.js";
 import { STEP } from "../shared/const-steps.js";
 import type {
+	tsDnaId,
 	tsJSFn,
 	tsJSParentCtx,
 	tsJSStepAct,
@@ -22,10 +24,13 @@ export const coerce = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName: s
 	let op, typeChecked;
 	switch (opt[0]) {
 		case "toString": op = "String(" + _inVarName + ")"; typeChecked = "string"; break;
-		case "toNumber": op = "Number(" + _inVarName + ")"; typeChecked = "number"; break;
+		// Number() may produce NaN for non-numeric strings/objects/arrays, so the
+		// downstream `n` handler must re-validate the coerced value with Number.isFinite().
+		case "toNumber": op = "Number(" + _inVarName + ")"; typeChecked = undefined; break;
 		case "toInt": op = "Number(" + _inVarName + ")"; typeChecked = "number"; break;
 		case "toBoolean": op = "Boolean(" + _inVarName + ")"; typeChecked = "boolean"; break;
 		case "toBigInt": op = "BigInt(" + _inVarName + ")"; typeChecked = "bigint"; break;
+		case "toDate": op = "new Date(" + _inVarName + ")"; typeChecked = "date"; break;
 		default: op = _inVarName;
 	}
 	return [
@@ -48,11 +53,12 @@ export const coerce = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName: s
  */
 
 // Generic wrapper handler for builder-generated "wrp" opcode
-// Format: ["wrp", [wrptype, targetId, value?], meta]
+// Format: ["wrp", [wrptype, targetId, phase, value?], meta]
 // wrptype: "optional" | "nullable" | "nullish" | "default" | "prefault" | "catch" | "nonoptional"
 // targetId: index of the inner schema in the DNA
-// value: payload for default/prefault/catch
-type tsWrpOpt = [string, number, any?];
+// phase: "pre" | "post" | "around" — drives structural dispatch
+// value: payload for default/prefault/catch (optional)
+type tsWrpOpt = [string, number, tsWrpPhase, any?];
 
 
 export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx
@@ -62,7 +68,7 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 	// may need to mutate the value (e.g. `prefault`, `default` or `catch` assignments).
 	// Always guard writes against an absent `_outVarName` because `isCond` contexts
 	// (object properties, array/tuple items, refs) may not provide an output variable.
-	const [wrptype, targetId, rawValue] = dnaOpt[0];
+	const [wrptype, targetId, phase, rawValue] = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 	const steps: tsStackFrame[] = [];
 	const idx = labelId();
@@ -84,6 +90,7 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 
 	steps.push([STEP.BODY, block + ":{"]);
 
+	let targetEmitted = false;
 	switch (wrptype) {
 		case "prefault":
 			steps.push([STEP.BODY, "if(" + _inVarName + "===undefined){" + _inVarName + "=" + valueCode + ";}"]);
@@ -161,17 +168,22 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 				steps.push([STEP.BODY, "}"]);
 				steps.push([STEP.BODY, "if(errors.length>" + errLen + "){" + "errors.length=" + errLen + ";" + _outVarName + "=" + catchValueCode + ";}"]);
 			}
+			targetEmitted = true;
 			break;
 		}
 		default:
 			throw new Error("Unknown wrapper type: " + wrptype);
 	}
 
-	if (wrptype !== "catch") {
+	if (!targetEmitted) {
 		const innerCtx = isCond
 			? { ...parentCtx, typeChecked: undefined, counter: undefined, not: undefined }
 			: { ...parentCtx, typeChecked: undefined };
 		steps.push([targetId, _inVarName, _outVarName, pathVar, innerCtx]);
+	}
+
+	if (phase === "around" && _outVarName && !isCond) {
+		steps.push([STEP.BODY, "if(errors.length===0 && " + _outVarName + "===undefined){" + _outVarName + "=" + valueCode + ";}"]);
 	}
 
 	steps.push([STEP.BODY, "}"]);
@@ -215,7 +227,8 @@ export const check = (dnaOpt: [[string, any?, any?], tsDnaInnerMeta], _inVarName
 	const op = dnaOpt[0][0];
 	let path, errMsg, test;
 	let isAsync = false;
-	const steps: tsStackFrame[] = [];
+	let postBody: tsStackFrame | undefined;
+	let propLet: tsStackFrame | undefined;
 	switch (op) {
 		case "lowercase":
 			// s=>s===s.toLowerCase()
@@ -268,7 +281,17 @@ export const check = (dnaOpt: [[string, any?, any?], tsDnaInnerMeta], _inVarName
 			}
 			break;
 		}
-
+		case "property": {
+			const rawName = dnaOpt[0][1], propName = JSON.stringify(rawName);
+			path = "/" + rawName;
+			errMsg = "Property '" + rawName + "' is invalid";
+			const schemaId = dnaOpt[0][2] as tsDnaId;
+			const propVar = "prop" + labelId();
+			propLet = [STEP.LET, propVar];
+			test = propName + " in " + _inVarName;
+			postBody = [schemaId, _inVarName + "[" + propName + "]", propVar, pathVar + " + '/' + " + propName, { ...parentCtx, typeChecked: undefined }];
+			break;
+		}
 		default:
 			test = "";
 			path = "/check";
@@ -277,9 +300,16 @@ export const check = (dnaOpt: [[string, any?, any?], tsDnaInnerMeta], _inVarName
 	}
 	const condErr = _err(parentCtx, _inVarName, pathVar + path, errMsg) + ERR_UNDEF;
 	const body = simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
-	const extraSteps = externalsOutArgs(dnaOpt[1]?.externals);
-	if (isAsync) extraSteps.push([STEP.ASYNC]);
-	return extraSteps.length ? [...extraSteps, [STEP.BODY, body]] : body;
+	
+	const steps = externalsOutArgs(dnaOpt[1]?.externals);
+	if (isAsync) steps.push([STEP.ASYNC]);
+	if (postBody) {
+		steps.push([STEP.BODY, body]);
+		if (propLet) steps.push(propLet);
+		steps.push(postBody);
+		return steps;
+	}
+	return steps.length ? [...steps, [STEP.BODY, body]] : body;
 };
 
 // `sym`: matches only Symbol values. Zod's `z.symbol()`.
@@ -292,14 +322,24 @@ export const sym = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: s
 
 // `date`: matches a real `Date` instance (Zod's `z.date()`). Excludes invalid
 // dates (`new Date("nope")` whose `.getTime()` is NaN), aligning with Zod V4.
-export const date = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const date = (dnaOpt: [[Date | null, Date | null], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+	const [minDate, maxDate] = dnaOpt[0];
 	// `t===t` is true unless `t` is NaN (NaN is the only value not equal to
 	// itself), so `getTime()===getTime()` rejects invalid dates without an
 	// extra `Number.isNaN(...)` call.
 	const test = _inVarName + " instanceof Date&&" + _inVarName + ".getTime()===" + _inVarName + ".getTime()";
+	const body: string[] = [];
+	if (minDate !== null) body.push(_errMode(parentCtx.isCond,
+		_inVarName + ".getTime()>=" + minDate.getTime(),
+		_err(parentCtx, _inVarName, pathVar + "/date/min", "Date must be on or after " + minDate.toISOString()) + ERR_UNDEF
+	));
+	if (maxDate !== null) body.push(_errMode(parentCtx.isCond,
+		_inVarName + ".getTime()<=" + maxDate.getTime(),
+		_err(parentCtx, _inVarName, pathVar + "/date/max", "Date must be on or before " + maxDate.toISOString()) + ERR_UNDEF
+	));
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/date", "Date is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "date";
-	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
+	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", body, true);
 };
 
 // `file`: matches a `File` instance. `globalThis.File` is available in
@@ -359,7 +399,8 @@ export const jwt = (dnaOpt: [string | null, tsDnaInnerMeta], _inVarName: string,
 	const hVar = "jH" + labelId();
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/jwt", "Invalid JWT") + ";";
 	const algCheck = alg !== null ? '&&' + hVar + '.alg===' + JSON.stringify(alg) : "";
-	const preBody = 'let ' + hVar + ';try{' + hVar + '=jose.decodeProtectedHeader(' + _inVarName + ');}catch(e){' + parentCtx.failCase + '}';
+	const catchBody = parentCtx.isCond ? parentCtx.failCase : condErr + parentCtx.failCase;
+	const preBody = 'let ' + hVar + ';try{' + hVar + '=jose.decodeProtectedHeader(' + _inVarName + ');}catch(e){' + catchBody + '}';
 	const test = hVar + '&&(' + hVar + '.typ===undefined||' + hVar + '.typ==="JWT")' + algCheck;
 	let body = preBody;
 	if (parentCtx.isCond) {
@@ -390,8 +431,8 @@ export const sb = (dnaOpt: [[string[], string[], boolean], tsDnaInnerMeta], _inV
 	return [
 		[STEP.OUT_CONST, mapVar + "=" + mapStr],
 		[STEP.BODY,
-			"const " + valVar + "=" + mapVar + "[" + key + "]" + ";"
-			+ simpleNodeToJs(parentCtx, valVar, _outVarName, condErr, valVar + "!==undefined", "", "", true)
+		"const " + valVar + "=" + mapVar + "[" + key + "]" + ";"
+		+ simpleNodeToJs(parentCtx, valVar, _outVarName, condErr, valVar + "!==undefined", "", "", true)
 		]
 	];
 };
@@ -400,14 +441,13 @@ export const instanceOf = (dnaOpt: [string, tsDnaInnerMeta], _inVarName: string,
 	const constructorName = dnaOpt[0];
 	parentCtx.typeChecked = constructorName;
 	const idx = labelId();
-	const className = "cls" + idx;
+	const isBuiltin = ["Object", "Array", "Function", "String", "Number", "Boolean", "Date", "RegExp", "Error", "Promise", "Map", "Set", "WeakMap", "WeakSet"].includes(constructorName);
+	const className = isBuiltin ? constructorName : "cls" + idx;
 	const test = _inVarName + " instanceof " + className;
 
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/instanceOf", "Instance of " + constructorName + " is required") + ERR_UNDEF;
 
 	const steps: tsStackFrame[] = [];
-	const isBuiltin = ["Object", "Array", "Function", "String", "Number", "Boolean", "Date", "RegExp", "Error", "Promise", "Map", "Set", "WeakMap", "WeakSet"].includes(constructorName);
-
 	if (!isBuiltin) {
 		steps.push([STEP.OUT_CONST, className + "=" + constructorName]);
 		steps.push([STEP.OUT_ARG, constructorName]);
@@ -500,29 +540,38 @@ export const template = (dnaOpt: [string[], number[], boolean, tsDnaInnerMeta?],
 		if (canMutate) steps.push([STEP.LET, outVar]);
 	}
 
-	// Validate each captured part with its schema
-	// The wrp opcode already handles optional/nullable/nullish short-circuits.
-	for (let i = 0; i < partIds.length; i++) {
-		const captureVar = "parts[" + (i + 1) + "]";
-		steps.push([partIds[i], captureVar, tmpVar, pathVar + "/template/" + i, childrenCtx]);
-	}
-
-	// Reconstruct mutated output for parser mode
-	if (!isCond && canMutate) {
-		const n = partIds.length;
-		steps.push([STEP.BODY,
-		outVar + "=parts[0];" +
-		"let off" + idx + "=0;" +
-		"for(let i" + idx + "=1;i" + idx + "<=" + n + ";i" + idx + "++){" +
-		"const v" + idx + "=parts[i" + idx + "];" +
-		"const id" + idx + "=parts.indices?parts.indices[i" + idx + "]:null;" +
-		"if(v" + idx + "!==undefined&&id" + idx + "){" +
-		outVar + "=" + outVar + ".slice(0,id" + idx + "[0]+off" + idx + ")+v" + idx + "+" + outVar + ".slice(id" + idx + "[1]+off" + idx + ");" +
-		"off" + idx + "+=String(v" + idx + ").length-(id" + idx + "[1]-id" + idx + "[0]);" +
-		"}" +
-		"}" +
-		_outVarName + "=" + outVar + ";"
-		]);
+	const tLitsName = "tLits" + idx;
+	// Validate each captured part with its schema.
+	// In parse mode we capture the transformed part values for reconstruction.
+	if (isCond) {
+		for (let i = 0; i < partIds.length; i++) {
+			const captureVar = "parts[" + (i + 1) + "]";
+			steps.push([partIds[i], captureVar, "", pathVar + "/template/" + i, childrenCtx]);
+		}
+	} else {
+		steps.push([STEP.BODY, "let " + tLitsName + "=[];"]);
+		for (let i = 0; i < partIds.length; i++) {
+			const captureVar = "parts[" + (i + 1) + "]";
+			steps.push([partIds[i], captureVar, tmpVar, pathVar + "/template/" + i, childrenCtx]);
+			steps.push([STEP.BODY, tLitsName + "[" + i + "]=" + tmpVar + ";"]);
+		}
+		// Reconstruct mutated output for parser mode
+		if (canMutate) {
+			const n = partIds.length;
+			steps.push([STEP.BODY,
+			outVar + "=parts[0];" +
+			"let off" + idx + "=0;" +
+			"for(let i" + idx + "=1;i" + idx + "<=" + n + ";i" + idx + "++){" +
+			"const v" + idx + "=" + tLitsName + "[i" + idx + "-1];" +
+			"const id" + idx + "=parts.indices?parts.indices[i" + idx + "]:null;" +
+			"if(v" + idx + "!==undefined&&id" + idx + "){" +
+			outVar + "=" + outVar + ".slice(0,id" + idx + "[0]+off" + idx + ")+v" + idx + "+" + outVar + ".slice(id" + idx + "[1]+off" + idx + ");" +
+			"off" + idx + "+=String(v" + idx + ").length-(id" + idx + "[1]-id" + idx + "[0]);" +
+			"}" +
+			"}" +
+			_outVarName + "=" + outVar + ";"
+			]);
+		}
 	}
 	return steps;
 };
@@ -535,57 +584,48 @@ export const transform = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName
 	const steps: tsStackFrame[] = externalsOutArgs(dnaOpt[1]?.externals);
 	if (isAsync) steps.push([STEP.ASYNC]);
 
-	// Apply transform
+	// Apply transform and propagate the result to _outVarName in parse mode,
+	// so the transformed value is returned. In cond mode — or when the caller
+	// didn't provide an output variable — we mutate _inVarName in place: a DNA
+	// opcode is a mutator by default, even in isCond mode, so downstream
+	// sibling checks still observe the transformed value.
 	const ctxArg = !isCond && fnLength > 1 ? ",{issues:errors,addIssue:(iss)=>errors.push(iss)}" : "";
 	const mutation = withAwait(isAsync, "(" + fnStr + ")(" + _inVarName + ctxArg + ")");
-	steps.push([STEP.BODY, _inVarName + "=" + mutation + (parentCtx.isCond ? ";" : "")]);
+	const workVar = isCond || !_outVarName ? _inVarName : _outVarName;
+	steps.push([STEP.BODY, workVar + "=" + mutation + ";"]);
 
 	return steps;
 };
 
-// `preprocess`: transform function applied before validation
-// Format: ["preprocess", [schemaId, fnStr, fnLength], meta]
-// transformFn: function to transform input before schema validation
-export const preprocess = (dnaOpt: [[number, string, number], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
-	const [schemaId, fnStr, fnLength] = dnaOpt[0];
+// `seq`: builder-specific mutable sequence used by `DnaPipe`.
+// Unlike canonical `chk` (schvalid allOf), each child is called on a local
+// `cur` variable. In parser mode a separate `next` output variable is used so
+// children that allocate a new container (`array`, `object`, etc.) do not
+// overwrite the input before reading it; `cur` is then advanced with `cur=next`.
+export const seq = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+	const stepIds = dnaOpt[0];
 	const isCond = parentCtx.isCond;
-	const isAsync = isAsyncFnStr(fnStr);
-
+	const idx = labelId();
+	const cur = "seqV" + idx;
+	const pBlock = "seqB" + idx;
+	const next = isCond ? "" : "seqN" + idx;
 	const steps: tsStackFrame[] = [];
-	if (isAsync) steps.push([STEP.ASYNC]);
 
-	// Apply preprocess transformation
-	const ctxArg = !isCond && fnLength > 1 ? ",{issues:errors}" : "";
-	const preprocessCall = withAwait(isAsync, "(" + fnStr + ")(" + _inVarName + ctxArg + ")");
-	steps.push([STEP.BODY, _inVarName + "=" + preprocessCall + ";"]);
+	steps.push([STEP.BODY, "let " + cur + "=" + _inVarName + (next ? "," + next : "") + ";"]);
+	steps.push([STEP.BODY, pBlock + ":{"]);
 
-	// Call schema for validation of transformed value
-	steps.push([schemaId, _inVarName, _outVarName, pathVar, parentCtx]);
-
-	return steps;
-};
-
-// `pipe`: chain input schema → transform → output schema
-// Format: ["pipe", [inSchemaId, outSchemaId, transformFn, arity], meta]
-// Similar to codec but for one-way transformation (decode only)
-export const pipe = (dnaOpt: [[number, number, string, number], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
-	const [inSchemaId, outSchemaId, transformFn, fnLength] = dnaOpt[0];
-	const isCond = parentCtx.isCond;
-	const isAsync = isAsyncFnStr(transformFn);
-
-	const steps: tsStackFrame[] = [];
-	if (isAsync) steps.push([STEP.ASYNC]);
-
-	// Call inSchema for validation
-	steps.push([inSchemaId, _inVarName, _outVarName, pathVar, parentCtx]);
-
-	// Apply transform
-	const ctxArg = !isCond && fnLength > 1 ? ",{issues:errors}" : "";
-	const transformCall = withAwait(isAsync, "(" + transformFn + ")(" + _inVarName + ctxArg + ")");
-	steps.push([STEP.BODY, _inVarName + "=" + transformCall + ";"]);
-
-	// Call outSchema for validation of transformed value
-	steps.push([outSchemaId, _inVarName, _outVarName, pathVar, parentCtx]);
+	if (isCond) {
+		for (let i = 0; i < stepIds.length; i++) {
+			steps.push([stepIds[i], cur, _outVarName, pathVar, parentCtx]);
+		}
+		steps.push([STEP.BODY, (_outVarName ? _outVarName + "=true;" : "") + _inVarName + "=" + cur + ";" + "}"]);
+	} else {
+		for (let i = 0; i < stepIds.length; i++) {
+			steps.push([stepIds[i], cur, next, pathVar, parentCtx]);
+			steps.push([STEP.BODY, cur + "=" + next + ";"]);
+		}
+		steps.push([STEP.BODY, (_outVarName ? _outVarName + "=" + cur + ";" : "") + "}"]);
+	}
 
 	return steps;
 };

@@ -123,7 +123,6 @@ function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchem
 		case "function":
 		case "promise":
 		case "instanceOf":
-		case "preprocess":
 		case "mutate":
 		case "transform":
 		case "pipe":

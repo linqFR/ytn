@@ -3,7 +3,7 @@
 
 import { DnaIssueCodes } from "../shared/error-codes.js";
 import type { tsDecodeFn, tsEncodeFn, tsTransformFn } from "../shared/handlers-builder.types.js";
-import type { tsDnaMeta } from "../shared/meta-context.type.js";
+import type { tsDnaInnerMeta, tsDnaMeta } from "../shared/meta-context.type.js";
 import type { tsDnaExternalsDecl } from "../shared/runtime.types.js";
 import { initDna } from "./dna-core.js";
 
@@ -87,7 +87,6 @@ import {
   DnaArray,
   DnaCodec,
   DnaFunction,
-  DnaPreprocess,
   type DnaJson,
   DnaNonOptional,
   type DnaJsonRaw
@@ -293,7 +292,7 @@ export function looseObject<T extends Record<string, DnaType<any, any>>>(shape: 
   return initDna(DnaObject<T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'loose' }, meta);
 }
 
-export const property = <K extends string | number, S>(key: K, schema: DnaType<S>) => initDna(DnaProperty, { key, schema });
+export const property = <K extends string | number, S>(property: K, schema: DnaType<S>) => initDna(DnaProperty<K>, { property, schema });
 
 export const array = <T extends DnaType<any, any>>(item: T, meta?: string | tsDnaMeta) => initDna(DnaArray<T>, { min: null, max: null, length: null, itemSchema: item }, meta);
 
@@ -328,7 +327,12 @@ export const transform = <T, R>(fn: tsTransformFn<T, R>, meta?: string | tsDnaMe
 
 export const pipe = <T, U>(src: DnaType<T>, target: DnaType<U, T>, meta?: string | tsDnaMeta) => initDna(DnaPipe<T,U>, { steps: [src, target] }, meta);
 
-export const preprocess = <O>(fn: (value: unknown) => O, target: DnaType<O, O>, meta?: string | tsDnaMeta) => initDna(DnaPreprocess<O>, { transformSchema: initDna(DnaUnknown, undefined).transform(fn), targetSchema: target }, meta);
+export const preprocess = <O>(fn: (value: unknown) => O, target: DnaType<O, O>, meta?: string | tsDnaMeta) => {
+  const innerMeta: tsDnaInnerMeta = { preprocess: true };
+  if (typeof meta === "string") innerMeta.message = meta;
+  else if (meta) Object.assign(innerMeta, meta);
+  return initDna(DnaPipe<O, unknown>, { steps: [transform(fn), target] }, innerMeta);
+};
 
 export const lazy = <S extends DnaType<any, any>>(getter: () => S) => initDna(DnaLazy<S>, { getter });
 

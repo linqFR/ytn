@@ -24,6 +24,8 @@ import type { DnaType } from "./dna-interfaces.js";
 // ============================================
 
 export type tsWrpTypes = "optional" | "nullable" | "nullish" | "default" | "prefault" | "catch" | "nonoptional" | "exactOptional";
+export type tsWrpPhase = "pre" | "post" | "around";
+
 // export type tsEnumInput = readonly any[] | Record<string, any>;
 // export type tsEnumValues = readonly any[];
 

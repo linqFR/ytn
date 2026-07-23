@@ -74,11 +74,10 @@ export type tsDnaOpcode =
   | "check" // refine ( only)
 
   // Mutations / transformations
-  | "preprocess" // transform before 
   | "mutate" // built-in primitive mutations (trim, toUpperCase, etc.)
   | "transform" // custom schema transformation
-  | "pipe" // chain schemas with transformations
-  | "seq";
+  | "seq" // builder multi-step pipeline
+  | "chk"; // canonical check-all (allOf-like)
 
 export type tsDnaId = number;
 
