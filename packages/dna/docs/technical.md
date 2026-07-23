@@ -72,7 +72,7 @@ Underscore prefix (e.g., `"_o"`, `"_s"`, `"_n"`) indicates unconstrained types. 
   - `max`: Maximum length (number or null)
   - `pattern`: Regex pattern string (string or null)
   - `format`: Format identifier like "email", "url" (string or null)
-  - Validation: Pattern has priority over format in `dna-js-full.ts`
+  - Validation: Pattern has priority over format in `dna-js-json.ts`
 
 - `["_s", [min, max, pattern, format], {meta}]` - String constraints only (without type check)
 
@@ -489,7 +489,7 @@ This tuple is what `validator(dnaSeq)` and `parser(dnaSeq)` consume to produce t
 
 ### DNA to JavaScript Compilation
 
-DNA bytecode is compiled to standalone JavaScript functions via the `dna-js-full.ts` engine. The generated code uses:
+DNA bytecode is compiled to standalone JavaScript functions via the `dna-js-json.ts` engine. The generated code uses:
 
 - **Hashmaps instead of Sets**: For tracking evaluated properties/items (`evalSet`, `passedIdx`), plain objects `{}` are used instead of `Set` for better performance and smaller generated code.
 - **Compact assignments**: Hashmap entries use `=1` instead of `=key` for minimal overhead.
@@ -504,11 +504,11 @@ The DNA-to-JS compiler produces two types of functions:
 1. **Validator Mode** (`validator(dna)`): Boolean-only validation with fail-fast semantics. Returns `true/false` immediately on first error.
 2. **Parser Mode** (`parser(dna)`): Full error collection with data transformation. Returns `{success: true, data: {...}}` or `{success: false, errors: [...]}`.
 
-#### Opcode handler modules: `dna-js-full.ts` vs `dna-js-builder.ts`
+#### Opcode handler modules: `dna-js-json.ts` vs `dna-js-builder.ts`
 
 The opcode-to-JavaScript handlers are split across two modules, along the same front-end boundary as the **[Relationship with @ytn/schvalid](#relationship-with-ytnschvalid)** section:
 
-- **`dna-js-full.ts` — canonical / JSON-validation opcodes.** Contains everything needed for **JSON Schema validation**: the opcodes that `@ytn/schvalid`'s `jschemaToDna` produces (`s`/`_s`, `n`/`_n`/`i`/`bi`, `b`, `o`/`_o`, `a`/`_a`, `anyOf`/`oneOf`/`allOf`/`not`, `discriminator`, `if`/`then`/`else`, `c`/`cD`/`l`/`e`/`eD`, `ref`, `unevaluated*`, etc.). This is the JSON-Schema-complete handler set; it is the module imported and consumed by `@ytn/schvalid`.
+- **`dna-js-json.ts` — canonical / JSON-validation opcodes.** Contains everything needed for **JSON Schema validation**: the opcodes that `@ytn/schvalid`'s `jschemaToDna` produces (`s`/`_s`, `n`/`_n`/`i`/`bi`, `b`, `o`/`_o`, `a`/`_a`, `anyOf`/`oneOf`/`allOf`/`not`, `discriminator`, `if`/`then`/`else`, `c`/`cD`/`l`/`e`/`eD`, `ref`, `unevaluated*`, etc.). This is the JSON-Schema-complete handler set; it is the module imported and consumed by `@ytn/schvalid`.
 
 - **`dna-js-builder.ts` — builder-specific opcodes.** Contains the handlers for opcodes emitted **only** by the `@ytn/dna` Zod-like builder, which have no JSON Schema equivalent: `wrp` (the generic `optional`/`nullable`/`default`/`prefault` wrapper dispatcher), `mutate` (transforms), `check` (string refinements like `lowercase`/`startsWith`/…), `coerce`, plus extra runtime types `sym`, `date`, `file`. `@ytn/schvalid` does NOT use these — it produces canonical DNA opcodes directly.
 
@@ -695,7 +695,7 @@ if (counter_ || outAssign_) steps.push([STEP.BODY, counter_ + outAssign_]);
 if (block) steps.push([STEP.BODY, "}"]);
 ```
 
-This pattern guarantees that `counter_` and `outAssign_` are emitted **exactly once** on the success path, and **never** on any failure path. See `wrp` in `src/toJs/dna-js-builder.ts` for a minimal reference implementation; `object`, `array`, `anyOf`, `oneOf`, `allOf`, `not` in `dna-js-full.ts` for more elaborate ones.
+This pattern guarantees that `counter_` and `outAssign_` are emitted **exactly once** on the success path, and **never** on any failure path. See `wrp` in `src/toJs/dna-js-builder.ts` for a minimal reference implementation; `object`, `array`, `anyOf`, `oneOf`, `allOf`, `not` in `dna-js-json.ts` for more elaborate ones.
 
 ### 4. Break policy: local vs propagated
 
@@ -723,7 +723,7 @@ const test = parentCtx.typeChecked === "string" ? "" : "typeof " + inVar + '==="
 parentCtx.typeChecked = "string";
 ```
 
-When `test === ""`, `simpleNodeToJs` emits no test branch — just the success marker. See `s`/`_s`, `n`/`_n`/`i`/`bi`, `boolean`, `nullType`, `sym`, `date`, `file` in `dna-js-full.ts` and `dna-js-builder.ts`.
+When `test === ""`, `simpleNodeToJs` emits no test branch — just the success marker. See `s`/`_s`, `n`/`_n`/`i`/`bi`, `boolean`, `nullType`, `sym`, `date`, `file` in `dna-js-json.ts` and `dna-js-builder.ts`.
 
 ### 6. Snippet: `wrp` (builder wrapper for optional/nullable/default/prefault)
 
@@ -752,7 +752,7 @@ data = v;
 
 ### 7. Snippet: object with `required`
 
-Style documented next to the `object` handler in `dna-js-full.ts` — AJV-like grouping. One `if(Object.hasOwn(v,K))` block per declared key, fusing `properties` + `required` + `dependentRequired` + `dependentSchemas`. `required` keys emit `if(!hasOwn(v,K)) break oB<idx>;` upfront, without `else`.
+Style documented next to the `object` handler in `dna-js-json.ts` — AJV-like grouping. One `if(Object.hasOwn(v,K))` block per declared key, fusing `properties` + `required` + `dependentRequired` + `dependentSchemas`. `required` keys emit `if(!hasOwn(v,K)) break oB<idx>;` upfront, without `else`.
 
 ### 8. Refs and recursion
 
@@ -773,7 +773,7 @@ L0001 = (v, _ea, _eo) => {
 
 Callers that participate in **in-place applicator propagation** (e.g. a `$ref` sibling of `unevaluatedProperties`) pass their own `unEvalArr`/`unEvalObj` hashmap names as `_ea`/`_eo`; otherwise the prelude allocates dummy hashmaps discarded at return.
 
-**Eval-set containers — plain object `{}` (validated by benchmark).** All eval-tracking structures (`evalISet<idx>`, `evalPSet<idx>`, `oneEvalArr<idx>`, `discEvalObj<idx>`, …) are plain objects `{}` populated via `set[k]=1` and iterated via `for(const k in set)` / `Object.keys(set).length` (see `_unEvalEnv` and `oneOf` / `discriminator` handlers in `dna-js-full.ts`). The `evalPrelude` in `dna-to-js.ts` is also aligned on `{}` (it used to emit `new Set()` inconsistently).
+**Eval-set containers — plain object `{}` (validated by benchmark).** All eval-tracking structures (`evalISet<idx>`, `evalPSet<idx>`, `oneEvalArr<idx>`, `discEvalObj<idx>`, …) are plain objects `{}` populated via `set[k]=1` and iterated via `for(const k in set)` / `Object.keys(set).length` (see `_unEvalEnv` and `oneOf` / `discriminator` handlers in `dna-js-json.ts`). The `evalPrelude` in `dna-to-js.ts` is also aligned on `{}` (it used to emit `new Set()` inconsistently).
 
 **Benchmark — realistic context** (`sandbox/bench-realistic.ts`, Node v26, 200 000 iters, `new Function()`-built validator with mixed property access + eval-set ops in the same hot loop):
 
@@ -802,7 +802,7 @@ Callers that participate in **in-place applicator propagation** (e.g. a `$ref` s
 
 ### 10. Real generated examples
 
-The following snippets are the **actual output** of `toJS` for representative JSON Schemas (Draft 2020-12), routed through `@ytn/schvalid`'s `jschemaToDna` converter. They are regeneratable via `sandbox/gen-examples-v2.ts`.
+The following snippets are the **actual output** of `toJS` for representative JSON Schemas (Draft 2020-12), routed through `@ytn/schvalid`'s `jschemaToDna` converter. They are regeneratable for any schema by converting it to DNA and calling `toJS(true, false)(dna)` / `toJS(false, false)(dna)`; the full collection for the test suite is produced by `packages/schvalid/sandbox/collect-schema-adn-functions.ts`.
 
 Formatting note: the codegen emits a single-line body (no whitespace). The snippets below are presented as-emitted; line breaks are visual aids only.
 

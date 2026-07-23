@@ -117,18 +117,11 @@ while (j--) { ... }
 
 ### Application in DNA Codebase
 
-All benchmark files in `sandbox/` have been updated to use the optimal pattern:
+This optimal loop pattern is used throughout the DNA codebase wherever hot iteration is needed, including generated validators and any local benchmark scripts. It is particularly valuable in hot loops such as:
 
-- `bench-function-performance.ts`
-- `bench-realistic.ts`
-- `bench-set-vs-hashmap.ts`
-- `bench-new-function.ts`
-
-This optimization is particularly valuable in hot loops such as:
-
-- Benchmark warmup iterations
-- Performance measurement loops
 - Array/object traversal in generated validators
+- Performance measurement loops
+- Benchmark warmup iterations
 
 ## IIFE Closure Pattern for DNA Validators
 

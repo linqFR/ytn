@@ -14,17 +14,9 @@ export type tsToJSResult = { code: string[]; requiredExternals: string[]; };
 type namerFn = (idx: number | string) => string;
 const namer: namerFn = (idx: number | string) => "L" + idx.toString().padStart(4, "0");
 
-// const declareFn = (idx: number, body: string, suffix = "") => namer(idx) + "=(" + suffix + ")=>{" + body + "}"; //format 0000
-// const declareBlock = (idx: number, body: string) => namer(idx) + "{" + body + "}"; //format 0000
-// const useFn = (idx: number, source: string, pathVar: string) => namer(idx) + '(' + source + ',"' + pathVar + '")';
-
-
-
-export function toJS(validateMode: boolean, enhancedMapper: false, options?: { fastFail?: boolean }): (dna: tsDnaSeq) => string[];
-export function toJS(validateMode: boolean, enhancedMapper: true, options?: { fastFail?: boolean }): (dna: tsDnaSeq) => tsToJSResult;
-export function toJS(validateMode: boolean = true, enhancedMapper: boolean = false, options: { fastFail?: boolean } = {}) {
-
-	const { fastFail = false } = options;
+export function toJS(validateMode: boolean, enhancedMapper: false): (dna: tsDnaSeq) => string[];
+export function toJS(validateMode: boolean, enhancedMapper: true): (dna: tsDnaSeq) => tsToJSResult;
+export function toJS(validateMode: boolean = true, enhancedMapper: boolean = false) {
 
 	// Mapper for @ytn/schvalid (canonical DNA opcodes only)
 	// Mapper for DNA builder (canonical + builder-specific opcodes)
@@ -54,9 +46,9 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 
 		if (validateMode) { // true = pure validation
 			target = "valid";
-			defaultCtx = { isCond: true, failCase: "return false;", outerblock: "", fastFail };
+			defaultCtx = { isCond: true, failCase: "return false;", outerblock: "" };
 		} else {
-			defaultCtx = { isCond: false, failCase: "if(errors.length)return{success:false,errors};", outerblock: "", fastFail };
+			defaultCtx = { isCond: false, failCase: "if(errors.length)return{success:false,errors};", outerblock: "" };
 			target = "data";
 			constBody.add("errors=[]");
 		}
@@ -246,18 +238,18 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 // };
 
 // schvalid-specific validator/parser (canonical DNA opcodes only)
-export const validator = (dna: tsDnaSeq, options?: { fastFail?: boolean } /* , externals?: tsDnaExternals */): tsDnaValidatorFn => new Function(...toJS(true, false, options)(dna))() as tsDnaValidatorFn;
-export const parser = (dna: tsDnaSeq, options?: { fastFail?: boolean }/* , externals?: tsDnaExternals */): tsDnaParserFn => new Function(...toJS(false, false, options)(dna))() as tsDnaParserFn;
+export const validator = (dna: tsDnaSeq /* , externals?: tsDnaExternals */): tsDnaValidatorFn => new Function(...toJS(true, false)(dna))() as tsDnaValidatorFn;
+export const parser = (dna: tsDnaSeq /* , externals?: tsDnaExternals */): tsDnaParserFn => new Function(...toJS(false, false)(dna))() as tsDnaParserFn;
 
 // Default validator/parser use builderMapper (for DNA builder API)
-export const validatorBuilder = (dna: tsDnaSeq, externals?: tsDnaExternals, options?: { fastFail?: boolean }) => {
-	const { code, requiredExternals } = toJS(true, true, options)(dna);
+export const validatorBuilder = (dna: tsDnaSeq, externals?: tsDnaExternals) => {
+	const { code, requiredExternals } = toJS(true, true)(dna);
 	const fn = new Function(...code)({ ...getRegisteredExternals(), ...externals });
 	fn.requiredExternals = requiredExternals;
 	return fn as tsDnaValidatorFn & {requiredExternals:string[]};
 };
-export const parserBuilder = (dna: tsDnaSeq, externals?: tsDnaExternals, options?: { fastFail?: boolean }) => {
-	const { code, requiredExternals } = toJS(false, true, options)(dna);
+export const parserBuilder = (dna: tsDnaSeq, externals?: tsDnaExternals) => {
+	const { code, requiredExternals } = toJS(false, true)(dna);
 	const fn = new Function(...code)({ ...getRegisteredExternals(), ...externals });
 	fn.requiredExternals = requiredExternals;
 	return fn as tsDnaParserFn & {requiredExternals:string[]};

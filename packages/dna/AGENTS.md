@@ -20,7 +20,9 @@ This package provides the DNA bytecode runtime engine. It is NOT the JSON Schema
 
 - **`src/builder/index.ts`**: DNA schema factory with Zod-like fluent API (`dna.string()`, `dna.object()`, etc.)
 - **`src/toJs/dna-to-js.ts`**: Main compiler entry point, orchestrates DNA → JavaScript conversion
-- **`src/toJs/dna-js-full.ts`**: Opcode-to-JavaScript mapper (full keyword handlers)
+- **`src/toJs/dna-js-json.ts`**: Opcode-to-JavaScript mapper for JSON Schema-derived opcodes (`object`, `array`, `string`, `number`, `anyOf`, `oneOf`, `discriminator`, etc.)
+- **`src/toJs/dna-js-builder.ts`**: Opcode-to-JavaScript mapper for the fluent builder API (`o`, `a`, `s`, `n`, `or`, `and`, etc.)
+- **`src/toJs/utils.ts`**: Code generation helpers, inline function registry, and shared validators
 - **`src/types/`**: DNA bytecode type definitions and inference types
 - **`src/shared/`**: Shared utilities (stack steps, constants)
 
@@ -149,14 +151,44 @@ This package follows global naming standards:
 
 ## Debugging
 
-When debugging generated code:
+### Inspect generated JavaScript
 
 ```typescript
+import { validator, parser } from "@ytn/dna";
+
 const validateFn = validator(dna);
-console.log(validateFn.toString()); // Inspect generated JavaScript
+const parseFn = parser(dna);
+
+console.log(validateFn.toString());  // single string in validation mode
+console.log(parseFn.toString());     // joined array in parser mode
+```
+
+For the raw string array before joining:
+
+```typescript
+import { toJS } from "@ytn/dna/toJs";
+
+const validateCode = toJS(true, false)(dna) as string[];
+const parseCode = toJS(false, false)(dna) as string[];
+
+console.log(validateCode.join("\n"));
+console.log(parseCode.join("\n"));
 ```
 
 **IMPORTANT**: Use `console.dir(obj, { depth: null })` instead of `JSON.stringify(obj, null, 2)` for debugging objects.
+
+### Common places to look
+
+- **`src/toJs/dna-js-json.ts`**: object/array parser init (`parserOutInit`), `oneOf`/`anyOf`/`allOf` combinators, `discriminator` switch dispatch, `unevaluatedProperties` / `unevaluatedItems` evaluation sets.
+- **`src/toJs/dna-js-builder.ts`**: builder opcodes (`o`, `a`, `or`, `and`, etc.) when the schema is built with the fluent API.
+- **`src/toJs/utils.ts`**: helper functions such as `tojsStr`, `_err`, inline function registry (`L0000` references).
+- **`src/toJs/registry.ts`**: opcode name ↔ handler mapping.
+
+### Key invariants
+
+- `parserOutInit` for arrays copies the full input only when `parentCtx.unEvalArr` is active; otherwise the reconstructing loop (`items`/`contains`) fills the output or the input array is reused when no loop is needed.
+- `parserOutInit` for objects uses `outVar = { ...inVar };` so that the schema (via DNA opcodes) is the sole source of output fields.
+- `unevaluatedProperties` and `unevaluatedItems` rely on evaluation sets (`unEvalObj` / `unEvalArr`) propagated through `parentCtx`; missing propagation usually manifests as wrongly rejected properties/items.
 
 ---
 

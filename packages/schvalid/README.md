@@ -1,5 +1,5 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-1160%2F1160%20Passed-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-2472%2F2472%20Passed-brightgreen.svg)](#tests)
 
 # @ytn/schvalid
 
@@ -149,6 +149,8 @@ const result = parse({ type: "cat", name: "Whiskers", meows: true });
 
 The discriminator is optimized with a `switch` statement in the generated JavaScript code for efficient dispatching to the correct sub-schema based on the discriminator property value.
 
+`additionalProperties` (and especially `additionalProperties: false`) defined on the root schema is inherited by each `oneOf` branch so that unknown properties are rejected while the discriminator property itself is still allowed.
+
 ## Performance
 
 **Benchmark Results** (vs AJV 2020):
@@ -168,17 +170,17 @@ npm run build
 ### Testing
 
 ```bash
-# Run JSON Schema test suite only (1192 tests)
+# Run JSON Schema test suite plus discriminator and edge-cases tests
 npm test
 
-# Run all tests including discriminator and performance benchmarks
+# Run all tests including performance benchmarks
 npm run test:full
 
 # Run performance benchmarks only
-npm run test:bench
+npm run test:perf
 ```
 
-**Test Coverage of JSON validation Suite**: 1157 passing, 44 skipped.
+**Test Coverage of JSON validation Suite**: 1201 passing, 44 skipped.
 
 - The 44 skipped tests are from the JSON Schema Test Suite and involve external references (`$ref` to HTTP URIs, URNs, or external files), which are explicitly out of scope for DNA Schema (only internal references are supported).
 

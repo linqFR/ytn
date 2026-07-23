@@ -81,4 +81,18 @@ describe("Discriminator", () => {
 			expect(result.errors.length).toBeGreaterThan(0);
 		}
 	});
+
+	it("should allow discriminator property with additionalProperties: false", () => {
+		const strictSchema = { ...discriminatorSchema, additionalProperties: false };
+		const validateStrict = schvalid("validation").compile(strictSchema);
+		expect(validateStrict({ type: "cat", name: "Whiskers", meows: true })).toBe(true);
+		expect(validateStrict({ type: "dog", name: "Rex", barks: true })).toBe(true);
+	});
+
+	it("should reject unknown properties with additionalProperties: false", () => {
+		const strictSchema = { ...discriminatorSchema, additionalProperties: false };
+		const validateStrict = schvalid("validation").compile(strictSchema);
+		expect(validateStrict({ type: "cat", name: "Whiskers", meows: true, unknown: true })).toBe(false);
+		expect(validateStrict({ type: "dog", name: "Rex", barks: true, unknown: true })).toBe(false);
+	});
 });

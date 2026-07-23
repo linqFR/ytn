@@ -3,11 +3,11 @@
 **Date**: 2026-05-31  
 **Purpose**: Evaluation of Zod V4 test suite for DNA schema compatibility  
 **Source**: `node_modules/zod/src/v4/classic/tests` (79 test files)  
-**Target**: `packages/dna-schema/tests/zod-test-suite` (39 files)
+**Target**: `packages/dna/tests/zod-test-suite` (39 files)
 
 ## Important Note on Test Format
 
-The tests in `packages/dna-schema/tests/zod-test-suite` are **NOT direct copies** of Zod V4 tests. They are specifically formatted for the Zod→DNA conversion system:
+The tests in `packages/dna/tests/zod-test-suite` are **NOT direct copies** of Zod V4 tests. They are specifically formatted for the Zod→DNA conversion system:
 
 - **Zod V4 format**: Uses `test()`, `describe()`, `expect()` from vitest
 - **DNA test format**: Exports arrays of test groups with structure:

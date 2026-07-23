@@ -138,7 +138,7 @@ Modes:
 
 ## Debugging
 
-When debugging conversion issues:
+### Quick inspection
 
 ```typescript
 import { jschemaToDna } from "@ytn/schvalid";
@@ -148,6 +148,47 @@ console.dir(dna, { depth: null }); // Inspect DNA bytecode
 ```
 
 **IMPORTANT**: Use `console.dir(obj, { depth: null })` instead of `JSON.stringify(obj, null, 2)` for debugging objects.
+
+### Working with generated JavaScript
+
+For a single schema, generate the source of the validator/parser with `@ytn/dna/toJS`:
+
+```typescript
+import { jschemaToDna } from "@ytn/schvalid";
+import { toJS } from "@ytn/dna/toJs";
+
+const dna = jschemaToDna(schema, "#");
+const validateCode = toJS(true, false)(dna) as string[];
+const parseCode = toJS(false, false)(dna) as string[];
+
+// Generated strings can be joined and logged/inspected
+console.log(validateCode.join("\n"));
+console.log(parseCode.join("\n"));
+```
+
+### Sandbox scripts
+
+The `sandbox/` folder contains helper scripts for failure analysis:
+
+- `sandbox/collect-schema-adn-functions.ts` - regenerates `sandbox/schema-adn-functions.log` with the schema, compact DNA, generated validator and parser for every test group in the JSON Schema Test Suite plus the `discriminator` and `edge-cases` test files.
+- `sandbox/collect-failures-full.ts` - produces `sandbox/failure-report-full*.log` containing the failing data, schema, DNA and generated JS for every parser/validator mismatch.
+
+Typical workflow:
+
+```bash
+# 1. Rebuild the log after any jschemaToDna or toJS change
+npx.cmd tsx sandbox/collect-schema-adn-functions.ts
+
+# 2. Run the full suite to locate failures
+npm.cmd test -- --run
+
+# 3. Inspect sandbox/schema-adn-functions.log or sandbox/failure-report-full*.log
+```
+
+### Discriminator-specific debugging
+
+- The conversion in `src/jschema-to-dna.ts` removes the discriminator property from each `oneOf` branch to avoid re-validation, then re-injects it as `true` so `additionalProperties: false` still allows it.
+- Branch schemas inherit `additionalProperties` from the root schema when they do not define it themselves. If `additionalProperties` behavior differs per branch, verify the `_sch.properties` construction in the discriminator loop.
 
 ---
 
@@ -172,18 +213,21 @@ console.dir(dna, { depth: null }); // Inspect DNA bytecode
 ### Test Commands
 
 ```bash
-# Run JSON Schema test suite only
+# Run JSON Schema test suite plus discriminator and edge-cases tests
 npm test
 
-# Run all tests including discriminator and performance benchmarks
+# Run all tests including performance benchmarks
 npm run test:full
 
 # Run performance benchmarks only
-npm run test:performance
+npm run test:perf
+// or
+npm run test:bench
 ```
 
 ### Test Coverage
 
-- **JSON Schema Test Suite**: 1160 passing, 44 skipped (external references)
-- **Discriminator Tests**: Full coverage of OpenAPI 3.1 discriminator
+- **JSON Schema Test Suite**: 1201 passing, 44 skipped (external references)
+- **Discriminator Tests**: 10 passing in `tests/schemas/discriminator.test.ts`
+- **Edge-Cases Tests**: 148 passing in `tests/schemas/edge-cases.test.ts`
 - **Performance Benchmarks**: Comparative benchmarks against AJV

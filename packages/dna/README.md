@@ -90,17 +90,25 @@ const invalidResult = parse({ name: "Jo", age: -1 });
 ```typescript
 import { toJS } from "@ytn/dna";
 
-// FALSE : to rewrite
-
 const dna = /* DNA bytecode array */;
 
-// Compile in validation mode (fail-fast)
-const validateCode = toJS(true)(dna);
-const validateFn = new Function(validateCode[0], validateCode.slice(1).join('\n'));
+// Compile in validation mode (fail-fast) for canonical JSON-Schema DNA opcodes
+const validateCode = toJS(true, false)(dna) as string[];
+const validateFn = new Function(validateCode[0], validateCode.slice(1).join('\n'))();
 
 // Compile in parser mode (error collection)
-const parseCode = toJS(false)(dna);
-const parseFn = new Function(parseCode[0], parseCode.slice(1).join('\n'));
+const parseCode = toJS(false, false)(dna) as string[];
+const parseFn = new Function(parseCode[0], parseCode.slice(1).join('\n'))();
+```
+
+Use the second argument `enhancedMapper: true` when compiling DNA produced by the fluent `dna.*` builder API:
+
+```typescript
+import { toJS } from "@ytn/dna";
+
+const dna = /* DNA bytecode array from dna builder */;
+const result = toJS(true, true)(dna) as { code: string[]; requiredExternals: string[] };
+const fn = new Function(...result.code)({ /* required externals */ });
 ```
 
 ## Development

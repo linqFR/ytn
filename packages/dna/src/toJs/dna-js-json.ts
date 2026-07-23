@@ -1604,7 +1604,7 @@ export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 		for (let i = 0; i < indices.length; i++) {
 			const childBlock = "anyChB" + idx + "_" + i;
 			const errLen = "anyErr" + idx + "_" + i;
-			const childCtx: tsJSParentCtx = { isCond: false, failCase: "if(errors.length)break " + childBlock + ";", outerblock: childBlock, fastFail: parentCtx.fastFail, unEvalArr: childrenCtx.unEvalArr, unEvalObj: childrenCtx.unEvalObj };
+			const childCtx: tsJSParentCtx = { isCond: false, failCase: "if(errors.length)break " + childBlock + ";", outerblock: childBlock, unEvalArr: childrenCtx.unEvalArr, unEvalObj: childrenCtx.unEvalObj };
 			const commit = hasEvals ? slots.map(s => s.commit).join("") : "";
 			const childOut = _outVarName ? outTemp : "";
 			const assignOut = _outVarName ? (_outVarName + "=" + outTemp + ";") : "";
@@ -1637,7 +1637,7 @@ export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 
 	const childrenCtx: tsJSParentCtx = {
 		...parentCtx,
-		failCase: parentCtx.fastFail ? "break " + block + ";" : parentCtx.failCase,
+		failCase: parentCtx.failCase,
 		outerblock: block,
 		isCond: true,
 		unEvalArr: undefined,
@@ -1686,13 +1686,13 @@ export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 		for (let i = 0; i < indices.length; i++) {
 			const childBlock = "allChB" + idx + "_" + i;
 			const errLen = "allErr" + idx + "_" + i;
-			const childCtx: tsJSParentCtx = { isCond: false, failCase: "if(errors.length)break " + childBlock + ";", outerblock: childBlock, unEvalArr: childrenCtx.unEvalArr, unEvalObj: childrenCtx.unEvalObj, fastFail: childrenCtx.fastFail };
+			const childCtx: tsJSParentCtx = { isCond: false, failCase: "if(errors.length)break " + childBlock + ";", outerblock: childBlock, unEvalArr: childrenCtx.unEvalArr, unEvalObj: childrenCtx.unEvalObj };
 			steps.push(
 				[STEP.BODY, "let " + errLen + "=errors.length;"],
 				[STEP.BODY, childBlock + ":{"],
 				[indices[i], _inVarName, _outVarName, pathVar + "/allOf/" + i, childCtx],
 				[STEP.BODY, "}"],
-				[STEP.BODY, "if(" + errLen + "===" + "errors.length){" + count + "++;}" + (parentCtx.fastFail ? "else{break " + block + ";}" : "")]
+				[STEP.BODY, "if(" + errLen + "===" + "errors.length){" + count + "++;}"]
 			);
 		}
 		const errMsg = _err(parentCtx, _inVarName, pathVar + "/allOf", "Data should be valid to all schemas of:" + content);
@@ -1798,7 +1798,7 @@ export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 		for (let i = 0; i < indices.length; i++) {
 			const childBlock = "oneChB" + idx + "_" + i;
 			const errLen = "oneErr" + idx + "_" + i;
-			const childCtx: tsJSParentCtx = { isCond: false, failCase: "if(errors.length)break " + childBlock + ";", outerblock: childBlock, unEvalArr: childrenCtx.unEvalArr, unEvalObj: childrenCtx.unEvalObj, fastFail: childrenCtx.fastFail };
+			const childCtx: tsJSParentCtx = { isCond: false, failCase: "if(errors.length)break " + childBlock + ";", outerblock: childBlock, unEvalArr: childrenCtx.unEvalArr, unEvalObj: childrenCtx.unEvalObj };
 			steps.push(
 				[STEP.BODY, "let " + errLen + "=errors.length;"],
 				[STEP.BODY, childBlock + ":{"],

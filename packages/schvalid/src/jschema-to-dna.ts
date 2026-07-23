@@ -616,11 +616,24 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
         
         for (; kLen--;) {
           const sch = discriminSubSch[kLen];
+          // The discriminator value for this branch (e.g. "cat" / "dog").
           const key = sch.properties[discriminator].const;
           discriminKeys[kLen] = key;
+
           const _sch = { ...sch };
+          // The discriminator property itself is already validated by the switch
+          // inside the `discriminator` opcode.  Remove it from the branch so we
+          // do not re-validate it for every schema variant.
           const { [discriminator]: _, ...rest } = sch.properties;
           _sch.properties = rest;
+
+          // Still register the discriminator key as a known property, otherwise
+          // `additionalProperties: false` on the branch would wrongly reject it.
+          _sch.properties[discriminator] = true;
+
+          // Inherit `additionalProperties` from the root schema so that constraints
+          // like `additionalProperties: false` are respected by every variant.
+          if (additionalProperties !== undefined && !("additionalProperties" in _sch)) _sch.additionalProperties = additionalProperties;
           stack.push([parentPath + "/" + discriminator + "/" + String(kLen), _sch, discriminStoreId, 1+ kLen])
         }
         stack.push([parentPath + "/" + discriminator, { type: "object", required: discRequired }, discriminStoreId, 0]);
