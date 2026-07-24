@@ -43,7 +43,7 @@ const variousPrimitivesDna = dna.discriminatedUnion("type", [
   dna.object({ type: dna.undefined(), val: dna.string() }),
 ]);
 
-export const discriminatedUnionTests = [
+export const discriminatedUnionsTests = [
   {
     description: "valid parse - object",
     zodSchema: stringDiscriminatorZod,

@@ -29,7 +29,7 @@ export const coerce = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName: s
 		case "toNumber": op = "Number(" + _inVarName + ")"; typeChecked = undefined; break;
 		case "toInt": op = "Number(" + _inVarName + ")"; typeChecked = "number"; break;
 		case "toBoolean": op = "Boolean(" + _inVarName + ")"; typeChecked = "boolean"; break;
-		case "toBigInt": op = "BigInt(" + _inVarName + ")"; typeChecked = "bigint"; break;
+		case "toBigInt": op = "(function(v){try{return BigInt(v);}catch{return null;}})(" + _inVarName + ")"; typeChecked = "bigint"; break;
 		case "toDate": op = "new Date(" + _inVarName + ")"; typeChecked = "date"; break;
 		default: op = _inVarName;
 	}
@@ -163,7 +163,7 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 				const errLen = "errLen" + cidx;
 				steps.push([STEP.BODY, "let " + errLen + "=errors.length;"]);
 				steps.push([STEP.BODY, catchBlock + ":{"]);
-				const innerCtx = { ...parentCtx, typeChecked: undefined, failCase: "break " + catchBlock + ";" };
+				const innerCtx = { ...parentCtx, typeChecked: undefined, failCase: "if(errors.length)break " + catchBlock + ";" };
 				steps.push([targetId, _inVarName, _outVarName, pathVar, innerCtx]);
 				steps.push([STEP.BODY, "}"]);
 				steps.push([STEP.BODY, "if(errors.length>" + errLen + "){" + "errors.length=" + errLen + ";" + _outVarName + "=" + catchValueCode + ";}"]);
@@ -618,7 +618,7 @@ export const seq = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _out
 		for (let i = 0; i < stepIds.length; i++) {
 			steps.push([stepIds[i], cur, _outVarName, pathVar, parentCtx]);
 		}
-		steps.push([STEP.BODY, (_outVarName ? _outVarName + "=true;" : "") + _inVarName + "=" + cur + ";" + "}"]);
+		steps.push([STEP.BODY, _inVarName + "=" + cur + ";" + "}"]);
 	} else {
 		for (let i = 0; i < stepIds.length; i++) {
 			steps.push([stepIds[i], cur, next, pathVar, parentCtx]);

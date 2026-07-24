@@ -325,7 +325,7 @@ export { function_ as function };
 export const transform = <T, R>(fn: tsTransformFn<T, R>, meta?: string | tsDnaMeta) =>
   initDna(DnaTransform<T,R>, { fnStr: fn.toString().trim(), arity: fn.length }, meta);
 
-export const pipe = <T, U>(src: DnaType<T>, target: DnaType<U, T>, meta?: string | tsDnaMeta) => initDna(DnaPipe<T,U>, { steps: [src, target] }, meta);
+export const pipe = <S extends DnaType<any, any> = DnaType<any, any>, T extends DnaType<any, any> = DnaType<any, any>>(src: S, target: T, meta?: string | tsDnaMeta) => initDna(DnaPipe<S, T>, { steps: [src, target] }, meta);
 
 export const preprocess = <O>(fn: (value: unknown) => O, target: DnaType<O, O>, meta?: string | tsDnaMeta) => {
   const innerMeta: tsDnaInnerMeta = { preprocess: true };
@@ -337,11 +337,11 @@ export const preprocess = <O>(fn: (value: unknown) => O, target: DnaType<O, O>, 
 export const lazy = <S extends DnaType<any, any>>(getter: () => S) => initDna(DnaLazy<S>, { getter });
 
 
-export const custom = <T>(fn: (val: any) => boolean, params?: any) => initDna(DnaCustom<T>, { fn }, params) // FIXME : params
-// {
-//   const impl = any().refine(fn, params);
-//   return impl;
-// };
+export function custom<T>(fn: (val: any) => val is T, params?: any): DnaCustom<T, any>;
+export function custom<T>(fn: (val: any) => boolean, params?: any): DnaCustom<T, any>;
+export function custom<T>(fn: (val: any) => any, params?: any): DnaCustom<T, any> {
+  return initDna(DnaCustom<T>, { fn }).refine(fn as (value: T) => boolean, params);
+}
 
 // Top-level check functions (Zod V4 style)
 export const describe = (description: string): tsDnaDescribeCheck => ({

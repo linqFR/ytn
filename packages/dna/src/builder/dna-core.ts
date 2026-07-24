@@ -8,8 +8,27 @@ import type { DnaType } from "./dna-interfaces.js";
 import type { tsStateDef, tsStateFull } from "./state.types.js";
 
 
+
+export const DNA_BINDABLE_METHODS = [
+  'validate', 'validateAsync',
+  'safeParse', 'parse', 'safeParseAsync', 'parseAsync', 'spa',
+  'safeDecode', 'decode', 'safeDecodeAsync', 'decodeAsync',
+  'safeEncode', 'encode', 'safeEncodeAsync', 'encodeAsync',
+] as const;
+
+export const bindMethods = (inst: any, ...methodNames: string[]): any => {
+  const names = methodNames.length ? methodNames : DNA_BINDABLE_METHODS;
+  for (const methodName of names) {
+    const method = inst[methodName];
+    if (typeof method !== 'function') continue;
+    inst[methodName] = (...args: any[]) => method.apply(inst, args);
+  }
+  return inst;
+};
+
 export const initDna = <Cls extends new () => any, State extends tsStateDef = tsStateDef>(cls: Cls, state?: State, meta?: string | tsDnaInnerMeta): InstanceType<Cls> => {
   const inst = new cls();
+  bindMethods(inst);
   if (state) Object.assign(inst._core.seed, state);
   if (meta) inst._core.rawMeta(meta);
   return inst;
@@ -144,14 +163,16 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
   clone(): BaseCore<State> {
     const clonedState = this.cloneState();
     const core = new BaseCore<State>(this.#state.type, { seed: clonedState });
-    core.#state.rawDna = this.#state.rawDna;
-    core.#state.fullDna = this.#state.fullDna;
-    core.#state.cachedParser = this.#state.cachedParser;
-    core.#state.cachedValidator = this.#state.cachedValidator;
     core.#state.templateRegex = this.#state.templateRegex;
     core.#state.coerce = this.#state.coerce;
     core.#state.coerceCode = this.#state.coerceCode;
+    
+    // do not clone the following, they have to be recomputed
     // core.#state.head = this.#state.head;
+    // core.#state.rawDna = this.#state.rawDna;
+    // core.#state.fullDna = this.#state.fullDna;
+    // core.#state.cachedParser = this.#state.cachedParser;
+    // core.#state.cachedValidator = this.#state.cachedValidator;
     return core;
   }
 }

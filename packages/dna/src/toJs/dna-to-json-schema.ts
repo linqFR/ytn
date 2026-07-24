@@ -6,6 +6,7 @@
  * the DNA validation engine.
  */
 
+import type { tsDnaInnerMeta } from "../shared/meta-context.type.js";
 import type { tsDna, tsDnaSeq, tsDnaOpcode } from "../types/core.types.js";
 
 /**
@@ -40,7 +41,7 @@ export function dnaToJsonSchema(dnaSeq: tsDnaSeq): JSONSchema {
  */
 function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
 	const [opcode, ...params] = dna;
-	const meta = params[params.length - 1] as Record<string, unknown> | undefined;
+	const meta = params[params.length - 1] as tsDnaInnerMeta | undefined;
 
 	switch (opcode) {
 		// Primitives
@@ -66,7 +67,11 @@ function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchem
 		// Complex types
 		case "o":
 		case "_o":
-			return convertObject(params, dnaSeq, refs, meta);
+			return convertObject(params, dnaSeq, refs, meta, "object");
+		case "$o":
+			return convertObject(params, dnaSeq, refs, meta, "strippedObject");
+		case "rcd":
+			return convertObject(params, dnaSeq, refs, meta, "plainObject");
 		case "a":
 		case "_a":
 			return convertArray(params, dnaSeq, refs, meta);
@@ -199,14 +204,16 @@ function convertNumber(params: unknown[], meta?: Record<string, unknown>): JSONS
 /**
  * Converts object DNA to JSON Schema
  */
-function convertObject(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta?: Record<string, unknown>): JSONSchema {
+function convertObject(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta?: Record<string, unknown>, kind: string = "object"): JSONSchema {
 	const schema: Record<string, unknown> = {
 		type: "object",
 		properties: {}
 	};
 
+	if (kind !== "object") schema["x-ytn-object-kind"] = kind;
+
 	// Parse params format: [ [ 'properties', [ [ 'key', refId, meta ], ... ] ], ... ]
-	const constraints = params[0] as Array<[string, Array<[string, number, Record<string, unknown>]>]> | undefined;
+	const constraints = params[0] as Array<[string, any]> | undefined;
 	if (constraints) {
 		for (const [key, value] of constraints) {
 			if (key === 'properties' && Array.isArray(value)) {
@@ -215,6 +222,23 @@ function convertObject(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta
 					if (Array.isArray(propDna) && propDna.length > 0 && typeof propDna[0] === 'string') {
 						(schema.properties as Record<string, unknown>)[propName as string] = convertDnaNode(propDna as tsDna, dnaSeq, refs);
 					}
+				}
+			} else if (key === 'additionalProperties') {
+				if (typeof value === 'number') {
+					const addDna = dnaSeq[value];
+					if (Array.isArray(addDna) && addDna.length > 0 && typeof addDna[0] === 'string') {
+						schema.additionalProperties = convertDnaNode(addDna as tsDna, dnaSeq, refs);
+					}
+				} else if (value === true) {
+					// Zod 2020-12 toJSONSchema uses {} for loose
+					schema.additionalProperties = {};
+				} else if (value === false) {
+					schema.additionalProperties = false;
+				}
+			} else if (key === 'propertyNames' && typeof value === 'number') {
+				const keyDna = dnaSeq[value];
+				if (Array.isArray(keyDna) && keyDna.length > 0 && typeof keyDna[0] === 'string') {
+					schema.propertyNames = convertDnaNode(keyDna as tsDna, dnaSeq, refs);
 				}
 			}
 		}
@@ -225,11 +249,9 @@ function convertObject(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta
 		schema.required = meta.requiredKeys;
 	}
 
-	// Handle additionalProperties based on object type
-	if (meta?.objType === "strict") {
+	// Fallback for builder objects with no explicit additionalProperties constraint
+	if (schema.additionalProperties === undefined && kind !== "object") {
 		schema.additionalProperties = false;
-	} else if (meta?.objType === "loose") {
-		schema.additionalProperties = true;
 	}
 
 	return schema;
@@ -397,7 +419,7 @@ function convertNullable(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): J
 /**
  * Converts default wrapper DNA to JSON Schema
  */
-function convertDefault(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
+function convertDefault(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta?:tsDnaInnerMeta): JSONSchema {
 	const innerRef = params[0] as number;
 	const innerDna = dnaSeq[innerRef];
 	if (Array.isArray(innerDna) && innerDna.length > 0 && typeof innerDna[0] === 'string') {
@@ -413,7 +435,7 @@ function convertDefault(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JS
 /**
  * Converts prefault wrapper DNA to JSON Schema
  */
-function convertPrefault(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
+function convertPrefault(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta?:tsDnaInnerMeta): JSONSchema {
 	const innerRef = params[0] as number;
 	const innerDna = dnaSeq[innerRef];
 	if (Array.isArray(innerDna) && innerDna.length > 0 && typeof innerDna[0] === 'string') {

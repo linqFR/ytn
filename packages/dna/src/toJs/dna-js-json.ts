@@ -46,7 +46,7 @@ type tsCondEnvOpts = {
 	break_: string;
 	_break_: string;
 	mustMatchType: boolean;
-	typeChecked: "array" | "object";
+	typeChecked: "array" | "object" | "plainObject";
 	typePosTest: string;
 	typeErrMsg: string;
 	preDecls: string;
@@ -661,8 +661,10 @@ export const unevaluatedProperties = (dnaOpt: [number, number[], tsDnaInnerMeta]
  * documented divergence on `isCond + !declared` type-mismatch (envelope adopts
  * the array semantics: no `_outVar=true` on bad type; old object used to set it).
  */
-const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, declared = true): tsJSFn => {
+const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, obOpt: { declared: boolean; type: string }): tsJSFn => {
 	const isCond = parentCtx.isCond;
+
+	const { declared, type } = obOpt;
 	const idx = labelId();
 	const oVar = "oVar" + idx;
 	const oLen = "oLen" + idx;
@@ -795,8 +797,10 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 
 	const preDecls = neededConstants.length ? "const " + neededConstants.join(",") + ";" : "";
 	// const typePosTest = "typeof " + inVar + '==="object"&&' + inVar + "!==null&&!Array.isArray(" + inVar + ")";
-	const typePosTest = TEST_OBJECT(inVar);
-	const typeErrMsg = _err(parentCtx, inVar, pathVar + "/object", "Object is required");
+	const typePosTest = type === "plainObject"
+		? "Object.prototype.toString.call(" + inVar + ")==='[object Object]'"
+		: TEST_OBJECT(inVar);
+	const typeErrMsg = _err(parentCtx, inVar, pathVar + "/" + (type === "plainObject" ? "plainObject" : "object"), type === "plainObject" ? "Plain object is required" : "Object is required");
 
 	// Build innerSteps depending on mode
 	const innerSteps: tsStackFrame[] = [];
@@ -1028,12 +1032,12 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	// seq result (unevaluatedProperties). Otherwise start empty to avoid the spread.
 	const parserOutInit = parentCtx.unEvalObj
 		? outVar + "={..." + inVar + ",..." + outVar + "};"
-		: (additionalPropertiesCheck === false || typeof additionalPropertiesCheck === "number")
+		: (additionalPropertiesCheck === false || typeof additionalPropertiesCheck === "number" || type === "strippedObject" || type === "plainObject")
 			? outVar + "={};"
 			: outVar + "={..." + inVar + "};"
 
 	return _assignOrCondEnv(parentCtx, inVar, outVar, {
-		block, break_, _break_, mustMatchType: declared, typeChecked: "object",
+		block, break_, _break_, mustMatchType: declared, typeChecked: type === "plainObject" ? "plainObject" : "object",
 		typePosTest, typeErrMsg,
 		preDecls, preChecks: objectCheck, extraInits: "",
 		innerSteps,
@@ -1043,9 +1047,14 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 };
 
 export const o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
-	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, true);
+	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, {declared:true, type:"object"});
 export const _o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
-	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, false);
+	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, {declared:false, type:"object"});
+export const rcd = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
+	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, {declared:true, type:"plainObject"});
+export const $o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
+	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, {declared:true, type:"strippedObject"});
+
 
 
 export const unevaluatedItems = (dnaOpt: [number, number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
@@ -1571,17 +1580,20 @@ export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 
 		for (let i = 0; i < indices.length; i++) {
 			if (hasEvals) {
-				// Reset scratch sets + snapshot count, dispatch, then commit on match.
-				// No short-circuit — we need to keep collecting from later matches.
+				// Reset scratch sets + snapshot count, dispatch inside a child block
+				// so a failing branch (e.g. array) breaks only its own block.
+				const childBlock = "anyChB" + idx + "_" + i;
+				const childCtx: tsJSParentCtx = { ...childrenCtx, failCase: "break " + childBlock + ";", outerblock: childBlock };
 				steps.push([STEP.BODY,
-				slots.map(s => s.scratch + "={};").join("")
-				+ countBefore + "=" + count + ";"
+					slots.map(s => s.scratch + "={};").join("")
+					+ countBefore + "=" + count + ";"
+					+ childBlock + ":{"
 				]);
-				steps.push([indices[i], _inVarName, "", pathVar + "/anyOf/" + i, childrenCtx]);
+				steps.push([indices[i], _inVarName, "", pathVar + "/anyOf/" + i, childCtx]);
 				steps.push([STEP.BODY,
-				"if(" + count + ">" + countBefore + "){"
-				+ slots.map(s => s.commit).join("")
-				+ "}"
+					"}if(" + count + ">" + countBefore + "){"
+					+ slots.map(s => s.commit).join("")
+					+ "}"
 				]);
 			} else {
 				steps.push(

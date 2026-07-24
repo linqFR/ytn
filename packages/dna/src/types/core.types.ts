@@ -13,6 +13,8 @@ export type tsDnaOpcode =
   | "undefined"
   | "o"
   | "_o"
+  | "$o"
+  | "rcd"
   | "a" // array
   | "_a" // undeclared array
   | "c"

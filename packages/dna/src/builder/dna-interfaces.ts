@@ -69,7 +69,7 @@ import type {
   $Xor
 } from "../types/helpers.types.js";
 import type { IDnaCollector } from "./collector.types.js";
-import { BaseCore, initDna } from "./dna-core.js";
+import { BaseCore, initDna, bindMethods } from "./dna-core.js";
 import type { tsWrpPhase, tsWrpTypes } from "./state.types.js";
 
 
@@ -168,7 +168,6 @@ function metaNormalize(meta?: string | tsDnaInnerMeta, target?: string): tsDnaIn
   return _meta
 }
 
-
 const SymSetHead = Symbol("setHead");
 const SymForceCoerce = Symbol("forceCoerce");
 const SymCore = Symbol("_core");
@@ -209,7 +208,7 @@ export class DnaType<T = unknown, I = unknown> {
 
   get _state() { return this._core.seed };
 
-  get description(): string | undefined { return this._core.seed.meta.description; }
+  get description(): string | undefined { return this._core.meta.description; }
   get type() { return this._core.state.type; }
 
   /**
@@ -280,6 +279,7 @@ export class DnaType<T = unknown, I = unknown> {
   clone() {
     const clone = new (this.constructor as new () => this)();
     clone._core = this._core.clone();
+    bindMethods(clone);
     return clone[SymSetHead](this._head);
   }
 
@@ -430,21 +430,21 @@ export class DnaType<T = unknown, I = unknown> {
     return this._core.fullDna;
   }
 
-  pipe<U extends DnaType<any, T>>(target: U){
-    const pipeSeq = initDna(DnaPipe<$Output<U>, I>, { steps: [this, target] });
+  pipe<U extends DnaType<any, any>>(target: U){
+    const pipeSeq = initDna(DnaPipe<this, U>, { steps: [this, target] });
     pipeSeq[SymSetHead](this._head);
     return pipeSeq;
   }
 
-  transform<R>(fn: (arg: $Output<this>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<R, I>;
-  transform<R>(fn: (arg: $Output<this>, ctx: ITransformContext<$Output<this>>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<R, I>;
-  transform<R>(fn: (ctx: ITransformContext<$Output<this>>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<R, I>;
+  transform<R>(fn: (arg: $Output<this>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<this, DnaTransform<$Output<this>, R>>;
+  transform<R>(fn: (arg: $Output<this>, ctx: ITransformContext<$Output<this>>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<this, DnaTransform<$Output<this>, R>>;
+  transform<R>(fn: (ctx: ITransformContext<$Output<this>>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<this, DnaTransform<$Output<this>, R>>;
   // transform<R>(fn: (arg: any) => $MaybeAsync<R>): IDnaSchemaBase<R, I>;
-  transform<R>(fn: tsTransformFn<$Output<this>, R>, externals?: tsDnaExternalsDecl): DnaPipe<R, I> {
+  transform<R>(fn: tsTransformFn<$Output<this>, R>, externals?: tsDnaExternalsDecl): DnaPipe<this, DnaTransform<$Output<this>, R>> {
     const map = externalsMap(externals);
     const meta: tsDnaInnerMeta | undefined = Object.keys(map).length ? { externals: map } : undefined;
-    const transformSchema = initDna(DnaTransform<R, $Output<this>>, { fnStr: fn.toString().trim(), arity: fn.length }, meta);
-    const pipeSeq = initDna(DnaPipe<R, I>, { steps: [this, transformSchema] })[SymSetHead](this._head);
+    const transformSchema = initDna(DnaTransform<$Output<this>, R>, { fnStr: fn.toString().trim(), arity: fn.length }, meta);
+    const pipeSeq = initDna(DnaPipe<this, DnaTransform<$Output<this>, R>>, { steps: [this, transformSchema] })[SymSetHead](this._head);
     return pipeSeq;
   }
 
@@ -1449,7 +1449,7 @@ class _DnaChkRaw extends DnaType<unknown, unknown> {
 }
 
 // Seq implementation - sequence of DNA operations
-export class DnaPipe<T, I> extends DnaTypeWithWrappers<T, I> {
+export class DnaPipe<S, T> extends DnaTypeWithWrappers<$Output<T>, $Input<S>> {
   protected override _core = new BaseCore<{ steps: DnaType<any, any>[] }>("pipe", {
     rawDna: ["seq"],
     seed: {
@@ -1656,10 +1656,42 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
     return impl;
   }
 
-  positive() { return cloner(this, cl => { cl._core.seed.min = 0 as T; cl._core.seed.exclMin = true; }); }
-  nonnegative() { return cloner(this, cl => cl._core.seed.min = 0 as T); }
-  negative() { return cloner(this, cl => { cl._core.seed.max = 0 as T; cl._core.seed.exclMax = true; }); }
-  nonpositive() { return cloner(this, cl => cl._core.seed.max = 0 as T); }
+  positive() {
+    return cloner(this, cl => {
+      const min: any = cl._core.seed.min;
+      if (min === null || (typeof min === 'bigint' ? min <= 0n : min <= 0)) {
+        cl._core.seed.min = 0 as T;
+        cl._core.seed.exclMin = true;
+      }
+    });
+  }
+  nonnegative() {
+    return cloner(this, cl => {
+      const min: any = cl._core.seed.min;
+      if (min === null || (typeof min === 'bigint' ? min < 0n : min < 0)) {
+        cl._core.seed.min = 0 as T;
+        cl._core.seed.exclMin = false;
+      }
+    });
+  }
+  negative() {
+    return cloner(this, cl => {
+      const max: any = cl._core.seed.max;
+      if (max === null || (typeof max === 'bigint' ? max >= 0n : max >= 0)) {
+        cl._core.seed.max = 0 as T;
+        cl._core.seed.exclMax = true;
+      }
+    });
+  }
+  nonpositive() {
+    return cloner(this, cl => {
+      const max: any = cl._core.seed.max;
+      if (max === null || (typeof max === 'bigint' ? max > 0n : max > 0)) {
+        cl._core.seed.max = 0 as T;
+        cl._core.seed.exclMax = false;
+      }
+    });
+  }
 
   override get templateRegex(): string { return this._core.seed.min === null && this._core.seed.max === null && this._core.seed.multOf === null ? "-?\\d+(?:\\.\\d+)?" : "\x00"; }
 
@@ -1932,7 +1964,7 @@ export class DnaObject<T extends Record<string, DnaType<any, any>> = Record<stri
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const constraints: any[] = [];
-    this._core.rawDna = ["o", constraints];
+    this._core.rawDna = ["$o", constraints];
     // Schema instances serialize identically in the collector discriminant, so two
     // objects with the same keys but different value schemas (e.g. discriminated-union
     // branches differing only by their `literal` discriminator) would falsely dedupe.
@@ -2017,7 +2049,7 @@ export class DnaObject<T extends Record<string, DnaType<any, any>> = Record<stri
       constraints.push(["additionalProperties", true]);
     } else if (this._core.seed.addPropSchema && typeof this._core.seed.addPropSchema !== 'boolean') {
       // catchall takes precedence over strict/loose
-      const addPropDef = ["additionalProperties", 0];
+      const addPropDef = ["additionalProperties", -1];
       const addPropStoreId = coll.setStore(addPropDef);
       constraints.push(addPropDef);
       this._core.seed.addPropSchema.toDna(coll, addPropStoreId, 1);
@@ -2079,8 +2111,8 @@ export class DnaObject<T extends Record<string, DnaType<any, any>> = Record<stri
         newPropertySchemas[key] = schema;
       }
     }
-    const newObject = initDna(DnaObject, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
-    return newObject as unknown as DnaObject<Omit<T, K>>;
+    const newObject = initDna(DnaObject<Omit<T, K>>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
+    return newObject;
   }
 
   pick<K extends keyof T>(keys: Record<K, boolean>): DnaObject<Pick<T, K>> {
@@ -2093,8 +2125,8 @@ export class DnaObject<T extends Record<string, DnaType<any, any>> = Record<stri
         newPropertySchemas[key] = schema;
       }
     }
-    const newObject = initDna(DnaObject, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
-    return newObject as unknown as DnaObject<Pick<T, K>>;
+    const newObject = initDna(DnaObject<Pick<T, K>>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
+    return newObject;
   }
 
   extend<U extends Record<string, any>>(shape: U): DnaObject<T & U> {
@@ -2102,8 +2134,8 @@ export class DnaObject<T extends Record<string, DnaType<any, any>> = Record<stri
     for (const [key, schema] of Object.entries(shape)) {
       newPropertySchemas[key] = schema;
     }
-    const newObject = initDna(DnaObject, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
-    return newObject as DnaObject<T & U>;
+    const newObject = initDna(DnaObject<T & U>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
+    return newObject;
   }
 }
 
@@ -2226,7 +2258,7 @@ export class DnaRecord<K extends DnaType<PropertyKey, any>, V extends DnaType<an
     // A record matches only a *plain* object (Zod `z.record` rejects Date/Map/class
     // instances, unlike `z.object`). The "o" compiler turns this flag into a
     // prototype check (Object.prototype | null).
-    const constraints: any[] = [["plainObject"]];
+    const constraints: any[] = [];
 
     // loose: keys matching the key schema validate their value; non-matching keys
     // pass through unchanged. Modeled as `patternProperties(keyPattern -> value)` +
@@ -2239,7 +2271,7 @@ export class DnaRecord<K extends DnaType<PropertyKey, any>, V extends DnaType<an
       const patternStoreId = coll.setStore(patternPair);
       constraints.push(["patternProperties", [patternPair]]);
       constraints.push(["additionalProperties", true]);
-      this._core.rawDna = ["o", constraints];
+      this._core.rawDna = ["rcd", constraints];
       const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition);
       this._core.seed.valueSchema.toDna(coll, patternStoreId, 1);
       return dnaId;
@@ -2262,7 +2294,7 @@ export class DnaRecord<K extends DnaType<PropertyKey, any>, V extends DnaType<an
       const keyStoreId = coll.setStore(keyDef);
       constraints.push(keyDef, valueDef);
       if (this._core.seed.type !== "partial") constraints.push(["required", finiteKeys]);
-      this._core.rawDna = ["o", constraints];
+      this._core.rawDna = ["rcd", constraints];
       const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition);
       // Use head to check if the root schema is a literal array
       const head = keySchema._head;
@@ -2291,7 +2323,7 @@ export class DnaRecord<K extends DnaType<PropertyKey, any>, V extends DnaType<an
     const keyStoreId = coll.setStore(keyDef);
     constraints.push(keyDef, valueDef);
 
-    this._core.rawDna = ["o", constraints];
+    this._core.rawDna = ["rcd", constraints];
     const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition);
 
     const coercedKeySchema = keySchema[SymForceCoerce]();
@@ -2422,14 +2454,8 @@ export class DnaFunction<I extends DnaFunctionInput = never, O = unknown> extend
 }
 
 
-export class DnaCustom<TSType extends any = any, I = TSType> extends DnaTypeWithWrappers<TSType, I> {
+export class DnaCustom<TSType extends any = any, I = any> extends DnaTypeWithWrappers<TSType, I> {
   protected override _core = new BaseCore<{ fn: (v?: TSType) => boolean }>("custom", { templateRegex: "" });
-
-  protected override _toDna(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
-    this.refine(this._core.seed.fn, undefined);
-    return super._toDna(coll, storeMark, storePosition)
-  }
-
 }
 
 export class DnaInstanceOf<T extends abstract new (...args: any[]) => any, O = InstanceType<T>> extends DnaTypeWithWrappers<O, O> {

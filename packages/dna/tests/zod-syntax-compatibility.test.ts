@@ -190,6 +190,23 @@ describe("DNA vs Zod Compatibility Tests", () => {
               throw e;
             }
           }
+
+          // Optional custom comparison hook (e.g. detached methods, description, function identity)
+          if (test.customCheck) {
+            try {
+              expect(await test.customCheck(zodResult, dnaParseResult)).toBe(true);
+            } catch (e: any) {
+              console.log(
+                `\x1b[31mCUSTOM CHECK FAILED: ${description} > ${test.description}\x1b[0m`,
+              );
+              console.log(`Data:`, JSON.stringify(test.data));
+              console.log(`Zod result:`);
+              console.dir(zodResult, { depth: null });
+              console.log(`DNA result:`);
+              console.dir(dnaParseResult, { depth: null });
+              throw e;
+            }
+          }
         });
       }
     });
