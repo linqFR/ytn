@@ -355,7 +355,7 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
     const steps: tsDna[] = [];
     function add(id: number) {
       const n = dnaList[id];
-      if (n[0] === 'seq') {
+      if (n[0] === 'pipe') {
         const children = getParams(n) as number[];
         for (const child of children) add(child);
       } else {
@@ -458,7 +458,7 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
       cache.set(id, inst);
       return inst;
     }
-    if (node[0] === 'seq') {
+    if (node[0] === 'pipe') {
       const maybe = extractMapSet(node);
       if (maybe) {
         cache.set(id, maybe);

@@ -161,7 +161,7 @@ function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchem
 		case "instanceOf":
 		case "mutate":
 		case "transform":
-		case "seq":
+		case "pipe":
 		case "check":
 
 		// FIXME: they are not other implementations they exist in json schema

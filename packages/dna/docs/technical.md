@@ -575,16 +575,16 @@ When a `ref` opcode is encountered, `build(id)` looks up `cache` first. If the t
 | `a` | `DnaArray` | items, prefix items, min/max, contains, unique |
 | `rcd` | `DnaRecord` | standard, loose, partial, finite keys via `keys` / `required` / `additionalProperties` |
 | `wrp` | wrappers | `optional`, `nullable`, `nullish`, `nonoptional`, `exactOptional`, `default`, `prefault`, `catch` |
-| `seq` | `DnaPipe` / `DnaMap` / `DnaSet` | Generic pipeline; special-cased for `Map`/`Set` via `extractMapSet` |
-| `transform` | `DnaTransform` | `[fnStr, arity]` executed in a `seq` |
+| `pipe` | `DnaPipe` / `DnaMap` / `DnaSet` | Generic pipeline; special-cased for `Map`/`Set` via `extractMapSet` |
+| `transform` | `DnaTransform` | `[fnStr, arity]` executed in a `pipe` |
 | `chk` | refiner list | `property` constraints and `func` refinements |
 | `jwt` | `DnaJwt` | decoded parameters |
 | `discriminator` | `DnaDiscriminatedUnion` | `[propertyName, keys, refs]` |
 | `ref` | target schema or `DnaLazy` | see recursion handling above |
 
-### `seq` reconstruction for `Map` / `Set`
+### `pipe` reconstruction for `Map` / `Set`
 
-A fluent `dna.map(dna.string(), dna.number())` emits a `seq` opcode containing:
+A fluent `dna.map(dna.string(), dna.number())` emits a `pipe` opcode containing:
 
 1. `instanceOf "Map"` with `readonly` meta
 2. `transform` (Map → entries object)
@@ -592,7 +592,7 @@ A fluent `dna.map(dna.string(), dna.number())` emits a `seq` opcode containing:
 4. `coerce` / default validators
 5. `transform` (entries object → Map)
 
-`extractMapSet` scans the `seq` steps for the `instanceOf`, `chk` (size), `rcd` / `a`, and `transform` markers, then calls `initDna(DnaMap, ...)` or `initDna(DnaSet, ...)` with the rebuilt key/value/item schemas. The `readonly` flag is read from the `instanceOf` step's meta, not the `seq` node, because the builder stores it there.
+`extractMapSet` scans the `pipe` steps for the `instanceOf`, `chk` (size), `rcd` / `a`, and `transform` markers, then calls `initDna(DnaMap, ...)` or `initDna(DnaSet, ...)` with the rebuilt key/value/item schemas. The `readonly` flag is read from the `instanceOf` step's meta, not the `pipe` node, because the builder stores it there.
 
 ### `chk` and refinements
 

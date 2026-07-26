@@ -620,18 +620,18 @@ export const transform = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName
 	return steps;
 };
 
-// `seq`: builder-specific mutable sequence used by `DnaPipe`.
+// `pipe`: builder-specific mutable sequence used by `DnaPipe`.
 // Unlike canonical `chk` (schvalid allOf), each child is called on a local
 // `cur` variable. In parser mode a separate `next` output variable is used so
 // children that allocate a new container (`array`, `object`, etc.) do not
 // overwrite the input before reading it; `cur` is then advanced with `cur=next`.
-export const seq = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const pipe = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const stepIds = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 	const idx = labelId();
-	const cur = "seqV" + idx;
-	const pBlock = "seqB" + idx;
-	const next = isCond ? "" : "seqN" + idx;
+	const cur = "pipeV" + idx;
+	const pBlock = "pipeB" + idx;
+	const next = isCond ? "" : "pipeN" + idx;
 	const steps: tsStackFrame[] = [];
 
 	steps.push([STEP.BODY, "let " + cur + "=" + _inVarName + (next ? "," + next : "") + ";"]);

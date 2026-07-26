@@ -1457,7 +1457,7 @@ class _DnaChkRaw extends DnaType<unknown, unknown> {
 // Seq implementation - sequence of DNA operations
 export class DnaPipe<S, T> extends DnaTypeWithWrappers<$Output<T>, $Input<S>> {
   protected override _core = new BaseCore<{ steps: DnaType<any, any>[] }>("pipe", {
-    rawDna: ["seq"],
+    rawDna: ["pipe"],
     seed: {
       steps: []
     }
@@ -1466,7 +1466,7 @@ export class DnaPipe<S, T> extends DnaTypeWithWrappers<$Output<T>, $Input<S>> {
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const dna_params = new Array(this._core.seed.steps.length);
     const storeId = coll.setStore(dna_params);
-    this._core.rawDna = ["seq", dna_params];
+    this._core.rawDna = ["pipe", dna_params];
     const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, storeId);
     this._core.seed.steps.forEach((step: any, i: number) => step.toDna(coll, storeId, i));
     return dnaId;
@@ -2359,12 +2359,11 @@ export class DnaRecord<K extends DnaType<PropertyKey, any>, V extends DnaType<an
       // Use head to check if the root schema is a literal array
       const head = keySchema._head;
       const isLiteralArray = head instanceof DnaLiteral && head._rawValues.length > 1;
-      // Preserve pipe/seq/transform/refine key schemas before falling back to
+      // Preserve pipe/transform/refine key schemas before falling back to
       // EnumImpl for literal arrays or other finite schemas.
       const hasRefiners = keySchema[SymCore].refinerList.length > 0;
       if (
         keySchema.type === "pipe" ||
-        keySchema.type === "seq" ||
         keySchema.type === "transform" ||
         hasRefiners ||
         (keySchema instanceof DnaType && keySchema[SymCore].seed.wrapperType === "transform")

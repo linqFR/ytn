@@ -78,7 +78,7 @@ export type tsDnaOpcode =
   // Mutations / transformations
   | "mutate" // built-in primitive mutations (trim, toUpperCase, etc.)
   | "transform" // custom schema transformation
-  | "seq" // builder multi-step pipeline
+  | "pipe" // builder multi-step pipeline
   | "chk"; // canonical check-all (allOf-like)
 
 export type tsDnaId = number;
