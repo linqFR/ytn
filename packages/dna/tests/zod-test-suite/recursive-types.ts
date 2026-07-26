@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { dna } from "../../src/index.js";
+import type { DnaType } from "../../src/builder/dna-interfaces.js";
 
 // Category with optional/nullable
 const CategoryZod = z.object({

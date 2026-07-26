@@ -11,11 +11,11 @@ const _tuple = ["a", true, 12] as const;
 type t_checkTuple = typeof _tuple extends tsDnaEnumInput ? true : false;
 const _checkTuple: false = null as any as t_checkTuple;
 function probe<const T extends tsDnaEnumInput>(x: T): T { return x; }
-const _probe = probe(["a", true, 12]);
+const _probe = probe(["a", 1, 12]);
 const _probeObj = probe({ a: "a", b: true });
 type t_dnaEnum = typeof dna.enum;
 type t_probe = typeof probe;
-const dnaErrTop = dna.enum(["a", true, 12]);
+const dnaErrTop = dna.enum(["a", 1, 12]);
 
 
 

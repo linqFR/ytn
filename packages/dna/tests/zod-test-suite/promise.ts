@@ -20,7 +20,7 @@ const asyncFunctionZod = z.function({
   output: promSchemaZod,
 });
 const asyncFunctionDna = dna.function({
-  input: dna.tuple([]),
+  input: [],
   output: promSchemaDna,
 });
 

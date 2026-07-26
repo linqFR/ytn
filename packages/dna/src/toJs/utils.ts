@@ -73,7 +73,7 @@ export const _err = (ctx: tsJSParentCtx, _inVarName: string, path: string, msg: 
  * during DNA→JS compilation, never at validation call time.
  */
 export const isAsyncFnStr = (fnStrTrimed: string): boolean =>{
-	return /^async(?:\s|[^\w])/.test(fnStrTrimed) || /\bPromise\b/.test(fnStrTrimed);
+	return /\basync\b/.test(fnStrTrimed) || /\bPromise\b/.test(fnStrTrimed);
 }
 /**
  * Prefixes a generated call expression with `await` when the underlying

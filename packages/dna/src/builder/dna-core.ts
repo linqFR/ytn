@@ -6,6 +6,7 @@ import type { $Input, $Output } from "../types/helpers.types.js";
 import type { IDnaCollector } from "./collector.types.js";
 import type { DnaType } from "./dna-interfaces.js";
 import type { tsStateDef, tsStateFull } from "./state.types.js";
+import type { tsCheckOpt } from "../shared/handlers-builder.types.js";
 
 
 
@@ -40,13 +41,6 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
   #mapper = new Map<IDnaCollector, tsDnaId>();
 
   #state!: tsStateFull<State>;
-  // head?: never;
-
-  // #rawDna: tsDnaNoMeta = ["T"];
-  // #state.fullDna?: tsDnaSeq;
-  // #state.cachedParser?: tsDnaParserFn;
-  // #state.cachedValidator?: tsDnaValidatorFn;
-  // #templateRegex: string = "";
 
   constructor(
     type: string,
@@ -70,7 +64,6 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
     } as tsStateFull<State>;
   }
 
-  // seed<T extends State>(state: Partial<T>) { this.#state.seed = { ...this.#state.seed, ...state } as T; }
 
   // State accessors
   get seed(): State { return this.#state.seed; }
@@ -166,7 +159,14 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
     core.#state.templateRegex = this.#state.templateRegex;
     core.#state.coerce = this.#state.coerce;
     core.#state.coerceCode = this.#state.coerceCode;
-    
+    // Shallow-clone each refiner tuple so every `BaseCore` clone owns its own
+    // mutable array. Without `.slice()`, later mutations to one clone's
+    // refiner metadata would be shared with the original and sibling clones.
+    core.#state.refinerList = this.#state.refinerList.map(r => r.slice() as unknown as tsCheckOpt);
+    const clonedMeta: Record<string, unknown> = {};
+    deepMerge(clonedMeta, this.#state.meta);
+    core.#state.meta = clonedMeta;
+
     // do not clone the following, they have to be recomputed
     // core.#state.head = this.#state.head;
     // core.#state.rawDna = this.#state.rawDna;

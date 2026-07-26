@@ -1,7 +1,6 @@
 import { defineConfig, type Options } from "tsup";
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import zodAot from "zod-aot/esbuild";
 
 /**
  * @constant commonConfig
@@ -19,14 +18,6 @@ export const commonConfig: Options = {
   external: ["acorn", "acorn-walk", "zod"],
   noExternal: ["@ytn/shared"],
   treeshake: true,
-  esbuildPlugins: [
-    zodAot({
-      autoDiscover: true,
-      verbose: true,
-      exclude: ["test", "sandbox"],
-      zodCompat: true,
-    }),
-  ],
 };
 
 /**

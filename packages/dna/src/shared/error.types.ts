@@ -282,4 +282,11 @@ export interface IAddIssue {
   code?: string;
   message: string;
   path?: PropertyKey[];
+  input?: unknown;
+  origin?: string;
+  minimum?: number;
+  maximum?: number;
+  inclusive?: boolean;
+  exact?: boolean;
+  fatal?: boolean;
 }

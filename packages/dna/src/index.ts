@@ -7,4 +7,9 @@
  * - Constructor registry: For registering constructors used in instanceof validation
  */
 
-export * as dna from "./dna-namespace.js";
+import * as dna from "./dna-namespace.js";
+import { registerExternal } from "./toJs/registry.js";
+
+registerExternal("dna", dna as unknown as Function);
+
+export { dna };

@@ -87,3 +87,6 @@ export type tsDnaNoMeta = [tsDnaOpcode, ...any[]];
 export type tsDna = [...tsDnaNoMeta, tsDnaInnerMeta];
 
 export type tsDnaSeq = [...tsDna[], number[]];
+
+export type tsDnaObjectType = 'strict' | 'loose' | 'standard' | 'object' | 'plainObject';
+export type tsDnaCombinatorType = "anyOf" | "allOf" | "oneOf";

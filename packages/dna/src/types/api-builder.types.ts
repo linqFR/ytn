@@ -16,62 +16,7 @@ import type {
   DnaUndefined,
 } from "../builder/dna-interfaces.js";
 
-import type { IIssue } from "../shared/error.types.js";
 import type { tsDnaMeta } from "../shared/meta-context.type.js";
-
-// ============================================
-// Context Types
-// ============================================
-
-export interface IContext<T> {
-  value: T;
-  issues: Array<IIssue<T>>;
-  error?: {
-    issues: Array<IIssue<T>>;
-  };
-  input?: unknown;
-  path?: PropertyKey[];
-}
-
-export interface IRefineContext<T> extends IContext<T> {
-  addIssue(issue: { code?: string; message: string; path?: PropertyKey[] }): void;
-}
-
-export interface ISuperRefineContext<T> extends IRefineContext<T> {
-  path: PropertyKey[];
-}
-
-export interface ITransformContext<T> extends IContext<T> {
-  addIssue(issue: { code?: string; message: string; path?: PropertyKey[] }): void;
-}
-
-export interface ICheckContext<T> extends IContext<T> { }
-
-export type tsDnaCtx<T = unknown> = IContext<T>;
-
-// ============================================
-// Refine Options
-// ============================================
-
-export interface IRefineOptions<I> {
-  error?: string | ((issue: IIssue<I>) => string | null);
-  message?: string;
-  path?: string[];
-  abort?: boolean;
-  when?: (payload: { value: I }) => boolean;
-  params?: Record<string, unknown>;
-  externals?: readonly unknown[] | Record<string, unknown>;
-}
-
-export type tsDnaRefineOptions<I> = string | IRefineOptions<I>;
-
-// ============================================
-// Type Inference Helpers
-// ============================================
-
-export type tsDnaInferOutput<S> = S extends { _output: infer O } ? O : S extends DnaType<infer V, any> ? V : never;
-export type tsDnaInferInput<S> = S extends { _input: infer I } ? I : S extends DnaType<any, infer I> ? I : never;
-export type tsDnaInfer<S> = tsDnaInferOutput<S>;
 
 // ============================================
 // Check Types
@@ -146,7 +91,7 @@ export type tsDnaTupleSchemaRO = readonly [DnaType<any, any>, ...DnaType<any, an
 export type tsDnaTupleSchemaArray = tsDnaTupleSchemaRO;
 export type tsDnaTupleSchemaSingle = [DnaType<any, any>];
 export type tsDnaTupleSchema = tsDnaTupleSchemaArray | tsDnaTupleSchemaSingle;
-export type tsDnaTupleValue<S extends tsDnaTupleSchemaRO> = { -readonly [K in keyof S]: tsDnaInfer<S[K]> };
+export type tsDnaTupleValue<S extends tsDnaTupleSchemaRO> = { -readonly [K in keyof S]: S[K] extends DnaType<infer O, any> ? O : never };
 export type tsDnaTupleValueWithRest<S extends tsDnaTupleSchemaRO, R> = [R] extends [never]
   ? tsDnaTupleValue<S>
   : [...tsDnaTupleValue<S>, ...R[]];

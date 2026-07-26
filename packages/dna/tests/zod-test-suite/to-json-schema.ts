@@ -13,6 +13,9 @@ const contains = (dna: any, zod: any): boolean => {
 		for (let i = 0; i < zod.length; i++) if (!contains(dna[i], zod[i])) return false;
 		return true;
 	}
+	if ("const" in zod) {
+		return typeof dna === "object" && dna !== null && "const" in dna && dna.const === zod.const;
+	}
 	for (const k of Object.keys(zod)) {
 		if (!(k in dna)) return false;
 		if (!contains(dna[k], zod[k])) return false;

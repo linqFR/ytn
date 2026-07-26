@@ -525,6 +525,99 @@ Both modules share the same low-level codegen primitives from `utils.ts` (`simpl
 
 ---
 
+## DNA → Schema Reconstruction (`fromDna`)
+
+`src/fromDna/index.ts` rebuilds a fluent `@ytn/dna` builder schema from the bytecode produced by `schema.toDna()`. It is the inverse of the builder's emission layer and is the backbone of the `from-dna-extended.test.ts` roundtrip suite.
+
+### Input format
+
+`fromDna` expects the same tuple that `toDna` returns: a flat `tsDnaSeq` followed by an optional `refList` and an optional `externals` key list. The entry node is always at index `0`.
+
+```typescript
+const rebuilt = fromDna(schema.toDna());
+```
+
+### Core helpers
+
+- **`isMeta(v)`**: Detects the trailing `{meta}` object on a DNA tuple. A meta object is any plain object (not an array) and it is always the last element.
+- **`getMeta(node)`**: Returns the trailing meta object if present, otherwise `undefined`.
+- **`getParams(node)`**: Returns the opcode argument. It correctly handles the two common layouts:
+  - `[opcode, params, {meta}]`
+  - `[opcode, {meta}]` (no params)
+- **`build(id)`**: The recursive index resolver. It maintains a `Map<number, DnaTypeWithWrappers>` cache and returns the cached instance if the same `id` has already been built.
+- **`buildNode(node, build, dnaList, id, cache)`**: The opcode dispatcher. It receives the normalized `params` and `meta` and constructs the corresponding `DnaType` subclass.
+
+### Recursion handling (`ref` and `$o`)
+
+Recursive schemas are the trickiest part of `fromDna` because a child may reference a parent whose index is larger in the flat `dnaList`.
+
+The `$o` (object) branch pre-creates a `DnaObject` skeleton via `initDna` and immediately stores it in the cache before building its `propertySchemas`:
+
+```typescript
+const skeleton = initDna(c.DnaObject, { propertySchemas: {}, ... }, meta);
+cache.set(id, skeleton);
+const built = buildPropertiesAndReturn(skeleton);
+```
+
+When a `ref` opcode is encountered, `build(id)` looks up `cache` first. If the target is the object currently being built, the skeleton is returned, so the cyclic reference is preserved without creating an extra `DnaLazy` indirection. Only unresolved `ref` nodes fall back to `DnaLazy`.
+
+### Opcode dispatch highlights
+
+| Opcode | Reconstructed class | Notes |
+|---|---|---|
+| `s` | `DnaString` | params `[min, max, pattern, format]` |
+| `n` | `DnaNumber` | params `[min, exclMin, max, exclMax, multOf]` |
+| `i` | `DnaInt` | same layout as `n` |
+| `bi` | `DnaBigInt` | bigint constraints, uses same numeric sentinel layout |
+| `b` | `DnaBoolean` | no params |
+| `l` / `e` | `DnaLiteral` / `DnaEnum` | single or multiple values |
+| `$o` | `DnaObject` | properties, `additionalProperties`, `requiredKeys`, `objType` (`strict` / `loose` / `standard`) |
+| `a` | `DnaArray` | items, prefix items, min/max, contains, unique |
+| `rcd` | `DnaRecord` | standard, loose, partial, finite keys via `keys` / `required` / `additionalProperties` |
+| `wrp` | wrappers | `optional`, `nullable`, `nullish`, `nonoptional`, `exactOptional`, `default`, `prefault`, `catch` |
+| `seq` | `DnaPipe` / `DnaMap` / `DnaSet` | Generic pipeline; special-cased for `Map`/`Set` via `extractMapSet` |
+| `transform` | `DnaTransform` | `[fnStr, arity]` executed in a `seq` |
+| `chk` | refiner list | `property` constraints and `func` refinements |
+| `jwt` | `DnaJwt` | decoded parameters |
+| `discriminator` | `DnaDiscriminatedUnion` | `[propertyName, keys, refs]` |
+| `ref` | target schema or `DnaLazy` | see recursion handling above |
+
+### `seq` reconstruction for `Map` / `Set`
+
+A fluent `dna.map(dna.string(), dna.number())` emits a `seq` opcode containing:
+
+1. `instanceOf "Map"` with `readonly` meta
+2. `transform` (Map → entries object)
+3. `rcd` with `propertyNames` and `additionalProperties`
+4. `coerce` / default validators
+5. `transform` (entries object → Map)
+
+`extractMapSet` scans the `seq` steps for the `instanceOf`, `chk` (size), `rcd` / `a`, and `transform` markers, then calls `initDna(DnaMap, ...)` or `initDna(DnaSet, ...)` with the rebuilt key/value/item schemas. The `readonly` flag is read from the `instanceOf` step's meta, not the `seq` node, because the builder stores it there.
+
+### `chk` and refinements
+
+The `chk` opcode carries the schema's accumulated `refinerList`. `fromDna` supports two shapes:
+
+- `["property", propertyName, schema]` → rebuilds a property-level check.
+- `["func", fnStr, arity, errorOpt?]` → pushes the function string directly back into the cloned schema's `refinerList` so that `toDna()` emits the same entry.
+
+`refine()` / `superRefine()` / `.check()` all now emit `func` entries, so `fromDna` does not need to distinguish them at reconstruction time.
+
+### Metadata preservation
+
+Every `buildNode` branch calls `initDna(Class, seed, meta)` with the normalized `meta` object extracted from the DNA tuple. This restores:
+
+- `readonly` on primitives, `Map`, `Set`, booleans
+- `description` / `~inner` / `coerce` flags
+- `nonoptional` wrapper markers
+
+### Limitations
+
+- `func` entries only roundtrip when the original function's `toString()` is complete (no captured variables, no `__name` helpers).
+- `async` refinements and `transform`/`preprocess`/`coerce` roundtrip at the DNA level but `toJs` may not generate the matching `ctx` / `await` code yet.
+- `z.function()`, `z.promise()`, `oneOf` / `xor`, and some JSON Schema-specific opcodes are not reconstructed yet.
+- `toDna()` equality is a necessary but not sufficient condition for `safeParse` parity; the `toJs` codegen must also support the same opcodes.
+
 ## Generated JS Code — Shape & Conventions
 
 This section describes what the **compiled JavaScript** produced by `toJS` in `src/toJs/dna-to-js.ts` looks like, the fast-fail discipline, and the labelled-block layout used by every composite validator.

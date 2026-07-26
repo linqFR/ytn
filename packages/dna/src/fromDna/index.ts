@@ -1,96 +1,147 @@
 import { initDna } from '../builder/dna-core.js';
 import * as c from '../builder/dna-interfaces.js';
 import { DnaMap, DnaSet } from '../builder/api-enhanced.js';
+import { getRegisteredExternals } from '../toJs/registry.js';
 import type { tsDnaMeta } from '../shared/meta-context.type.js';
 import type { tsDna, tsDnaSeq } from '../types/core.types.js';
 
-function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any, any>, dnaList: tsDna[]): c.DnaTypeWithWrappers<any, any> {
-  const [opcode, params] = node;
+function isMeta(v: unknown): v is tsDnaMeta {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function getMeta(node: tsDna): tsDnaMeta | undefined {
+  const last = node[node.length - 1];
+  return isMeta(last) ? (last as tsDnaMeta) : undefined;
+}
+
+function getParams(node: tsDna): unknown {
+  if (node.length === 2 && isMeta(node[1])) return undefined;
+  return node[1];
+}
+
+function reconstructFunc(fnStr: string, arity: number): (...args: unknown[]) => void {
+  const args: string[] =
+    arity <= 0 ? [] :
+    arity === 1 ? ['ctx'] :
+    arity === 2 ? ['value', 'ctx'] :
+    Array.from({ length: arity }, (_, i) => `_${i}`);
+  const fn = new Function(...args, '') as (...args: unknown[]) => unknown;
+  Object.defineProperty(fn, 'toString', { value: () => fnStr, writable: true, configurable: true });
+  return fn as unknown as (...args: unknown[]) => void;
+}
+
+function regexFromString(s: string | null): RegExp | null {
+  if (!s) return null;
+  const match = s.match(/^\/(.*)\/([a-z]*)$/);
+  return match ? new RegExp(match[1], match[2]) : new RegExp(s);
+}
+
+function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any, any>, dnaList: tsDna[], id?: number, cache?: Map<number, c.DnaTypeWithWrappers<any, any>>): c.DnaTypeWithWrappers<any, any> {
+  const opcode = node[0];
+  const params = getParams(node);
+  const meta = getMeta(node);
 
   switch (opcode) {
     case 's': {
       const [min, max, pattern, format] = params as [number | null, number | null, any, any];
-      return initDna(c.DnaString, { min, max, pattern, format }, node[2]);
+      return initDna(c.DnaString, { min, max, pattern, format }, meta);
+    }
+
+    case 'sb': {
+      const [truthy, falsy, caseSensitive] = params as [string[], string[], boolean];
+      return initDna(c.DnaStringBool, { truthy, falsy, case: caseSensitive ? 'sensitive' : 'insensitive' }, meta);
     }
 
     case 'n': {
       const [min, exclMin, max, exclMax, multOf] = params as [number | null, boolean, number | null, boolean, number | null];
-      return initDna(c.DnaNumber, { min, max, exclMin, exclMax, multOf }, node[2]);
+      return initDna(c.DnaNumber, { min, max, exclMin, exclMax, multOf }, meta);
     }
 
     case 'i': {
       const [min, exclMin, max, exclMax, multOf] = params as [number | null, boolean, number | null, boolean, number | null];
-      return initDna(c.DnaInt, { min, max, exclMin, exclMax, multOf }, node[2]);
+      return initDna(c.DnaInt, { min, max, exclMin, exclMax, multOf }, meta);
     }
 
     case 'bi': {
       const [min, exclMin, max, exclMax, multOf] = params as [bigint | null, boolean, bigint | null, boolean, bigint | null];
-      return initDna(c.DnaBigInt, { min, max, exclMin, exclMax, multOf }, node[2]);
+      return initDna(c.DnaBigInt, { min, max, exclMin, exclMax, multOf }, meta);
     }
 
     case 'b':
-      return initDna(c.DnaBoolean, undefined, node[2]);
+      return initDna(c.DnaBoolean, undefined, meta);
+
+    case 'cidrv6':
+      return initDna(c.DnaCidrv6, undefined, meta);
 
     case 'l': {
       const values = params as unknown[];
       const value = values.length === 1 ? values[0] : values;
-      return initDna(c.DnaLiteral, { value }, node[2]);
+      return initDna(c.DnaLiteral, { value }, meta);
     }
 
     case 'e': {
       const values = params as unknown[];
       const enumObj = Object.fromEntries((values as unknown[]).map((v, i) => [String(i), v]));
-      return initDna(c.DnaEnum, { enumObj }, node[2]);
+      return initDna(c.DnaEnum, { enumObj }, meta);
     }
 
     case 'n0':
-      return initDna(c.DnaNull, undefined, node[2]);
+      return initDna(c.DnaNull, undefined, meta);
 
     case 'undefined':
-      return initDna(c.DnaUndefined, undefined, node[2]);
+      return initDna(c.DnaUndefined, undefined, meta);
 
     case 'T':
-      return initDna(c.DnaAny, undefined, node[2]);
+      return initDna(c.DnaAny, undefined, meta);
 
     case 'F':
-      return initDna(c.DnaNever, undefined, node[2]);
+      return initDna(c.DnaNever, undefined, meta);
 
     case 'nan':
-      return initDna(c.DnaNaN, undefined, node[2]);
+      return initDna(c.DnaNaN, undefined, meta);
 
     case 'symbol':
-      return initDna(c.DnaSymbol, undefined, node[2]);
+      return initDna(c.DnaSymbol, undefined, meta);
 
     case 'date': {
       const [min, max] = params as [Date | null, Date | null];
-      return initDna(c.DnaDate, { min, max }, node[2]);
+      return initDna(c.DnaDate, { min, max }, meta);
     }
 
     case 'wrp': {
       const [wrptype, innerId, , value] = params as [string, number, string, any];
       const inner = build(innerId);
-      let wrapped;
+      let wrapped: c.DnaTypeWithWrappers<any, any>;
       switch (wrptype) {
         case 'optional': wrapped = inner.optional(); break;
         case 'nullable': wrapped = inner.nullable(); break;
         case 'nullish': wrapped = inner.nullish(); break;
         case 'nonoptional': wrapped = inner.nonoptional(); break;
         case 'exactOptional': wrapped = inner.exactOptional(); break;
+        case 'catch': wrapped = inner.catch(value); break;
         case 'default': wrapped = inner.default(value); break;
         case 'prefault': wrapped = inner.prefault(value); break;
         default:
           throw new Error(`fromDna: wrp type not implemented: ${wrptype}`);
       }
-      wrapped._core.rawMeta(node[2]);
+      if (meta) {
+        const cleanMeta = { ...meta as any };
+        // passDefault is a runtime marker emitted by DnaOptional._emitSelf; it
+        // should not be persisted as schema meta because it pollutes object propMeta.
+        delete cleanMeta.passDefault;
+        if (Object.keys(cleanMeta).length) wrapped = wrapped.meta(cleanMeta);
+      }
       return wrapped;
     }
 
-    case '$o': {
-      const constraints = params as any[];
+    case 'o':
+    case '_o': {
+      const constraints = params as [string, ...unknown[]][];
       const propertySchemas: Record<string, c.DnaTypeWithWrappers<any, any>> = {};
       let addPropSchema: c.DnaTypeWithWrappers<any, any> | boolean | undefined;
-      let objType: 'strict' | 'loose' | 'standard' = 'standard';
+      let objType: 'strict' | 'loose' | 'standard' | 'object' = 'standard';
       let requiredKeys: string[] | undefined;
+      let hasKeepOnly = false;
 
       for (const [name, value] of constraints) {
         if (name === 'properties' || name === 'defaultProperties') {
@@ -99,86 +150,116 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
           }
         } else if (name === 'required') {
           requiredKeys = value as string[];
+        } else if (name === 'keepOnly') {
+          hasKeepOnly = true;
         } else if (name === 'additionalProperties') {
           if (value === false) objType = 'strict';
           else if (value === true) objType = 'loose';
-          else addPropSchema = build(value as number);
+          else { objType = 'standard'; addPropSchema = build(value as number); }
         }
       }
 
-      return initDna(c.DnaObject, { propertySchemas, objType, addPropSchema, requiredKeys }, node[2]);
+      if (hasKeepOnly && addPropSchema === undefined && objType !== 'strict' && objType !== 'loose') objType = 'standard';
+
+      const inst = cache?.has(id!) ? cache.get(id!)! : initDna(c.DnaObject, {}, meta);
+      inst._state.propertySchemas = propertySchemas;
+      inst._state.objType = objType;
+      if (addPropSchema !== undefined) inst._state.addPropSchema = addPropSchema;
+      inst._state.declared = (opcode !== '_o');
+      inst._state.requiredKeys = (opcode !== '_o') ? (requiredKeys ?? []) : requiredKeys;
+      return inst;
     }
 
     case 'coerce': {
       const [coerceCode, innerId] = params as [string, number];
       const inner = build(innerId);
       switch (coerceCode) {
-        case 'toString': return initDna(c.DnaCoerceString, inner._core.seed, node[2]);
-        case 'toNumber': return initDna(c.DnaCoerceNumber, inner._core.seed, node[2]);
-        case 'toInt': return initDna(c.DnaCoerceInt, inner._core.seed, node[2]);
-        case 'toBigInt': return initDna(c.DnaCoerceBigInt, inner._core.seed, node[2]);
-        case 'toBoolean': return initDna(c.DnaCoerceBoolean, undefined, node[2]);
-        case 'toDate': return initDna(c.DnaCoerceDate, inner._core.seed, node[2]);
+        case 'toString': return initDna(c.DnaCoerceString, inner._state, meta);
+        case 'toNumber': return initDna(c.DnaCoerceNumber, inner._state, meta);
+        case 'toInt': return initDna(c.DnaCoerceInt, inner._state, meta);
+        case 'toBigInt': return initDna(c.DnaCoerceBigInt, inner._state, meta);
+        case 'toBoolean': return initDna(c.DnaCoerceBoolean, undefined, meta);
+        case 'toDate': return initDna(c.DnaCoerceDate, inner._state, meta);
         default: throw new Error(`fromDna: coerce code not implemented: ${coerceCode}`);
       }
     }
 
     case 'a': {
-      const constraints = params as any[];
-      const prefixEntry = constraints.find((entry: any[]) => entry[0] === 'prefixItems');
+      const constraints = params as [string, ...unknown[]][];
+      const prefixEntry = constraints.find(([name]) => name === 'prefixItems');
       if (prefixEntry) {
         const prefixIds = prefixEntry[1] as number[];
-        const itemsEntry = constraints.find((entry: any[]) => entry[0] === 'items') as [string, number | false];
-        const restId = itemsEntry[1];
+        const itemsEntry = constraints.find(([name]) => name === 'items');
+        if (!itemsEntry) throw new Error('fromDna: tuple missing items');
+        const restId = itemsEntry[1] as number | false;
         const items = prefixIds.map(build);
-        const rest = restId === false ? undefined : build(restId as number);
-        return initDna(c.DnaTuple, { items, rest }, node[2]);
+        const rest = restId === false ? undefined : build(restId);
+        return initDna(c.DnaTuple, { items, rest }, meta);
       }
-      const itemEntry = constraints.find((entry: any[]) => entry[0] === 'items') as [string, number];
-      const minEntry = constraints.find((entry: any[]) => entry[0] === 'minItems');
-      const maxEntry = constraints.find((entry: any[]) => entry[0] === 'maxItems');
+      const itemEntry = constraints.find(([name]) => name === 'items');
+      if (!itemEntry) throw new Error('fromDna: array missing items');
+      const minEntry = constraints.find(([name]) => name === 'minItems');
+      const maxEntry = constraints.find(([name]) => name === 'maxItems');
       return initDna(c.DnaArray, {
-        itemSchema: build(itemEntry[1]),
+        itemSchema: build(itemEntry[1] as number),
         min: minEntry ? (minEntry[1] as number) : null,
         max: maxEntry ? (maxEntry[1] as number) : null,
         length: null,
-      }, node[2]);
+      }, meta);
     }
 
     case 'anyOf': {
       const [, ...ids] = params as [string, ...number[]];
       const schemas = ids.map(build);
-      return initDna(c.DnaUnion, { schemas, combinatorType: 'anyOf' }, node[2]);
+      return initDna(c.DnaUnion, { schemas, combinatorType: 'anyOf' }, meta);
     }
 
     case 'allOf': {
       const [, ...ids] = params as [string, ...number[]];
       const schemas = ids.map(build);
-      return initDna(c.DnaIntersection, { schemas, combinatorType: 'allOf' }, node[2]);
+      return initDna(c.DnaIntersection, { schemas, combinatorType: 'allOf' }, meta);
+    }
+
+    case 'oneOf': {
+      const [, ...ids] = params as [string, ...number[]];
+      const schemas = ids.map(build);
+      return initDna(c.DnaXorUnion, { schemas, combinatorType: 'oneOf' }, meta);
     }
 
     case 'rcd': {
-      const constraints = params as any[];
-      const propertyNames = constraints.find((entry: any[]) => entry[0] === 'propertyNames') as [string, number, string | null] | undefined;
-      const additionalProperties = constraints.find((entry: any[]) => entry[0] === 'additionalProperties') as [string, number | boolean] | undefined;
-      const required = constraints.find((entry: any[]) => entry[0] === 'required');
+      const constraints = params as [string, ...unknown[]][];
+      const patternProperties = constraints.find(([name]) => name === 'patternProperties');
+      if (patternProperties) {
+        const [pattern, valueId] = (patternProperties[1] as [string, number][])[0];
+        const valueSchema = build(valueId);
+        const keySchema = initDna(c.DnaString, { pattern: new RegExp(pattern, 'u') }, meta);
+        return initDna(c.DnaRecord, { keySchema, valueSchema, type: 'loose' }, meta);
+      }
+      const propertyNames = constraints.find(([name]) => name === 'propertyNames');
+      const additionalProperties = constraints.find(([name]) => name === 'additionalProperties');
+      const required = constraints.find(([name]) => name === 'required');
       if (!propertyNames || !additionalProperties) {
         throw new Error('fromDna: rcd missing propertyNames/additionalProperties');
       }
-      const keySchema = build(propertyNames[1]);
-      const valueSpec = additionalProperties[1];
-      const valueSchema = typeof valueSpec === 'boolean' ? valueSpec : build(valueSpec as number);
-      const type = required ? 'standard' : 'standard';
-      return initDna(c.DnaRecord, { keySchema, valueSchema, type }, node[2]);
+      const keySchema = build(propertyNames[1] as number);
+      const valueSchema = build(additionalProperties[1] as number);
+      const isFiniteKeys = propertyNames[2] === 'string';
+      const type = (required || !isFiniteKeys) ? 'standard' : 'partial';
+      return initDna(c.DnaRecord, { keySchema, valueSchema, type }, meta);
     }
 
     case 'jwt':
-      return initDna(c.DnaJwt, { alg: params as string | null }, node[2]);
+      return initDna(c.DnaJwt, { alg: params as string | null }, meta);
+
+    case 'promise': {
+      const innerId = params as number;
+      return initDna(c.DnaPromise, { inner: build(innerId) }, meta);
+    }
 
     case 'discriminator': {
       const discriminDef = node[3] as number[];
       const schemas = discriminDef.slice(1).map(build) as unknown as c.DnaObject[];
-      return initDna(c.DnaDiscriminatedUnion, { discriminator: params as string, schemas }, node[4]);
+      return initDna(c.DnaDiscriminatedUnion, { discriminator: params as string, schemas }, meta);
     }
 
     case 'chk': {
@@ -187,17 +268,76 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       let inner = build(innerId);
       for (const checkId of checkIds) {
         const checkNode = dnaList[checkId];
-        const checkDef = checkNode[1] as unknown[];
-        if (checkDef[0] === 'property') {
-          const key = checkDef[1] as string | number;
-          const schema = build(checkDef[2] as number);
-          const prop = initDna(c.DnaProperty, { property: key, schema });
+        const stepParams = checkNode[1] as unknown[];
+        const stepMeta = getMeta(checkNode);
+        const stepOp = checkNode[0] as string;
+        if (stepOp === 'sb') {
+          inner = build(checkId);
+          continue;
+        }
+        const kind = stepParams[0] as string;
+        const stepItemMeta = stepOp === 's' ? stepParams[2] as tsDnaMeta | undefined : stepMeta;
+        if (kind === 'property') {
+          const key = stepParams[1] as string | number;
+          const schema = build(stepParams[2] as number);
+          const prop = initDna(c.DnaCheckProperty, { property: key, schema }, stepMeta);
           inner = inner.check(prop);
+        } else if (kind === 'func') {
+          const fnStr = stepParams[1] as string;
+          const arity = stepParams[2] as number;
+          inner = inner.check(reconstructFunc(fnStr, arity) as unknown as (ctx: unknown) => void);
+          if (stepMeta) inner = inner.meta(stepMeta);
+        } else if (inner instanceof c.DnaString) {
+          const str = inner;
+          switch (kind) {
+            case 'trim': inner = str.trim(); break;
+            case 'toLowerCase': inner = str.toLowerCase(); break;
+            case 'toUpperCase': inner = str.toUpperCase(); break;
+            case 'normalize': inner = str.normalize(); break;
+            case 'uppercase': inner = str.uppercase(stepItemMeta); break;
+            case 'lowercase': inner = str.lowercase(stepItemMeta); break;
+            case 'startsWith': inner = str.startsWith(JSON.parse(stepParams[1] as string), stepItemMeta); break;
+            case 'endsWith': inner = str.endsWith(JSON.parse(stepParams[1] as string), stepItemMeta); break;
+            case 'includes': {
+              const inc = JSON.parse(stepParams[1] as string) as string;
+              const position = stepParams[2] as number | undefined;
+              if (position !== undefined) {
+                inner = str.includes(inc, stepItemMeta ? { ...stepItemMeta, position } : { position });
+              } else {
+                inner = stepItemMeta ? str.includes(inc, stepItemMeta) : str.includes(inc);
+              }
+              break;
+            }
+            case 'min': inner = str.min(stepParams[1] as number, stepItemMeta); break;
+            case 'max': inner = str.max(stepParams[1] as number, stepItemMeta); break;
+            case 'length': inner = str.length(stepParams[1] as number, stepItemMeta); break;
+            case 'pattern': inner = str.pattern(new RegExp(stepParams[1] as string, 'u'), stepItemMeta); break;
+            case 'format': inner = str.format(stepParams[1] as string, stepItemMeta); break;
+            default:
+              throw new Error(`fromDna: refine check kind not implemented: ${kind}`);
+          }
         } else {
-          throw new Error('fromDna: func refine checks are not round-trippable');
+          throw new Error(`fromDna: refine check kind not implemented: ${kind}`);
         }
       }
       return inner;
+    }
+
+    case 'transform': {
+      const [fnStr, arity] = params as [string, number];
+      return initDna(c.DnaTransform, { fnStr, arity }, meta);
+    }
+
+    case 'url': {
+      const [protocolSerialized, hostnameSerialized, normalize] = (params as [string | null, string | null, boolean]);
+      return initDna(c.DnaUrl, { protocol: regexFromString(protocolSerialized), hostname: regexFromString(hostnameSerialized), normalize: normalize ?? false }, meta);
+    }
+
+    case 'instanceOf': {
+      const constructorName = params as string;
+      const constructor = getRegisteredExternals()[constructorName];
+      if (!constructor) throw new Error(`fromDna: external constructor not registered: ${constructorName}`);
+      return initDna(c.DnaInstanceOf, { constructor }, meta);
     }
 
     default:
@@ -210,17 +350,19 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
   const dnaList = (Array.isArray(refListRaw) ? seq.slice(0, -1) : seq) as tsDna[];
   const cache = new Map<number, c.DnaTypeWithWrappers<any, any>>();
 
-  function extractMapSet(seqNode: tsDna) {
-    const steps = [];
-    function add(id) {
+  function extractMapSet(seqNode: tsDna): c.DnaTypeWithWrappers<any, any> | undefined {
+    const stepIds = getParams(seqNode) as number[];
+    const steps: tsDna[] = [];
+    function add(id: number) {
       const n = dnaList[id];
       if (n[0] === 'seq') {
-        for (const child of n[1]) add(child);
+        const children = getParams(n) as number[];
+        for (const child of children) add(child);
       } else {
         steps.push(n);
       }
     }
-    for (const child of seqNode[1]) add(child);
+    for (const child of stepIds) add(child);
 
     const instance = steps.find(n => n[0] === 'instanceOf' || n[0] === 'chk');
     if (!instance) return undefined;
@@ -248,35 +390,40 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
       if (checkDef[0] === 'property' && checkDef[1] === 'size') {
         const num = build(checkDef[2] as number);
         if (num instanceof c.DnaNumber) {
-          const numState = (num as unknown as { _core: { seed: { min: number | null; max: number | null } } })._core.seed;
-          if (numState.min === numState.max && numState.min !== null) size = numState.min;
-          else { min = numState.min; max = numState.max; }
+          const numMin = num._state.min as number | null;
+          const numMax = num._state.max as number | null;
+          if (numMin === numMax && numMin !== null) size = numMin;
+          else { min = numMin; max = numMax; }
         }
       }
     }
 
+    const instanceMeta = instance ? getMeta(instance) : getMeta(seqNode);
+
     if (ctor === 'Map') {
       const rcd = steps.find(n => n[0] === 'rcd');
       if (!rcd) return undefined;
-      const propertyNames = rcd[1].find(entry => entry[0] === 'propertyNames');
-      const additionalProperties = rcd[1].find(entry => entry[0] === 'additionalProperties');
+      const rcdParams = getParams(rcd) as [string, ...unknown[]][];
+      const propertyNames = rcdParams.find(([name]) => name === 'propertyNames');
+      const additionalProperties = rcdParams.find(([name]) => name === 'additionalProperties');
       if (!propertyNames || !additionalProperties) return undefined;
       return initDna(DnaMap, {
-        keySchema: build(propertyNames[1]),
-        valueSchema: build(additionalProperties[1]),
+        keySchema: build(propertyNames[1] as number),
+        valueSchema: build(additionalProperties[1] as number),
         min, max, size,
-      }, seqNode[2]);
+      }, instanceMeta);
     }
 
     if (ctor === 'Set') {
       const arr = steps.find(n => n[0] === 'a');
       if (!arr) return undefined;
-      const itemEntry = arr[1].find(entry => entry[0] === 'items');
+      const arrParams = getParams(arr) as [string, ...unknown[]][];
+      const itemEntry = arrParams.find(([name]) => name === 'items');
       if (!itemEntry) return undefined;
       return initDna(DnaSet, {
-        itemSchema: build(itemEntry[1]),
+        itemSchema: build(itemEntry[1] as number),
         min, max, size,
-      }, seqNode[2]);
+      }, instanceMeta);
     }
 
     return undefined;
@@ -287,21 +434,28 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
   function build(id: number): c.DnaTypeWithWrappers<any, any> {
     if (cache.has(id)) return cache.get(id)!;
     const node = dnaList[id];
+    const meta = getMeta(node);
     if (node[0] === 'ref') {
-      const targetId = node[1];
-      if (dnaList[targetId][0] === 'ref') {
-        return build(targetId);
+      const targetId = node[1] as number;
+      // If the target is itself a ref/lazy node, share its reconstructed DnaLazy.
+      if (dnaList[targetId]?.[0] === 'ref') {
+        const target = build(targetId);
+        cache.set(id, target);
+        return target;
       }
       const existing = lazyByTarget.get(targetId);
       if (existing) {
         cache.set(id, existing);
         return existing;
       }
-      let inner;
-      const inst = initDna(c.DnaLazy, { getter: () => inner }, node[2]);
+      if (cache.has(targetId)) {
+        const target = cache.get(targetId)!;
+        cache.set(id, target);
+        return target;
+      }
+      const inst = initDna(c.DnaLazy, { getter: () => cache.has(targetId) ? cache.get(targetId)! : build(targetId) }, meta);
       lazyByTarget.set(targetId, inst);
       cache.set(id, inst);
-      inner = build(targetId);
       return inst;
     }
     if (node[0] === 'seq') {
@@ -310,8 +464,19 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
         cache.set(id, maybe);
         return maybe;
       }
+      const inst = initDna(c.DnaPipe, {}, meta);
+      cache.set(id, inst);
+      const stepIds = getParams(node) as number[];
+      inst._state.steps = stepIds.map(stepId => build(stepId));
+      return inst;
     }
-    const inst = buildNode(node, build, dnaList);
+    if (node[0] === 'o' || node[0] === '_o' || node[0] === 'rcd') {
+      const skeleton = initDna(c.DnaObject, {}, meta);
+      cache.set(id, skeleton);
+      const inst = buildNode(node, build, dnaList, id, cache);
+      return inst;
+    }
+    const inst = buildNode(node, build, dnaList, id, cache);
     cache.set(id, inst);
     return inst;
   }

@@ -95,4 +95,66 @@ describe("Discriminator", () => {
 		expect(validateStrict({ type: "cat", name: "Whiskers", meows: true, unknown: true })).toBe(false);
 		expect(validateStrict({ type: "dog", name: "Rex", barks: true, unknown: true })).toBe(false);
 	});
+
+	describe("enum discriminator values", () => {
+		const enumDiscriminatorSchema = {
+			type: "object",
+			discriminator: {
+				propertyName: "type"
+			},
+			required: ["type", "name"],
+			oneOf: [
+				{
+					type: "object",
+					properties: {
+						type: { enum: ["cat", "feline"] },
+						name: { type: "string" },
+						meows: { type: "boolean" }
+					}
+				},
+				{
+					type: "object",
+					properties: {
+						type: { enum: ["dog", "canine"] },
+						name: { type: "string" },
+						barks: { type: "boolean" }
+					}
+				}
+			]
+		};
+
+		it("should compile enum discriminator schema", () => {
+			const validate = schvalid("validation").compile(enumDiscriminatorSchema);
+			expect(typeof validate).toBe("function");
+		});
+
+		it("should validate multiple enum values for the same branch", () => {
+			const validate = schvalid("validation").compile(enumDiscriminatorSchema);
+			expect(validate({ type: "cat", name: "Whiskers", meows: true })).toBe(true);
+			expect(validate({ type: "feline", name: "Felix", meows: false })).toBe(true);
+			expect(validate({ type: "dog", name: "Rex", barks: true })).toBe(true);
+			expect(validate({ type: "canine", name: "Buddy", barks: false })).toBe(true);
+		});
+
+		it("should reject values not in any enum", () => {
+			const validate = schvalid("validation").compile(enumDiscriminatorSchema);
+			expect(validate({ type: "bird", name: "Tweety" })).toBe(false);
+		});
+
+		it("should parse with enum discriminator", () => {
+			const parse = schvalid("parser").compile(enumDiscriminatorSchema);
+			const feline = parse({ type: "feline", name: "Felix", meows: true });
+			expect(feline.success).toBe(true);
+			if (feline.success) {
+				expect(feline.data).toEqual({ type: "feline", name: "Felix", meows: true });
+			}
+		});
+
+		it("should reject unknown properties with additionalProperties: false for enum discriminator", () => {
+			const strictEnum = { ...enumDiscriminatorSchema, additionalProperties: false };
+			const validateStrict = schvalid("validation").compile(strictEnum);
+			expect(validateStrict({ type: "cat", name: "Whiskers", meows: true })).toBe(true);
+			expect(validateStrict({ type: "feline", name: "Felix", meows: true, unknown: true })).toBe(false);
+		});
+	});
 });

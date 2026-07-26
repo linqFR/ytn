@@ -3,7 +3,7 @@ import { dna } from "../../src/index.js";
 
 // Reusable schemas matching Zod official tests
 const args1Zod = z.tuple([z.string()]);
-const args1Dna = dna.tuple([dna.string()]);
+const args1Dna = [dna.string()] as const;
 
 const returns1Zod = z.number();
 const returns1Dna = dna.number();
@@ -28,7 +28,7 @@ const methodObjectDna = dna.object({
   property: dna.number(),
   method: dna
     .function()
-    .input(dna.tuple([dna.string()]))
+    .input([dna.string()])
     .output(dna.number()),
 });
 

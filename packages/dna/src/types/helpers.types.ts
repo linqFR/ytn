@@ -1,5 +1,5 @@
 import type { DnaType } from "../builder/dna-interfaces.js";
-import type { IContext } from "../shared/meta-context.type.js";
+import type { tsDnaBaseCtx } from "../shared/meta-context.type.js";
 import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
 
 
@@ -17,7 +17,9 @@ export type $InputHead<T> = T extends { _head: infer H }
   : $Input<T>;
 export type infer<T> = $Output<T>;
 
-// export type $State<S> = S extends { _stateDef: infer I } ? I : {};
+// Readonly for non-primitive types, identity for primitives
+export type $ReadonlyValue<T> = unknown extends T ? T : T extends string | number | bigint | boolean | symbol | null | undefined ? T : Readonly<T>;
+
 
 // =================================
 // tools for combinaisons
@@ -76,7 +78,7 @@ export type $InferReturnType<F> = F extends (...args: any[]) => $MaybeAsync<infe
   : never;
 
 // Helper for .catch() recovery value: either a plain fallback value or a recovery function
-export type $CatchValue<T, I> = T | ((ctx: IContext<I>) => T);
+export type $CatchValue<T, I> = T | ((ctx: tsDnaBaseCtx<I>) => T);
 
 // Enum type helpers
 // Extract keys from an enum object
@@ -111,6 +113,17 @@ export type $DnaObjectOutput<T extends Record<string, DnaType<any, any>>> = {
 // Map object schemas to their input types
 export type $DnaObjectInput<T extends Record<string, DnaType<any, any>>> = {
   [K in keyof T]: $Input<T[K]>
+};
+
+// Safe extend: restrict overrides to assignable (narrower) schemas
+export type $SafeExtendShape<Base extends Record<string, DnaType<any, any>>, Ext extends Record<string, DnaType<any, any>>> = {
+  [K in keyof Ext]: K extends keyof Base
+    ? $Output<Ext[K]> extends $Output<Base[K]>
+      ? $Input<Ext[K]> extends $Input<Base[K]>
+        ? Ext[K]
+        : never
+      : never
+    : Ext[K];
 };
 
 // Helper to infer template literal type from parts array

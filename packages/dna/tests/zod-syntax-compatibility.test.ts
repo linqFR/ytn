@@ -5,6 +5,16 @@ import { fileURLToPath } from "url";
 import { dna } from "../src/index.js";
 import { z } from "zod";
 
+// DNA wraps functions, so identity/name comparison is not meaningful.
+expect.addEqualityTesters([
+  (a, b) => {
+    if (typeof a === "function" && typeof b === "function") {
+      return true;
+    }
+    return undefined;
+  },
+]);
+
 // Emulate __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,10 +45,10 @@ describe("DNA Schema Builder API", () => {
     expect(dna.union).toBeDefined();
     expect(dna.record).toBeDefined();
     expect(dna.bigint).toBeDefined();
-    // @ts-expect-error
-    expect(dna.default).not.toBeDefined();
     expect(dna.prefault).toBeDefined();
     expect(dna.function).toBeDefined();
+    // @ts-expect-error
+    expect(dna.default).not.toBeDefined();
   });
 
   it("zod exports core schema builders", () => {
@@ -62,9 +72,9 @@ describe("DNA Schema Builder API", () => {
     expect(z.record).toBeDefined();
     expect(z.bigint).toBeDefined();
     expect(z.function).toBeDefined();
+    expect(z.prefault).toBeDefined();
     // @ts-expect-error
     expect(z.default).not.toBeDefined();
-    expect(z.prefault).not.toBeDefined();
   });
 });
 

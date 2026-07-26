@@ -36,7 +36,7 @@ This package follows the global naming standards. Refer to the examples below fo
 ## Architectural Context
 
 - **Workflow Engine**: This package provides a high-performance, Zod-validated workflow router.
-- **AOT Optimization**: Uses `zod-aot` pre-compilation for fastest gate evaluation and data transformation.
+- **AOT Optimization**: Uses native DNA validator generation (`@ytn/dna`) for fastest gate evaluation and data transformation.
 - **Boxed Steps**: Steps are encapsulated in "boxed" objects (containing `__step` and `__data`) to allow for type-safe routing and state preservation.
 
 ---

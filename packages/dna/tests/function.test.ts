@@ -90,13 +90,13 @@ test("args method", () => {
 //   expectTypeOf(fn).toEqualTypeOf<(a: string, b: number) => Date>();
 // });
 
-const args2 = dna.tuple([
+const args2 = [
   dna.object({
     f1: dna.number(),
     f2: dna.string().nullable(),
     f3: dna.array(dna.boolean().optional()).optional(),
   }),
-]);
+] as const;
 const returns2 = dna.union([dna.string(), dna.number()]);
 
 const func2 = dna.function({
@@ -172,7 +172,7 @@ test("valid function run", () => {
 
 test("input validation error", () => {
   const schema = dna.function({
-    input: dna.tuple([dna.string()]),
+    input: [dna.string()],
     output: dna.void(),
   });
   const fn = schema.implement(() => 1234 as any);
@@ -225,7 +225,7 @@ test("array inputs", () => {
 
 test("output validation error", () => {
   const schema = dna.function({
-    input: dna.tuple([]),
+    input: [],
     output: dna.string(),
   });
   const fn = schema.implement(() => 1234 as any);

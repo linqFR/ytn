@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { dna } from "../../src/index.js";
+import type { DnaType } from "../../src/builder/dna-interfaces.js";
 
 // Reusable schemas matching Zod official tests
 const objectZod = z.object({

@@ -1,6 +1,6 @@
 import type { DnaType } from "../builder/dna-interfaces.js";
 import type { IRefinerErrorOpt, IRefinerPayload } from "./error.types.js";
-import type { IContext, ITransformContext } from "./meta-context.type.js";
+import type { tsDnaBaseCtx, tsDnaRefineCtx } from "./meta-context.type.js";
 import type { $MaybeAsync } from "../types/helpers.types.js";
 import type { tsPrimitiveLiteral } from "./base.types.js";
 import type { tsDnaExternals } from "./runtime.types.js";
@@ -8,8 +8,8 @@ import type { tsDnaExternals } from "./runtime.types.js";
 // Transform function type: can be simple (value only) or with context, sync or async
 export type tsTransformFn<T, R> =
   | ((value: T) => $MaybeAsync<R>)
-  | ((value: T, ctx: ITransformContext<T>) => $MaybeAsync<R>)
-  | ((ctx: ITransformContext<T>) => $MaybeAsync<R>);
+  | ((value: T, ctx: tsDnaRefineCtx<T>) => $MaybeAsync<R>)
+  | ((ctx: tsDnaRefineCtx<T>) => $MaybeAsync<R>);
 
 // Refine function type: validation function returning boolean
 export type tsRefineFn<T> = (value: T) => boolean;
@@ -18,8 +18,8 @@ export type tsRefineFn<T> = (value: T) => boolean;
 export type tsSuperRefineFn<T> = (value: T, ctx: any) => void;
 
 // Codec function types: bidirectional encode/decode
-export type tsDecodeFn<I, O> = (inVal: I, ctx: IContext<I>) => O;
-export type tsEncodeFn<O, I> = (outVal: O, ctx: IContext<O>) => I;
+export type tsDecodeFn<I, O> = (inVal: I, ctx: tsDnaBaseCtx<I>) => O;
+export type tsEncodeFn<O, I> = (outVal: O, ctx: tsDnaBaseCtx<O>) => I;
 
 // Mutate opcode options: built-in primitive mutations only
 export type tsMutateOpt =

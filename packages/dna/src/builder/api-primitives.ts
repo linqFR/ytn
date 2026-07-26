@@ -3,7 +3,7 @@
 
 import { DnaIssueCodes } from "../shared/error-codes.js";
 import type { tsDecodeFn, tsEncodeFn, tsTransformFn } from "../shared/handlers-builder.types.js";
-import type { tsDnaInnerMeta, tsDnaMeta } from "../shared/meta-context.type.js";
+import type { tsDnaRefineCtx, tsDnaInnerMeta, tsDnaMeta } from "../shared/meta-context.type.js";
 import type { tsDnaExternalsDecl } from "../shared/runtime.types.js";
 import { initDna } from "./dna-core.js";
 
@@ -52,7 +52,7 @@ import {
   DnaInt32,
   DnaInt,
   Iso, DnaLiteral, DnaPromise,
-  DnaProperty,
+  DnaCheckProperty,
   DnaTemplateLiteral,
   DnaTmplLiteralMutate, DnaTuple, DnaUrl,
   DnaNumber,
@@ -86,6 +86,7 @@ import {
   DnaObject,
   DnaArray,
   DnaCodec,
+  externalsMap,
   DnaFunction,
   type DnaJson,
   DnaNonOptional,
@@ -292,7 +293,7 @@ export function looseObject<T extends Record<string, DnaType<any, any>>>(shape: 
   return initDna(DnaObject<T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'loose' }, meta);
 }
 
-export const property = <K extends string | number, S>(property: K, schema: DnaType<S>) => initDna(DnaProperty<K>, { property, schema });
+export const property = <K extends string | number, S>(property: K, schema: DnaType<S>) => initDna(DnaCheckProperty<K>, { property, schema });
 
 export const array = <T extends DnaType<any, any>>(item: T, meta?: string | tsDnaMeta) => initDna(DnaArray<T>, { min: null, max: null, length: null, itemSchema: item }, meta);
 
@@ -306,9 +307,13 @@ export const codec = <In extends DnaType<any, any>, Out extends DnaType<any, any
   options: { decode: tsDecodeFn<$Output<In>, $Output<Out>>, encode: tsEncodeFn<$Output<Out>, $Output<In>>, externals?: tsDnaExternalsDecl },
   meta?: string | tsDnaMeta
 ) => {
+  const extMap = externalsMap(options.externals);
+  if (typeof options.decode === "function" && /\bdna\b/.test(options.decode.toString())) extMap.dna = "dna";
+  if (typeof options.encode === "function" && /\bdna\b/.test(options.encode.toString())) extMap.dna = "dna";
+  const externals = Object.keys(extMap).length ? extMap : undefined;
   return initDna(DnaCodec<In, Out>, {
-    decodeTwin: inSchema.transform(options.decode, options.externals).pipe(outSchema),
-    encodeTwin: outSchema.transform(options.encode, options.externals).pipe(inSchema),
+    decodeTwin: inSchema.transform(options.decode, externals).pipe(outSchema),
+    encodeTwin: outSchema.transform(options.encode, externals).pipe(inSchema),
   }, meta);
 };
 
@@ -327,12 +332,17 @@ export const transform = <T, R>(fn: tsTransformFn<T, R>, meta?: string | tsDnaMe
 
 export const pipe = <S extends DnaType<any, any> = DnaType<any, any>, T extends DnaType<any, any> = DnaType<any, any>>(src: S, target: T, meta?: string | tsDnaMeta) => initDna(DnaPipe<S, T>, { steps: [src, target] }, meta);
 
-export const preprocess = <O>(fn: (value: unknown) => O, target: DnaType<O, O>, meta?: string | tsDnaMeta) => {
+export function preprocess<O>(fn: (value: unknown, ctx: tsDnaRefineCtx<unknown>) => unknown, target: DnaType<O, any>, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaType<O, unknown>;
+export function preprocess<O>(fn: (value: unknown) => unknown, target: DnaType<O, any>, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaType<O, unknown>;
+export function preprocess<O>(fn: tsTransformFn<unknown, unknown>, target: DnaType<O, any>, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaType<O, unknown> {
   const innerMeta: tsDnaInnerMeta = { preprocess: true };
   if (typeof meta === "string") innerMeta.message = meta;
   else if (meta) Object.assign(innerMeta, meta);
-  return initDna(DnaPipe<O, unknown>, { steps: [transform(fn), target] }, innerMeta);
-};
+  const map = externalsMap(externals);
+  const transformMeta: tsDnaInnerMeta | undefined = Object.keys(map).length ? { externals: map } : undefined;
+  const transformSchema = initDna(DnaTransform<unknown, unknown>, { fnStr: fn.toString().trim(), arity: fn.length }, transformMeta);
+  return initDna(DnaPipe<DnaTransform<unknown, unknown>, DnaType<O, any>>, { steps: [transformSchema, target] }, innerMeta);
+}
 
 export const lazy = <S extends DnaType<any, any>>(getter: () => S) => initDna(DnaLazy<S>, { getter });
 
@@ -373,23 +383,23 @@ export const NEVER = undefined as never;
 //   return impl;
 // };
 
-export const prefault = <S extends DnaTypeWithWrappers<any, any>>(schema: S, value: $Input<S>): DnaPrefault<S> => {
+export const prefault = <S extends DnaTypeWithWrappers<any, any>>(schema: S, value: $Input<S>) => {
   return schema.prefault(value);
 };
 
-export const optional = <S extends DnaTypeWithWrappers<any, any>>(schema: S): DnaOptional<S> => {
+export const optional = <S extends DnaTypeWithWrappers<any, any>>(schema: S) => {
   return schema.optional();
 };
 
-export const nonoptional = <S extends DnaTypeWithWrappers<any, any>>(schema: S): DnaNonOptional<S> => {
+export const nonoptional = <S extends DnaTypeWithWrappers<any, any>>(schema: S) => {
   return schema.nonoptional();
 };
 
-export const nullable = <S extends DnaTypeWithWrappers<any, any>>(schema: S): DnaNullable<S> => {
+export const nullable = <S extends DnaTypeWithWrappers<any, any>>(schema: S) => {
   return schema.nullable();
 };
 
-export const nullish = <S extends DnaTypeWithWrappers<any, any>>(schema: S): DnaNullish<S> => {
+export const nullish = <S extends DnaTypeWithWrappers<any, any>>(schema: S) => {
   return schema.nullish();
 };
 

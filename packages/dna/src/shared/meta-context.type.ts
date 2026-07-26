@@ -1,4 +1,4 @@
-import type { IIssue } from "./error.types.js";
+import type { IAddIssue, IIssue } from "./error.types.js";
 import type { tsDnaExternals } from "./runtime.types.js";
 
 //============================================
@@ -6,7 +6,7 @@ import type { tsDnaExternals } from "./runtime.types.js";
 //============================================
 
 // Unified context type for all validation contexts
-export interface IContext<T> {
+export interface tsDnaBaseCtx<T> {
   value: T;
   issues: Array<IIssue<T>>;
   error?: {
@@ -16,35 +16,10 @@ export interface IContext<T> {
   path?: PropertyKey[];
 }
 
-// Context type for refine (extends unified context)
-export interface IRefineContext<T> extends IContext<T> {
-  addIssue(issue: { code?: string; message: string; path?: PropertyKey[] }): void;
-}
-
-// Context type for superRefine (extends refine context for addIssue support)
-export interface ISuperRefineContext<T> extends IRefineContext<T> {
+// Context type for refine / superRefine / transform / preprocess
+export interface tsDnaRefineCtx<T> extends tsDnaBaseCtx<T> {
   path: PropertyKey[];
-}
-
-// Context type for transform (extends unified context with addIssue support)
-export interface ITransformContext<T> extends IContext<T> {
-  addIssue(issue: { code?: string; message: string; path?: PropertyKey[] }): void;
-}
-
-// Context type for check (extends unified context)
-export interface ICheckContext<T> extends IContext<T> { }
-
-// Catch context (extends unified context)
-export type ICatchContext<T = unknown> = IContext<T>;
-
-
-
-export interface IRefineContext<T> extends IContext<T> {
-  addIssue(issue: { code?: string; message: string; path?: PropertyKey[] }): void;
-}
-
-export interface ISuperRefineContext<T> extends IRefineContext<T> {
-  path: PropertyKey[];
+  addIssue(arg: string | IAddIssue): void;
 }
 
 //============================================
@@ -52,11 +27,12 @@ export interface ISuperRefineContext<T> extends IRefineContext<T> {
 //============================================
 
 // Metadata type for schema metadata
-export type tsDnaMeta<T = unknown> = {
+export interface tsDnaMeta<T = unknown> {
   description?: string;
   error?: string | ((issue: IIssue<T>) => string | undefined);
   message?: string;
-};
+  [key: string]: unknown;
+}
 
 
 // Internal metadata type with additional properties

@@ -25,7 +25,7 @@ const transformCtxDna = dna.string().transform((data, ctx) => {
     });
   }
   return data.length;
-});
+}, { strs });
 
 const neverZod = z
   .number()
@@ -61,12 +61,13 @@ export const transformTests = [
     description: "transform ctx.addIssue with parse",
     zodSchema: transformCtxZod,
     dnaSchema: transformCtxDna,
+    externals: { strs },
     tests: [
       { description: "invalid asdf", data: "asdf", valid: false },
     ],
   },
   {
-    description: "z.NEVER in transform",
+    description: "z or dna..NEVER in transform",
     zodSchema: neverZod,
     dnaSchema: neverDna,
     tests: [

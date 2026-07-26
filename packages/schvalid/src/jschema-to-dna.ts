@@ -335,9 +335,18 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
         if (maxProperties !== undefined && !hasMaxProp) throw new Error("maxProperties must be >= 0");
       }
 
+      const isPrimitiveDiscriminator = (v: any) => v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean";
+
       const isDiscriminator = typeof node.discriminator?.propertyName === "string"
         && node.type === "object"
-        && node.oneOf && Array.isArray(node.oneOf) && node.oneOf.every((el: any) => typeof el?.properties[node.discriminator?.propertyName]?.const === "string")
+        && node.oneOf && Array.isArray(node.oneOf) && node.oneOf.every((el: any) => {
+          const discProp = el?.properties?.[node.discriminator?.propertyName];
+          if (!discProp) return false;
+          const discConst = discProp.const;
+          const discEnum = discProp.enum;
+          return (discConst !== undefined && isPrimitiveDiscriminator(discConst))
+            || (Array.isArray(discEnum) && discEnum.length > 0 && discEnum.every(isPrimitiveDiscriminator));
+        })
         && hasRequired && required.includes(node.discriminator?.propertyName);
 
       if (isDiscriminator) pseudoTypes.add("discriminator");
@@ -616,8 +625,11 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
         
         for (; kLen--;) {
           const sch = discriminSubSch[kLen];
+          const discProp = sch.properties[discriminator];
           // The discriminator value for this branch (e.g. "cat" / "dog").
-          const key = sch.properties[discriminator].const;
+          const key = "const" in discProp && discProp.const !== undefined
+            ? discProp.const
+            : discProp.enum;
           discriminKeys[kLen] = key;
 
           const _sch = { ...sch };

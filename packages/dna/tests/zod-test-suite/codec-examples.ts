@@ -180,6 +180,29 @@ export const codecExamplesTests = [
     ],
   },
   {
+    description: "hex to bytes codec - raw functions",
+    zodSchema: z.codec(z.hex(), z.instanceof(Uint8Array), {
+      decode: z.util.hexToUint8Array,
+      encode: z.util.uint8ArrayToHex,
+    }),
+    dnaSchema: dna.codec(dna.hex(), dna.instanceof(Uint8Array), {
+      decode: dna.util.hexToUint8Array,
+      encode: dna.util.uint8ArrayToHex,
+    }),
+    tests: [
+      {
+        description: "valid hex string",
+        data: "48656c6c6f",
+        valid: true,
+      },
+      {
+        description: "invalid hex",
+        data: "gg",
+        valid: false,
+      },
+    ],
+  },
+  {
     description: "string to URL codec",
     zodSchema: z.codec(z.url(), z.instanceof(URL), {
       decode: (urlString) => new URL(urlString),

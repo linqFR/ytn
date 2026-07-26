@@ -18,6 +18,27 @@ export type JSONSchema = Record<string, unknown> | boolean;
 /**
  * Converts a DNA sequence to JSON Schema
  */
+const JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema";
+
+function jsonTypeOf(value: unknown): "string" | "number" | "boolean" | "object" | "array" | "null" | undefined {
+	if (value === null) return "null";
+	const t = typeof value;
+	if (t === "string" || t === "boolean") return t;
+	if (t === "number") return "number";
+	if (t === "object") return Array.isArray(value) ? "array" : "object";
+	return undefined;
+}
+
+function commonJsonType(values: unknown[]): "string" | "number" | "boolean" | "object" | "array" | "null" | undefined {
+	if (values.length === 0) return undefined;
+	const first = jsonTypeOf(values[0]);
+	if (first === undefined) return undefined;
+	for (let i = 1; i < values.length; i++) {
+		if (jsonTypeOf(values[i]) !== first) return undefined;
+	}
+	return first;
+}
+
 export function dnaToJsonSchema(dnaSeq: tsDnaSeq): JSONSchema {
 	if (dnaSeq.length === 0) {
 		return {};
@@ -115,7 +136,17 @@ function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchem
 			return false;
 
 		// Other types (basic implementations)
-		case "coerce":
+		case "coerce": {
+			const coerceParams = params[0] as [string, number];
+			const innerRef = coerceParams[1];
+			const innerDna = dnaSeq[innerRef];
+			if (Array.isArray(innerDna) && innerDna.length > 0 && typeof innerDna[0] === 'string') {
+				return convertDnaNode(innerDna as tsDna, dnaSeq, refs);
+			}
+			return { type: "object", description: `DNA opcode: ${opcode}` };
+		}
+		case "discriminator":
+			return convertDiscriminator(params, dnaSeq, refs);
 		case "symbol":
 		case "sb":
 		case "nan":
@@ -130,12 +161,10 @@ function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchem
 		case "instanceOf":
 		case "mutate":
 		case "transform":
-		case "pipe":
 		case "seq":
 		case "check":
 
 		// FIXME: they are not other implementations they exist in json schema
-		case "discriminator":
 		case "not":
 		case "if":
 		case "then":
@@ -212,17 +241,18 @@ function convertObject(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta
 
 	if (kind !== "object") schema["x-ytn-object-kind"] = kind;
 
-	// Parse params format: [ [ 'properties', [ [ 'key', refId, meta ], ... ] ], ... ]
 	const constraints = params[0] as Array<[string, any]> | undefined;
 	if (constraints) {
 		for (const [key, value] of constraints) {
-			if (key === 'properties' && Array.isArray(value)) {
+			if ((key === 'properties' || key === 'defaultProperties') && Array.isArray(value)) {
 				for (const [propName, refId, propMeta] of value) {
 					const propDna = dnaSeq[refId as number];
 					if (Array.isArray(propDna) && propDna.length > 0 && typeof propDna[0] === 'string') {
 						(schema.properties as Record<string, unknown>)[propName as string] = convertDnaNode(propDna as tsDna, dnaSeq, refs);
 					}
 				}
+			} else if (key === 'required' && Array.isArray(value)) {
+				schema.required = value;
 			} else if (key === 'additionalProperties') {
 				if (typeof value === 'number') {
 					const addDna = dnaSeq[value];
@@ -244,13 +274,8 @@ function convertObject(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta
 		}
 	}
 
-	// Handle required keys
-	if (meta?.requiredKeys && Array.isArray(meta.requiredKeys)) {
-		schema.required = meta.requiredKeys;
-	}
-
 	// Fallback for builder objects with no explicit additionalProperties constraint
-	if (schema.additionalProperties === undefined && kind !== "object") {
+	if (schema.additionalProperties === undefined && kind !== "plainObject") {
 		schema.additionalProperties = false;
 	}
 
@@ -263,24 +288,38 @@ function convertObject(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta
 function convertArray(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta?: Record<string, unknown>): JSONSchema {
 	const schema: Record<string, unknown> = { type: "array" };
 
-	// Parse params format: [ [ 'items', refId ], ... ]
-	const constraints = params[0] as Array<[string, number]> | undefined;
+	const constraints = params[0] as Array<[string, any]> | undefined;
 	if (constraints) {
-		for (const [key, refId] of constraints) {
-			if (key === 'items' && refId !== undefined) {
-				const itemDna = dnaSeq[refId];
-				if (Array.isArray(itemDna) && itemDna.length > 0 && typeof itemDna[0] === 'string') {
-					schema.items = convertDnaNode(itemDna as tsDna, dnaSeq, refs);
+		for (const [key, value] of constraints) {
+			if (key === 'items' && value !== undefined) {
+				if (typeof value === 'number') {
+					const itemDna = dnaSeq[value];
+					if (Array.isArray(itemDna) && itemDna.length > 0 && typeof itemDna[0] === 'string') {
+						schema.items = convertDnaNode(itemDna as tsDna, dnaSeq, refs);
+					}
+				} else if (value === false) {
+					schema.items = false;
 				}
+			} else if (key === 'prefixItems' && Array.isArray(value)) {
+				schema.prefixItems = value.map(refId => {
+					const itemDna = dnaSeq[refId as number];
+					if (Array.isArray(itemDna) && itemDna.length > 0 && typeof itemDna[0] === 'string') {
+						return convertDnaNode(itemDna as tsDna, dnaSeq, refs);
+					}
+					return {};
+				});
+			} else if (key === 'minItems') {
+				schema.minItems = value;
+			} else if (key === 'maxItems') {
+				schema.maxItems = value;
 			}
 		}
 	}
 
-	// Add constraints from meta if present
-	if (meta?.minItems !== undefined) {
+	if (schema.minItems === undefined && meta?.minItems !== undefined) {
 		schema.minItems = meta.minItems;
 	}
-	if (meta?.maxItems !== undefined) {
+	if (schema.maxItems === undefined && meta?.maxItems !== undefined) {
 		schema.maxItems = meta.maxItems;
 	}
 
@@ -291,8 +330,9 @@ function convertArray(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta?
  * Converts literal DNA to JSON Schema
  */
 function convertLiteral(params: unknown[]): JSONSchema {
-	const values = params[0];
-	return values.length > 1 ? { enum: values } : { const: values[0] };
+	const values = params[0] as unknown[];
+	if (values.length === 1) return { const: values[0] };
+	return convertEnum(params);
 }
 
 /**
@@ -300,7 +340,10 @@ function convertLiteral(params: unknown[]): JSONSchema {
  */
 function convertEnum(params: unknown[]): JSONSchema {
 	const values = params[0] as unknown[];
-	return { enum: values };
+	const t = commonJsonType(values);
+	const schema: Record<string, unknown> = { enum: values };
+	if (t !== undefined) schema.type = t;
+	return schema;
 }
 
 /**
@@ -315,10 +358,10 @@ function convertTemplate(params: unknown[]): JSONSchema {
  * Converts anyOf (union) DNA to JSON Schema
  */
 function convertAnyOf(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
-	const options = params[0] as number[];
+	const options = (params[0] as unknown[]).slice(1);
 	return {
 		anyOf: options.map(refId => {
-			const dna = dnaSeq[refId];
+			const dna = dnaSeq[refId as number];
 			if (Array.isArray(dna) && dna.length > 0 && typeof dna[0] === 'string') {
 				return convertDnaNode(dna as tsDna, dnaSeq, refs);
 			}
@@ -331,10 +374,10 @@ function convertAnyOf(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSON
  * Converts oneOf (xor) DNA to JSON Schema
  */
 function convertOneOf(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
-	const options = params[0] as number[];
+	const options = (params[0] as unknown[]).slice(1);
 	return {
 		oneOf: options.map(refId => {
-			const dna = dnaSeq[refId];
+			const dna = dnaSeq[refId as number];
 			if (Array.isArray(dna) && dna.length > 0 && typeof dna[0] === 'string') {
 				return convertDnaNode(dna as tsDna, dnaSeq, refs);
 			}
@@ -347,16 +390,64 @@ function convertOneOf(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSON
  * Converts allOf (intersection) DNA to JSON Schema
  */
 function convertAllOf(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
-	const schemas = params[0] as number[];
+	const schemas = (params[0] as unknown[]).slice(1);
 	return {
 		allOf: schemas.map(refId => {
-			const dna = dnaSeq[refId];
+			const dna = dnaSeq[refId as number];
 			if (Array.isArray(dna) && dna.length > 0 && typeof dna[0] === 'string') {
 				return convertDnaNode(dna as tsDna, dnaSeq, refs);
 			}
 			return {};
 		})
 	};
+}
+
+/**
+ * Converts discriminator DNA to an OpenAI-compatible JSON Schema.
+ * DNA format: ["discriminator", propertyName, discriminKeys, discriminDef, meta]
+ */
+function convertDiscriminator(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
+	const propertyName = params[0] as string;
+	const discriminDef = params[2] as (number | undefined)[];
+
+	if (!Array.isArray(discriminDef) || discriminDef.length < 2) {
+		return { type: "object", description: "Invalid discriminator DNA" };
+	}
+
+	const branches: JSONSchema[] = [];
+	for (let i = 1; i < discriminDef.length; i++) {
+		const ref = discriminDef[i];
+		if (ref === undefined) {
+			branches.push({});
+			continue;
+		}
+		const dna = dnaSeq[ref];
+		if (Array.isArray(dna) && dna.length > 0 && typeof dna[0] === 'string') {
+			branches.push(convertDnaNode(dna as tsDna, dnaSeq, refs));
+		} else {
+			branches.push({});
+		}
+	}
+
+	const preRef = discriminDef[0];
+	let required: string[] | undefined;
+	if (preRef !== undefined) {
+		const preDna = dnaSeq[preRef];
+		if (Array.isArray(preDna) && preDna.length > 0 && typeof preDna[0] === 'string') {
+			const preSchema = convertDnaNode(preDna as tsDna, dnaSeq, refs);
+			if (preSchema !== null && typeof preSchema === 'object' && Array.isArray((preSchema as Record<string, unknown>).required)) {
+				required = (preSchema as Record<string, unknown>).required as string[];
+			}
+		}
+	}
+
+	const isRequired = Array.isArray(required) && required.includes(propertyName);
+	const schema: Record<string, unknown> = { type: "object", oneOf: branches };
+	if (isRequired) {
+		schema.discriminator = { propertyName };
+		schema.required = required;
+	}
+	return schema;
 }
 
 /**

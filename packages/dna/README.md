@@ -1,5 +1,5 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-TOUPDATE%2FTOUPDATE%20Passed-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-438%2F581%20Passed-brightgreen.svg)](#tests)
 
 # @ytn/dna
 
@@ -15,6 +15,7 @@ DNA bytecode Builder and Validation/Parsing engine.
   - [Using the DNA Builder API](#using-the-dna-builder-api)
   - [Compiling DNA to JavaScript Validators](#compiling-dna-to-javascript-validators)
   - [Using the Low-Level toJS Compiler](#using-the-low-level-tojs-compiler)
+  - [Round-trip DNA Reconstruction](#round-trip-dna-reconstruction)
 - [Development](#development)
 - [Technical Documentation](#technical-documentation)
 
@@ -110,6 +111,51 @@ const dna = /* DNA bytecode array from dna builder */;
 const result = toJS(true, true)(dna) as { code: string[]; requiredExternals: string[] };
 const fn = new Function(...result.code)({ /* required externals */ });
 ```
+
+### Round-trip DNA Reconstruction
+
+`@ytn/dna` can rebuild a fluent builder schema from its own DNA bytecode. This is used by the `fromDna` roundtrip tests and lets you serialize, transfer, and restore a schema without touching JSON Schema:
+
+```typescript
+import { dna, fromDna } from "@ytn/dna";
+
+const original = dna.object({
+  name: dna.string().min(2),
+  tags: dna.array(dna.string()),
+});
+
+const bytecode = original.toDna();
+const rebuilt = fromDna(bytecode);
+
+// The rebuilt schema produces the same validation/parse results.
+// The canonical DNA is structurally equivalent; exact numeric IDs may differ.
+const input = { name: "John", tags: ["a"] };
+const originalResult = original.safeParse(input);
+const rebuiltResult = rebuilt.safeParse(input);
+console.log(originalResult.success === rebuiltResult.success);
+if (originalResult.success && rebuiltResult.success) {
+  // The roundtrip tests compare these with toEqual (deep equality, order-agnostic).
+  console.log(rebuiltResult.data); // same parsed value as originalResult.data
+}
+```
+
+Supported roundtrip families:
+
+- **Primitives**: `string`, `number`, `integer`, `bigint`, `boolean`, `null`, `undefined`, `NaN`, `literal`, `enum`, `any`, `never`, `unknown`.
+- **Wrappers**: `optional`, `nullable`, `nullish`, `nonoptional`, `default`, `prefault`, `catch`.
+- **Collections**: `object` (`$o`), `array`/`tuple`, `record` (`rcd`), `Map`/`Set` reconstructed from `seq`.
+- **Logic**: `anyOf`, `allOf`, `not`, `discriminator`.
+- **Refinements**: `property` checks (min/max/size), `func` checks (`.refine`, `.superRefine`, `.check`), `jwt`.
+- **External / special types**: `instanceOf` (registered constructors), `url` (protocol/hostname regex).
+- **Pipelines**: `seq`, `transform`, `pipe` (sync and async), `codec` when the encode/decode functions are serializable.
+- **Metadata**: `readonly`, `description`, `~inner` constraints are preserved.
+
+Limitations:
+
+- `.transform`, `.preprocess`, `.coerce` and custom codecs can be reconstructed only when their function source is serializable (the builder keeps `fn.toString()`).
+- Fully arbitrary JavaScript functions or closures with captured external variables may not roundtrip.
+- Async `transform` / `pipe` / `codec` roundtrip parity is verified with `safeParseAsync` / `parseAsync`.
+- `safeParse`/`validate` parity for the rebuilt schema still depends on the `toJs` codegen supporting the same opcodes.
 
 ## Development
 
