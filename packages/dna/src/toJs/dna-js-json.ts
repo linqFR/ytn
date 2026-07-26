@@ -303,7 +303,8 @@ export const assign = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _
 	else return _outVarName + "=" + _inVarName + ";";
 }
 
-export const chk = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+// `chkList`: canonical check-all (allOf-like) used by JSON Schema / schvalid.
+export const chkList = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const seq = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 	const idx = labelId();

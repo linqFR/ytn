@@ -262,7 +262,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       return initDna(c.DnaDiscriminatedUnion, { discriminator: params as string, schemas }, meta);
     }
 
-    case 'chk': {
+    case 'chkSeq': {
       const ids = params as number[];
       const [innerId, ...checkIds] = ids;
       let inner = build(innerId);
@@ -319,6 +319,15 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
         } else {
           throw new Error(`fromDna: refine check kind not implemented: ${kind}`);
         }
+      }
+      return inner;
+    }
+
+    case 'chkList': {
+      const ids = params as number[];
+      let inner = build(ids[0]);
+      for (let i = 1; i < ids.length; i++) {
+        inner = inner.and(build(ids[i]));
       }
       return inner;
     }

@@ -323,19 +323,14 @@ export class DnaType<T = unknown, I = unknown> {
   //   return [mark, pos];
   // }
 
-  /**
-   * Refiner layer: when `.refine()`/`.check()` accumulated entries, wraps
-   * `_emitSelf` (position 0) and the `check` opcodes (positions 1..n) in a `chk`.
-   * Otherwise delegates straight to `_emitSelf`.
-   */
   protected _emitRefiners(coll: IDnaCollector, mark?: tsStoreMark, pos?: tsStorePosition): tsDnaId {
     const checks = this._core.refinerList;
     if (checks.length === 0) return this._emitSelf(coll, mark, pos);
-    const params: any[] = new Array(checks.length + 1);
-    const storeId = coll.setStore(params);
+    const { dnaId: SeqDnaId, storeId } = this._emitChkSeq(coll, mark, pos, checks.length);
+    // const storeId = coll.setStore(params);
     // `storeId` is unique -> use it as discriminant so empty-param chk nodes
     // never falsely dedupe against each other in the collector cache.
-    const SeqDnaId = coll.storeDNA(["chk", params, this.meta()], mark, pos, storeId);
+    // const SeqDnaId = coll.storeDNA(["chkSeq", params, this.meta()], mark, pos, storeId);
     // Store self at position 0, checks at positions 1..n
     this._emitSelf(coll, storeId, 0);
     for (let i = 0; i < checks.length; i++) {
@@ -355,6 +350,16 @@ export class DnaType<T = unknown, I = unknown> {
       }
     }
     return SeqDnaId;
+  }
+
+  /** Emits a `chkSeq` node with `nbSteps` child slots (excluding self). */
+  protected _emitChkSeq(coll: IDnaCollector, mark?: tsStoreMark, pos?: tsStorePosition, nbSteps = 0): { dnaId: tsDnaId; storeId: tsStoreMark } {
+    const params = new Array(nbSteps + 1);
+    const storeId = coll.setStore(params);
+    // `storeId` is unique -> use it as a discriminant so empty-param chk nodes
+    // never falsely dedupe against each other in the collector cache.
+    const dnaId = coll.storeDNA(["chkSeq", params, this.meta()], mark, pos, storeId);
+    return { dnaId, storeId };
   }
 
   /**
@@ -1250,19 +1255,14 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
         ? new RegExp(patternRaw, "u").source
         : null);
     this._core.rawDna = ["s", [this._core.seed.min ?? null, this._core.seed.max ?? null, patternSerialized, this._core.seed.format ?? null]];
-
-    if (this._core.seed.sequence.length > 0) {
-      const checkSeqInst = initDna(_DnaChkRaw, {
-        dnaSteps: [
-          this._core.dnaWithMeta,
-          ...this._core.seed.sequence,
-        ]
-      });
-      return checkSeqInst.toDna(coll, storeMark!, storePosition);
-
-    } else {
-      return coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition);
+    const sDna = this._core.dnaWithMeta;
+    if (this._core.seed.sequence.length === 0) {
+      return coll.storeDNA(sDna, storeMark, storePosition);
     }
+    const { dnaId, storeId } = this._emitChkSeq(coll, storeMark, storePosition, this._core.seed.sequence.length);
+    coll.storeDNA(sDna, storeId, 0);
+    this._core.seed.sequence.forEach((step, i) => coll.storeDNA(step as tsDna, storeId, i + 1));
+    return dnaId;
   }
 }
 
@@ -1423,36 +1423,6 @@ export class DnaTemplateLiteral<Parts> extends DnaTmplLiteralMutate<Parts> {
 
 }
 
-// Mutate implementation - mutation operation
-// export class MutateImpl<T, I = T> extends DnaType<T, I> {
-//   protected override _core = new BaseCore("mutate");
-//   private _mutator: string = "";
-
-//   static init<T, I = T>(mutator: string): any {
-//     const inst = this.initCore<T, I, tsStateDef>("mutate", {});
-//     (inst as any)._mutator = mutator;
-//     (inst as any)._dna = ["mutate", mutator];
-//     return inst;
-//   }
-//   // protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
-//   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
-//     return coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition);
-//   }
-// }
-
-// _DnaChkRaw - wraps raw DNA into ISchemaBase for SeqSchemaImpl
-class _DnaChkRaw extends DnaType<unknown, unknown> {
-  protected override _core = new BaseCore<{ dnaSteps: tsDna[] }>("chk");
-
-  protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
-    const dna_params = new Array(this._core.seed.dnaSteps.length);
-    const storeId = coll.setStore(dna_params);
-    this._core.rawDna = ["chk", dna_params];
-    const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, this._core.seed.dnaSteps);
-    this._core.seed.dnaSteps.forEach((step: any, i: number) => coll.storeDNA(step, storeId, i));
-    return dnaId;
-  }
-}
 
 // Seq implementation - sequence of DNA operations
 export class DnaPipe<S, T> extends DnaTypeWithWrappers<$Output<T>, $Input<S>> {
@@ -1493,13 +1463,12 @@ export class DnaStringBool extends DnaTypeWithWrappers<boolean, boolean> {
   override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const seed = this._core.seed;
     this._core.rawDna = ["sb", [seed.truthy, seed.falsy, seed.case === "sensitive"]];
-    const seqDna = initDna(_DnaChkRaw, {
-      dnaSteps: [
-        ["s", [null, null, null, null], this._core.meta],
-        this._core.dnaWithMeta
-      ]
-    });
-    return seqDna.toDna(coll, storeMark!, storePosition);
+    const sbDna = this._core.dnaWithMeta;
+    const sDna: tsDna = ["s", [null, null, null, null], this._core.meta];
+    const { dnaId, storeId } = this._emitChkSeq(coll, storeMark, storePosition, 1);
+    coll.storeDNA(sDna, storeId, 0);
+    coll.storeDNA(sbDna, storeId, 1);
+    return dnaId;
   }
 }
 

@@ -76,10 +76,11 @@ export type tsDnaOpcode =
   | "check" // refine ( only)
 
   // Mutations / transformations
-  | "mutate" // built-in primitive mutations (trim, toUpperCase, etc.)
-  | "transform" // custom schema transformation
-  | "pipe" // builder multi-step pipeline
-  | "chk"; // canonical check-all (allOf-like)
+  // | "mutate" // built-in primitive mutations (trim, toUpperCase, etc.)
+  | "chkList" // canonical check-all (allOf-like)
+  | "chkSeq" // builder multi-step Check refine and superrefined
+  | "transform" // transformation handlertransformation
+  | "pipe"; // builder multi-step transformation pipeline
 
 export type tsDnaId = number;
 

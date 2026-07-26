@@ -621,7 +621,7 @@ export const transform = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName
 };
 
 // `pipe`: builder-specific mutable sequence used by `DnaPipe`.
-// Unlike canonical `chk` (schvalid allOf), each child is called on a local
+// Unlike canonical `chkList` (schvalid simple allOf), each child is called on a local
 // `cur` variable. In parser mode a separate `next` output variable is used so
 // children that allocate a new container (`array`, `object`, etc.) do not
 // overwrite the input before reading it; `cur` is then advanced with `cur=next`.
@@ -659,10 +659,10 @@ export const pipe = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _ou
 	return steps;
 };
 
-// `chk`: runs a self-validation followed by one or more `check` steps (used by
+// `chkSeq` (exported as `chk`): runs a self-validation followed by one or more `check` steps (used by
 // `.refine()` / `.check()`). In parser mode it stops as soon as an error is
 // pushed, so downstream checks are not evaluated with invalid/partial data.
-export const chk = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const chkSeq = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const stepIds = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 	const idx = labelId();
