@@ -16,6 +16,7 @@ DNA JSON Schema processing and validation.
   - [Converting JSON Schema to DNA](#converting-json-schema-to-dna)
   - [Converting DNA back to JSON Schema](#converting-dna-back-to-json-schema)
   - [Compile Once, Validate Many](#compile-once-validate-many)
+  - [Fast Hybrid Parsing](#fast-hybrid-parsing)
   - [Discriminator Support](#discriminator-support)
 - [Performance](#performance)
 - [Development](#development)
@@ -88,21 +89,53 @@ validate({ name: "John", age: 30 }); // true
 validate({ name: "Jo", age: -1 }); // false
 ```
 
-The `schvalid()` function accepts three modes:
+The `schvalid()` function accepts four modes:
 
 - **"validation"**: Returns a boolean validator function (fail-fast)
 - **"parser"**: Returns a parser function with error collection
-- **"both"**: Returns an object with both `validate` and `parse` functions
+- **"fast"**: Returns a hybrid parser — validates first, only re-runs the full parser on failure (see trade-offs below)
+- **"all"**: Returns an object with `validate`, `parse`, and `parseFast` functions (compiled once, shared instances)
 
 ```typescript
 import { schvalid } from "@ytn/schvalid";
 
-// Get both validator and parser
-const compiler = schvalid("both");
-const { validate, parse } = compiler.compile(schema);
+// Get validator, parser, and the fast hybrid parser
+const compiler = schvalid("all");
+const { validate, parse, parseFast } = compiler.compile(schema);
 
 validate(data); // boolean
 parse(data); // { success: true, data: ... } | { success: false, errors: [...] }
+parseFast(data); // same shape as parse(), but data===input on the happy path (no fresh copy)
+```
+
+### Fast Hybrid Parsing
+
+`schvalid("fast")` (and `parseFast` from `schvalid("all")`) provides a hybrid parser that
+validates first (cheap, fail-fast) and only re-runs the full parser if validation fails:
+
+```typescript
+import { schvalid } from "@ytn/schvalid";
+
+const parseFast = schvalid("fast").compile(schema);
+
+const result = parseFast({ name: "John", age: 30 });
+// { success: true, data: { name: "John", age: 30 } }
+```
+
+**Trade-off**: on success, `parseFast`'s `data` is the **same reference** as the input
+(`data === input`) — no fresh copy is built, unlike `schvalid("parser")`'s `parse()`, which
+always returns a newly constructed output object. Both agree on validity (constraints like
+`additionalProperties: false` are checked identically), so there's no discrepancy in
+pass/fail decisions — only in whether `data` is a fresh object or the original reference.
+
+Use `parseFast` for validation-heavy workloads where a fresh, isolated `data` object isn't
+required on the happy path. Use the regular `parser()` when downstream code needs its own
+copy of the validated data.
+
+```typescript
+// Get validate + parse + parseFast in one compile pass (single validate/parse compilation,
+// shared between parse() and parseFast() — see @ytn/schvalid AGENTS.md for the invariant)
+const { validate, parse, parseFast } = schvalid("all").compile(schema);
 ```
 
 ### Discriminator Support
@@ -138,7 +171,7 @@ const schema = {
   ],
 };
 
-const { validate, parse } = schvalid("both").compile(schema);
+const { validate, parse } = schvalid("all").compile(schema);
 
 validate({ type: "cat", name: "Whiskers", meows: true }); // true
 validate({ type: "bird", name: "Tweety" }); // false
@@ -153,11 +186,12 @@ The discriminator is optimized with a `switch` statement in the generated JavaSc
 
 ## Performance
 
-**Benchmark Results** (vs AJV 2020):
+**Benchmark Results** (vs AJV 2020 — not a correctness test, run via `npm run bench`):
 
 - Compilation: **~5x faster** than AJV Minimal
-- Validation (valid data): **~1.10 faster** than AJV Minimal
+- Validation (valid data): **~1.10x faster** than AJV Minimal
 - Parser mode: Collects first blocking error with **~20% smaller** standalone code than AJV validation function with **comparable or faster** validation performance.
+- `parseFast` (valid data, mean vs AJV AllErrors): **~1.47x faster** — validation-heavy workloads that don't need a fresh `data` object benefit from skipping the full parser's output construction on the happy path.
 
 ## Development
 
@@ -173,11 +207,13 @@ npm run build
 # Run JSON Schema test suite plus discriminator and edge-cases tests
 npm test
 
-# Run all tests including performance benchmarks
+# Run all correctness tests
 npm run test:full
 
-# Run performance benchmarks only
-npm run test:perf
+# Run all benchmarks (standalone tsx, not vitest; `bench` is an alias of `perf`)
+npm run bench
+# or
+npm run perf
 ```
 
 **Test Coverage of JSON validation Suite**: 1201 passing, 44 skipped.

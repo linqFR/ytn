@@ -10,8 +10,8 @@
     "dev": "tsup --watch",
     "test": "vitest run tests/schemas",
     "test:full": "vitest run",
-    "test:bench": "vitest run tests/bench",
-    "test:perf": "vitest run tests/bench"
+    "bench": "npm.cmd run perf",
+    "perf": "tsx ./perf/full-comparative-benchmark.ts && tsx ./perf/bundle-performance.ts"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -29,7 +29,7 @@
     "@ytn/dna": "*"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "@ytn/shared": "*",
     "ajv": "^8.20.0",
     "tsup": "^8.3.5"

@@ -104,7 +104,45 @@ validate(data); // boolean
 Modes:
 - **"validation"**: Returns boolean validator (fail-fast)
 - **"parser"**: Returns parser with error collection
-- **"both"**: Returns object with both `validate` and `parse` functions
+- **"fast"**: Returns `parserFast` — a hybrid validate-then-parse function (see below)
+- **"all"**: Returns `{ validate, parse, parseFast }` — all three, compiled once and shared (see `combineFast` internals)
+
+### `parserFast` / `combineFast` — hybrid validate-then-parse
+
+**Source**: `src/index.ts` — `combineFast(validate, parse)` and `parserFast(dna)`.
+
+`parserFast` runs the (cheaper, fail-fast) `validator` first. On success, it returns
+`{ success: true, data: value }` WITHOUT ever invoking the full parser — no output object
+construction happens at all. On failure, it falls back to the full `parser` to collect
+detailed errors.
+
+**KEY TRADE-OFF** (schvalid-only — NOT offered on `@ytn/dna` builder schemas, where output
+construction is a core part of the parse contract, not an optional side-effect):
+- `parser()` on success always returns a **fresh** output object (its own copy, built via
+  `Object.assign(Object.create(null), value)` or similar in the generated code).
+- `parserFast()` on success returns `data === value` — the **exact same reference** as the
+  input, no copy at all.
+- Both still **agree on validity** — constraints like `additionalProperties: false` are
+  checked identically by `validator()`, so there is no discrepancy in pass/fail decisions,
+  only in whether `data` is a fresh object or the original reference.
+
+**PERFORMANCE INVARIANT (do not regress this)**: `validator(dna)`/`parser(dna)` are each a
+`new Function(...)` compilation — expensive relative to a single validation call. They MUST
+be compiled exactly ONCE per `schvalid(...).compile(schema)` call. `combineFast` takes
+ALREADY-compiled `validate`/`parse` instances (never re-invokes `validator`/`parser` inside
+the returned closure), and `schvalid("all").compile(schema)` compiles `validate`/`parse`
+ONCE and passes the SAME instances to `combineFast` for `parseFast` — it must never compile
+a third, separate pair for the fast path.
+
+**When to use**: validation-heavy workloads where the shape/freshness of `data` on the
+success path doesn't matter to the caller (e.g. the caller already owns/controls the input
+object and doesn't need an isolated copy). Do NOT use it if downstream code relies on
+`parse()`'s fresh-object guarantee (e.g. mutating `data` should not be observed on the
+original `value`).
+
+See `tests/schemas/parser-fast.test.ts` for the full test matrix (simple/common/complex
+cases + consistency checks against `validator`/`parser`), and
+`tests/bench/full-comparative-benchmark.test.ts` for measured numbers vs AJV/Zod.
 
 ---
 
@@ -133,6 +171,11 @@ Modes:
 
 3. **Circular References**: Circular `$ref` chains can cause stack overflow
    - **Solution**: The converter handles basic circular references, but deeply nested cycles may need manual schema restructuring
+
+4. **`parseFast` reference identity**: Assuming `parseFast(data).data` is a fresh, isolated
+   object like `parser(data).data` will break code that relies on the parser's copy contract.
+   - **Solution**: Use `"parser"`/`"all".parse` when a fresh output object is required; use
+     `"fast"`/`"all".parseFast` only when `data === input` on success is acceptable.
 
 ---
 
@@ -216,13 +259,13 @@ npm.cmd test -- --run
 # Run JSON Schema test suite plus discriminator and edge-cases tests
 npm test
 
-# Run all tests including performance benchmarks
+# Run all correctness tests
 npm run test:full
 
-# Run performance benchmarks only
-npm run test:perf
-// or
-npm run test:bench
+# Run all benchmarks (standalone tsx, not vitest; `bench` is an alias of `perf`)
+npm run bench
+# or
+npm run perf
 ```
 
 ### Test Coverage

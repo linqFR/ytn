@@ -1567,11 +1567,11 @@ describe("Edge Cases & Failure Detection Tests", () => {
 	});
 
 	// =============================================================================
-	// BOTH MODE TESTS
+	// ALL MODE TESTS
 	// =============================================================================
-	describe("Both Mode Edge Cases", () => {
+	describe("All Mode Edge Cases", () => {
 		
-		it("should handle both mode with complex schema", () => {
+		it("should handle all mode with complex schema", () => {
 			const schema = {
 				type: "object",
 				properties: {
@@ -1580,12 +1580,13 @@ describe("Edge Cases & Failure Detection Tests", () => {
 				},
 				required: ["a"]
 			};
-			const { validate, parse } = schvalid("both").compile(schema);
+			const { validate, parse, parseFast } = schvalid("all").compile(schema);
 			expect(typeof validate).toBe("function");
 			expect(typeof parse).toBe("function");
+			expect(typeof parseFast).toBe("function");
 		});
 
-		it("should handle both mode with discriminator", () => {
+		it("should handle all mode with discriminator", () => {
 			const schema = {
 				type: "object",
 				discriminator: {
@@ -1601,9 +1602,10 @@ describe("Edge Cases & Failure Detection Tests", () => {
 					}
 				]
 			};
-			const { validate, parse } = schvalid("both").compile(schema);
+			const { validate, parse, parseFast } = schvalid("all").compile(schema);
 			expect(typeof validate).toBe("function");
 			expect(typeof parse).toBe("function");
+			expect(typeof parseFast).toBe("function");
 		});
 	});
 
