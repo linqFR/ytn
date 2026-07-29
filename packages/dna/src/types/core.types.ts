@@ -76,7 +76,7 @@ export type tsDnaOpcode =
   | "check" // refine ( only)
 
   // Mutations / transformations
-  // | "mutate" // built-in primitive mutations (trim, toUpperCase, etc.)
+  | "mutate" // built-in primitive mutations (trim, toUpperCase, etc.)
   | "chkList" // canonical check-all (allOf-like)
   | "chkSeq" // builder multi-step Check refine and superrefined
   | "transform" // transformation handlertransformation

@@ -1038,3 +1038,48 @@ The `passed0` plain-object hashmap accumulates the declared keys that matched (`
 ---
 
 > **Note (2026-06)**: an earlier flattened rewrite of `simpleNodeToJs` (formerly `_assignOrCond`) in `utils.ts` violated the contracts documented in this section (double-pushed type errors, broke the `anyOf` counter pattern, emitted `if(!())` empty tests). The canonical 16-case matrix (`D|T|B|C`) was restored from the initial implementation (`git 9be6cc2`) and now lives in `utils.ts`. The full JSON Schema Draft 2020-12 suite (1148 tests) passes again. Regenerate snippets via `sandbox/gen-examples-v2.ts` if the codegen evolves.
+
+---
+
+## Type Architecture
+
+### `DnaType` vs `IDnaType`
+
+`DnaType<T, I>` is the concrete, nominal base class for every schema. It owns the runtime implementation, the collector interface, and the builder chain state. `IDnaType<T, I>` is a *covariant view* of `DnaType`: it exposes only the public fluent API and uses the `~brand` symbol to keep the type nominal. This split exists so that methods and properties that must accept or return any subclass (`unwrap`, `_inputSchema`, `_outputSchema`, `.meta()`, `cloner` callbacks, etc.) can be typed through the interface without forcing every implementation to agree on a single concrete generic.
+
+- `DnaType` carries `readonly ~brand: T` and `readonly _input: I` to keep output and input types distinct.
+- `IDnaType` declares `readonly _head: unknown` so that recursive helpers such as `$InputHead` have a base case and do not loop on the head link.
+- `IDnaType` is **not** a catch-all. It is only an interface view of `DnaType`; no value is constructed as `IDnaType` directly.
+
+### Core state and the `BaseCore` indirection
+
+Every `DnaType` instance delegates runtime state to a `BaseCore` object keyed by the `SymCore` symbol. Core state includes the seed constraints, the collector, the pre-process wrapper list, meta, and `head`.
+
+- `head` is stored as `unknown` in `BaseCore` and in the `tsStateFull` type. It is an *opaque* link to the previous schema in a chain and is only consumed by the type-level helper `$InputHead`; it is never typed as `DnaType` at runtime.
+- `SymSetHead(head: unknown)` mutates the core and returns `this`. The method signature accepts `unknown` so that the head link can be set from any schema type without casting.
+
+### Building instances without casts
+
+`initDna<C, S>(Class, seed, meta?)` returns a `Class<S>` and is the only place where a new schema instance is constructed. `cloner(this, fn)` produces a sibling of the same concrete class while letting the caller mutate the new core. To keep TypeScript from widening the return type:
+
+- The `cloner` callback parameter is annotated as `this` so the generic `R` in `cloner` is inferred as `this`.
+- `meta(value?)` uses `cloner(this, (cl: this) => cl._core.rawMeta(value))` and returns `this | tsDnaInnerMeta`; no `as any` cast is needed.
+
+### Wrapper chain and `unwrap()`
+
+`DnaTypeWithWrappers` defines `unwrap(): IDnaType`. Because wrappers (`DnaOptional`, `DnaNullable`, `DnaDefault`, `DnaCatch`) wrap an `IDnaType`, the base return type is the interface, not a concrete `DnaType`. This lets `DnaPromise.override unwrap()` return the inner promise-wrapped schema as `IDnaType` without introducing an extra generic or unsafe cast.
+
+### Function schemas and covariance
+
+`DnaFunction` keeps `input` and `output` as bare constraint seeds. Its private helpers `_inputSchema()` and `_outputSchema()` return `IDnaType` because the seeds can produce non-`DnaType` nodes (for example `DnaTuple` for variadic arguments, or `DnaUnknown` when no output is declared). Returning the covariant interface avoids the impossible assignment `DnaTuple <: DnaType` and eliminates casts inside `DnaFunction`.
+
+### Why `_head` is `unknown`
+
+`$InputHead<T>` recursively resolves a schema's effective input by following `_head` links. If `_head` were typed as `IDnaType | undefined`, the recursion had no base case and `dna.input`/`dna.infer` for array/object chains would hit instantiation depth limits or produce `any`. By declaring `_head: unknown` in `IDnaType`, the head link becomes an opaque edge and `$InputHead` falls back to `$Input<T>` when the head is not a concrete schema. This is the reason `BaseCore.head` and `IDnaType._head` are both `unknown`.
+
+### Practical consequences
+
+- Methods that must return the same concrete class should return `this` and use `cloner` callbacks typed as `this`.
+- Methods that intentionally lose the concrete class (cross-schema helpers, `unwrap`, `_inputSchema`/`_outputSchema`) return `IDnaType`.
+- Always use `instanceof DnaType` for runtime class checks; `IDnaType` is a compile-time view only.
+- Do not add `| any` parameters or `as any` casts to silence variance errors — widen the return type to `IDnaType` or fix the seed typing instead.

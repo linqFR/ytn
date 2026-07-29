@@ -95,7 +95,9 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       return initDna(c.DnaAny, undefined, meta);
 
     case 'F':
-      return initDna(c.DnaNever, undefined, meta);
+      // DnaNever is not structurally assignable to DnaTypeWithWrappers<any, any>
+      // because of invariant transform/and/readonly signatures; up-cast via unknown.
+      return initDna(c.DnaNever, undefined, meta) as unknown as c.DnaTypeWithWrappers<any, any>;
 
     case 'nan':
       return initDna(c.DnaNaN, undefined, meta);
@@ -141,6 +143,8 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       let addPropSchema: c.DnaTypeWithWrappers<any, any> | boolean | undefined;
       let objType: 'strict' | 'loose' | 'standard' | 'object' = 'standard';
       let requiredKeys: string[] | undefined;
+      // `keepOnly` is set for standard objects that should output only the
+      // declared property names (and omit undefined optional values).
       let hasKeepOnly = false;
 
       for (const [name, value] of constraints) {
@@ -373,11 +377,11 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
     }
     for (const child of stepIds) add(child);
 
-    const instance = steps.find(n => n[0] === 'instanceOf' || n[0] === 'chk');
+    const instance = steps.find(n => n[0] === 'instanceOf' || n[0] === 'chkSeq');
     if (!instance) return undefined;
     let ctor: string;
     let chk: tsDna | undefined;
-    if (instance[0] === 'chk') {
+    if (instance[0] === 'chkSeq') {
       const ids = instance[1] as number[];
       const instanceOfNode = dnaList[ids[0]];
       if (instanceOfNode[0] !== 'instanceOf') return undefined;
@@ -385,7 +389,7 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
       chk = instance;
     } else {
       ctor = instance[1] as string;
-      chk = steps.find(n => n[0] === 'chk');
+      chk = steps.find(n => n[0] === 'chkSeq');
     }
 
     let min: number | null = null;

@@ -1,7 +1,6 @@
 import { expect, expectTypeOf, test } from "vitest";
 import {dna} from "../src/index.js";
 import * as z from "zod/v4";
-
 const args1 = [dna.string()] as const;
 const returns1 = dna.number();
 const func1 = dna.function({
@@ -71,7 +70,7 @@ test("args method", () => {
   expectTypeOf<t1>().toEqualTypeOf<(...args_1: never[]) => unknown>();
   t1._input;
 
-  const t2args = [dna.string(), dna.unknown()] as const;
+  const t2args = dna.tuple([dna.string()], dna.unknown());
 
   const t2 = t1.input(t2args);
   type t2 = (typeof t2)["_input"];
@@ -80,6 +79,29 @@ test("args method", () => {
   const t3 = t2.output(dna.boolean());
   type t3 = (typeof t3)["_input"];
   expectTypeOf<t3>().toEqualTypeOf<(arg: string, ...args_1: unknown[]) => boolean>();
+});
+
+test("input options", () => {
+  const t1 = dna.function();
+
+  const fromAsConst = t1.input([dna.string(), dna.unknown()] as const);
+  type fromAsConst = (typeof fromAsConst)["_input"];
+  expectTypeOf<fromAsConst>().toEqualTypeOf<(arg0: string, arg1: unknown) => unknown>();
+
+  const fromPlain = t1.input([dna.string(), dna.unknown()]);
+  type fromPlain = (typeof fromPlain)["_input"];
+  expectTypeOf<fromPlain>().toBeFunction();
+
+  const fromTuple = t1.input(dna.tuple([dna.string()], dna.unknown()));
+  type fromTuple = (typeof fromTuple)["_input"];
+  expectTypeOf<fromTuple>().toBeFunction();
+
+  const fromFactory = dna.function({
+    input: [dna.string(), dna.unknown()] as const,
+    output: dna.boolean(),
+  });
+  type fromFactory = (typeof fromFactory)["_input"];
+  expectTypeOf<fromFactory>().toEqualTypeOf<(arg0: string, arg1: unknown) => boolean>();
 });
 
 // test("custom args", () => {
@@ -109,9 +131,9 @@ test("function inference 2", () => {
 
   expectTypeOf<func2>().toEqualTypeOf<
     (arg: {
-      f3?: (boolean | undefined)[] | undefined;
       f1: number;
       f2: string | null;
+      f3: (boolean | undefined)[] | undefined;
     }) => string | number
   >();
 });
@@ -128,6 +150,17 @@ test("valid function run", () => {
     f2: "asdf",
     f3: [true, false],
   });
+});
+
+test("f3 omitted and explicit undefined are equivalent", () => {
+  const schema = args2[0];
+  const parsedOmitted = schema.parse({ f1: 21, f2: "asdf" });
+  const parsedExplicit = schema.parse({ f1: 21, f2: "asdf", f3: undefined });
+  const expected = { f1: 21, f2: "asdf" };
+  expect(parsedOmitted).toEqual(expected);
+  expect(parsedExplicit).toEqual(expected);
+  expect(parsedOmitted).not.toHaveProperty("f3");
+  expect(parsedExplicit).not.toHaveProperty("f3");
 });
 
 const args3 = [
@@ -149,9 +182,9 @@ test("function inference 3", () => {
 
   expectTypeOf<func3>().toEqualTypeOf<
     (arg: {
-      f3?: (boolean | undefined)[] | undefined;
       f1: number;
       f2: string | null;
+      f3: (boolean | undefined)[] | undefined;
     }) => string | number
   >();
 });

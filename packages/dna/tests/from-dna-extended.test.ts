@@ -13,7 +13,7 @@ const suiteDir = path.resolve(__dirname, "./zod-test-suite");
 
 const supportedOpcodes = new Set<string>([
   's', 'n', 'i', 'bi', 'b', '$o', 'l', 'e', 'n0', 'undefined', 'T', 'F', 'nan',
-  'symbol', 'date', 'coerce', 'a', 'anyOf', 'allOf', 'oneOf', 'rcd', 'ref', 'seq', 'discriminator',
+  'symbol', 'date', 'coerce', 'a', 'anyOf', 'allOf', 'oneOf', 'rcd', 'ref', 'discriminator',
   'chk', 'url', 'instanceOf', 'wrp', 'cidrv6', 'jwt', 'promise',
 ]);
 const supportedWrp = new Set<string>(['optional', 'nullable', 'nullish', 'nonoptional', 'exactOptional', 'default', 'prefault', 'catch']);
@@ -86,7 +86,7 @@ function normalizeDna(seq: tsDnaSeq): tsDna[] {
         if (typeof p[0] === 'number') out.push(resolveRef(p[0]));
         break;
       }
-      case 'seq': {
+      case 'pipe': {
         const p = Array.isArray(params) ? params : [];
         for (const v of p) if (typeof v === 'number') out.push(v);
         break;
@@ -170,11 +170,6 @@ function normalizeDna(seq: tsDnaSeq): tsDna[] {
       case 'ref': {
         const p = Array.isArray(params) ? params : [params];
         newParams = [typeof p[0] === 'number' ? remap(resolveRef(p[0])) : p[0], ...p.slice(1)];
-        break;
-      }
-      case 'seq': {
-        const p = Array.isArray(params) ? params : [];
-        newParams = p.map((v: unknown) => typeof v === 'number' ? remap(v) : v);
         break;
       }
       default:

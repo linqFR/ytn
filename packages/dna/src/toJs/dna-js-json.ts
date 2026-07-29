@@ -695,6 +695,15 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	let patternPropertiesBooleanChecks: boolean | undefined;
 	let propertyNamesCheck: number | boolean | undefined = undefined;
 	let additionalPropertiesCheck: number | boolean | undefined = undefined;
+	/**
+	 * List of declared property names that the parser must materialize in the
+	 * output. When set, the parser builds the output into a temporary `outReal`
+	 * object and then copies only these keys (skipping `undefined` values) into
+	 * the final `outVar`. This emulates Zod-style object behavior where
+	 * `undefined` optional properties are not present in the parsed output,
+	 * while still supporting JSON Schema `additionalProperties`/`unevaluatedProperties`
+	 * for objects without a keep list.
+	 */
 	let keepOnly: string[] | undefined = undefined;
 	let keepSet = "";
 	// Per-key concerns extracted into structured state so we can emit a single
@@ -1043,7 +1052,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			: outReal + "=Object.assign(Object.create(null)," + inVar + ");";
 
 	if (keepOnly !== undefined && !isCond) {
-		innerSteps.push([STEP.BODY, outVar + "={};for(const k of " + JSON.stringify(keepOnly) + "){if(Object.hasOwn(" + outReal + ",k))" + outVar + "[k]=" + outReal + "[k];}"]);
+		innerSteps.push([STEP.BODY, outVar + "={};for(const k of " + JSON.stringify(keepOnly) + "){if(Object.hasOwn(" + outReal + ",k)&&" + outReal + "[k]!==undefined)" + outVar + "[k]=" + outReal + "[k];}"]);
 	}
 
 	return _assignOrCondEnv(parentCtx, inVar, outVar, {

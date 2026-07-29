@@ -245,3 +245,28 @@ All access to global utilities MUST use the namespaces defined in `@ytn/shared`:
 #### DSL & Inferred Contexts
 
 - **this-less Inference**: You can safely use method shorthand `name(args) { ... }` in object literal DSLs (like `@ytn/wf`) if `this` is not required; TS 6.0 inference is now stable for these "this-less" functions, unlike previous versions where they were often inferred as `unknown`.
+
+---
+
+## Cascade Working Process
+
+When acting on this codebase, the agent should follow this iterative workflow:
+
+1. **Plan first** — create or update a `todo_list` before starting a non-trivial change.
+2. **Gather evidence in parallel** — use `grep`, `read`, `find`, and other search tools simultaneously rather than sequentially.
+3. **Prefer minimal upstream fixes** — make surgical changes to the source; only fall back to test/sandbox adaptation when an upstream fix would require architecture changes.
+4. **Verify before declaring done** — run `npx tsc --noEmit` and/or `npm test` after each meaningful edit.
+5. **Use the sandbox for exploration** — use `packages/<pkg>/sandbox/mine.ts` (or similar) for quick type investigations without touching production code.
+6. **Track progress** — mark `todo_list` entries complete as soon as they are finished.
+7. **Communicate concisely** — report the exact commands run, their output, and the final state; avoid unnecessary prose.
+
+### TypeScript / type-level workflow
+
+When dealing with TypeScript errors (especially in the DNA / Zod v4 type space):
+
+- **Start from `npx tsc --noEmit`** to get the current error list, then fix one error at a time.
+- **Inspect actual inferred types** with `packages/<pkg>/sandbox/mine.ts` or a temporary type alias before changing test expectations.
+- **Prefer upstream fixes** for wrong public types; only adapt tests or use explicit annotations when the fix would require architecture changes.
+- **Avoid `any` and blanket casts** — no `as any` / `as unknown` (except the `as unknown as T` escape hatch); no `| any` in parameters.
+- **Respect Zod v4 internals** — use `._zod` (never `._def`), `instanceof z.Zod*` for identification, and `.unwrap()` / `z.strictObject()` / `z.looseObject()` public APIs.
+- **Run type-regression tests** with `npm test -- --typecheck` after touching `*.test.ts`.

@@ -4,7 +4,6 @@ import type { tsDnaParserFn, tsDnaValidatorFn } from "../shared/runtime.types.js
 import type { tsDna, tsDnaId, tsDnaNoMeta, tsDnaSeq } from "../types/core.types.js";
 import type { $Input, $Output } from "../types/helpers.types.js";
 import type { IDnaCollector } from "./collector.types.js";
-import type { DnaType } from "./dna-interfaces.js";
 import type { tsStateDef, tsStateFull } from "./state.types.js";
 import type { tsCheckOpt } from "../shared/handlers-builder.types.js";
 
@@ -22,7 +21,7 @@ export const bindMethods = (inst: any, ...methodNames: string[]): any => {
   for (const methodName of names) {
     const method = inst[methodName];
     if (typeof method !== 'function') continue;
-    inst[methodName] = (...args: any[]) => method.apply(inst, args);
+    inst[methodName] = method.bind(inst);
   }
   return inst;
 };
@@ -40,7 +39,7 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
 
   #mapper = new Map<IDnaCollector, tsDnaId>();
 
-  #state!: tsStateFull<State>;
+  readonly #state: tsStateFull<State>;
 
   constructor(
     type: string,
@@ -108,7 +107,7 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
 
   // Head reference
   get head(){return this.#state.head};
-  setHead<HL>(head: HL) { this.#state.head = head as DnaType<$Output<HL>, $Input<HL>>; }
+  setHead(head: unknown) { this.#state.head = head; }
 
   // Meta manipulation
   rawMeta(meta?: string | tsDnaInnerMeta): this {
@@ -162,7 +161,7 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
     // Shallow-clone each refiner tuple so every `BaseCore` clone owns its own
     // mutable array. Without `.slice()`, later mutations to one clone's
     // refiner metadata would be shared with the original and sibling clones.
-    core.#state.refinerList = this.#state.refinerList.map(r => r.slice() as unknown as tsCheckOpt);
+    core.#state.refinerList = this.#state.refinerList.map(r => r.slice() as tsCheckOpt);
     const clonedMeta: Record<string, unknown> = {};
     deepMerge(clonedMeta, this.#state.meta);
     core.#state.meta = clonedMeta;

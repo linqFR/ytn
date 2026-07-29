@@ -12,7 +12,6 @@ import type { tsDnaInnerMeta } from "../shared/meta-context.type.js";
 import type { tsDnaParserFn, tsDnaValidatorFn } from "../shared/runtime.types.js"
 import type { tsDnaEnumInput, tsDnaEnumValues, DnaFunctionInput, tsDnaTupleSchemaBase, tsDnaTupleSchemaRO } from "../types/api-builder.types.js";
 import type { $CatchValue, $Output } from "../types/helpers.types.js";
-import type { DnaType } from "./dna-interfaces.js";
 
 // ============================================
 // Base State Type
@@ -50,7 +49,7 @@ export type tsStateFull<T extends tsStateDef = tsStateDef> = {
   rawDna: tsDnaNoMeta;
   templateRegex:string;
   seed: T;
-  head?:DnaType<any, any>;
+  head?: unknown;
   fullDna?: tsDnaSeq;
   cachedParser?: tsDnaParserFn;
   cachedValidator?: tsDnaValidatorFn;

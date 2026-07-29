@@ -74,6 +74,19 @@ The compiler uses a step-based system (`tsStackFrame`):
 - **`STEP.START_REF`/`STEP.END_REF`**: Reference function generation for circular schemas
 - **Opcode handlers**: Builder opcodes map to `dna-js-builder.ts`; JSON Schema-derived opcodes map to `dna-js-json.ts`
 
+### Object Output: `keepOnly` vs JSON-Schema modes
+
+DNA `standard` objects (the Zod-like default, i.e. no `strict()` and no `loose()`) use the `keepOnly` mechanism when no `additionalProperties` schema is declared.
+
+1. The builder emits a `keepOnly` constraint listing every declared property name.
+2. The parser writes validated properties into a temporary `outReal` object.
+3. It then copies only the keys in `keepOnly` into the final `outVar`.
+4. Values equal to `undefined` are **not** copied, so omitted or explicitly `undefined` optional properties do **not** appear as own keys in the parsed output.
+
+Objects in `strict`/`loose` mode or JSON-Schema-style objects (with `additionalProperties: true`/schema or `unevaluatedProperties`) do **not** use `keepOnly`; they rely on `Object.assign`/`Object.create(null)` pre-copying to preserve unknown/evaluated properties.
+
+This distinction is why the `f3` optional-undefined equivalence test works with `keepOnly` and why `Object.assign` must not be blindly replaced by a global `undefined`-filtering loop.
+
 ### Reference Handling
 
 Circular schemas are handled via reference functions:
@@ -241,3 +254,20 @@ The input `dnaSeq` is the same tuple returned by `schema.toDna()` (a flat array 
 - **tsup Configuration**: Standard build with JSDoc preservation
 - **No Minification**: This package is a library, not a production bundle
 - **Type Declarations**: Automatically generated via tsup
+
+---
+
+## Zod v4 & DNA Type Guardrails
+
+Project-specific type-safety rules that complement the general TS protocol:
+
+- **No `as any` / `as unknown` (except `as unknown as T`)** — fix the type issue instead of hiding it.
+- **No `any` or `| any` in function parameters** — use proper typing or generics.
+- **No `@ts-ignore` / `@ts-nocheck`** — prefer `@ts-expect-error` with an explicit explanation, or fix the type.
+- **Zod v4 reflection**: use `._zod` (never `._def`); use `.unwrap()` for optional/nullable/default; use `z.strictObject()` / `z.looseObject()` for objects.
+- **Identification priority**: `instanceof z.Zod*` is the first truth; use property checks (`_zod` in v) only when `instanceof` is provably insufficient.
+- **Console output**: never `JSON.stringify(obj, null, 2)`; use `console.dir(obj, { depth: null })` or `JSON.stringify(obj)`.
+- **Naming conventions**: `I*` inputs, `O*` outputs, `$*` type modifiers, `ts*` static aliases, `u*` utilities, `sch*` / `*Schema` for Zod schemas.
+- **Type testing**: use `expectTypeOf` / `assertType` in Vitest; validate with `npm test -- --typecheck`.
+
+See the `prohibited-hacks-and-code-syntaxes.md` memory for the complete forbidden-syntax list.

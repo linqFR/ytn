@@ -90,7 +90,7 @@ export class DnaSet<T extends DnaType<any, any>> extends DnaTypeWithWrappers<
 }
 
 
-export const map = <K extends DnaType<PropertyKey, PropertyKey>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
+export const map = <K extends DnaType<any, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
   initDna(DnaMap<K,V>, { keySchema, valueSchema }, meta);
 
 export const set = <T extends DnaType<any, any>>(schema: T, meta?: string | tsDnaMeta) =>

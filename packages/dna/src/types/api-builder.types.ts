@@ -1,19 +1,8 @@
 
 import type {
-  DnaCatch,
-  DnaDefault,
-  DnaEnum,
-  DnaExactOptional,
-  DnaLiteral,
-  DnaNonOptional,
-  DnaNullable,
-  DnaNullish,
-  DnaNull,
+  IDnaType,
   DnaObject,
-  DnaOptional,
-  DnaPrefault,
   DnaType,
-  DnaUndefined,
 } from "../builder/dna-interfaces.js";
 
 import type { tsDnaMeta } from "../shared/meta-context.type.js";
@@ -58,19 +47,7 @@ export type tsDnaEnumLike = Record<string, tsDnaEnumValueType>;
 // ============================================
 // Discriminated Unions
 // ============================================
-export type tsDnaDiscriminant =
-  | DnaCatch<tsDnaDiscriminant>
-  | DnaDefault<tsDnaDiscriminant>
-  | DnaEnum<any>
-  | DnaExactOptional<tsDnaDiscriminant>
-  | DnaLiteral<any>
-  | DnaNonOptional<tsDnaDiscriminant>
-  | DnaNullable<tsDnaDiscriminant>
-  | DnaNullish<tsDnaDiscriminant>
-  | DnaNull
-  | DnaOptional<tsDnaDiscriminant>
-  | DnaPrefault<tsDnaDiscriminant>
-  | DnaUndefined;
+export type tsDnaDiscriminant = IDnaType;
 
 export interface tsDnaDiscriminatedBranch<Disc extends string> {
   shape: { [K in Disc]: tsDnaDiscriminant } | undefined;
@@ -85,8 +62,7 @@ export type tsDnaDiscriminatedUnionObjects<
 // Tuple Types
 // ============================================
 
-// export type tsDnaTupleSchemaBase = [DnaType<any, any>, ...DnaType<any, any>[]] | [];
-export type tsDnaTupleSchemaBase = [DnaType<any, any>, ...DnaType<any, any>[]];
+export type tsDnaTupleSchemaBase = [DnaType<any, any>, ...DnaType<any, any>[]] | [];
 export type tsDnaTupleSchemaRO = readonly [DnaType<any, any>, ...DnaType<any, any>[]] | readonly [];
 export type tsDnaTupleSchemaArray = tsDnaTupleSchemaRO;
 export type tsDnaTupleSchemaSingle = [DnaType<any, any>];
@@ -100,19 +76,25 @@ export type tsDnaTupleValueWithRest<S extends tsDnaTupleSchemaRO, R> = [R] exten
 // Function Types
 // ============================================
 
-export type DnaFunctionInput = tsDnaTupleSchemaArray;
+export type DnaFunctionInput = readonly [IDnaType<any, any>, ...IDnaType<any, any>[]] | readonly [] | IDnaType<any, any>;
 
 export interface DnaFunctionOptions<I extends DnaFunctionInput = DnaFunctionInput, O = unknown> {
   input?: I;
   output?: DnaType<O>;
 }
 
-export type DnaFunctionArgs<I extends DnaFunctionInput> = I extends readonly DnaType<any>[]
-  ? { -readonly [K in keyof I]: I[K] extends DnaType<infer V> ? V : never }
-  : I extends DnaType<infer V>
+export type DnaFunctionArgs<I extends DnaFunctionInput> = [I] extends [never]
+  ? never[]
+  : I extends readonly []
+  ? []
+  : I extends readonly (infer E)[]
+  ? E extends { _output: infer V }
+    ? { -readonly [K in keyof I]: I[K] extends { _output: infer V2 } ? V2 : never }
+    : never[]
+  : I extends { _output: infer V }
   ? V extends readonly (infer T)[]
-  ? V
-  : [V]
+    ? V
+    : [V]
   : never[];
 
 // Inferred callable shape of a `DnaFunction<I, O>` schema — mirrors Zod's

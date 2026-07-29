@@ -19,7 +19,8 @@ import type {
   DnaFunctionOptions,
   tsDnaDiscriminatedUnionObjects,
 } from "../types/api-builder.types.js";
-import type { $ToEnum, $Input, $Output, $ArrayItem, $TemplateLiteral } from "../types/helpers.types.js";
+import type { $ToEnum, $Input, $Output, $ArrayItem, $TemplateLiteral, $DnaObjectOutput, $DnaObjectInput } from "../types/helpers.types.js";
+import type { IDnaType } from "./dna-interfaces.js";
 
 import {
   DnaBigInt,
@@ -196,7 +197,7 @@ function _enum<const T extends tsDnaEnumInput>(values: T, error?: string | tsDna
   return initDna(DnaEnum<T extends tsDnaEnumValues ? $ToEnum<T[number]> : T>, { enumObj }, error);
 }
 
-export const union = <S extends tsDnaTupleSchemaBase>(schemas: S, meta?: string | tsDnaMeta) =>
+export const union = <S extends tsDnaTupleSchemaRO>(schemas: S, meta?: string | tsDnaMeta) =>
   initDna(DnaUnion<S>, { schemas }, meta);
 
 export const intersection = <S1 extends DnaType<any>, S2 extends DnaType<any>>(schema1: S1, schema2: S2, meta?: string | tsDnaMeta) =>
@@ -205,13 +206,13 @@ export const intersection = <S1 extends DnaType<any>, S2 extends DnaType<any>>(s
 export const discriminatedUnion = <K extends string, S extends tsDnaDiscriminatedUnionObjects<K>>(discriminator: K, schemas: S, meta?: string | tsDnaMeta) =>
   initDna(DnaDiscriminatedUnion<K, S>, { discriminator, schemas }, meta);
 
-export const record = <K extends DnaType<PropertyKey>, V extends DnaType<any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
+export const record = <K extends DnaType<any, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
   initDna(DnaRecord<K, V>, { keySchema, valueSchema, type: "standard" }, meta);
 
-export const partialRecord = <K extends DnaType<PropertyKey>, V extends DnaType<any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
+export const partialRecord = <K extends DnaType<any, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
   initDna(DnaRecord<K, V>, { keySchema, valueSchema, type: "partial" }, meta);
 
-export const looseRecord = <K extends DnaType<PropertyKey, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
+export const looseRecord = <K extends DnaType<any, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
   initDna(DnaRecord<K, V>, { keySchema, valueSchema, type: "loose" }, meta);
 
 // top-level format functions
@@ -239,7 +240,7 @@ export const nan = (meta?: string | tsDnaMeta) => initDna(DnaNaN, undefined, met
 export const file = (meta?: string | tsDnaMeta) => initDna(DnaFile, undefined, meta);
 
 /** @deprecated  */
-export const promise = <T>(schema: DnaType<T>, meta?: string | tsDnaMeta) => initDna(DnaPromise, { inner: schema }, meta);
+export const promise = <T, I = T>(schema: IDnaType<T, I>, meta?: string | tsDnaMeta) => initDna(DnaPromise<T, I>, { inner: schema }, meta);
 
 export const hostname = (meta?: string | tsDnaMeta) => initDna(DnaHostname, undefined, meta);
 
@@ -281,24 +282,24 @@ export const cidrv6 = (meta?: string | tsDnaMeta) => initDna(DnaCidrv6, undefine
 
 export const hash = (algorithm: "sha1" | "sha256" | "sha384" | "sha512" | "md5", meta?: string | tsDnaMeta) => initDna(DnaHash, { format: `hash:${algorithm}` }, meta);
 
-export function object<T extends Record<string, DnaType<any, any>>>(shape: T, meta?: string | tsDnaMeta) {
-  return initDna(DnaObject<T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'standard' }, meta);
+export function object<T extends Record<string, IDnaType>>(shape: T, meta?: string | tsDnaMeta) {
+  return initDna(DnaObject<$DnaObjectOutput<T>, $DnaObjectInput<T>, T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'standard' }, meta);
 }
 
-export function strictObject<T extends Record<string, DnaType<any, any>>>(shape: T, meta?: string | tsDnaMeta) {
-  return initDna(DnaObject<T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'strict' }, meta);
+export function strictObject<T extends Record<string, IDnaType>>(shape: T, meta?: string | tsDnaMeta) {
+  return initDna(DnaObject<$DnaObjectOutput<T>, $DnaObjectInput<T>, T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'strict' }, meta);
 }
 
-export function looseObject<T extends Record<string, DnaType<any, any>>>(shape: T, meta?: string | tsDnaMeta) {
-  return initDna(DnaObject<T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'loose' }, meta);
+export function looseObject<T extends Record<string, IDnaType>>(shape: T, meta?: string | tsDnaMeta) {
+  return initDna(DnaObject<$DnaObjectOutput<T>, $DnaObjectInput<T>, T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'loose' }, meta);
 }
 
 export const property = <K extends string | number, S>(property: K, schema: DnaType<S>) => initDna(DnaCheckProperty<K>, { property, schema });
 
 export const array = <T extends DnaType<any, any>>(item: T, meta?: string | tsDnaMeta) => initDna(DnaArray<T>, { min: null, max: null, length: null, itemSchema: item }, meta);
 
-export const tuple = <S extends tsDnaTupleSchemaRO, R = never>(items: S, rest?: DnaType<R>, meta?: string | tsDnaMeta) =>
-  initDna(DnaTuple, { items, rest }, meta);
+export const tuple = <S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> | never = never>(items: S, rest?: R, meta?: string | tsDnaMeta) =>
+  initDna(DnaTuple<S, R>, { items, rest }, meta);
 
 
 export const codec = <In extends DnaType<any, any>, Out extends DnaType<any, any>>(
@@ -311,7 +312,7 @@ export const codec = <In extends DnaType<any, any>, Out extends DnaType<any, any
   if (typeof options.decode === "function" && /\bdna\b/.test(options.decode.toString())) extMap.dna = "dna";
   if (typeof options.encode === "function" && /\bdna\b/.test(options.encode.toString())) extMap.dna = "dna";
   const externals = Object.keys(extMap).length ? extMap : undefined;
-  return initDna(DnaCodec<In, Out>, {
+  return initDna(DnaCodec<$Output<In>, $Output<Out>>, {
     decodeTwin: inSchema.transform(options.decode, externals).pipe(outSchema),
     encodeTwin: outSchema.transform(options.encode, externals).pipe(inSchema),
   }, meta);
