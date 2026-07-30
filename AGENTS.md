@@ -270,3 +270,60 @@ When dealing with TypeScript errors (especially in the DNA / Zod v4 type space):
 - **Avoid `any` and blanket casts** — no `as any` / `as unknown` (except the `as unknown as T` escape hatch); no `| any` in parameters.
 - **Respect Zod v4 internals** — use `._zod` (never `._def`), `instanceof z.Zod*` for identification, and `.unwrap()` / `z.strictObject()` / `z.looseObject()` public APIs.
 - **Run type-regression tests** with `npm test -- --typecheck` after touching `*.test.ts`.
+
+---
+
+## Build System Migration (tsup → tsdown)
+
+All public packages have been migrated from `tsup` to `tsdown`.
+
+### Rationale
+
+`tsup` is no longer actively maintained. `tsdown` (powered by `rolldown` and `rolldown-plugin-dts`) is the recommended successor and provides faster Rust-based bundling.
+
+### Migrated packages
+
+- `@ytn/dna`
+- `@ytn/schvalid`
+- `@ytn/qb`
+- `@ytn/czvo`
+- `@ytn/wf`
+
+Each package uses a `tsdown.config.ts` that extends the shared `tsdown.config.base.ts` in the repository root.
+
+### Known tooling workaround
+
+`rolldown-plugin-dts` versions prior to `0.25.1` drop the `type` modifier on type-only imports/exports when bundling declaration files. This causes `MISSING_EXPORT` errors for symbols imported from `@ytn/shared`, such as `$Awaitable` and `tsWFTools`.
+
+To prevent this, `package.json` pins `rolldown-plugin-dts` through an `overrides` field:
+
+```json
+"overrides": {
+  "rolldown-plugin-dts": "^0.25.1"
+}
+```
+
+This override is currently required for a clean build of `@ytn/czvo` and `@ytn/wf`.
+
+### Package-specific dts notes
+
+- `@ytn/dna`, `@ytn/schvalid`, and `@ytn/qb` build with the default `tsdown` dts configuration.
+- `@ytn/czvo` uses `dts: { resolver: "tsc", eager: true }` to resolve complex shared types.
+- `@ytn/wf` uses `dts: { eager: true }`.
+
+### Conditions for removing the `overrides`
+
+The `overrides` block may be removed when **all** of the following are true:
+
+1. `tsdown` releases a version that bundles or depends on `rolldown-plugin-dts >= 0.25.1`.
+2. Running `npm install` without the override still resolves `rolldown-plugin-dts` to `>= 0.25.1`.
+3. `npm.cmd run build -w @ytn/czvo` and `npm.cmd run build -w @ytn/wf` succeed with the default dependency tree.
+4. `npm.cmd run test -w @ytn/czvo` and `npm.cmd run test -w @ytn/wf` still pass after the override is removed.
+
+### Test status after migration
+
+- `@ytn/dna` — passing
+- `@ytn/schvalid` — passing
+- `@ytn/qb` — passing
+- `@ytn/wf` — passing
+- `@ytn/czvo` — functional tests passing; 3 performance threshold tests are slightly flaky because they assert sub-millisecond timings. These are not build failures.

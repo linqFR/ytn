@@ -19,9 +19,11 @@
     "Zod"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "test": "vitest run"
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "perf": "tsx perf/perf.ts && tsx perf/bench.ts",
+    "bench": "tsx perf/bench.ts"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -54,7 +56,7 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "@ytn/shared": "*",
-    "tsup": "^8.3.5",
+    "tsdown": "^0.22.14",
     "tsx": "^4.23.1",
     "zod": "^4.4.3"
   }

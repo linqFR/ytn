@@ -13,7 +13,6 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "vitest run",
-    "test:performance": "vitest run '**/performance/**/*.test.ts' '**/benchmarks/**/*.test.ts'",
     "check": "npx.cmd tsc --noEmit",
     "change": "changeset",
     "version": "changeset version",
@@ -27,7 +26,11 @@
     "acorn": "^8.18.0",
     "acorn-walk": "^8.3.5",
     "tsup": "^8.3.5",
+    "tsdown": "^0.22.14",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "rolldown-plugin-dts": "^0.25.1"
   }
 }

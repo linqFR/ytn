@@ -6,8 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
     "test": "vitest run tests/schemas",
     "test:full": "vitest run",
     "bench": "npm.cmd run perf",
@@ -32,6 +31,6 @@
     "@types/node": "^26.1.2",
     "@ytn/shared": "*",
     "ajv": "^8.20.0",
-    "tsup": "^8.3.5"
+    "tsdown": "^0.22.14"
   }
 }

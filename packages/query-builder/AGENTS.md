@@ -45,8 +45,8 @@ If you have a doubt about a Zod type, do not guess and do not look at Zod 3 lega
 In addition to global build rules, this package requires:
 
 - **Minification**: Keep a separate minified bundle (`index.min.js`) for production environments.
-- **tsup Configuration**: Must use `treeshake: false` in the base configuration to prevent stripping JSDoc comments.
-- **Zero Noise**: Disable `sourceMap` and `declarationMap` in standard builds to keep the `dist` directory clean.
+- **JSDoc Preservation**: Ensure JSDoc comments are preserved in the generated `.d.ts` declarations.
+- **Source Maps**: Enable `sourceMap` and `declarationMap` for public packages, in line with the global AGENTS.
 - **Automated DTS**: Type declarations (`.d.ts`) must be automatically generated.
 
 ---

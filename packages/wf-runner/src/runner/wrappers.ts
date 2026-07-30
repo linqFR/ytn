@@ -10,7 +10,7 @@ import type {
   tsBoxedStepHist,
   tsParsedBoxedStep,
 } from "../types/runtime.types.js";
-import { tsWFTools } from "../types/tools.type.js";
+import type { tsWFTools } from "../types/tools.type.js";
 
 /**
  * @type {Function} GateWrapperFn
