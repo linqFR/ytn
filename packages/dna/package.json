@@ -28,11 +28,11 @@
     },
     "./toJs": {
       "import": "./dist/toJs.js",
-      "types": "./dist/toJS.d.ts"
+      "types": "./dist/toJs.d.ts"
     },
     "./toJs/min": {
       "import": "./dist/toJs.min.js",
-      "types": "./dist/toJS.d.ts"
+      "types": "./dist/toJs.d.ts"
     },
     "./min": {
       "import": "./dist/index.min.js",
