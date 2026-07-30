@@ -1,0 +1,33 @@
+{
+  "name": "@ytn/cdna",
+  "version": "0.1.0",
+  "description": "Command Line Interface to DNA (CDNA)",
+  "author": "linqFR",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "CLI",
+    "DNA"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    },
+    "./min": {
+      "import": "./dist/index.min.js"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@ytn/dna": "*",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.1"
+  }
+}
