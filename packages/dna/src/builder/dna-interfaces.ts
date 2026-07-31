@@ -807,7 +807,7 @@ export class DnaIntersection<T, U, I = T & U> extends DnaCombinator<T & U, I, [D
   }
 }
 
-export class DnaXorUnion<T = unknown, U = unknown> extends DnaCombinator<$Xor<T, U>, tsDnaTupleSchemaBase> {
+export class DnaXorUnion<T = unknown, U = unknown> extends DnaCombinator<$Xor<T, U>> {
   protected override _core = new BaseCore<{ schemas: IDnaType[], combinatorType: tsDnaCombinatorType }>("oneOf")
     .preSeed({ combinatorType: "oneOf" });
 }

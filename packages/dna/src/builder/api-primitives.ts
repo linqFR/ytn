@@ -83,6 +83,7 @@ import {
   DnaVoid,
   DnaNaN,
   DnaUnion,
+  DnaXorUnion,
   DnaIntersection, DnaDiscriminatedUnion,
   DnaObject,
   DnaArray,
@@ -199,6 +200,9 @@ function _enum<const T extends tsDnaEnumInput>(values: T, error?: string | tsDna
 
 export const union = <S extends tsDnaTupleSchemaRO>(schemas: S, meta?: string | tsDnaMeta) =>
   initDna(DnaUnion<S>, { schemas }, meta);
+
+export const xor = <T extends DnaType<any, any>, U extends DnaType<any, any>>(schemas: readonly [T, U], meta?: string | tsDnaMeta) =>
+  initDna(DnaXorUnion<$Output<T>, $Output<U>>, { schemas: [...schemas] }, meta);
 
 export const intersection = <S1 extends DnaType<any>, S2 extends DnaType<any>>(schema1: S1, schema2: S2, meta?: string | tsDnaMeta) =>
   initDna(DnaIntersection, { schemas: [schema1, schema2] }, meta);
