@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type * as z4 from "zod/v4/core/schemas.js";
+import type * as z4 from "zod/v4/core";
 
 /**
  * Zod Schema inspection and unwrapping helpers.
