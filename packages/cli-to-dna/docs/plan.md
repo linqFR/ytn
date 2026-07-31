@@ -16,10 +16,10 @@ The goal is to offer the same developer experience on top of `@ytn/dna`.
 ## Status
 
 - [x] Plan drafted
-- [ ] Phase 0: `DnaXorUnion` / `.xor()` and `DnaDiscriminatedUnion` / `discriminator` opcode confirmed; coercion and `toJS` validation verified through sandbox
-- [ ] Phase 1: `sandbox/dna-pico.ts` prototype working
-- [ ] Phase 2: `packages/cli-to-dna` package skeleton created
-- [ ] Build with `buildConfig` is blocked: `@ytn/dna` has no `.d.ts` declarations, so `.d.ts` generation for `@ytn/cdna` fails
+- [x] Phase 0: `DnaXorUnion` / `.xor()` and `DnaDiscriminatedUnion` / `discriminator` opcode confirmed; coercion and `toJS` validation verified through `pico` tests
+- [x] Phase 1: `pico` DSL prototype working (moved from sandbox to `src/pico.ts`)
+- [x] Phase 2: `packages/cli-to-dna` package skeleton created
+- [ ] Build with `tsdown` `buildConfig` is blocked: `@ytn/dna` has no `.d.ts` declarations, so `.d.ts` generation for `@ytn/cdna` must be disabled
 - [ ] Phase 3: `createContract` and `execute` runtime working with `node:util.parseArgs`
 - [ ] Phase 4: `discriminator` routing optimization (pending)
 - [ ] Phase 5: hardening, tests, optional `.d.ts` generation (pending)
@@ -38,7 +38,7 @@ The goal is to offer the same developer experience on top of `@ytn/dna`.
 - `toJS`/`safeParse` works for CLI coercion.
 - Workarounds applied without touching `@ytn/dna`:
   - CSV lists use per-item `dna.preprocess` with custom `toNumber`/`toBool` helpers to avoid a `coerce`-inside-array codegen issue.
-  - `tsup.config.ts` now uses the repo-global `buildConfig` helper; the ESM build succeeds but `.d.ts` generation fails because `@ytn/dna` emits no declaration file.
+  - `tsdown.config.ts` now uses the repo-global `buildConfig` helper; the ESM build succeeds but `.d.ts` generation must be disabled because `@ytn/dna` emits no declaration file.
   - `pico.ts` now relies on DNA's own parameter types (`Parameters<typeof dna.…>`); `IBaseSchema`/`IPico`/`isPico`/`picoTypeToDna`/`define` were removed and the Proxy was replaced by a plain object. Casts are reduced to the unavoidable `dna.looseObject`/result casts in `contract.ts`/`execute.ts`.
 
 ## Open questions (answered)
@@ -137,13 +137,13 @@ Possible paths:
 
 Given the constraint **Do not modify `@ytn/dna`**, the immediate path is **Option 1**:
 
-- Add a package-local `tsup.config.ts` that disables `.d.ts` generation (`dts: false`) until `@ytn/dna` ships `dist/index.d.ts`.
+- Add a package-local `tsdown.config.ts` that disables `.d.ts` generation (`dts: false`) until `@ytn/dna` ships `dist/index.d.ts`.
 - Keep the build config aligned with the repo conventions (`buildConfig`) and centralize the `dts` flag override in `cli-to-dna` only.
 - Ship `@ytn/cdna` ESM build first; re-enable `.d.ts` in Phase 6 once DNA declarations are available.
 
 ## Next steps
 
-1. **Unblock the build** — create `packages/cli-to-dna/tsup.config.ts` with `dts: false` and confirm `npm.cmd run build -w @ytn/cdna` succeeds.
+1. **Unblock the build** — create `packages/cli-to-dna/tsdown.config.ts` with `dts: false` and confirm `npm.cmd run build -w @ytn/cdna` succeeds.
 2. **Phase 4** — implement discriminator-based O(1) subcommand routing using `DnaDiscriminatedUnion` and benchmark against `cli-to-zvo`.
 3. **Phase 5** — add Vitest tests, remaining atomic factories, and harden the package; keep `.d.ts` generation disabled for now.
 4. **Phase 6 (future, out of scope for now)** — re-enable `.d.ts` generation when `@ytn/dna` emits `dist/index.d.ts`.

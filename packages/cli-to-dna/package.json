@@ -10,8 +10,8 @@
     "DNA"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run"
   },
   "main": "./dist/index.js",
@@ -27,7 +27,7 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "@ytn/dna": "*",
-    "tsup": "^8.3.5",
+    "tsdown": "^0.22.14",
     "tsx": "^4.23.1"
   }
 }
