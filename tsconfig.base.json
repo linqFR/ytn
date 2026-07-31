@@ -13,6 +13,8 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "ignoreDeprecations": "6.0",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
     "rootDir": ".",
     "types": [ "node" ]
   },
@@ -33,7 +35,8 @@
     "**/docs",
     "**/node_modules",
     "**/sandbox",
-    "**/wf-runner",
     "sandbox",
+    "**/tests/**/*.ts",
+    "**/tests/json-schema-suite/bin/*"
   ]
 }

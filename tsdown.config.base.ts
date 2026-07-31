@@ -52,10 +52,14 @@ export function buildConfig(
 
   for (const [name, entryPath] of Object.entries(entries)) {
     const isPublic = publicKeys.has(name);
+    const baseNever = base.deps?.neverBundle;
     const deps = external
       ? {
           ...base.deps,
-          neverBundle: [...(base.deps?.neverBundle ?? []), ...external],
+          neverBundle:
+            baseNever === true
+              ? baseNever
+              : [...(Array.isArray(baseNever) ? baseNever : []), ...external],
         }
       : base.deps;
 
@@ -67,17 +71,21 @@ export function buildConfig(
       dts: isPublic
         ? typeof base.dts === "object" && base.dts !== null
           ? { ...base.dts }
-          : true
+          : base.dts
         : false,
       tsconfig: join(cwd, "tsconfig.json"),
       clean: isFirst,
     });
 
     if (min && isPublic) {
+      const minNever = minConfig.deps?.neverBundle;
       const minDeps = external
         ? {
             ...minConfig.deps,
-            neverBundle: [...(minConfig.deps?.neverBundle ?? []), ...external],
+            neverBundle:
+              minNever === true
+                ? minNever
+                : [...(Array.isArray(minNever) ? minNever : []), ...external],
           }
         : minConfig.deps;
 
