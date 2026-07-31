@@ -45,7 +45,7 @@ export const schWFStepSchema = z.union([
  */
 export const boxedStepSchemaFactory = (
   stepId: string,
-  def: tsWFStep,
+  def: tsWFStep<any, any, string>,
 ): tsSchBoxedStep => {
   return z
     .strictObject({

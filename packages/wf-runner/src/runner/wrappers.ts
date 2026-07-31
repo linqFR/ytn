@@ -3,7 +3,7 @@ import { catchAsyncFn } from "@ytn/shared/safe/safemode.js";
 import { z } from "zod";
 import { sGateResult, TERMINAL_STEP_ID } from "../core/constants.js";
 import { pushGateIssue } from "../core/zod-issues.js";
-import type { tsGateResultRaw, tsGateResultVoid } from "../types/gate.types.js";
+import type { tsGateResult, tsGateResultRaw, tsGateResultVoid } from "../types/gate.types.js";
 import type {
   tsBoxedStep,
   tsBoxedStepDefHist,
@@ -60,7 +60,7 @@ export const gateWrapper =
     const newhist = [...__history, __step];
 
     const zFn = catchAsyncFn<tsGateResultVoid, [typeof __data, tsWFTools]>(
-      __def.gate,
+      __def.gate as (data: unknown, tools: tsWFTools) => tsGateResult<any>,
     );
     const [err, res] = await zFn(
       __data,

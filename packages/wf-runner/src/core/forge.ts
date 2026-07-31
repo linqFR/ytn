@@ -60,7 +60,7 @@ export function forgeWorkflowEngine(
           get: (_, signal: string) => {
             if (signal === "end") return getFormatter(TERMINAL_STEP_ID);
             const target = stepDef.on?.[signal];
-            return getFormatter(target ?? TERMINAL_STEP_ID);
+            return getFormatter((target ?? TERMINAL_STEP_ID) as string);
           },
         },
       );

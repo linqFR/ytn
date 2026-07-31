@@ -14,4 +14,4 @@ export const wfSandbox: tsVMSandbox = {
 /**
  * Pre-configured codec using the workflow sandbox configuration
  */
-export const vmCodec = vmCodecFactory<tsWFStep["gate"]>(wfSandbox);
+export const vmCodec = vmCodecFactory<tsWFStep<any, any, string>["gate"]>(wfSandbox);

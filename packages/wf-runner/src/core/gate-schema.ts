@@ -46,6 +46,6 @@ export const schWFGateFn = z.custom<tsWFStep<any, any>['gate']>(
  * @function gate
  * @description Factory to encapsulate a function within the functional wfGateContract.
  */
-export const gate = <F extends tsWFStep["gate"]>(fn: F) =>
+export const gate = <F extends tsWFStep<any, any>["gate"]>(fn: F) =>
   wfGateFnFactory.implement(fn as any);
 

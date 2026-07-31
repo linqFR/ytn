@@ -12,7 +12,7 @@ import type {
   tsSchBoxedStep,
   tsWFSpec,
 } from "../types/runtime.types.js";
-import { tsWFStep } from "../types/step.type.js";
+import type { tsWFStep } from "../types/step.type.js";
 import { schWFDef as wfSchema } from "../core/wf-schema.js";
 import { type tsValidateWorkflow } from "../editor/wf-create.type.js";
 import { createWFContext, type tsWFContext } from "../core/wf-context.js";
@@ -84,7 +84,7 @@ export class WFRunner<TIn = unknown, TOut = unknown> {
     return f;
   }
 
-  private addStep(name: string, stepDef: tsWFStep) {
+  private addStep(name: string, stepDef: tsWFStep<any, any, string>) {
     this.#steps.push(boxedStepSchemaFactory(name, stepDef));
     return this;
   }
@@ -101,7 +101,7 @@ export class WFRunner<TIn = unknown, TOut = unknown> {
           get: (_, signal: string) => {
             if (signal === "end") return this.getFormatter(TERMINAL_STEP_ID);
             const target = stepDef.on?.[signal];
-            return this.getFormatter(target ?? TERMINAL_STEP_ID);
+            return this.getFormatter((target ?? TERMINAL_STEP_ID) as string);
           },
         },
       );

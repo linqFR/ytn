@@ -73,7 +73,7 @@ export const wfCodec = z.codec(
           schema: aot[k].schema,
           on: aot[k].on,
           gate: strZFnCodec.decode(aot[k].gate),
-        } as tsWFStep;
+        } as tsWFStep<any, any, string>;
       }
       return live;
     },

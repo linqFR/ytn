@@ -2,7 +2,7 @@ import { z } from "zod";
 import { type tsWFStep } from "./step.type.js";
 
 /** @type {Record<string, unknown>} tsWFSpec */
-export type tsWFSpec = Record<string, tsWFStep<any, any>>;
+export type tsWFSpec = Record<string, tsWFStep<any, any, string>>;
 
 /** @type {Object} tsBoxedStep */
 export type tsBoxedStep = {
@@ -15,7 +15,7 @@ export type tsBoxedStep = {
 export type tsParsedBoxedStep = {
   __step: string;
   __data: unknown;
-  __def: tsWFStep<any, any>;
+  __def: tsWFStep<any, any, string>;
   /** Optional execution history for this step instance. */
   __history?: string[];
 };

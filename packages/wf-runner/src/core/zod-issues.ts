@@ -1,4 +1,4 @@
-import { RefinementCtx } from "zod";
+import type { RefinementCtx } from "zod";
 
 export const pushGateIssue = (
   ctx: RefinementCtx,
