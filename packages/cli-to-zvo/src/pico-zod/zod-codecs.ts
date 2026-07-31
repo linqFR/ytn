@@ -12,18 +12,15 @@ import { z } from "zod";
 export const makeEmptyTo = <T extends z.ZodTypeAny>(
   targetStr: string,
   fallback: T,
-) =>
-  z.coerce.string().pipe(
-    z.preprocess((v) => {
-      const s = typeof v === "string" ? v.toLowerCase() : "";
-      return s === targetStr || s === ""
-        ? fallback instanceof z.ZodNull
-          ? null
-          : undefined
-        : v;
-    }, fallback),
-  );
-
+): z.ZodType<z.infer<T>, unknown> =>
+  z.preprocess((v) => {
+    const s = typeof v === "string" ? v.toLowerCase() : "";
+    return s === targetStr || s === ""
+      ? fallback instanceof z.ZodNull
+        ? null
+        : undefined
+      : v;
+  }, fallback) as z.ZodType<z.infer<T>, unknown>;
 
 /**
  * @function csvPreProcess

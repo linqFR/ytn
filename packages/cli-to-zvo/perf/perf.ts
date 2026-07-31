@@ -2,9 +2,10 @@ import { performance } from "node:perf_hooks";
 
 import { defineContract, pico } from "../src/editor.js";
 import { execute } from "../src/index.js";
+import type { tsPico } from "../src/editor.js";
 
 const createContractWithTargets = (targetCount: number) => {
-  const targets: Record<string, Record<string, unknown>> = {};
+  const targets: Record<string, Record<string, tsPico>> = {};
 
   for (let i = 0; i < targetCount; i++) {
     targets[`action${i}`] = {
