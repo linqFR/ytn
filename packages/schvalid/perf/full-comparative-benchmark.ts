@@ -1,9 +1,7 @@
-import Ajv2020 from "ajv/dist/2020.js";
+import { Ajv2020 as Ajv } from "ajv/dist/2020.js";
 import { z } from "zod";
 import { validator as validatorDnaNormal, parser as parserDnaNormal } from "@ytn/dna/toJs";
 import { jschemaToDna, schvalid as schvalidNormal } from "../src/index.js";
-
-const Ajv = Ajv2020;
 
 type BenchmarkStats = {
   mean: number;

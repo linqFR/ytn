@@ -1,4 +1,4 @@
-// import type { namerFn } from "./toJS/utils.js";
+import type { namerFn } from "./utils.js";
 
 export const parseType = (rawType: any): { isNullable: boolean; types: string[] } => {
   const isNullable = Array.isArray(rawType)
