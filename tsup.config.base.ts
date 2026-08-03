@@ -1,47 +1,46 @@
-import { defineConfig, type Options } from "tsup";
+import { defineConfig, type Options, type Format } from "tsup";
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+const outExtension = ({ format }: { format: Format }) => ({
+  js: format === "esm" ? ".js" : ".cjs",
+  dts: ".d.ts",
+});
+
 /**
- * @constant commonConfig
- * @description Common build configuration for all YTN packages.
- * Targets Modern ESM with full source maps and clean outputs.
+ * Common build configuration for all YTN packages.
+ * Targets modern ESM with source maps and inlined @ytn/shared.
  */
 export const commonConfig: Options = {
-  format: ["esm"],
-  dts: { resolve: false },
-  splitting: false,
-  sourcemap: true,
-  clean: true,
-  target: "esnext",
   outDir: "dist",
+  format: ["esm"],
+  sourcemap: true,
+  target: "esnext",
+  outExtension,
+  dts: { resolve: ["@ytn/shared"], compilerOptions: { ignoreDeprecations: "6.0" } },
+  bundle: true,
+  splitting: false,
+  treeshake: true,
   external: ["acorn", "acorn-walk", "zod"],
   noExternal: ["@ytn/shared"],
-  treeshake: true,
+  platform: "node",
 };
 
 /**
- * @constant minConfig
- * @description Configuration for minified production builds.
- * Typically used for the primary library entry point.
+ * Configuration for minified production builds.
  */
 export const minConfig: Options = {
   ...commonConfig,
   minify: true,
   dts: false,
-  clean: false, // Must be false to preserve standard builds
+  clean: false,
 };
 
 /**
- * @function buildConfig
- * @description The primary orchestration helper for YTN package builds.
+ * Build configuration orchestration for YTN packages.
  *
- * @param {string} cwd - The workspace directory of the package (process.cwd()).
- * @param {Object} [options] - Configuration overrides.
- * @param {Record<string, Options>} [options.overrides] - Specific tsup options per entry point name.
- * @param {Options} [options.base] - Override the commonConfig defaults.
- * @param {string[]} [options.external] - Libraries to exclude from bundling.
- * @param {boolean} [options.min] - Toggle automatic .min.js generation for public entries. Default: true.
+ * @param cwd - Package directory (process.cwd()).
+ * @param options - Optional overrides per entry, base config, extra externals and min toggle.
  */
 export function buildConfig(
   cwd: string,
@@ -53,47 +52,57 @@ export function buildConfig(
   } = {},
 ) {
   const { overrides = {}, base = commonConfig, external, min = true } = options;
-  const { entries, dts } = getEntriesFromPackage(cwd);
+  const { entries, publicKeys } = getEntriesFromPackage(cwd);
   const configs: Options[] = [];
+  let isFirst = true;
 
   for (const [name, entryPath] of Object.entries(entries)) {
-    const isPublic = dts.entry.includes(entryPath);
-    const entryOptions: Options = {
-      ...base,
-      ...(external ? { external } : {}),
-      ...overrides[name],
-      entry: { [name]: entryPath },
-      dts: isPublic,
-      tsconfig: join(cwd, "tsconfig.json"),
-      clean: configs.length === 0,
-    };
+    const isPublic = publicKeys.has(name);
+    const baseExternal = base.external;
+    const finalExternal = external
+      ? [
+          ...(Array.isArray(baseExternal) ? baseExternal : []),
+          ...external,
+        ]
+      : baseExternal;
 
-    configs.push(entryOptions);
+    configs.push({
+      ...base,
+      ...overrides[name],
+      external: finalExternal,
+      entry: { [name]: entryPath },
+      dts: isPublic ? base.dts : false,
+      tsconfig: join(cwd, "tsconfig.json"),
+      clean: isFirst,
+    });
 
     if (min && isPublic) {
+      const minExternal = minConfig.external;
+      const finalMinExternal = external
+        ? [
+            ...(Array.isArray(minExternal) ? minExternal : []),
+            ...external,
+          ]
+        : minExternal;
+
       configs.push({
         ...minConfig,
+        ...overrides[name],
+        external: finalMinExternal,
         entry: { [`${name}.min`]: entryPath },
         dts: false,
         clean: false,
       });
     }
+
+    isFirst = false;
   }
 
   return defineConfig(configs);
 }
 
 /**
- * @function getEntriesFromPackage
- * @description Introspective scanner that maps `package.json` definitions to source files.
- *
- * Logic:
- * - Scans `exports`: Every file defined here is a public API entry point and requires `.d.ts`.
- * - Scans `bin`: Binaries are private executables and do not generate type definitions.
- * - Validation: Strictly enforces that every defined export/bin has a matching file in `src/`.
- *
- * @param {string} cwd - The package directory.
- * @returns {Object} An object containing the entry map.
+ * Scan package.json exports (and bins) to derive source entries for tsup.
  */
 export function getEntriesFromPackage(cwd: string) {
   const pkgPath = resolve(cwd, "package.json");
@@ -104,7 +113,6 @@ export function getEntriesFromPackage(cwd: string) {
   const publicKeys = new Set<string>();
 
   for (const [key] of Object.entries(exports)) {
-    // if (key === "./min" || key.endsWith("/min")) continue;
     if (key.endsWith("/min")) continue;
     const entryName = key === "." ? "index" : key.replace("./", "");
     const tsFile = `${entryName}.ts`;
@@ -135,12 +143,5 @@ export function getEntriesFromPackage(cwd: string) {
     }
   }
 
-  return {
-    entries,
-    dts: {
-      resolve: false,
-      entry: Array.from(publicKeys).map((k) => entries[k]),
-    },
-    tsconfig: join(cwd, "tsconfig.json"),
-  };
+  return { entries, publicKeys };
 }

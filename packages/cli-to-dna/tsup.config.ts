@@ -1,19 +1,8 @@
-import { defineConfig } from "tsup";
-import { commonConfig, minConfig } from "../../tsup.config.base.js";
+import { buildConfig, commonConfig } from "../../tsup.config.base.ts";
 
-export default defineConfig([
-  {
+export default buildConfig(process.cwd(), {
+  base: {
     ...commonConfig,
     dts: false,
-    external: [...(commonConfig.external ?? []), "@ytn/dna"],
-    entry: { index: "src/index.ts" },
-    clean: true,
   },
-  {
-    ...minConfig,
-    dts: false,
-    external: [...(minConfig.external ?? []), "@ytn/dna"],
-    entry: { "index.min": "src/index.ts" },
-    clean: false,
-  },
-]);
+});
