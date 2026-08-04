@@ -19,8 +19,12 @@
     "types": [ "node" ]
   },
   "include": [
-    "shared/**/*.ts",
-    "packages/**/*.ts"
+    "packages/**/src/**/*.ts",
+    "packages/**/sandbox/**/*.ts",
+    "packages/**/tests/**/*.ts",
+    "shared/**/src/**/*.ts",
+    "shared/**/sandbox/**/*.ts",
+    "shared/**/tests/**/*.ts"
   ],
   "exclude": [
     "**/_archive",
@@ -34,8 +38,6 @@
     "**/dist",
     "**/docs",
     "**/node_modules",
-    "**/tests/json-schema-suite/bin/*",
-    // "packages/dna/tests/**/*.ts",
-    // "**/sandbox/**/*.ts"
+    "**/tests/json-schema-suite/bin/*"
   ]
 }
