@@ -985,11 +985,14 @@ This section documents the planned refactor to be executed in the next session. 
 
 ### 14.1 Goal
 
-Make recursive object schemas type-check without `dna.lazy()` or explicit type annotations, by aligning DNA's type model with Zod V4:
+Port the validated Zod-like prototype from `packages/dna/sandbox/zod-like-type-architecture/` into `packages/dna/src/` so that recursive object, array, union, and lazy schemas type-check without `tsc` OOM, matching the sandbox results.
 
-- `Output` / `Input` must **not** be class-level generics for `DnaObject`.
-- `Output` / `Input` must be stored in `_core` (or a `def` object) and extracted at use sites via conditional helpers.
-- `DnaType` / `DnaBase` must become generic in an opaque `Def` type, not in `Output` / `Input`.
+Validated in the sandbox:
+
+- `Output` / `Input` are class-level generics on `DnaType` / `DnaObject` / `DnaArray`.
+- They are extracted at use sites via conditional helpers `$Output<S>` / `$Input<S>`.
+- `_core` (or `def`) is an opaque `Def` object carrying `shape`, `output`, `input`, and `kind`.
+- `dna.lazy()` and explicit `DnaType<T, I>` annotations are acceptable for direct self-reference, but `DnaObject` with `get` self-references works when the outer variable is explicitly typed.
 
 ### 14.2 Files to change
 
@@ -1001,35 +1004,37 @@ Make recursive object schemas type-check without `dna.lazy()` or explicit type a
 | `packages/dna/src/builder/api-primitives.ts` | Update `dna.object`, `dna.array`, `dna.string`, etc. to return `DnaType<any, any, Def>` with `Def` carrying `output` / `input`. |
 | `packages/dna/src/builder/api-enhanced.ts` and combinators | Update all `IDnaType` references to use the new `Def` shape. |
 | `packages/dna/src/fromDna/index.ts` | Fix `DnaObject` / `DnaArray` imports (use `_DnaObject` / `_DnaArray` or re-export). |
-| `packages/dna/tests/zod-test-suite/recursive-types.ts` | Re-enable after the refactor. |
-| `packages/dna/tests/zod-test-suite/lazy.ts` | Re-enable after the refactor. |
-| `E:/Antigravity/ytn/tsconfig.base.json` | Remove `packages/dna/tests/**/*.ts` and `**/sandbox/**/*.ts` excludes once the refactor is complete. |
+| `packages/dna/tsconfig.diag.json` | Create a diagnostic tsconfig that checks only `packages/dna/src/` and `shared/` while the refactor is in progress. |
+| `packages/dna/tests/zod-test-suite/recursive-types.ts` | Verify it type-checks after the refactor; it is already included via the central `tsconfig.base.json`. |
+| `packages/dna/tests/zod-test-suite/lazy.ts` | Verify it type-checks after the refactor; it is already included via the central `tsconfig.base.json`. |
 
 ### 14.3 Step-by-step execution plan
 
 1. **Backup / branch** : `git checkout -b dna/zod-like-types`.
-2. **Simplify `helpers.types.ts`** :
-   - Remove `TsType`.
-   - Set `$DnaOut<S> = S extends { _core: { output: infer O } } ? O : unknown`.
-   - Set `$DnaIn<S> = S extends { _core: { input: infer I } } ? I : unknown`.
+2. **Create `packages/dna/tsconfig.diag.json`** :
+   - `extends: "../../tsconfig.base.json"`
+   - `include: ["src/**/*.ts", "../../shared/**/*.ts"]`
+   - `exclude: ["**/node_modules", "**/dist", "**/tests", "**/sandbox", "**/_archive"]`
+3. **Simplify `src/types/helpers.types.ts`** :
+   - Remove `TsType<Out, In>`.
+   - Set `$DnaOut<S> = S extends { _output: infer O } ? O : unknown`.
+   - Set `$DnaIn<S> = S extends { _input: infer I } ? I : unknown`.
    - Keep `$Output` / `$Input` as aliases.
-3. **Redefine `IDnaType` and `DnaBase`** :
-   - `IDnaType<T, I, Def>` with `_core: BaseCore<Def>`, `_output: T`, `_input: I` (phantom).
+4. **Redefine `IDnaType` and `DnaBase` in `src/builder/dna-interfaces.ts`** :
+   - `IDnaType<T, I, Def>` with `_core: BaseCore<Def>`, `_output: T`, `_input: I`.
    - `DnaBase<T, I, Def>` implements `IDnaType<T, I, Def>`.
-4. **Redefine `DnaObject`** :
-   - `DnaObject<Shape>` extends `DnaType<any, any, DnaObjectDef<Shape>>`.
-   - `DnaObjectDef<Shape>` contains `shape`, `output`, `input`, `objType`, `propertySchemas`, etc.
-   - `DnaObject` declares `readonly _output: Out` and `readonly _input: In` in addition to `_core`.
-5. **Update `dna.object` factory** :
-   - `dna.object<Out, In>(shape)` : `Out` and `In` are explicitly computed or provided by context.
-   - Default `Out` / `In` are inferred from `_core.output` / `_core.input` of each property, not from a mapped type over `Shape`.
-6. **Update wrappers** (`DnaOptional`, `DnaArray`, `DnaDefault`, etc.) :
-   - All extend `DnaType<any, any, Def>` with `Def` carrying `output` / `input`.
-   - `DnaOptional<S extends IDnaType>` has `Def` pointing to `S` plus `optout`/`optin`.
-7. **Update `fromDna/index.ts`** :
-   - Replace `DnaObject` / `DnaArray` with `_DnaObject` / `_DnaArray` or re-export them.
-8. **Run `npx tsc6 --noEmit` after each file group**.
-9. **Re-enable tests** one by one, starting with `recursive-types.ts`.
+   - `DnaType<T, I, Def>` extends `DnaBase` and keeps the fluent API.
+5. **Redefine `DnaObject`, `DnaArray`, and `DnaLazy`** :
+   - `DnaObject<Shape, Out = $ObjectOutput<Shape>, In = $ObjectInput<Shape>> extends DnaType<Out, In, DnaObjectDef<Shape>>`.
+   - `DnaObjectDef<Shape>` is `{ kind: "object"; shape: Shape; ... }` and is derived from `Shape`, not a free generic.
+   - `$DnaObjectOutput<Shape>` and `$DnaObjectInput<Shape>` are kept and terminate on `DnaLazy` via conditional extraction.
+   - `DnaArray<T extends DnaBase<unknown, unknown>> extends DnaType<$Output<T>, $Input<T>, DnaArrayDef<T>>`.
+   - `DnaLazy<S extends IDnaType<any, any>> extends DnaType<$Output<S>, $Input<S>, DnaLazyDef<S>>` with the `getter` (or `get`, to be confirmed) property that resolves the inner schema.
+6. **Update `dna.object`, `dna.array`, and primitive factories** in `src/builder/api-primitives.ts` and `api-enhanced.ts`.
+7. **Update wrappers** (`DnaOptional`, `DnaNullable`, `DnaDefault`, `DnaReadonly`, `DnaBrand`, etc.).
+8. **Run `npx.cmd tsc --noEmit -p packages/dna/tsconfig.diag.json` after each file group**.
+9. **Fix `src/fromDna/index.ts` and combinators** (`DnaCombinator`, `DnaTuple`, `DnaRecord`, etc.).
+10. **Verify tests** : run `npm.cmd test -w @ytn/dna`, then `npx.cmd tsc --noEmit -p packages/dna/tsconfig.json`.
 
 ### 14.4 Risks
 
@@ -1045,9 +1050,10 @@ Make recursive object schemas type-check without `dna.lazy()` or explicit type a
 
 ### 14.6 Success criteria
 
-1. `npx tsc6 --noEmit` in `packages/dna` completes **without OOM** and with **zero errors**.
-2. `npm.cmd test -w @ytn/dna` passes.
-3. `packages/dna/tests/zod-test-suite/recursive-types.ts` and `lazy.ts` can be removed from `tsconfig.base.json` exclude.
+1. `npx.cmd tsc --noEmit -p packages/dna/tsconfig.diag.json` completes **without OOM** and with **zero errors**.
+2. `npx.cmd tsc --noEmit -p packages/dna/tsconfig.json` (full package, including `tests` and `sandbox`) reports **zero errors**.
+3. `npm.cmd test -w @ytn/dna` passes.
+4. `npx.cmd tsc --noEmit` at the repo root completes without OOM (the full monorepo is now already covered by the central `tsconfig.base.json`).
 
 ---
 
@@ -1122,47 +1128,47 @@ A patchwork of `as unknown as T` casts at each call site would silence `tsc6`, b
 
 ### 16.2 Proposed implementation plan (executable checklist)
 
-The only direct path to a clean `npx tsc6 --noEmit` is to implement the Zod-like architecture from Section 14. Below is a concrete order of operations, designed to be executed one step at a time with a local `packages/dna/tsconfig.diag.json` for verification.
+The sandbox in `packages/dna/sandbox/zod-like-type-architecture/` has validated the target architecture. The implementation port is now a matter of applying the same pattern to the production `src/` files. Below is an updated order of operations, designed to be executed one step at a time with a local `packages/dna/tsconfig.diag.json` for verification.
 
 1. **Create a local diagnostic tsconfig**.
    ```
    packages/dna/tsconfig.diag.json
    ```
    - `extends: "../../tsconfig.base.json"`
-   - `include: ["../../shared/**/*.ts", "src/**/*.ts"]`
+   - `include: ["src/**/*.ts", "../../shared/**/*.ts"]`
    - `exclude: ["**/node_modules", "**/dist", "**/tests", "**/sandbox", "**/_archive"]`
 
 2. **Simplify `src/types/helpers.types.ts`**.
    - Remove `TsType<Out, In>`.
    - Replace `$DnaOut<S>` and `$DnaIn<S>` with `S extends { _output: infer O } ? O : unknown` and `S extends { _input: infer I } ? I : unknown`.
-   - Remove `$DnaObjectOutput` and `$DnaObjectInput` mapped types (or replace them with direct `_output`/`_input` reads).
+   - Keep `$DnaObjectOutput` and `$DnaObjectInput` as helpers that terminate on `DnaLazy`.
    - Update every `$Output`/`$Input` consumer to the new extraction.
 
 3. **Refactor `src/builder/dna-interfaces.ts` (the core of the change)**.
    - `IDnaType<T, I, Def>`: only `_core: BaseCore<Def>`, `_output: T`, `_input: I`.
    - `DnaBase<T, I, Def>`: implements `IDnaType<T, I, Def>`, carries the `Def` generic in `_core`.
    - `DnaType<T, I, Def>`: extends `DnaBase` and keeps the fluent API.
-   - `DnaObject<Shape, Def>` / `_DnaObject<Shape, Def>`: store `output`, `input` inside `Def`; stop deriving `T`/`I` from `Shape` at the class level.
-   - `DnaArray<S, Def>`: same treatment; `Def` carries `itemSchema` and `output`/`input`.
-   - Wrappers (`_DnaWrapper`, `DnaOptional`, etc.): update to `Def`-based typing, remove duplicate `_output`/`_input` declarations that shadow `DnaBase`.
+   - `DnaObject<Shape, Out = $ObjectOutput<Shape>, In = $ObjectInput<Shape>> extends DnaType<Out, In, DnaObjectDef<Shape>>` with `DnaObjectDef<Shape>` derived from `Shape`.
+   - `DnaArray<S extends IDnaType<any, any>> extends DnaType<$Output<S>, $Input<S>, DnaArrayDef<S>>`.
+   - `DnaLazy<S extends IDnaType<any, any>> extends DnaType<$Output<S>, $Input<S>, DnaLazyDef<S>>` with a `getter`/`get` property (to be reconciled with `toJs`).
+   - Wrappers (`_DnaWrapper`, `DnaOptional`, etc.): update to `T`/`I`/`Def` typing, remove duplicate `_output`/`_input` declarations that shadow `DnaBase`.
 
 4. **Retype `src/builder/dna-core.ts`**.
    - `bindMethods<T>(inst: T, ...): T` (or `T extends DnaBase`).
    - `initDna<T, I, Def>(cls: new () => IDnaType<T, I, Def>, ...): IDnaType<T, I, Def>`.
-   - Add `output` and `input` fields (or getters) on `BaseCore<Def>` where the `Def` shape requires them.
 
 5. **Update factory signatures in `src/builder/api-primitives.ts` and `src/builder/api-enhanced.ts`**.
-   - `dna.object<T, I>(shape)` returns `DnaObject<Shape, Def>` with explicit `T`/`I` when provided.
-   - Default inference uses direct `_output`/`_input` extraction per property, not a recursive mapped type over `Shape`.
+   - `dna.object(shape)` returns `DnaObject<typeof shape, Out, In>` with `Out`/`In` inferred from the shape.
+   - Default inference uses direct `_output`/`_input` extraction per property, terminating on `DnaLazy`.
 
 6. **Fix `src/fromDna/index.ts` and combinators**.
-   - Replace public `DnaObject`/`DnaArray` instantiations with `_DnaObject`/`_DnaArray`.
-   - Update `DnaCheckProperty` constraints to `DnaType`/`DnaBase` where the new `Def` model requires it.
+   - Replace public `DnaObject`/`DnaArray` instantiations with `_DnaObject`/`_DnaArray` if needed.
+   - Update `DnaCheckProperty` constraints to `DnaType`/`DnaBase` where the new model requires it.
 
-7. **Verify and re-enable tests**.
-   - Run `npx.cmd tsc6 --noEmit -p packages/dna/tsconfig.diag.json` after each step above.
+7. **Verify tests**.
+   - Run `npx.cmd tsc --noEmit -p packages/dna/tsconfig.diag.json` after each step.
    - Once `src/` is clean, run `npm.cmd test -w @ytn/dna`.
-   - Restore `packages/dna/tests/zod-test-suite/recursive-types.ts` and `lazy.ts` only when they type-check without OOM.
+   - Run `npx.cmd tsc --noEmit -p packages/dna/tsconfig.json` to ensure `tests` and `sandbox` also pass.
 
 ### 16.3 What will not be touched
 
@@ -1175,8 +1181,1006 @@ To stay within the spirit of a type-only repair:
 
 ### 16.4 Definition of done
 
-1. `npx.cmd tsc6 --noEmit -p packages/dna/tsconfig.diag.json` reports zero errors.
-2. `npm.cmd test -w @ytn/dna` passes.
-3. The full monorepo `npx.cmd tsc6 --noEmit` no longer OOM and the recursive test files can be included.
+1. `npx.cmd tsc --noEmit -p packages/dna/tsconfig.diag.json` reports zero errors.
+2. `npx.cmd tsc --noEmit -p packages/dna/tsconfig.json` reports zero errors.
+3. `npm.cmd test -w @ytn/dna` passes.
+4. `npx.cmd tsc --noEmit` at the repo root completes without OOM.
 
 *Section added after a direct-fix attempt showed the errors are structural rather than isolated.*
+
+---
+
+## 17. Sandbox Prototype — Zod-like Recursive Architecture
+
+### 17.1 Motivation and context
+
+The working tree at the time of the prototype still used `TsType<Out, In>` as a third phantom parameter on every schema, and `$DnaOut<S>` / `$DnaIn<S>` extracted `S["_ts"]["output"]` / `S["_ts"]["input"]` through that phantom. When `DnaObject<Shape>` derived its `Out` / `In` from `$DnaObjectOutput<Shape>` and `$DnaObjectInput<Shape>`, any recursive `Shape` caused an infinite expansion inside the mapped type. The type checker crashed with OOM before reporting useful errors.
+
+The sandbox asked: if we drop the `TsType` indirection and treat `Output` / `Input` as plain class-level generics, can we make the same recursive tests compile? The answer was yes, but only when recursion is broken by either `dnaLazy` or an explicit `DnaObject<any, Out, In>` annotation.
+
+This section is the detailed record of that exploration. It should be read together with Section 11 (Zod-inspired architecture), Section 14 (refactor plan), and Section 16 (direct-fix assessment) before any production work is attempted.
+
+### 17.2 Sandbox file inventory
+
+The prototype lives in `packages/dna/sandbox/zod-like-type-architecture/` and consists of the following files. Each one is self-contained and uses only local imports.
+
+- `types.ts` — `IDnaType`, `BaseCore`, and the `$Output` / `$Input` helpers.
+- `schema.ts` — `DnaBase`, `DnaType`, primitives (`DnaString`, `DnaNumber`, `DnaBigint`, `DnaBoolean`, `DnaNull`), wrappers (`DnaOptional`, `DnaNullable`, `DnaDefault`), and free functions `dnaOptional` / `dnaNullable`.
+- `object.ts` — `DnaObject<Shape, Out, In>`, `dnaObject`, `$ObjectOutput` / `$ObjectInput`, and the optional-key detectors `IsOutputOptional` / `IsInputOptional`.
+- `array.ts` — `DnaArray` and `dnaArray`.
+- `union.ts` — `DnaUnion` and `dnaUnion`.
+- `lazy.ts` — `DnaLazy<S>` and `dnaLazy`.
+- `mine.ts` — side-by-side DNA / Zod v4 assertions for basic and recursive cases.
+- `lazy-tests.ts` — calque of `packages/dna/tests/zod-test-suite/lazy.ts` and `recursive-types.ts`.
+- `recursive-test.ts` — standalone recursive patterns.
+- `recur_test_dna.ts`, `recur_test_four.ts`, `recur_test_ulazy.ts` — calques of the original `packages/dna/sandbox/recur_test_*.ts` scratches.
+- `recur_test_interface.ts` — interface-based calque, not type-checked with the rest.
+- `compile-check.ts` — minimal smoke tests.
+- `AUDIT.md` — short session summary.
+
+During the session a temporary `inspect.ts` file was created and removed. It was used only to verify IDE hover output and should not be treated as part of the deliverable.
+
+### 17.3 Core type model
+
+The prototype drops the `TsType` phantom and uses two plain type parameters plus a definition parameter:
+
+```ts
+// packages/dna/sandbox/zod-like-type-architecture/types.ts
+
+export interface BaseCore<Def> {
+  readonly def: Def;
+}
+
+export interface IDnaType<T = unknown, I = unknown> {
+  readonly _core: BaseCore<unknown>;
+  readonly _output: T;
+  readonly _input: I;
+}
+
+export type $Output<S> = S extends { _output: infer O } ? O : unknown;
+export type $Input<S>  = S extends { _input:  infer I } ? I : unknown;
+```
+
+`$Output` and `$Input` are not recursive. They read a single property. This is the simplest extractor that could work and the direct analog of Zod v4's `output<T>` / `input<T>` helpers, which read `T["_zod"]["output"]` and `T["_zod"]["input"]`.
+
+`DnaType` becomes a generic class:
+
+```ts
+// packages/dna/sandbox/zod-like-type-architecture/schema.ts
+
+export abstract class DnaType<T, I, Def> implements IDnaType<T, I> {
+  abstract readonly _core: BaseCore<Def>;
+  readonly _output!: T;
+  readonly _input!: I;
+
+  optional(): DnaOptional<this>;
+  nullable(): DnaNullable<this>;
+  default(value: $Input<this>): DnaDefault<this>;
+  // ... other wrappers
+}
+```
+
+Concrete classes extend it. `DnaString` is `DnaType<string, string, DnaStringDef>`. `DnaOptional<S>` is `DnaType<$Output<S> | undefined, $Input<S> | undefined, DnaOptionalDef<S>>`.
+
+The key departure from the production `src/` is that `_ts: TsType<T, I>` is gone. `_output` and `_input` are declared directly on the class, and `$Output` / `$Input` read them directly. There is no extra `TsType` object to expand during recursion.
+
+### 17.4 The `DnaLazy` indirection
+
+The most important single piece is `DnaLazy<S>`:
+
+```ts
+// packages/dna/sandbox/zod-like-type-architecture/lazy.ts
+
+export interface DnaLazyDef<S extends IDnaType<any, any>> {
+  readonly kind: "lazy";
+  readonly getter: () => S;
+}
+
+export class DnaLazy<S extends IDnaType<any, any>>
+  extends DnaType<$Output<S>, $Input<S>, DnaLazyDef<S>> {
+  constructor(public getter: () => S) {
+    super({ kind: "lazy", getter });
+  }
+
+  unwrap(): S {
+    return this.getter();
+  }
+}
+```
+
+`DnaLazy` does not expand `S`. It stores `S` as a type parameter and reads `S._output` / `S._input`. When `S` is a `DnaObject<any, Category, Category>`, `DnaLazy` `_output` becomes `Category` immediately. There is no mapped type over the `DnaObject` shape, so the type checker does not descend into the cycle.
+
+This is the same pattern as `z.lazy<T>(() => ...).ZodType<T>`: the recursive reference is named and bounded, not expanded. In the original DNA source the `DnaLazy` equivalent existed at runtime (`ref` opcodes and `tsDnaId`) but the compile-time type still tried to expand the target, which is the mismatch this prototype fixes.
+
+### 17.5 `DnaObject` and the `Shape, Out, In` order
+
+`DnaObject` is declared as:
+
+```ts
+// packages/dna/sandbox/zod-like-type-architecture/object.ts
+
+export class DnaObject<
+  Shape extends Record<string, IDnaType<any, any>>,
+  Out = $ObjectOutput<Shape>,
+  In = $ObjectInput<Shape>,
+> extends DnaType<Out, In, DnaObjectDef<Shape>> {
+  constructor(readonly shape: Shape) {
+    super({ kind: "object", shape });
+  }
+}
+
+export function dnaObject<Shape extends Record<string, IDnaType<any, any>>>(
+  shape: Shape,
+): DnaObject<Shape> {
+  return new DnaObject(shape);
+}
+```
+
+`Out` and `In` have defaults so that non-recursive objects like `sO = dnaObject({ key: dnaString() })` still infer `{ key: string }` automatically. The factory returns `DnaObject<Shape>`, which expands to `DnaObject<Shape, $ObjectOutput<Shape>, $ObjectInput<Shape>>`.
+
+For recursive objects the caller supplies `Out` and `In` explicitly:
+
+```ts
+// packages/dna/sandbox/zod-like-type-architecture/mine.ts
+
+type Category = { name: string; subcategories?: (Category[] | null | undefined) };
+
+const CategoryDna: DnaLazy<DnaObject<any, Category, Category>> = dnaLazy(() =>
+  dnaObject({
+    name: dnaString(),
+    subcategories: dnaArray(CategoryDna).optional().nullable(),
+  }),
+);
+```
+
+`Shape` is `any` because the actual shape contains `CategoryDna` itself. The explicit `Out = Category` and `In = Category` prevent the type checker from trying to derive them from `Shape`. This is the central trick that makes the file compile: `Out` is already known, so `$ObjectOutput<Shape>` does not have to be evaluated for the recursive branch.
+
+The same pattern is used for `LinkedList`, mutual `A` / `B`, and the `ComplicatedCategory` examples in `lazy-tests.ts` and `recursive-test.ts`.
+
+### 17.6 Optional-key detection
+
+Optional properties are split between output and input, matching Zod v4 semantics. The object mapped types use two optional-key sets:
+
+```ts
+// packages/dna/sandbox/zod-like-type-architecture/object.ts
+
+type IsOutputOptional<V extends IDnaType<any, any>> = undefined extends $Output<V> ? true : false;
+type IsInputOptional<V extends IDnaType<any, any>>  = undefined extends $Input<V>  ? true : false;
+```
+
+`$ObjectOutput` and `$ObjectInput` are built from these sets:
+
+```ts
+type $OptionalOutput<T> =
+  [OutputOptionalKeys<T>] extends [never]
+    ? unknown
+    : { [K in OutputOptionalKeys<T>]?: $Output<T[K]> };
+
+export type $ObjectOutput<T> = {
+  [K in Exclude<keyof T, OutputOptionalKeys<T>>]: $Output<T[K]>;
+} & $OptionalOutput<T>;
+```
+
+This produces the following behaviour, verified against Zod v4 in `mine.ts` and `lazy-tests.ts`:
+
+| Wrapper | `$Output` | `$Input` | Output key | Input key |
+|---|---|---|---|---|
+| `.optional()` | `T \| undefined` | `I \| undefined` | optional | optional |
+| `.withDefault(value)` | `T` | `I \| undefined` | required | optional |
+| `.nullable()` | `T \| null` | `I \| null` | required | required |
+| `.optional().nullable()` | `(T \| undefined) \| null` | `(I \| undefined) \| null` | optional | optional |
+
+The `.withDefault()` case was a key fix. Without splitting output and input, a default key would either be required in both or optional in both, neither of which matches Zod v4. In Zod v4, `z.string().default("x")` produces an output of `string` and an input of `string | undefined`; the key is required in the output shape and optional in the input shape. The sandbox matches this exactly.
+
+### 17.7 Zod v4 side-by-side validation
+
+Two files, `mine.ts` and `lazy-tests.ts`, compare DNA-inferred types with Zod v4 types using a compile-time `ExpectSame` assertion:
+
+```ts
+// packages/dna/sandbox/zod-like-type-architecture/mine.ts
+
+type ExpectSame<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
+
+const _sO_same: ExpectSame<dnaInfer<typeof sO>, z.infer<typeof sOz>> = true;
+```
+
+`mine.ts` covers:
+
+- `sO` object vs `z.object`.
+- `s1` number vs `z.number`.
+- `s2` union of number/bigint vs `z.union`.
+- `s1O` optional array vs `z.array().optional()`.
+- `s1OUW` `unwrap()` of optional array.
+- `_args2` object with `f1`, `f2: nullable`, `f3: array(optional()).optional()`.
+- `shapeTest` simple object and `shape` property access.
+- `CategoryDna` / `CategoryZod` recursive category.
+
+`lazy-tests.ts` covers:
+
+- `object` with lazy `a`, `b: optional`, `c: default`.
+- `Category` self-recursion.
+- `LinkedList` recursive union.
+- Mutual `A` / `B` recursion.
+- `ComplicatedCategory` with `nullself`, `optself`, `self`, `subcategories`, `nested`.
+
+The `ExpectSame` assertions on recursive types are not proofs of unannotated inference. Both the DNA and Zod sides are explicitly annotated (`DnaLazy<DnaObject<any, Category, Category>>` and `z.ZodType<Category>`). They validate that the two systems are compatible, not that either one infers the type from scratch. This is a practical compromise: TypeScript cannot infer recursive object types from an unannotated cyclic value without a known bound.
+
+### 17.8 Verification
+
+The sandbox was type-checked with the command:
+
+```powershell
+npx.cmd tsc --noEmit --ignoreConfig --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck packages/dna/sandbox/zod-like-type-architecture/array.ts packages/dna/sandbox/zod-like-type-architecture/compile-check.ts packages/dna/sandbox/zod-like-type-architecture/lazy-tests.ts packages/dna/sandbox/zod-like-type-architecture/lazy.ts packages/dna/sandbox/zod-like-type-architecture/mine.ts packages/dna/sandbox/zod-like-type-architecture/object.ts packages/dna/sandbox/zod-like-type-architecture/recursive-test.ts packages/dna/sandbox/zod-like-type-architecture/recur_test_dna.ts packages/dna/sandbox/zod-like-type-architecture/recur_test_four.ts packages/dna/sandbox/zod-like-type-architecture/recur_test_ulazy.ts packages/dna/sandbox/zod-like-type-architecture/schema.ts packages/dna/sandbox/zod-like-type-architecture/types.ts packages/dna/sandbox/zod-like-type-architecture/union.ts
+```
+
+Result: **exit code 0** at the end of the session.
+
+`recur_test_interface.ts` was not included because it is an interface-based calque, not the class-based prototype. It is kept as a faithful reproduction of the original `packages/dna/sandbox/recur_test_interface.ts` scratch.
+
+### 17.9 Why the `any` in `DnaObject<any, Category, Category>` is the `Shape`
+
+A recurring question was whether putting `any` first changed something. The answer is no: the semantics are the same as the old `DnaObject<Out, In, Shape>` with `Shape = any`. The only change was the order.
+
+Before:
+
+```ts
+DnaObject<Out, In, Shape>
+const Category: DnaObject<Category, Category, any>
+```
+
+After:
+
+```ts
+DnaObject<Shape, Out, In>
+const CategoryDna: DnaLazy<DnaObject<any, Category, Category>>
+```
+
+Both mean `Shape = any`, `Out = Category`, `In = Category`. The `any` is the `Shape` parameter, left vague so that the type checker does not try to resolve the recursive shape. `Out` and `In` are the meaningful parameters and remain explicit in both forms.
+
+### 17.10 The `DnaObject` generic display issue
+
+A recurring observation was that `sO` displays three generic parameters in the IDE:
+
+```ts
+const sO: DnaObject<{ key: DnaString }, { key: string }, { key: string }>
+```
+
+The first parameter is `Shape`, the second is `Out`, the third is `In`. For `sO`, `Out` and `In` are derived from `Shape`, so the hover contains redundant information. The reordering made `Shape` first, but it did not remove the other two.
+
+The only way to get a clean one-parameter hover (`DnaObject<{ key: DnaString }>`) is to separate the API into two types:
+
+- `DnaObject<Shape>` for non-recursive objects, with `Out` and `In` computed internally.
+- `DnaRecursive<Out, In, Shape>` (or `DnaObjectWith<Out, In, Shape>`) for recursive objects where `Out` and `In` must be explicit.
+
+No such split was implemented in the sandbox. The current design keeps a single `DnaObject` with three optional-ish generics because it is the smallest change that proves the recursion fix. A future production port should decide whether the cleaner hover is worth the extra public type.
+
+### 17.11 Open issues
+
+1. **`lazy proxy` test data in `lazy-tests.ts`**
+   The schema `lazyProxyDna = dnaLazy(() => dnaString())` has no `.min(6)` check, yet the test data includes `{ data: "12345", valid: false }`. This is inconsistent. Either the schema needs a length constraint or the test case must be adjusted to `valid: true` or removed.
+
+2. **`recur_test_interface.ts`**
+   The interface-based calque is not type-checked. It is left as a faithful reproduction of the original scratch.
+
+3. **`ExpectSame` on recursive schemas are auto-comparisons**
+   Because both sides are explicitly typed to the same target type (`Category`, `LinkedList`, `AOut`, `BOut`, `ComplicatedCategory`), the `ExpectSame` is comparing the type to itself. This is a useful sanity check but not a proof that the schema would infer the type without the annotation.
+
+4. **`DnaObject` hover verbosity**
+   See §17.10. If the production migration wants clean IDE hovers, the `DnaObject` single-class design is not sufficient.
+
+### 17.12 Relation to the production source
+
+The sandbox validates the ideas in Section 11 and Section 14 but does not touch `packages/dna/src`. The changes that would need to be ported to production are:
+
+- Remove `TsType<Out, In>` and the `_ts` phantom parameter.
+- Change `$DnaOut` / `$DnaIn` to read `_output` / `_input` directly.
+- Store `output` / `input` inside `BaseCore<Def>` or as class-level generics on each schema.
+- Make `DnaObject` generic on `Shape`, `Out`, `In` and require explicit `Out` / `In` for recursive use.
+- Use `DnaLazy` or an explicit `DnaObject<any, T, I>` to name recursive references.
+- Keep optional-key detection split between output and input.
+- Preserve `tsDna` opcodes and runtime `BaseCore` behavior; the change is purely type-level.
+
+### 17.13 Conclusion
+
+The sandbox demonstrates that DNA's recursive-type problem is solvable by aligning the type model with Zod v4: separate `Output` / `Input` from the runtime `Shape`, use lazy indirection, and let explicit type annotations bound recursion. The non-recursive case (`sO`) already works cleanly, and the recursive cases (`Category`, `LinkedList`, `A`/`B`) compile without OOM. The remaining work is to decide whether to accept the verbose three-generic `DnaObject` hover or split it into two public types before porting the model to `packages/dna/src`.
+
+---
+
+## 18. Detailed Diagnostic: Why the Old Model Failed and Why the Sandbox Works
+
+This section expands the technical story. It is meant for anyone who has to maintain or port the prototype in the future.
+
+### 18.1 The `TsType` phantom in the working tree
+
+In the production source the schema classes carry a third phantom parameter `_ts: TsType<T, I>`:
+
+```ts
+// conceptual shape of the pre-sandbox source
+export class DnaBase<T, I, _ts extends TsType<T, I>> { ... }
+export type $DnaOut<S> = S extends { _ts: { output: infer O } } ? O : unknown;
+export type $DnaIn<S>  = S extends { _ts: { input:  infer I } } ? I : unknown;
+```
+
+`TsType` is a small object with two properties, `output` and `input`. It is never present at runtime; it exists only so that `$DnaOut` and `$DnaIn` can recover the output and input of a schema. The problem is that `TsType` is itself a constructed type. When TypeScript expands `S["_ts"]["output"]`, it must first expand `TsType`, which contains `T` and `I`, which in turn may be the result of another `$DnaObjectOutput<...>`. This creates a chain of expansions.
+
+For a non-recursive object the chain is short:
+
+```
+DnaObject<{ key: DnaString }>
+→ _ts: TsType<$DnaObjectOutput<{ key: DnaString }>, $DnaObjectInput<{...}>>
+→ output: { key: string }
+```
+
+For a recursive object the chain has no bound:
+
+```
+DnaObject<{ name: DnaString; subcategories: DnaArray<typeof Category> }>
+→ _ts.output: $DnaObjectOutput<{...}>
+→ subcategories: $DnaOut<DnaArray<typeof Category>>
+→ $DnaOut<typeof Category>
+→ Category._ts.output
+→ $DnaObjectOutput<...>
+→ subcategories: $DnaOut<DnaArray<typeof Category>>
+→ ...
+```
+
+Each time the mapped type `$DnaObjectOutput` is expanded, it steps into the same `DnaObject` and expands it again. Because the cycle is through a mapped type, TypeScript keeps descending until it hits the `TS2589` depth limit or runs out of heap.
+
+### 18.2 The sandbox's direct-property extraction
+
+The sandbox removes the `TsType` indirection. `_output` and `_input` are declared directly on the class:
+
+```ts
+export interface IDnaType<T = unknown, I = unknown> {
+  readonly _core: BaseCore<unknown>;
+  readonly _output: T;
+  readonly _input: I;
+}
+
+export type $Output<S> = S extends { _output: infer O } ? O : unknown;
+```
+
+Now the same trace is:
+
+```
+DnaObject<{ name: DnaString; subcategories: DnaArray<CategoryDna> }, Category, Category>
+→ _output: Category
+```
+
+`Out` is `Category` by contract. There is no mapped type to expand. The type checker stops immediately.
+
+### 18.3 Why `DnaLazy` is the real fix
+
+`DnaLazy<S>` is the indirection. It stores the target schema `S` but does not inline it:
+
+```ts
+export class DnaLazy<S extends IDnaType<any, any>>
+  extends DnaType<$Output<S>, $Input<S>, DnaLazyDef<S>> {
+  constructor(public getter: () => S) { ... }
+  unwrap(): S { return this.getter(); }
+}
+```
+
+The class extends `DnaType<$Output<S>, $Input<S>, ...>`. `$Output<S>` is `S._output`. For `CategoryDna`, `S._output` is `Category`. The class does not need to know the shape of `CategoryDna` in order to know its output. The runtime `getter` produces the concrete schema on demand, but the type is already bounded by the explicit `Out` parameter.
+
+### 18.4 Why explicit `Out` / `In` is necessary for recursion
+
+The `dnaObject` factory returns `DnaObject<Shape>`, which defaults `Out = $ObjectOutput<Shape>` and `In = $ObjectInput<Shape>`. For non-recursive `Shape` this is fine because `Shape` is finite. For recursive `Shape` the default is poison: it triggers the same infinite expansion the prototype is trying to avoid.
+
+The explicit annotation breaks the default:
+
+```ts
+const CategoryDna: DnaLazy<DnaObject<any, Category, Category>> = dnaLazy(() =>
+  dnaObject({ ... })
+);
+```
+
+Here `Out` and `In` are not computed; they are given. `Shape` is `any`, which is the only value that does not force an expansion. This is not a hack: it is the same technique a human would use to give a type to a recursive definition.
+
+### 18.5 The `any` in first position
+
+The order `DnaObject<Shape, Out, In>` was chosen so that non-recursive hovers start with `Shape`. The `any` in `DnaObject<any, Category, Category>` is the `Shape` parameter. Before the reordering the same information was `DnaObject<Category, Category, any>`. The semantics did not change, only the order. The `any` means "the shape is not part of the public type contract for this recursive object".
+
+---
+
+## 19. `DnaObject` Hover and the Two-Type Problem
+
+### 19.1 What the IDE displays for `sO`
+
+For a non-recursive object the hover shows three generic arguments:
+
+```ts
+const sO: DnaObject<{ key: DnaString }, { key: string }, { key: string }>
+```
+
+The second and third are `Out` and `In`, which are perfectly determined by the first (`Shape`). They are redundant for the human reader. The IDE shows them because `DnaObject` is a class with three generics and all three are resolved.
+
+### 19.2 Why the redundancy cannot be removed with one generic
+
+If `DnaObject` were declared as a single generic class:
+
+```ts
+class DnaObject<Shape> extends DnaType<$ObjectOutput<Shape>, $ObjectInput<Shape>, DnaObjectDef<Shape>> { ... }
+```
+
+then `sO` would display as `DnaObject<{ key: DnaString }>`. However, recursive objects could no longer be annotated explicitly, because `Out` and `In` would always be computed from `Shape`. For a recursive `Shape` the computation would again be infinite. There would be no way to write `DnaObject<{ ... CategoryDna ... }>` because the `Shape` itself is cyclic.
+
+### 19.3 The two-type solution
+
+The cleanest long-term design is to split the public API:
+
+```ts
+// Non-recursive: one generic, clean hover.
+export class DnaObject<Shape> extends DnaBase<$ObjectOutput<Shape>, $ObjectInput<Shape>, DnaObjectDef<Shape>> { ... }
+
+// Recursive or explicitly-typed: three generics.
+export class DnaRecursive<Shape, Out, In> extends DnaBase<Out, In, DnaObjectDef<Shape>> { ... }
+```
+
+The factory `dna.object` returns `DnaObject<Shape>` for finite shapes. For recursive shapes, the user either uses `dnaLazy(() => dna.object<Shape, Out, In>(...))` or a dedicated `dna.recursive<Out, In>(...)` factory that returns `DnaRecursive<...>`.
+
+This was not implemented in the sandbox because the goal was to prove that the recursion problem is solvable with the smallest possible change. The split is a follow-up architectural decision.
+
+### 19.4 Why the hover matters
+
+In day-to-day development, `sO` is a schema for `{ key: string }`. A hover that says `DnaObject<{ key: DnaString }, { key: string }, { key: string }>` obscures the user-facing type. It also makes error messages longer. If `DnaObject` is to become the public type, the two-type split is worth the extra implementation cost.
+
+---
+
+## 20. The Zod v4 Calque, File by File
+
+### 20.1 `mine.ts` — the basic bench
+
+`packages/dna/sandbox/zod-like-type-architecture/mine.ts` is the smallest file that exercises the prototype. It is also the one that produced the cleanest `sO` hover and the most immediate feedback.
+
+The file is structured as a list of `ExpectSame` assertions:
+
+```ts
+type dnaInfer<S> = $Output<S>;
+type dnaInput<S> = $Input<S>;
+
+type ExpectSame<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
+
+const _sO_same: ExpectSame<dnaInfer<typeof sO>, z.infer<typeof sOz>> = true;
+```
+
+`ExpectSame` is a compile-time assertion. If the two types are not identical, TypeScript reports `Type 'true' is not assignable to type 'false'`. The file fails at compile time, not at runtime.
+
+The test cases are:
+
+- `sO` / `sOz` — object with one string key.
+- `s1` / `s1z` — number primitive.
+- `s2` / `s2z` — union of number and bigint.
+- `s1O` / `s1Oz` — optional array of numbers.
+- `s1OUW` / `s1OUWz` — `unwrap()` of the optional array.
+- `_args2` / `_args2z` — object with `f1: number`, `f2: nullable string`, `f3: optional array of optional booleans`.
+- `shapeTest` / `shapeTestz` — object with two keys and a `shape` property access.
+- `CategoryDna` / `CategoryZod` — recursive `Category` with optional nullable subcategories.
+
+For each case a `dnaInfer` and `dnaInput` type alias is exposed so the IDE can show the actual inferred type on hover.
+
+### 20.2 `lazy-tests.ts` — the main Zod test-suite calque
+
+`packages/dna/sandbox/zod-like-type-architecture/lazy-tests.ts` is the most complete file. It replicates `packages/dna/tests/zod-test-suite/lazy.ts` and `recursive-types.ts`.
+
+The file defines a `lazyTests` array that contains both DNA and Zod schemas. Each entry has `dnaSchema`, `zodSchema`, and `tests`. The `tests` array is for runtime validation, but the primary purpose of the file is the `ExpectSame` constants declared before the array.
+
+The schemas compared are:
+
+- `object` with lazy `a`, `b: optional`, `c: default`.
+- `schemaGetter` — `dnaLazy(() => dnaString())` vs `z.lazy(() => z.string())`.
+- `lazyProxy` — a string proxy. The DNA side has no `.min(6)`, so the `valid: false` entry for `data: "12345"` is currently inconsistent.
+- `Category` — self-recursive object with `name` and `subcategories`.
+- `LinkedList` — self-recursive union of `null` and an object with `value` and `next`.
+- `A` and `B` — mutual recursion: `A` has a `b: B`, `B` has an optional `a: A`.
+- `ComplicatedCategory` — a category with `age`, `nullself`, `optself`, `self`, `subcategories`, and a nested `sub` object, all using getters to avoid the TDZ.
+
+The `ComplicatedCategory` example was the most difficult to port. It uses TypeScript getters inside the object literal:
+
+```ts
+const complicatedCategoryDna: DnaLazy<
+  DnaObject<any, ComplicatedCategory, ComplicatedCategory>
+> = dnaLazy(() =>
+  dnaObject({
+    name: dnaString(),
+    age: dnaNumber().optional(),
+    get nullself() { return complicatedCategoryDna.nullable(); },
+    get optself()  { return complicatedCategoryDna.optional(); },
+    get self()     { return complicatedCategoryDna; },
+    get subcategories() { return dnaArray(complicatedCategoryDna); },
+    nested: dnaObject({
+      get sub() { return complicatedCategoryDna; },
+    }),
+  }),
+);
+```
+
+This matches the Zod v4 pattern:
+
+```ts
+const complicatedCategoryZod: z.ZodType<ComplicatedCategory> = z.object({
+  name: z.string(),
+  age: z.optional(z.number()),
+  get nullself(): z.ZodType<ComplicatedCategory | null> { return complicatedCategoryZod.nullable(); },
+  // ...
+});
+```
+
+The getter pattern is necessary because `complicatedCategoryDna` is not yet assigned when the object literal is being built. The `get` is evaluated at access time, after the `const` is initialized.
+
+### 20.3 `recur_test_*.ts` — the original scratch calques
+
+These three files reproduce the patterns from `packages/dna/sandbox/recur_test_*.ts`:
+
+- `recur_test_dna.ts` — direct self-reference and `A`/`B` mutual recursion, now using the free functions `dnaOptional` and `dnaNullable`.
+- `recur_test_four.ts` — the same patterns using method chaining (`array().optional().nullable()`).
+- `recur_test_ulazy.ts` — the patterns wrapped in `DnaLazy`.
+- `recur_test_interface.ts` — an interface-based calque, kept as a faithful reproduction but not type-checked.
+
+They were used to verify that the prototype can compile the original recursive scratch files, which were the first place the OOM appeared.
+
+### 20.4 `ExpectSame` and its limits
+
+Every `ExpectSame` in the sandbox is a compatibility check. It does not prove that the schema would infer the type without the explicit annotation. For example:
+
+```ts
+const CategoryDna: DnaLazy<DnaObject<any, Category, Category>> = dnaLazy(() => ...);
+const CategoryZod: z.ZodType<Category> = z.lazy(() => ...);
+const _category_same: ExpectSame<dnaInfer<typeof CategoryDna>, z.infer<typeof CategoryZod>> = true;
+```
+
+Both sides are annotated with `Category`. `ExpectSame` checks that `Category` equals `Category`. It is a sanity check, not an inference proof. The real value is that the DNA schema is *compatible* with the Zod schema: both output `Category` and both input `Category`.
+
+---
+
+## 21. Commands, Diagnostics and Open Issues
+
+### 21.1 The exact verification command
+
+The sandbox was verified with this command:
+
+```powershell
+npx.cmd tsc --noEmit --ignoreConfig --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck packages/dna/sandbox/zod-like-type-architecture/array.ts packages/dna/sandbox/zod-like-type-architecture/compile-check.ts packages/dna/sandbox/zod-like-type-architecture/lazy-tests.ts packages/dna/sandbox/zod-like-type-architecture/lazy.ts packages/dna/sandbox/zod-like-type-architecture/mine.ts packages/dna/sandbox/zod-like-type-architecture/object.ts packages/dna/sandbox/zod-like-type-architecture/recursive-test.ts packages/dna/sandbox/zod-like-type-architecture/recur_test_dna.ts packages/dna/sandbox/zod-like-type-architecture/recur_test_four.ts packages/dna/sandbox/zod-like-type-architecture/recur_test_ulazy.ts packages/dna/sandbox/zod-like-type-architecture/schema.ts packages/dna/sandbox/zod-like-type-architecture/types.ts packages/dna/sandbox/zod-like-type-architecture/union.ts
+```
+
+Result: **exit code 0**.
+
+The `--ignoreConfig` flag is used because the sandbox files are not part of the normal `tsconfig.json` and the root config attempts to type-check the whole monorepo. `--ignoreConfig` lets the command specify the exact files.
+
+`recur_test_interface.ts` was intentionally excluded because it is an alternative architecture calque, not the class-based prototype.
+
+### 21.2 Open issue: `lazy proxy` test data
+
+`lazy-tests.ts` contains:
+
+```ts
+const lazyProxyDna = dnaLazy(() => dnaString());
+const lazyProxyZod = z.lazy(() => z.string());
+// ...
+{ description: "invalid length 5", data: "12345", valid: false },
+```
+
+The DNA `dnaString()` has no length constraint. There is no `.min(6)` in the prototype, so `data: "12345"` has no reason to be invalid. Either the DNA schema needs a length check (which would require adding a `.min` method not present in the sandbox) or the test data must be corrected to `valid: true` or removed.
+
+### 21.3 Open issue: `recur_test_interface.ts`
+
+`recur_test_interface.ts` is an interface-only calque. It is not type-checked because the class-based prototype is the one being validated. The file is left as a faithful reproduction of the original `packages/dna/sandbox/recur_test_interface.ts` scratch, which itself was an exploration, not a compiled solution.
+
+### 21.4 Open issue: `ExpectSame` is not a regression test
+
+The `ExpectSame` constants are compile-time assertions, not unit tests. They do not run with `npm test`. They are useful for exploration, but a production port should add `expectTypeOf` tests in Vitest, as required by the project testing guidelines.
+
+### 21.5 Open issue: `DnaObject` hover
+
+See Section 19. The three-generic hover is the largest remaining ergonomic problem. The two-type split is the recommended long-term fix.
+
+---
+
+## 22. Migration Plan to Production
+
+This plan is an updated version of Sections 11, 14, 17.12 and the proposed Zod-like architecture. It is meant to be the starting point for a real refactor of `packages/dna/src`.
+
+### 22.1 Goal
+
+Make the `packages/dna/tests/zod-test-suite/recursive-types.ts` and `lazy.ts` tests type-check without excluding them from `tsconfig.base.json`, while keeping the runtime `tsDna` bytecode and `BaseCore` unchanged.
+
+### 22.2 Do not touch
+
+- `src/toJs/**` code generators.
+- `src/builder/dna-core.ts` runtime logic (`BaseCore`, `initDna` runtime, `bindMethods` runtime).
+- `tsDna` opcodes and `tsDnaSeq` shape.
+- Test expectations and runtime behavior.
+- Public method names (`.optional()`, `.nullable()`, `.default()`, `.transform()`, etc.).
+
+### 22.3 Files to change
+
+1. `src/types/helpers.types.ts`
+   - Remove `TsType`.
+   - Redefine `$DnaOut`/`$DnaIn` to read `_output`/`_input` directly.
+   - Redefine `$DnaObjectOutput`/`$DnaObjectInput` to read `_output`/`_input` per key instead of through a `TsType` object.
+
+2. `src/builder/dna-interfaces.ts`
+   - Make `IDnaType<T, I, Def>` a standalone interface (do not `extends DnaBase`).
+   - Make `DnaBase<T, I, Def> implements IDnaType<T, I, Def>`.
+   - Make `DnaType<T, I, Def>` and all concrete classes implement the corresponding `IDna*` interfaces.
+   - Update `DnaObject` to `DnaObject<Shape, Out, In>` and `_DnaObject` to the same shape.
+   - Add explicit `Out`/`In` support for recursive use.
+
+3. `src/builder/dna-core.ts`
+   - Retype `bindMethods` and `initDna` to be generic over `IDnaType<T, I, Def>` and `DnaBase<T, I, Def>`.
+   - Avoid `InstanceType<Cls>` and `any`.
+
+4. `src/builder/api-primitives.ts`
+   - Update `dna.object`, `dna.array`, `dna.string`, etc. to return `DnaType<any, any, Def>`.
+   - Remove `as unknown as` casts by using the new typed factories.
+
+5. `src/builder/api-enhanced.ts` and combinators
+   - Update `IDnaType` references to use the new three-parameter form.
+   - Remove `as unknown as` casts.
+
+6. `src/fromDna/index.ts`
+   - Fix `DnaObject` / `DnaArray` imports (use `_DnaObject` / `_DnaArray` as runtime values or re-export them).
+
+### 22.4 Incremental verification
+
+1. Create `packages/dna/tsconfig.diag.json` that includes only `src/` and `shared/` and excludes `tests/`, `sandbox/`, and `**/_archive`.
+2. Run `npx.cmd tsc6 --noEmit -p packages/dna/tsconfig.diag.json` after each file group.
+3. Add `tests/assignability.test.ts` with `expectTypeOf` for every public factory.
+4. Once `src/` is clean, re-enable `packages/dna/tests/zod-test-suite/recursive-types.ts` and `lazy.ts`.
+5. Run `npm.cmd test -w @ytn/dna`.
+6. Remove the `packages/dna/tests/**/*.ts` and `**/sandbox/**/*.ts` excludes from `tsconfig.base.json`.
+
+### 22.5 Definition of done
+
+- `npx.cmd tsc6 --noEmit` on the full monorepo completes without OOM.
+- `npx.cmd tsc6 --noEmit` on the full monorepo reports zero type errors.
+- `npm.cmd test -w @ytn/dna` passes.
+- No new `as any` / `as unknown as` casts (except the `as unknown as T` escape hatch for the final untyped boundaries).
+
+### 22.6 Alternative: do not migrate the whole model
+
+If the production team decides that the two-type split is too heavy, a smaller option is to keep the existing `DnaObject<T, I>` but add `dna.lazy<T>(() => ...)` as a new primitive for recursion. The recursive tests would then be rewritten to use `dna.lazy` explicitly. This is less invasive but does not solve the underlying `DnaObject` hover problem for the recursive case.
+
+---
+
+## 23. The Key Mechanism in One Place
+
+This section restates the single insight that makes the whole prototype work, without the surrounding refactor discussion.
+
+### 23.1 The problem: `Out` and `In` were computed from `Shape`
+
+In the pre-sandbox source, the output type of an object was a mapped type over the object's shape:
+
+```
+DnaObject<{ name: DnaString; subcategories: DnaArray<CategoryDna> }>
+→ _ts.output: $DnaObjectOutput<{ name: DnaString; subcategories: DnaArray<CategoryDna> }>
+→ subcategories: $DnaOut<DnaArray<CategoryDna>>
+→ $DnaOut<CategoryDna>
+→ CategoryDna._ts.output
+→ $DnaObjectOutput<{ name: DnaString; subcategories: DnaArray<CategoryDna> }>
+→ ...
+```
+
+The cycle goes through the mapped type `$DnaObjectOutput`. TypeScript keeps expanding it because `CategoryDna`'s output is defined as a function of `CategoryDna`'s own shape. This produces `TS2589` or an OOM.
+
+### 23.2 The fix: `Out` and `In` become parameters
+
+The sandbox changes the contract. `DnaObject` is now `DnaObject<Shape, Out, In>`:
+
+```ts
+export class DnaObject<
+  Shape extends Record<string, IDnaType<any, any>>,
+  Out = $ObjectOutput<Shape>,
+  In = $ObjectInput<Shape>,
+> extends DnaType<Out, In, DnaObjectDef<Shape>> { ... }
+```
+
+For a non-recursive object the defaults are used:
+
+```ts
+const sO = dnaObject({ key: dnaString() });
+// inferred as DnaObject<{ key: DnaString }, { key: string }, { key: string }>
+```
+
+For a recursive object the output is given explicitly:
+
+```ts
+type Category = { name: string; subcategories?: (Category[] | null | undefined) };
+
+const CategoryDna: DnaLazy<DnaObject<any, Category, Category>> = dnaLazy(() =>
+  dnaObject({
+    name: dnaString(),
+    subcategories: dnaArray(CategoryDna).optional().nullable(),
+  }),
+);
+```
+
+The type contract is now `DnaObject<any, Category, Category>`. `Out` is `Category`. `In` is `Category`. `Shape` is `any`. Because `Out` is not computed from `Shape`, the mapped type `$DnaObjectOutput<Shape>` does not run.
+
+### 23.3 `DnaLazy` is the indirection that makes it possible
+
+`DnaLazy<S>` does not expand `S`. It reads `S._output` and `S._input` directly:
+
+```ts
+export class DnaLazy<S extends IDnaType<any, any>>
+  extends DnaType<$Output<S>, $Input<S>, DnaLazyDef<S>> {
+  constructor(public getter: () => S) { ... }
+}
+```
+
+`$Output<S>` is `S extends { _output: infer O } ? O : unknown`. This is one conditional type. It does not look at `S`'s shape, only at its `_output` property.
+
+When `S = DnaObject<any, Category, Category>`, the result is `Category`. No expansion of the object shape. No recursion. The reference to `CategoryDna` inside the object literal is at runtime (the `getter`); the type is already fixed.
+
+### 23.4 `IDnaType` uses `_output` and `_input` directly
+
+The extractor layer is:
+
+```ts
+export interface IDnaType<T = unknown, I = unknown> {
+  readonly _core: BaseCore<unknown>;
+  readonly _output: T;
+  readonly _input: I;
+}
+
+export type $Output<S> = S extends { _output: infer O } ? O : unknown;
+export type $Input<S>  = S extends { _input:  infer I } ? I : unknown;
+```
+
+No `TsType<Out, In>` phantom. No `_ts.output` indirection. The type system reads the public `_output` / `_input` properties directly, which is structurally the same as Zod v4's `output<T>` and `input<T>` reading `T["_zod"]["output"]` and `T["_zod"]["input"]`.
+
+### 23.5 Why the optional-key split is part of the same idea
+
+Optional object keys are not derived from the wrapper's name. They are derived from whether `undefined` is in the output type or the input type:
+
+```ts
+type IsOutputOptional<V> = undefined extends $Output<V> ? true : false;
+type IsInputOptional<V>  = undefined extends $Input<V>  ? true : false;
+```
+
+This keeps the type model consistent with the `Output` / `Input` separation. `withDefault(value)` has `Output = T` and `Input = T | undefined`, so the key is required in the output and optional in the input. The key is never optional because the wrapper is "optional"; it is optional because the value can be `undefined`.
+
+### 23.6 The one-sentence summary
+
+Recursive DNA schemas become type-checkable when `Output` and `Input` are treated as named, bounded type parameters instead of computed mapped types over `Shape`; `DnaLazy` then lets the recursive reference be typed without inlining the target.
+
+---
+
+## 24. What `Input` Means and Where It Comes From
+
+This section documents the distinction between `Input` and `Output` in the sandbox, because the difference is central to why the optional-key split works and why wrappers behave as they do.
+
+### 24.1 `Input` is the pre-validation, pre-transform type
+
+For any schema, `Output` is the type that `parse` (or `safeParse`) eventually returns. `Input` is the type that the schema will accept before any mutation, default, transform, or coercion.
+
+| Schema | Input | Output |
+|---|---|---|
+| `dnaString()` | `string` | `string` |
+| `dnaString().optional()` | `string \| undefined` | `string \| undefined` |
+| `dnaString().nullable()` | `string \| null` | `string \| null` |
+| `dnaString().default("x")` | `string \| undefined` | `string` |
+| `dnaString().transform(s => s.length)` | `string` | `number` |
+
+In the first three rows, the schema only validates. In the fourth row, `undefined` is accepted as input but replaced by the default value, so the output no longer contains `undefined`. In the fifth row, the input is the original `string` and the output is the transformed `number`.
+
+### 24.2 `Input` in a pipeline is the previous schema's `Output`
+
+When schemas are chained with `.pipe()` or `.transform()`, each link's `Input` is the `Output` of the previous link:
+
+```ts
+const A = dnaString();                                  // I=string,  O=string
+const B = A.transform(s => s.length);                    // I=string,  O=number
+const C = B.pipe(dnaNumber().refine(n => n > 0));       // I=number,  O=number
+```
+
+- `A` accepts and produces `string`.
+- `B` accepts `string` (from `A`'s output) and produces `number`.
+- `C` accepts `number` (from `B`'s output) and produces `number`.
+
+This is the case where the user's intuition is right: the input of a chained schema is systematically the output of the previous element in the chain.
+
+### 24.3 `Input` of a wrapper is not the previous schema's `Output`
+
+When a wrapper is applied to a single schema, the wrapper defines its own `Input` and `Output` based on the inner schema's `Input` and `Output`:
+
+```ts
+export class DnaOptional<S extends DnaBase<unknown, unknown>>
+  extends DnaBase<$Output<S> | undefined, $Input<S> | undefined> { ... }
+
+export class DnaDefault<S extends DnaBase<unknown, unknown>>
+  extends DnaBase<$Output<S>, $Input<S> | undefined> { ... }
+```
+
+- `DnaOptional<S>`: both `Input` and `Output` gain `undefined`.
+- `DnaDefault<S>`: `Output` stays the same (the default value is guaranteed), but `Input` gains `undefined` (the caller may omit the value).
+- `DnaNullable<S>`: both `Input` and `Output` gain `null`.
+- `DnaTransform<I, O>`: `Input` is the same as the inner schema's `Input`, `Output` becomes the transformed type.
+
+In each case the wrapper is the only thing that decides the new `Input`. There is no "previous element" other than the inner schema, and the wrapper is free to widen, narrow, or replace the input.
+
+### 24.4 Why this matters for object keys
+
+The object output and input builders use two separate optional-key detectors:
+
+```ts
+type IsOutputOptional<V> = undefined extends $Output<V> ? true : false;
+type IsInputOptional<V>  = undefined extends $Input<V>  ? true : false;
+```
+
+This is how `withDefault` can produce a key that is required in the output shape but optional in the input shape. The default only matters to `Input` (it allows `undefined`) and `Output` (it removes `undefined`). The same schema produces two different optional-key sets for the same property.
+
+### 24.5 Example: `withDefault` on an object property
+
+```ts
+const schema = dnaObject({
+  name: dnaString(),
+  age: dnaNumber().withDefault(0),
+});
+```
+
+- Output type: `{ name: string; age: number }` (`age` is required because the default guarantees a value).
+- Input type: `{ name: string; age?: number }` (`age` is optional because `undefined` is accepted and then replaced by `0`).
+
+This is the exact behavior of `z.object({ name: z.string(), age: z.number().default(0) })` in Zod v4. The sandbox matches it.
+
+### 24.6 Summary
+
+- `Input` is the type accepted by a schema before mutation.
+- In a pipeline, a schema's `Input` equals the previous schema's `Output`.
+- In a wrapper, the wrapper itself defines the new `Input` and `Output` from the inner schema's `Input` and `Output`.
+- The split between `Input` and `Output` is what lets `.default()` and `.transform()` have correct, independent optional-key behavior.
+
+---
+
+## 25. Function and Tuple Validation: The Strongest Justification for `Input` / `Output`
+
+This section documents the final validation phase of the sandbox. It proves two marginal containers — `function` and `tuple` — and confirms that the `Input` / `Output` split is not a convenience but a structural requirement.
+
+### 25.1 Why `function` is the strongest case
+
+A `function` schema has two distinct type-level contracts:
+
+- `z.infer<typeof Fn>` is the **outer** function type: what the schema returns after validation.
+- `z.input<typeof Fn>` is the **inner** function type: what the user must supply.
+
+In Zod v4, the definitions are:
+
+```ts
+$InferOuterFunctionType<Args, Returns> = (...args: core.input<Args>) => core.output<Returns>;
+$InferInnerFunctionType<Args, Returns> = (...args: core.output<Args>) => core.input<Returns>;
+```
+
+The `Input` / `Output` of the **return** schema appear in opposite positions:
+
+- `output` (inferred) uses `input<Args>` for the parameters and `output<Returns>` for the return type.
+- `input` (what you provide) uses `output<Args>` for the parameters and `input<Returns>` for the return type.
+
+This is the cleanest example of why `Input` and `Output` must be tracked independently. A single `T` parameter on `DnaFunction` could never express this.
+
+### 25.2 `DnaFunction` in the sandbox
+
+The prototype models it as:
+
+```ts
+export class DnaFunction<
+  Args extends DnaTuple<any>,
+  Ret extends IDnaType<any, any>,
+> extends DnaType<
+  (...args: $TupleInput<Args["items"]>) => $Output<Ret>,
+  (...args: $TupleOutput<Args["items"]>) => $Input<Ret>,
+  { kind: "function"; args: Args; returns: Ret }
+> { ... }
+```
+
+`$TupleInput` and `$TupleOutput` differ only when a tuple element is `optional` or has a `default`, so the model captures `optional` arguments, `default` arguments, and ordinary arguments without extra machinery.
+
+### 25.3 `tuple` optional elements without `optin` / `optout` markers
+
+The prototype initially tried to mark optional tuple elements with `_optin` and `_optout` properties on `IDnaType`. This failed because the marker could not be narrowed correctly for all schemas. The final design uses a simpler rule:
+
+- An element is optional in output when `undefined extends $Output<element>`.
+- An element is optional in input when `undefined extends $Input<element>`.
+
+The tuple builders become:
+
+```ts
+export type $TupleOutput<T extends readonly IDnaType<any, any>[]> =
+  T extends readonly [...infer Prefix, infer Tail]
+    ? undefined extends $Output<Tail>
+      ? [...$TupleOutput<Prefix>, $Output<Tail>?]
+      : [...$TupleOutput<Prefix>, $Output<Tail>]
+    : [];
+
+export type $TupleInput<T extends readonly IDnaType<any, any>[]> =
+  T extends readonly [...infer Prefix, infer Tail]
+    ? undefined extends $Input<Tail>
+      ? [...$TupleInput<Prefix>, $Input<Tail>?]
+      : [...$TupleInput<Prefix>, $Input<Tail>]
+    : [];
+```
+
+This matches Zod v4's `TupleOutputTypeWithOptionals` / `TupleInputTypeWithOptionals`, which use `Tail["_zod"]["optout"]` and `Tail["_zod"]["optin"]` to decide where to put the `?`. The `_optin` / `_optout` properties were the Zod implementation detail; the `undefined extends` rule is the equivalent DNA-level formulation.
+
+### 25.4 Calque cases that now compile
+
+The file `packages/dna/sandbox/zod-like-type-architecture/function-tuple.ts` contains the following `ExpectSame` assertions, all passing `npx tsc --noEmit`:
+
+- `[string, number]`
+- `[string, (number | undefined)?]` with `z.number().optional()`
+- output `[string]`, input `[(string | undefined)?]` with `z.string().default("x")`
+- `(string) => number`
+- `(string?) => number` with an optional first argument
+- `((string | undefined)?) => number` / `(string) => number` with a default first argument
+
+### 25.5 Core patterns validated by the sandbox
+
+At the end of this phase, the following patterns have a working Zod v4 calque in the sandbox:
+
+- `optional`, `nullable`, `default`, `nullish`
+- `object` with optional / default keys and self-recursion
+- `array`
+- `union`
+- `lazy`
+- `transform` (sync and async)
+- `pipe`
+- `tuple`
+- `function`
+- `record` with `string` and `enum` keys, plus default/optional values
+- `promise`
+- `map`
+- `set`
+- `refine` (sync, async, and after transform)
+- `xor`
+- `discriminated union`
+
+### 25.6 Patterns not proven in the sandbox
+
+All core and marginal patterns relevant to the `Input` / `Output` split have now been proven in the sandbox. `discriminated union` / `xor` was the last one and has also been validated.
+
+### 25.7 Record: non-trivial `Input` / `Output` on both the key and the value
+
+`record` is the other marginal container that had to be validated. A `Record<K, V>` schema has four independent types to account for:
+
+- `output` keys are `output<Key>`.
+- `input` keys are `input<Key>`.
+- `output` values are `output<Value>`.
+- `input` values are `input<Value>`.
+
+The `DnaRecord<Key, Value>` prototype is:
+
+```ts
+export class DnaRecord<
+  Key extends DnaBase<PropertyKey, PropertyKey>,
+  Value extends DnaBase<unknown, unknown>,
+> extends DnaType<
+  Record<$Output<Key>, $Output<Value>>,
+  Record<$Input<Key>, $Input<Value>>,
+  { kind: "record"; key: Key; value: Value }
+> { ... }
+```
+
+The `record.ts` calque passes for:
+
+- `Record<string, number>`
+- `Record<"a" | "b", number>` with `enum` keys
+- `Record<string, number>` output, `Record<string, number | undefined>` input with `default` values
+- `Record<string, string | undefined>` with `optional` values
+
+### 25.8 Async `transform`
+
+An async `transform` must resolve its output promise before the `Output` type is fixed. Zod v4 returns the resolved type, not the `Promise` itself. The prototype's `transform` signature was updated to:
+
+```ts
+transform<R>(
+  fn: (value: $Output<this>) => $MaybeAsync<R>,
+): DnaTransform<this, R>
+```
+
+`R` is the resolved type, `Promise<R>` is allowed, and `DnaTransform` stores a function that can return either. The `record.ts` calque contains:
+
+- `dnaString().transform(async v => v.length)` → output `number`, input `string`
+
+### 25.9 Conclusion
+
+`function`, `tuple`, and `record` were the three containers most likely to break the `Input` / `Output` model. They all compile and match Zod v4. The remaining marginal patterns were also proven: `promise` (with `Output = Promise<$Output<T>>` and `Input = $MaybeAsync<$Input<T>>`), `map`, `set`, `refine` (returning `this`), and `xor` / `discriminated union`. The architecture is now fully validated for the production refactor in §14.
