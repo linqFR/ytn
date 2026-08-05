@@ -416,19 +416,27 @@ const string = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pa
 		_err(parentCtx, _inVarName, pathVar + "/string/maxLength", "String length must be at most " + String(max)) + ERR_UNDEF
 	));
 
-	if (pattern !== null) body.push(_errMode(isCond,
-		// `u` flag: enables Unicode-aware regex (e.g. `\p{Letter}`). JSON Schema's
-		// ECMA-262 dialect supports these only in Unicode mode.
-		"/" + pattern + "/u.test(" + _inVarName + ")",
-		_err(parentCtx, _inVarName, pathVar + "/string/pattern", "String must match pattern " + pattern) + ERR_UNDEF
-	));
-
-
+	if (pattern !== null) {
+		const spttn = "spptn" + labelId();
+		steps.push([STEP.OUT_CONST, spttn + "=/" + pattern + "/u"]);
+		body.push(_errMode(isCond,
+			// `u` flag: enables Unicode-aware regex (e.g. `\p{Letter}`). JSON Schema's
+			// ECMA-262 dialect supports these only in Unicode mode.
+			spttn + ".test(" + _inVarName + ")",
+			_err(parentCtx, _inVarName, pathVar + "/string/pattern", "String must match pattern " + pattern) + ERR_UNDEF
+		));
+	}
+	
+	
 	const formatPattern = format !== null ? getStringFormatPattern(format) : undefined;
-	if (formatPattern) body.push(_errMode(isCond,
-		"/" + formatPattern + "/" + (["emoji"].includes(format!) ? "u" : "") + ".test(" + _inVarName + ")",
-		_err(parentCtx, _inVarName, pathVar + "/string/format", "String must match format :" + format) + ERR_UNDEF
-	));
+	if (formatPattern) {
+		const spttn = "spptn" + labelId();
+		steps.push([STEP.OUT_CONST, spttn + "=/" + formatPattern + "/"+(["emoji"].includes(format!) ? "u" : "")]);
+		body.push(_errMode(isCond,
+			spttn + ".test(" + _inVarName + ")",
+			_err(parentCtx, _inVarName, pathVar + "/string/format", "String must match format :" + format) + ERR_UNDEF
+		));
+	}
 
 	const errMsg = _err(parentCtx, _inVarName, pathVar + "/string", "String is required") + ERR_UNDEF;
 	const preBody = (min !== null || max !== null) ? "strCnt=fCount(" + _inVarName + ");" : "";
@@ -686,6 +694,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 
 	const neededConstants: string[] = [];
 	const regexConstants: string[] = [];
+	const outSteps: tsStackFrame[] = [];
 	let objectCheck: [string, string][] = [];
 
 	let propertiesChecks: any[] = [];
@@ -768,7 +777,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 				for (let j = 0; j < data.length; j++) {
 					const el = data[j];
 					const regexVar = "rxPP" + idx + "_" + j;
-					neededConstants.push(regexVar + "=/" + el[0] + "/u");
+					regexConstants.push(regexVar + "=/" + el[0] + "/u");
 					patternPropChecks.push([regexVar, el[0], el[1]]);
 				}
 				break;
@@ -807,8 +816,6 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		if (!hasDynamicProps) neededConstants.push(oLen + "=Object.keys(" + inVar + ").length");
 		else neededConstants.push(oVar + "=Object.keys(" + inVar + ")", oLen + "=" + oVar + ".length");
 	}
-	if (regexConstants.length) fastMergeArrays(neededConstants, regexConstants);
-
 	const outTemp = "outObT" + idx;
 	const outReal = (keepOnly !== undefined && !isCond) ? outTemp : outVar;
 
@@ -1044,7 +1051,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		}
 	}
 
-	
+
 	const parserOutInit = (keepOnly !== undefined && !isCond)
 		? "const " + outReal + "={};"
 		: type === "plainObject"
@@ -1055,7 +1062,8 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		innerSteps.push([STEP.BODY, outVar + "={};for(const k of " + JSON.stringify(keepOnly) + "){if(Object.hasOwn(" + outReal + ",k)&&" + outReal + "[k]!==undefined)" + outVar + "[k]=" + outReal + "[k];}"]);
 	}
 
-	return _assignOrCondEnv(parentCtx, inVar, outVar, {
+	for (const rc of regexConstants) outSteps.push([STEP.OUT_CONST, rc]);
+	const envSteps = _assignOrCondEnv(parentCtx, inVar, outVar, {
 		block, break_, _break_, mustMatchType: declared, typeChecked: type === "plainObject" ? "plainObject" : "object",
 		typePosTest, typeErrMsg,
 		preDecls,
@@ -1065,6 +1073,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		innerSteps,
 		postChecks: [],
 	});
+	return [...outSteps, ...envSteps];
 };
 
 export const o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
