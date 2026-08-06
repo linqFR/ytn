@@ -21,7 +21,7 @@ export const commonConfig: Options = {
   bundle: true,
   splitting: false,
   treeshake: true,
-  external: ["acorn", "acorn-walk", "zod"],
+  external: ["acorn", "acorn-walk", "zod", "@ytn/dna"],
   noExternal: ["@ytn/shared"],
   platform: "node",
 };
