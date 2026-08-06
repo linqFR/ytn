@@ -42,7 +42,7 @@ Every opcode handler follows a **decision tree model** with the following steps.
 **Questions**:
 
 - Is this validator mode (`isCond`) or parser mode?
-- Is there a parent block to break to (`parentCtx.breakBlock`)?
+- Is there a parent block to break to (`parentCtx.failCase`, `parentCtx.outerblock`)?
 - Is there a parent counter (`parentCtx.counter`)?
 - Has the type already been checked upstream (`parentCtx.typeChecked`)?
 - Are there eval sets for unevaluated properties (`parentCtx.unEvalArr`, `parentCtx.unEvalObj`)?
@@ -50,7 +50,7 @@ Every opcode handler follows a **decision tree model** with the following steps.
 **Impact**:
 
 - `isCond`: Determines whether to generate `return false`/`break` vs `errors.push()`
-- `breakBlock`: Determines whether to generate `break <label>` or `return false`
+- `failCase`/`outerblock`: Determines whether to generate `break <label>` or `return false`
 - `counter`: Determines whether to increment counter on success (combinator children)
 - `typeChecked`: Allows skipping type test if already verified upstream
 - `unEvalArr/unEvalObj`: Determines whether to track eval-set marks
@@ -275,7 +275,7 @@ Every opcode handler follows a **decision tree model** with the following steps.
 **Impact**:
 
 - Adds child dispatch steps: `[childId, _inVarName, _outVarName, pathVar, childCtx]`
-- May modify context for children (breakBlock, counter, eval sets)
+- May modify context for children (failCase, counter, eval sets)
 - May transform input before dispatch (coerce, codec)
 - May use loops for repeated dispatch (object properties, array items)
 
@@ -310,13 +310,13 @@ Every opcode handler follows a **decision tree model** with the following steps.
 
 **Examples**:
 
-- Validator mode with breakBlock: `break seqB0;`
-- Validator mode without breakBlock: `return false;`
+- Validator mode with failCase: `break chkB0;`
+- Validator mode without failCase: `return false;`
 - Parser mode: `errors.push(...)` then `break` or continue
 
 **Impact**:
 
-- Uses `parentCtx.breakBlock` to determine break target
+- Uses `parentCtx.failCase` to determine break target
 - In `simpleNodeToJs`, generates `break <label>` or `return false` based on context
 - For combinator children, may not break on failure (counter pattern)
 
@@ -355,10 +355,10 @@ Based on the universal model above, the patterns can be reclassified by which st
 **Steps Covered**:
 
 - **Step 0**: Constant declaration (none - delegates to caller)
-- **Step 1**: Context analysis (isCond, breakBlock, counter, typeChecked)
+- **Step 1**: Context analysis (isCond, failCase, counter, typeChecked)
 - **Step 3**: Type checking (via `test` parameter)
 - **Step 6**: Constraint checkers (via `body` parameter)
-- **Step 12**: Control flow (break vs return based on breakBlock)
+- **Step 12**: Control flow (break vs return based on failCase)
 - **Step 13**: Output assignment (automatic `_outVarName=true` in validator mode)
 
 **Signature**:
@@ -376,21 +376,21 @@ export const handler = (dnaOpt: [...], _inVarName: string, _outVarName: string, 
 
 - Automatically assigns `_outVarName = true` in validator mode on success
 - Automatically generates error pushes in parser mode on failure
-- Respects `parentCtx.breakBlock` for proper control flow
+- Respects `parentCtx.failCase` for proper control flow
 - Respects `parentCtx.counter` for combinator children (anyOf/allOf/oneOf)
 - Handles `mustMatchType` parameter for type checking
 
 **Examples**:
 
-- `boolean` (dna-js-json.ts:500)
-- `nan` (dna-js-json.ts:510)
-- `nullType` (dna-js-json.ts:516)
-- `constType` (dna-js-json.ts:559)
-- `literal` (dna-js-json.ts:582)
-- `enumType` (dna-js-json.ts:606)
-- `sym` (dna-js-builder.ts:201)
-- `date` (dna-js-builder.ts:210)
-- `file` (dna-js-builder.ts:223)
+- `boolean` (dna-js-json.ts:520)
+- `nan` (dna-js-json.ts:530)
+- `nullType` (dna-js-json.ts:536)
+- `constType` (dna-js-json.ts:579)
+- `literal` (dna-js-json.ts:605)
+- `enumType` (dna-js-json.ts:623)
+- `sym` (dna-js-builder.ts:320)
+- `date` (dna-js-builder.ts:329)
+- `file` (dna-js-builder.ts:352)
 
 **Generated Code Example** (validator mode):
 
@@ -424,7 +424,7 @@ data = typeof v === "string" ? v : errors.push({ message: "String is required", 
 **Steps Covered**:
 
 - **Step 0**: Constant declaration (helpers, eval sets, state variables)
-- **Step 1**: Context analysis (isCond, breakBlock, counter, eval sets)
+- **Step 1**: Context analysis (isCond, failCase, counter, eval sets)
 - **Step 2a**: Code generation preprocessing (flags, state initialization)
 - **Step 2b**: Value preprocessing/mutations (coerce, wrp, codec transformations)
 - **Step 4**: Variable declaration (loop counters, property values)
@@ -462,30 +462,30 @@ export const handler = (dnaOpt: [...], _inVarName: string, _outVarName: string, 
 
 **Examples**:
 
-- `seq` (dna-js-json.ts:316) - Sequential validation with tmpVar signal pattern
-- `coerce` (dna-js-builder.ts:11) - Type coercion with child dispatch
-- `wrp` (dna-js-builder.ts:49) - Wrapper dispatcher (optional, nullable, default, prefault)
-- `object` (dna-js-json.ts:1038) - Object validation with property loops
-- `array` (dna-js-json.ts:1303) - Array validation with item loops
-- `not` (dna-js-json.ts:1446) - Logical negation with child dispatch
-- `anyOf` (dna-js-json.ts:1487) - OR combinator with counter
-- `allOf` (dna-js-json.ts:1598) - AND combinator with counter
-- `oneOf` (dna-js-json.ts:1672) - XOR combinator with counter
-- `instanceOf` (dna-js-builder.ts:233) - Instance check with constructor registry
-- `codec` (dna-js-builder.ts:251) - Bidirectional transformation
+- `chkList` (dna-js-json.ts:307) - Canonical check-all (allOf-like) used by JSON Schema / schvalid
+- `coerce` (dna-js-builder.ts:19) - Type coercion with child dispatch
+- `wrp` (dna-js-builder.ts:62) - Wrapper dispatcher (optional, nullable, default, prefault)
+- `object` (dna-js-json.ts:673) - Object validation with property loops
+- `array` (dna-js-json.ts:1103) - Array validation with item loops
+- `not` (dna-js-json.ts:1509) - Logical negation with child dispatch
+- `anyOf` (dna-js-json.ts:1548) - OR combinator with counter
+- `allOf` (dna-js-json.ts:1674) - AND combinator with counter
+- `oneOf` (dna-js-json.ts:1758) - XOR combinator with counter
+- `instanceOf` (dna-js-builder.ts:444) - Instance check with constructor registry
+- `codec` (dna-js-builder.ts:468) - Bidirectional transformation
 
-**Generated Code Example** (seq in validator mode):
+**Generated Code Example** (pipe in validator mode):
 
 ```javascript
-seqB0:{
-  let tmp0;
-  tmp0=false;
+pipeB0:{
+  let pipeV0=v;
+  pipeV0=false;
   [childHandler code];  // Should assign tmp0=true on success
-  if(!tmp0)break seqB0;
-  tmp0=false;
+  if(!pipeV0){break pipeB0;}
+  pipeV0=false;
   [childHandler code];
-  if(!tmp0)break seqB0;
-  valid=true;
+  if(!pipeV0){break pipeB0;}
+  v=pipeV0;
 }
 ```
 
@@ -554,11 +554,11 @@ export const publicHandler = (dnaOpt: [...], _inVarName: string, _outVarName: st
 
 **Examples**:
 
-- `string` (dna-js-json.ts:387) - String with min/max/pattern/format constraints
-- `number` (dna-js-json.ts:436) - Number with min/max/multipleOf constraints
-- `constTypeComplex` (dna-js-json.ts:566) - Complex constants with deep equality
-- `enumTypeDeep` (dna-js-json.ts:620) - Enums with non-primitive values
-- `ifThenElse` (dna-js-json.ts:1308) - Conditional validation
+- `string` (dna-js-json.ts:399) - String with min/max/pattern/format constraints
+- `number` (dna-js-json.ts:456) - Number with min/max/multipleOf constraints
+- `constTypeComplex` (dna-js-json.ts:587) - Complex constants with deep equality
+- `enumTypeDeep` (dna-js-json.ts:637) - Enums with non-primitive values
+- `ifThenElse` (dna-js-json.ts:1368) - Conditional validation
 
 **Generated Code Example** (string with minLength):
 
@@ -616,9 +616,9 @@ export const handler = (dnaOpt: [...], _inVarName: string, _outVarName: string, 
 
 **Examples**:
 
-- `assign` (dna-js-json.ts:311) - Simple assignment
-- `trueSchema` (dna-js-json.ts:535) - Always succeeds
-- `falseSchema` (dna-js-json.ts:543) - Always fails
+- `assign` (dna-js-json.ts:301) - Simple assignment
+- `trueSchema` (dna-js-json.ts:555) - Always succeeds
+- `falseSchema` (dna-js-json.ts:563) - Always fails
 
 **Generated Code Example** (trueSchema):
 
@@ -651,57 +651,59 @@ return false;
 
 ---
 
-### 5. Mutate Pattern (Steps 1, 2b, 11)
+### 5. Mutate Pattern (Steps 1, 2b, 11, 13)
 
-**Return Type**: `tsJSStepString`
+**Return Type**: `tsJSStepString` (or `tsJSStepOp[]` for async mutations)
 
-**Description**: Used for transformation operations that modify the input value. This pattern modifies `_inVarName` directly and does NOT assign `_outVarName`, which breaks the `seq` contract in validator mode.
+**Description**: Used for transformation operations that modify the input value. In validator mode (`isCond`), the mutation is applied in place on `_inVarName` and `_outVarName` is signaled as `true` via `okFlag`. In parser mode, the mutation is applied to `_outVarName` (which holds the current value) so the result propagates to the returned `data`.
 
 **Steps Covered**:
 
 - **Step 1**: Context analysis (isCond only)
-- **Step 2b**: Value preprocessing/mutations (modifies `_inVarName` directly)
-- **Step 11**: Post-processing (none - violates seq contract by not assigning `_outVarName`)
-
-**Known Issue**: Does not cover Step 13 (Output Assignment), which violates the `seq` contract in validator mode.
+- **Step 2b**: Value preprocessing/mutations (modifies `workVar` — `_inVarName` in validator mode, `_outVarName` in parser mode)
+- **Step 11**: Post-processing (assigns mutation result to `workVar`)
+- **Step 13**: Output assignment (`okFlag` sets `_outVarName=true` in validator mode)
 
 **Signature**:
 
 ```typescript
-export const mutate = (dnaOpt: [...], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const mutate = (dnaOpt: [...], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
   const op = dnaOpt[0][0];
   const isCond = parentCtx.isCond;
+  const workVar = isCond || !_outVarName ? _inVarName : _outVarName;
   let mutation = "";
 
   switch (op) {
-    case "trim": mutation = _inVarName + ".trim();"; break;
-    case "toUpperCase": mutation = _inVarName + ".toUpperCase();"; break;
+    case "trim": mutation = workVar + ".trim();"; break;
+    case "toUpperCase": mutation = workVar + ".toUpperCase();"; break;
     // ...
   }
 
-  return mutation ? _inVarName + "=" + mutation + (parentCtx.isCond ? ";" : "") : "";
+  const okFlag = parentCtx.isCond && _outVarName ? _outVarName + "=true;" : "";
+  const body = mutation ? workVar + "=" + mutation + (parentCtx.isCond ? ";" : "") + okFlag : "";
+  return isAsync ? [[STEP.ASYNC], [STEP.BODY, body]] : body;
 };
 ```
 
 **Characteristics**:
 
-- Modifies `_inVarName` (the value being validated)
-- Does NOT assign `_outVarName` (the signal variable in `seq`)
-- Generates different code for validator vs parser modes
-- **BUG**: Does not respect the `seq` contract in validator mode
+- In validator mode: modifies `_inVarName` in place AND assigns `_outVarName=true` via `okFlag`
+- In parser mode: modifies `_outVarName` (which holds the current value) so the result propagates to `data`
+- Respects the `seq`/`pipe` contract by signaling success via `_outVarName`
+- Supports async mutations via `STEP.ASYNC`
 
 **Examples**:
 
-- `mutate` (dna-js-builder.ts:119) - String transformations (trim, toUpperCase, etc.)
+- `mutate` (dna-js-builder.ts:192) - String transformations (trim, toUpperCase, etc.)
 
 **Generated Code Example** (trim):
 
 ```javascript
-// Validator mode
-v = v.trim();
+// Validator mode (workVar = _inVarName, okFlag appended)
+v = v.trim();tmp0=true;
 
-// Parser mode
-v = v.trim();
+// Parser mode (workVar = _outVarName, mutation applied to output)
+data = data.trim();
 ```
 
 **When to Use**:
@@ -710,29 +712,21 @@ v = v.trim();
 - String methods (trim, toUpperCase, toLowerCase, normalize)
 - Custom function transformations
 
-**Known Issues**:
-
-- Does not assign `_outVarName = true` in validator mode
-- Breaks the `seq` contract which expects child handlers to signal success
-- Generates double semicolon in validator mode (`v=v.trim();;`)
-
 ---
 
 ### 6. Check Pattern (Steps 1, 3, 7, 12, 13)
 
 **Return Type**: `tsJSStepString`
 
-**Description**: Used for custom validation checks. Uses `simpleNodeToJs` but depends on the parent context for proper break behavior.
+**Description**: Used for custom validation checks. Uses `simpleNodeToJs` and relies on `parentCtx.failCase` (not `breakBlock`) for proper break behavior. The `failCase`/`outerblock` context properties replaced the older `breakBlock` mechanism after the `seq` → `chkList`/`pipe`/`chkSeq` refactor.
 
 **Steps Covered**:
 
-- **Step 1**: Context analysis (isCond, breakBlock - but seq doesn't pass it)
+- **Step 1**: Context analysis (isCond, failCase, outerblock)
 - **Step 3**: Type checking (none - assumes type already checked)
 - **Step 7**: Custom checkers (uppercase, lowercase, startsWith, endsWith, includes, custom functions)
-- **Step 12**: Control flow (via `simpleNodeToJs`, depends on breakBlock)
+- **Step 12**: Control flow (via `simpleNodeToJs`, uses `failCase`)
 - **Step 13**: Output assignment (via `simpleNodeToJs`)
-
-**Known Issue**: Depends on `parentCtx.breakBlock` which `seq` does not pass, causing incorrect control flow in seq context.
 
 **Signature**:
 
@@ -758,21 +752,18 @@ export const check = (dnaOpt: [...], _inVarName: string, _outVarName: string, pa
 **Characteristics**:
 
 - Uses `simpleNodeToJs` like the SimpleNodeToJs pattern
-- Depends on `parentCtx.breakBlock` for proper control flow
-- **BUG**: `seq` does not pass `breakBlock` in context, causing issues
+- Relies on `parentCtx.failCase` (e.g. `"break chkB0;"`) for proper control flow
+- The `failCase`/`outerblock` context properties replaced the older `breakBlock` mechanism
 
 **Examples**:
 
-- `check` (dna-js-builder.ts:138) - Custom validation checks (uppercase, lowercase, startsWith, endsWith, includes)
+- `check` (dna-js-builder.ts:225) - Custom validation checks (uppercase, lowercase, startsWith, endsWith, includes)
 
 **Generated Code Example** (uppercase):
 
 ```javascript
-// Validator mode (with correct context)
-if(!(v===v.toUpperCase()))break seqB0;tmp0=true;
-
-// Validator mode (with empty context - current bug)
-tmp0=true;  // Test is not emitted!
+// Validator mode (with failCase from chkList/pipe/chkSeq context)
+if(!(v===v.toUpperCase()))break chkB0;tmp0=true;
 
 // Parser mode
 data=(v===v.toUpperCase())?v:errors.push({message:"String must be in UpperCase",path:'#/uppercase',input:v})&&undefined;
@@ -784,56 +775,68 @@ data=(v===v.toUpperCase())?v:errors.push({message:"String must be in UpperCase",
 - String format checks (uppercase, lowercase, startsWith, endsWith, includes)
 - Custom function validation
 
-**Known Issues**:
-
-- `seq` does not pass `breakBlock: seqBlock` in parent context
-- Without `breakBlock`, `simpleNodeToJs` generates `return false` instead of `break seqB0`
-- In `seq` context, the test may not be emitted correctly
-
 ---
 
-## Contract Between seq and Child Handlers
+## Contract Between Sequence Handlers and Child Handlers
 
-### The seq Contract (Validator Mode)
+The original `seq` opcode has been refactored into three specialized handlers:
 
-The `seq` opcode in validator mode uses a **signal variable pattern**:
+- **`chkList`** (`dna-js-json.ts:307`) — canonical check-all (allOf-like) used by JSON Schema / schvalid. Uses `failCase` for control flow.
+- **`pipe`** (`dna-js-builder.ts:628`) — builder-specific mutable sequence used by `DnaPipe`. Uses a local `cur` variable and `_outVarName` signal in validator mode.
+- **`chkSeq`** (`dna-js-builder.ts:665`) — runs a self-validation followed by `check` steps (used by `.refine()` / `.check()`).
+
+### The pipe Contract (Validator Mode)
+
+The `pipe` opcode in validator mode uses a **signal variable pattern**:
 
 ```typescript
-// seq handler (validator mode)
-const tmpVar = "tmp" + idx;
-steps.push([STEP.BODY, "let " + tmpVar + ";"]);
-for (let i = 0; i < seq.length; i++) {
-  const it = seq[i];
-  steps.push([STEP.BODY, tmpVar + "=false;"]); // Reset signal
-  steps.push(
-    [it, _inVarName, tmpVar, pathVar, parentCtx], // Dispatch child with tmpVar as _outVarName
-    [STEP.BODY, "if(!" + tmpVar + ")break " + seqBlock + ";"], // Check signal
-  );
+// pipe handler (validator mode)
+const cur = "pipeV" + idx;
+steps.push([STEP.BODY, "let " + cur + "=" + _inVarName + ";"]);
+steps.push([STEP.BODY, pBlock + ":{"]);
+for (let i = 0; i < stepIds.length; i++) {
+  if (_outVarName) steps.push([STEP.BODY, _outVarName + "=false;"]); // Reset signal
+  steps.push([stepIds[i], cur, _outVarName, pathVar, parentCtx]);   // Dispatch child
+  if (_outVarName) steps.push([STEP.BODY, "if(!" + _outVarName + "){break " + pBlock + ";}"]); // Check signal
 }
+steps.push([STEP.BODY, _inVarName + "=" + cur + ";" + "}"]);
 ```
 
-**The Contract**: Each child handler MUST assign `_outVarName` (which is `tmpVar`) to `true` on success.
+**The Contract**: Each child handler MUST assign `_outVarName` to `true` on success.
+
+### The chkList Contract (Validator Mode)
+
+The `chkList` opcode in validator mode uses `failCase` for control flow (not a signal variable):
+
+```typescript
+// chkList handler (validator mode)
+const condCtx = { ...ctx, failCase: parentCtx.failCase || ("break " + chkBlock + ";") };
+for (let i = 0; i < seq.length; i++) {
+  steps.push([seq[i], _inVarName, "", pathVar, { ...condCtx }]);
+}
+steps.push([STEP.BODY, (_outVarName ? _outVarName + "=true;" : "") + (parentCtx.counter ? parentCtx.counter + ";" : "") + "}"]);
+```
+
+**The Contract**: Each child handler uses `failCase` to break out of `chkBlock` on failure. Success is signaled by `_outVarName=true` at the end of the block (after all children pass).
 
 ### Handlers That Respect the Contract
 
 - **SimpleNodeToJs pattern**: Automatically assigns `_outVarName = true` via `simpleNodeToJs`
 - **StepsArray pattern**: Can respect the contract if they use `simpleNodeToJs` or explicitly assign `_outVarName`
+- **Mutate pattern**: Assigns `_outVarName=true` via `okFlag` in validator mode (fixed)
+- **Check pattern**: Uses `simpleNodeToJs` with `failCase` for control flow (fixed)
 
-### Handlers That Violate the Contract
+### The pipe Contract (Parser Mode)
 
-- **Mutate pattern**: Does NOT assign `_outVarName`, only modifies `_inVarName`
-- **Check pattern**: Uses `simpleNodeToJs` but depends on `parentCtx.breakBlock` which `seq` does not pass
-
-### The seq Contract (Parser Mode)
-
-The `seq` opcode in parser mode uses a simpler pattern:
+The `pipe` opcode in parser mode uses a `cur`/`next` variable pair:
 
 ```typescript
-// seq handler (parser mode)
-for (let i = 0; i < seq.length; i++) {
-  const it = seq[i];
-  steps.push([it, _inVarName, _outVarName, pathVar, parentCtx], [STEP.BODY, "if(errors.length)break " + seqBlock + ";"]);
+// pipe handler (parser mode)
+for (let i = 0; i < stepIds.length; i++) {
+  steps.push([stepIds[i], cur, next, pathVar, parentCtx]);
+  steps.push([STEP.BODY, cur + "=" + next + ";"]);
 }
+steps.push([STEP.BODY, (_outVarName ? _outVarName + "=" + cur + ";" : "") + "}"]);
 ```
 
 **The Contract**: Child handlers should push errors to `errors[]` on failure. No signal variable is used.
@@ -847,7 +850,8 @@ for (let i = 0; i < seq.length; i++) {
 The `parentCtx` object passed to handlers contains:
 
 - `isCond`: `true` for validator mode, `false` for parser mode
-- `breakBlock`: Label of the block to break to on failure (e.g., `"seqB0"`)
+- `failCase`: Break statement to execute on failure (e.g., `"break chkB0;"`) — replaced the older `breakBlock` mechanism
+- `outerblock`: Label of the enclosing block (e.g., `"chkB0"`) — used by combinators and `ifThenElse`
 - `counter`: Counter expression for combinator children (e.g., `"++count"`)
 - `typeChecked`: Type that has already been checked upstream (e.g., `"string"`)
 - `unEvalArr`: Name of eval set for array unevaluated properties
@@ -862,10 +866,10 @@ const childCtx = { ...parentCtx };
 [childId, _inVarName, _outVarName, pathVar, childCtx];
 ```
 
-**Override breakBlock**:
+**Override failCase**:
 
 ```typescript
-const childCtx = { ...parentCtx, breakBlock: "myBlock" };
+const childCtx = { ...parentCtx, failCase: "break myBlock;", outerblock: "myBlock" };
 [childId, _inVarName, _outVarName, pathVar, childCtx];
 ```
 
@@ -954,8 +958,8 @@ When adding a new opcode handler, choose the pattern based on the requirements:
 | Type with optional constraints        | StringStepsHybrid              |
 | Multiple statements or child dispatch | StepsArray                     |
 | Edge case or special semantics        | DirectString                   |
-| Value transformation                  | Mutate (with seq contract fix) |
-| Custom validation check               | Check (with context fix)       |
+| Value transformation                  | Mutate                         |
+| Custom validation check               | Check                          |
 
 ---
 
@@ -968,27 +972,21 @@ When adding a new opcode handler, choose the pattern based on the requirements:
    - **Regression tests**: `packages/schvalid/tests/schemas/regression-failles.test.ts` (section "recursive $ref as array items — sentinel fix").
    - **Lesson**: Any codegen field that can hold a DNA index MUST use `-1` as the absent sentinel and guard with `>= 0`. Using `0` as a sentinel collides with valid index-0 references; using truthiness or `!== 0` instead of `>= 0` reintroduces the silent-accept bug.
 
-### seq Contract Violations
+### seq Contract Violations (Resolved)
 
-1. **mutate handler**: Does not assign `_outVarName = true` in validator mode
+The original `seq` opcode has been refactored into `chkList` (JSON Schema), `pipe` (builder), and `chkSeq` (refine/check). The `breakBlock` context property has been replaced by `failCase`/`outerblock`. The three original issues are all resolved:
 
-   - **Fix**: Add assignment after mutation in validator mode
-   - **Fix**: Remove duplicate semicolon in built-in mutations
+1. **mutate handler** (resolved): Now assigns `_outVarName=true` via `okFlag` in validator mode. The double semicolon is also gone (`okFlag` is concatenated without an extra `;`).
 
-2. **check handler**: Depends on `parentCtx.breakBlock` which `seq` does not pass
+2. **check handler** (resolved): Uses `simpleNodeToJs` with `failCase` (not `breakBlock`) for control flow. The `failCase`/`outerblock` properties are propagated by `chkList`/`pipe`/`chkSeq`.
 
-   - **Fix**: Pass `breakBlock: seqBlock` in `seq` context to children
+3. **seq context** (resolved): All three replacement handlers (`chkList`, `pipe`, `chkSeq`) propagate `parentCtx` via spread (`{ ...parentCtx, ... }`) — no handler passes an empty `{}` context anymore.
 
-3. **seq context**: Currently passes empty context `{}` to children
-   - **Fix**: Pass `{...parentCtx, breakBlock: seqBlock}` to children
+### Pattern Inconsistencies (Resolved)
 
-### Pattern Inconsistencies
-
-- Some handlers use `simpleNodeToJs` correctly (SimpleNodeToJs pattern)
-- Some handlers use `simpleNodeToJs` but depend on context (Check pattern)
-- Some handlers don't use `simpleNodeToJs` at all (Mutate pattern)
-
-This inconsistency makes it hard to reason about the contract between `seq` and its children.
+- The `mutate` pattern now respects the `pipe` contract via `okFlag`.
+- The `check` pattern now uses `failCase` consistently with the rest of the codebase.
+- All sequence handlers propagate the full parent context to children.
 
 ---
 

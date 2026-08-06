@@ -5,14 +5,23 @@
   "author": "linqFR",
   "license": "MIT",
   "keywords": [
+    "dna",
     "schema",
     "validation",
-    "dna",
+    "validator",
+    "json-schema",
     "bytecode",
     "zod",
-    "typescript"
+    "typescript",
+    "compiler",
+    "code-generation",
+    "performance",
+    "ajv-alternative"
   ],
   "type": "module",
+  "sideEffects": false,
+  "engines": { "node": ">=24.0.0" },
+  "publishConfig": { "access": "public" },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
