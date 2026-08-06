@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { dna } from "../../src/index.js";
-import type { DnaType } from "../../src/builder/dna-interfaces.js";
+import type { DnaLazy} from "../../src/builder/dna-interfaces.js";
 
 // Reusable schemas matching Zod official tests
 const objectZod = z.object({
@@ -22,14 +22,16 @@ const lazyProxyDna = dna.lazy(() => dna.string()).innerType.min(6);
 
 type Category = { name: string; subcategories: Category[] };
 
+type zodLazy<TS> = z.ZodLazy<z.ZodType<TS, any>>
+
 // Recursive Category type
-const CategoryZod: z.ZodType<Category> = z.lazy(() =>
+const CategoryZod: zodLazy<Category> = z.lazy(() =>
   z.object({
     name: z.string(),
     subcategories: z.array(CategoryZod),
   })
 );
-const CategoryDna: DnaType<Category, Category> = dna.lazy(() =>
+const CategoryDna: DnaLazy<Category> = dna.lazy(() =>
   dna.object({
     name: dna.string(),
     subcategories: dna.array(CategoryDna),
@@ -39,7 +41,7 @@ const CategoryDna: DnaType<Category, Category> = dna.lazy(() =>
 type LinkedList = null | { value: number; next: LinkedList };
 
 // Recursive LinkedList type
-const LinkedListZod: z.ZodType<LinkedList> = z.lazy(() =>
+const LinkedListZod: zodLazy<LinkedList> = z.lazy(() =>
   z.union([
     z.null(),
     z.object({
@@ -48,7 +50,7 @@ const LinkedListZod: z.ZodType<LinkedList> = z.lazy(() =>
     }),
   ])
 );
-const LinkedListDna: DnaType<LinkedList, LinkedList> = dna.lazy(() =>
+const LinkedListDna: DnaLazy<LinkedList> = dna.lazy(() =>
   dna.union([
     dna.null(),
     dna.object({
@@ -62,25 +64,25 @@ type AOut = { val: number; b: BOut };
 type BOut = { val: number; a?: AOut };
 
 // Mutual recursion A and B
-const AlazyZod: z.ZodType<AOut> = z.lazy(() =>
+const AlazyZod: zodLazy<AOut> = z.lazy(() =>
   z.object({
     val: z.number(),
     b: BlazyZod,
   })
 );
-const BlazyZod: z.ZodType<BOut> = z.lazy(() =>
+const BlazyZod: zodLazy<BOut> = z.lazy(() =>
   z.object({
     val: z.number(),
     a: AlazyZod.optional(),
   })
 );
-const AlazyDna: ReturnType<typeof dna.lazy> = dna.lazy(() =>
+const AlazyDna: DnaLazy<AOut> = dna.lazy(() =>
   dna.object({
     val: dna.number(),
     b: BlazyDna,
   })
 );
-const BlazyDna: ReturnType<typeof dna.lazy> = dna.lazy(() =>
+const BlazyDna: DnaLazy<BOut> = dna.lazy(() =>
   dna.object({
     val: dna.number(),
     a: AlazyDna.optional(),
@@ -98,23 +100,23 @@ type ComplicatedCategory = {
 };
 
 // Complicated self-recursion with getters
-const complicatedCategoryZod: z.ZodType<ComplicatedCategory> = z.object({
+const complicatedCategoryZod = z.object({
   name: z.string(),
   age: z.optional(z.number()),
-  get nullself(): z.ZodType<ComplicatedCategory | null> {
+  get nullself() {
     return complicatedCategoryZod.nullable();
   },
-  get optself(): z.ZodType<ComplicatedCategory | undefined> {
+  get optself() {
     return complicatedCategoryZod.optional();
   },
-  get self(): z.ZodType<ComplicatedCategory> {
+  get self() {
     return complicatedCategoryZod;
   },
-  get subcategories(): z.ZodType<ComplicatedCategory[]> {
+  get subcategories() {
     return z.array(complicatedCategoryZod);
   },
   nested: z.object({
-    get sub(): z.ZodType<ComplicatedCategory> {
+    get sub() {
       return complicatedCategoryZod;
     },
   }),
