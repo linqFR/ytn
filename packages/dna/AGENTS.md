@@ -70,7 +70,8 @@ The last element of a `tsDnaSeq` is the `refList` (`number[]`) that collects the
 The compiler uses a step-based system (`tsStackFrame`):
 
 - **`STEP.BODY`**: Direct JavaScript code concatenation
-- **`STEP.CONST`/`STEP.LET`**: Variable declarations
+- **`STEP.CONST`/`STEP.LET`**: Variable declarations inside the validator/parser function
+- **`STEP.OUT_CONST`/`STEP.OUT_ARG`**: Variables / arguments hoisted into the outer closure (e.g. compiled-once regexes)
 - **`STEP.START_REF`/`STEP.END_REF`**: Reference function generation for circular schemas
 - **Opcode handlers**: Builder opcodes map to `dna-js-builder.ts`; JSON Schema-derived opcodes map to `dna-js-json.ts`
 
@@ -93,6 +94,12 @@ Circular schemas are handled via reference functions:
 - Each referenced schema gets a dedicated function (`L0000`, `L0001`, etc.)
 - Functions include memoization via `.visit` Map to prevent infinite loops
 - Functions accept `_ea`/`_eo` parameters for unevaluated properties propagation
+
+### Promise Type Behavior
+
+`DnaPromise` overrides the synchronous `parse` and `safeParse` methods because a `Promise` cannot be resolved inside the synchronous generated validator. `safeParse` and `parse` reject with a dedicated error for non-Promise input, or with the message `Promise cannot be resolved synchronously`. `safeParseAsync` and `parseAsync` await the input and delegate to the inner schema.
+
+This mirrors Zod's `z.promise()` behavior and keeps the `toJS` code generation free of `await`.
 
 ---
 

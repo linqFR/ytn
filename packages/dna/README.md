@@ -27,8 +27,29 @@ This package provides the runtime validation engine only. For JSON Schema to DNA
 
 DNA Schema provides two validation modes:
 
-- **Validator Mode**: Ultra-fast boolean validation (fail-fast). ~1.5-2x faster than AJV Minimal for valid data.
-- **Parser Mode**: First blocking error collection with data transformation. Comparable or faster than AJV Minimal.
+- **Validator Mode**: Ultra-fast boolean validation (fail-fast). About as fast as AJV Minimal for valid data on the reference benchmark.
+- **Parser Mode**: First blocking error collection with data transformation. Slower than AJV Minimal for simple valid data because it builds a fresh output object; the generated function is notably smaller than AJV.
+
+### Parser vs Validator
+
+`validator()` is a plain boolean validator, comparable to AJV. It only checks that the input satisfies the schema and returns `true` or `false`.
+
+`parser()` is a `parse`+`transform` operation, comparable to Zod `parse()`. It does three things:
+
+1. **Validates** the input and collects the first blocking error set.
+2. **Reconstructs** the data into a fresh `Object.create(null)` output object.
+3. **Returns** `{ success: true, data }` on success or `{ success: false, errors }` on failure.
+
+Reconstruction means the parser:
+
+- creates a new object with no prototype (`Object.create(null)`),
+- copies the input's own properties with `Object.assign` so unknown properties allowed by `additionalProperties`/`unevaluatedProperties` are preserved,
+- rebuilds arrays into new arrays,
+- keeps arbitrary property names (including `__proto__`, `constructor`, `toString`) as ordinary own keys instead of inherited or magic properties.
+
+Because of this transformation, `parser()` is necessarily slower than `validator()` — it does strictly more work than a boolean validator. Use `validator()` when you only need a true/false answer. Use `parser()` when you need a guaranteed fresh, isolated output object with detailed errors on failure.
+
+Note that class instances and prototype chains are not preserved by `parser()`. If the input must remain an instance of a specific class, use `dna.instanceof()` or keep the object outside of the parser path.
 
 **DNA to JS produces a standalone JS function.**
 

@@ -20,7 +20,7 @@ import type {
   tsDnaDiscriminatedUnionObjects,
 } from "../types/api-builder.types.js";
 import type { $ToEnum, $Input, $Output, $ArrayItem, $TemplateLiteral, $DnaObjectOutput, $DnaObjectInput } from "../types/helpers.types.js";
-import type { IDnaType } from "./dna-interfaces.js";
+import type { DnaSomeType } from "./dna-interfaces.js";
 
 import {
   DnaBigInt,
@@ -244,7 +244,7 @@ export const nan = (meta?: string | tsDnaMeta) => initDna(DnaNaN, undefined, met
 export const file = (meta?: string | tsDnaMeta) => initDna(DnaFile, undefined, meta);
 
 /** @deprecated  */
-export const promise = <T, I = T>(schema: IDnaType<T, I>, meta?: string | tsDnaMeta) => initDna(DnaPromise<T, I>, { inner: schema }, meta);
+export const promise = <T, I = T>(schema: DnaSomeType<T, I>, meta?: string | tsDnaMeta) => initDna(DnaPromise<T, I>, { inner: schema }, meta);
 
 export const hostname = (meta?: string | tsDnaMeta) => initDna(DnaHostname, undefined, meta);
 
@@ -286,21 +286,21 @@ export const cidrv6 = (meta?: string | tsDnaMeta) => initDna(DnaCidrv6, undefine
 
 export const hash = (algorithm: "sha1" | "sha256" | "sha384" | "sha512" | "md5", meta?: string | tsDnaMeta) => initDna(DnaHash, { format: `hash:${algorithm}` }, meta);
 
-export function object<T extends Record<string, IDnaType>>(shape: T, meta?: string | tsDnaMeta) {
-  return initDna(DnaObject<$DnaObjectOutput<T>, $DnaObjectInput<T>, T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'standard' }, meta);
+export function object<T extends Record<string, any>>(shape: T, meta?: string | tsDnaMeta) {
+  return initDna(DnaObject<T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'standard' }, meta);
 }
 
-export function strictObject<T extends Record<string, IDnaType>>(shape: T, meta?: string | tsDnaMeta) {
-  return initDna(DnaObject<$DnaObjectOutput<T>, $DnaObjectInput<T>, T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'strict' }, meta);
+export function strictObject<T extends Record<string, any>>(shape: T, meta?: string | tsDnaMeta) {
+  return initDna(DnaObject<T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'strict' }, meta);
 }
 
-export function looseObject<T extends Record<string, IDnaType>>(shape: T, meta?: string | tsDnaMeta) {
-  return initDna(DnaObject<$DnaObjectOutput<T>, $DnaObjectInput<T>, T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'loose' }, meta);
+export function looseObject<T extends Record<string, any>>(shape: T, meta?: string | tsDnaMeta) {
+  return initDna(DnaObject<T>, { propertySchemas: shape, addPropSchema: undefined, objType: 'loose' }, meta);
 }
 
 export const property = <K extends string | number, S>(property: K, schema: DnaType<S>) => initDna(DnaCheckProperty<K>, { property, schema });
 
-export const array = <T extends DnaType<any, any>>(item: T, meta?: string | tsDnaMeta) => initDna(DnaArray<T>, { min: null, max: null, length: null, itemSchema: item }, meta);
+export const array = <T extends DnaSomeType>(item: T, meta?: string | tsDnaMeta) => initDna(DnaArray<T>, { min: null, max: null, length: null, itemSchema: item }, meta);
 
 export const tuple = <S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> | never = never>(items: S, rest?: R, meta?: string | tsDnaMeta) =>
   initDna(DnaTuple<S, R>, { items, rest }, meta);
@@ -349,7 +349,7 @@ export function preprocess<O>(fn: tsTransformFn<unknown, unknown>, target: DnaTy
   return initDna(DnaPipe<DnaTransform<unknown, unknown>, DnaType<O, any>>, { steps: [transformSchema, target] }, innerMeta);
 }
 
-export const lazy = <S extends DnaType<any, any>>(getter: () => S) => initDna(DnaLazy<S>, { getter });
+export const lazy = <S extends DnaType<any, any>>(getter: () => S) => initDna(DnaLazy<$Output<S>, $Input<S>, S>, { getter });
 
 
 export function custom<T>(fn: (val: any) => val is T, params?: any): DnaCustom<T, any>;

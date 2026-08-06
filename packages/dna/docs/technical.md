@@ -909,13 +909,13 @@ function (v) {
   let valid, strCnt;
   if(!(typeof v==="string")) return false;
   strCnt = fCount(v);
-  if(!((strCnt>=3) && (strCnt<=10) && (/^[a-z]+$/u.test(v)))) return false;
+  if(!((strCnt>=3) && (strCnt<=10) && (spptn0.test(v)))) return false;
   valid = true;
   return !!valid;
 }
 ```
 
-Three constraints fused into a single conjunctive guard. Note the unicode flag `u` on the regex (JSON Schema ECMA-262 dialect) and the `fCount` helper that counts code points (not UTF-16 code units) by skipping low surrogates.
+Three constraints fused into a single conjunctive guard. The `pattern` regex is compiled once in the outer closure (`const spptn0 = /^[a-z]+$/u;`) and only `spptn0.test(v)` runs on each validation, so large or frequently-used patterns are not re-created on every call. The `fCount` helper counts code points (not UTF-16 code units) by skipping low surrogates.
 
 #### 10.2 `{ "type": "integer", "minimum": 0, "maximum": 100 }`
 
@@ -1043,13 +1043,14 @@ The `passed0` plain-object hashmap accumulates the declared keys that matched (`
 
 ## Type Architecture
 
-### `DnaType` vs `IDnaType`
+### `DnaType` vs `DnaSomeType`
 
-`DnaType<T, I>` is the concrete, nominal base class for every schema. It owns the runtime implementation, the collector interface, and the builder chain state. `IDnaType<T, I>` is a *covariant view* of `DnaType`: it exposes only the public fluent API and uses the `~brand` symbol to keep the type nominal. This split exists so that methods and properties that must accept or return any subclass (`unwrap`, `_inputSchema`, `_outputSchema`, `.meta()`, `cloner` callbacks, etc.) can be typed through the interface without forcing every implementation to agree on a single concrete generic.
+`DnaType<T, I>` is the concrete, nominal base class for every schema. It owns the runtime implementation, the collector interface, and the builder chain state. `DnaSomeType<T, I>` is the *structural interface* that `DnaType` implements: it exposes only the public fluent API. This split exists so that methods and properties that must accept or return any subclass (`unwrap`, `_inputSchema`, `_outputSchema`, `.meta()`, `cloner` callbacks, etc.) can be typed through the interface without forcing every implementation to agree on a single concrete generic.
 
-- `DnaType` carries `readonly ~brand: T` and `readonly _input: I` to keep output and input types distinct.
-- `IDnaType` declares `readonly _head: unknown` so that recursive helpers such as `$InputHead` have a base case and do not loop on the head link.
-- `IDnaType` is **not** a catch-all. It is only an interface view of `DnaType`; no value is constructed as `IDnaType` directly.
+- `DnaType` carries `readonly declare _output: T` and `readonly declare _input: I` to keep output and input types distinct.
+- `DnaSomeType` declares `readonly _head: unknown` so that recursive helpers such as `$InputHead` have a base case and do not loop on the head link.
+- `DnaSomeType` also serves as the **loose constraint** for wrapper classes (`DnaOptional`, `DnaNullable`, …) and `this`-typed builder methods (`optional()`, `nullable()`, …), mirroring Zod v4's `SomeType = { _zod: _$ZodTypeInternals }`. This is critical for recursive type inference (see [Deferred output/input](#deferred-outputinput-and-recursive-type-inference) below).
+- `DnaSomeType` is **not** a catch-all. It is only an interface view of `DnaType`; no value is constructed as `DnaSomeType` directly.
 
 ### Core state and the `BaseCore` indirection
 
@@ -1067,19 +1068,124 @@ Every `DnaType` instance delegates runtime state to a `BaseCore` object keyed by
 
 ### Wrapper chain and `unwrap()`
 
-`DnaTypeWithWrappers` defines `unwrap(): IDnaType`. Because wrappers (`DnaOptional`, `DnaNullable`, `DnaDefault`, `DnaCatch`) wrap an `IDnaType`, the base return type is the interface, not a concrete `DnaType`. This lets `DnaPromise.override unwrap()` return the inner promise-wrapped schema as `IDnaType` without introducing an extra generic or unsafe cast.
+`DnaTypeWithWrappers` defines `unwrap(): DnaSomeType`. Because wrappers (`DnaOptional`, `DnaNullable`, `DnaDefault`, `DnaCatch`) wrap an `DnaSomeType` (their `Inner` constraint is `DnaSomeType`, not `DnaType<any, any>`), the base return type is the interface, not a concrete `DnaType`. This lets `DnaPromise.override unwrap()` return the inner promise-wrapped schema as `DnaSomeType` without introducing an extra generic or unsafe cast. The `DnaSomeType` constraint (rather than `DnaType<any, any>`) is also what allows recursive schemas to compile — see [Deferred output/input](#deferred-outputinput-and-recursive-type-inference) below.
 
 ### Function schemas and covariance
 
-`DnaFunction` keeps `input` and `output` as bare constraint seeds. Its private helpers `_inputSchema()` and `_outputSchema()` return `IDnaType` because the seeds can produce non-`DnaType` nodes (for example `DnaTuple` for variadic arguments, or `DnaUnknown` when no output is declared). Returning the covariant interface avoids the impossible assignment `DnaTuple <: DnaType` and eliminates casts inside `DnaFunction`.
+`DnaFunction` keeps `input` and `output` as bare constraint seeds. Its private helpers `_inputSchema()` and `_outputSchema()` return `DnaSomeType` because the seeds can produce non-`DnaType` nodes (for example `DnaTuple` for variadic arguments, or `DnaUnknown` when no output is declared). Returning the covariant interface avoids the impossible assignment `DnaTuple <: DnaType` and eliminates casts inside `DnaFunction`.
 
 ### Why `_head` is `unknown`
 
-`$InputHead<T>` recursively resolves a schema's effective input by following `_head` links. If `_head` were typed as `IDnaType | undefined`, the recursion had no base case and `dna.input`/`dna.infer` for array/object chains would hit instantiation depth limits or produce `any`. By declaring `_head: unknown` in `IDnaType`, the head link becomes an opaque edge and `$InputHead` falls back to `$Input<T>` when the head is not a concrete schema. This is the reason `BaseCore.head` and `IDnaType._head` are both `unknown`.
+`$InputHead<T>` recursively resolves a schema's effective input by following `_head` links. If `_head` were typed as `DnaSomeType | undefined`, the recursion had no base case and `dna.input`/`dna.infer` for array/object chains would hit instantiation depth limits or produce `any`. By declaring `_head: unknown` in `DnaSomeType`, the head link becomes an opaque edge and `$InputHead` falls back to `$Input<T>` when the head is not a concrete schema. This is the reason `BaseCore.head` and `DnaSomeType._head` are both `unknown`.
+
+### Deferred output/input and recursive type inference
+
+Recursive schemas (a `DnaObject` that references itself via a getter, mutual recursion between two objects, linked lists, etc.) require special type-system handling. Without deferral, TypeScript tries to resolve `_output`/`_input` **eagerly** during class instantiation, which creates a circular reference and produces `TS7022`/`TS7023`/`TS2615` errors.
+
+The solution mirrors Zod v4's architecture, where `ZodObject<out Shape>` extends `$ZodType<any, any, $ZodObjectInternals<Shape>>` — the parent class uses `any` for its type parameters, and the actual output/input types are accessed via the `._zod` internals (an indexed access that defers resolution).
+
+#### The deferred pattern in DNA
+
+Every class that computes `_output`/`_input` from a type parameter (e.g. `T` for `DnaObject`, `S` for `DnaArray`, `Inner` for wrappers) follows the same three rules:
+
+1. **Parent uses `any, any`**: The class extends its parent with `any` for both `T` and `I`, so the parent's `readonly declare _output: T` resolves to `any` and does **not** force eager resolution of the computed type.
+
+2. **Re-declare via `declare readonly`**: The actual output/input types are re-declared on the subclass with `declare readonly _output: $ComputedType<Param>`. Because `declare` fields are erased at runtime and are not subject to variance checks, TypeScript defers their resolution until the type is explicitly queried (e.g. `dna.infer<typeof schema>`).
+
+3. **No `out` variance needed on `DnaObject`'s `T`**: The `T` parameter is only used in `declare` fields (not subject to variance checks) and in the `extends DnaTypeWithWrappers<any, any>` parent (which uses `any`, not `T`). Without `out`, `T` is invariant but never checked, so the circular dependency is broken by the deferral alone. Adding `out T` triggers a variance check that fails because `$ReadonlyValue` (a conditional type) wrapping `$DnaObjectOutput<T>` (a mapped type) is not provably covariant. `DnaPipe<out S, out T>` is safe because its `_output` is a conditional type (`$Output<T>`) that resolves to `unknown` for unconstrained `T`.
+
+Classes following this pattern:
+
+| Class | Type param | Parent | Deferred `_output` / `_input` |
+|---|---|---|---|
+| `DnaObject` | `T` (no `out`) | `DnaTypeWithWrappers<any, any>` | `$DnaObjectOutput<T>` / `$DnaObjectInput<T>` |
+| `DnaArray` | `S` | `DnaTypeWithWrappers<any, any>` | `$Output<S>[]` / `$Input<S>[]` |
+| `DnaTuple` | `S, R` | `DnaTypeWithWrappers<any, any>` | `tsDnaTupleValueWithRest<S, …>` |
+| `DnaPipe` | `out S, out T` | `DnaTypeWithWrappers<any, any>` | `$Output<T>` / `$Input<S>` |
+| `DnaDiscriminatedUnion` | `K, S` | `DnaTypeWithWrappers<any, any>` | `$Output<S[number]>` / `$Input<S[number]>` |
+| `DnaRecord` | `K, V` | `DnaTypeWithWrappers<any, any>` | `Record<$Output<K> & PropertyKey, $Output<V>>` |
+| `_DnaWrapper` | `Inner` | `DnaTypeWithWrappers<any, any>` | `Out` / `In` (defaults: `$Output<Inner>` / `$Input<Inner>`) |
+| `DnaOptional` | `Inner` | `_DnaWrapper<Inner, any, any>` | `$Output<Inner> \| undefined` |
+| `DnaNullable` | `Inner` | `_DnaWrapper<Inner, any, any>` | `$Output<Inner> \| null` |
+| `DnaNullish` | `Inner` | `_DnaWrapper<Inner, any, any>` | `$Output<Inner> \| null \| undefined` |
+| `DnaNonOptional` | `Inner` | `_DnaWrapper<Inner, any, any>` | `$RemoveUndefined<$Output<Inner>>` |
+
+#### `readonly()` and variance: the `$ReadonlyReturnType` helper
+
+The `readonly()` method on `DnaTypeWithWrappers` clones the schema and sets `meta.readonly = true`. Its return type must map `_output` and `_input` through `$ReadonlyValue<T>` (which wraps non-primitive types in `Readonly<T>`).
+
+**The `$ReadonlyReturnType` helper:**
+
+```typescript
+type $ReadonlyReturnType<S extends { _output: any; _input: any }> =
+  Omit<S, "_output" | "_input" | "readonly"> & {
+    readonly _output: $ReadonlyValue<S["_output"]>;
+    readonly _input: $ReadonlyValue<S["_input"]>;
+  };
+
+readonly(): $ReadonlyReturnType<this> { ... }
+```
+
+`_output` and `_input` become **intersection members** (properties), not **type parameters** of a class. Properties are always covariant in TypeScript, so the variance check passes.
+
+**Why `DnaObject` does NOT need `out T`:**
+
+Through sandbox testing (see `sandbox/variance-test.ts`), we proved that:
+
+1. **Without `out`**: `DnaObject<{key: DnaString}>` is assignable to `DnaObject<Record<string, DnaSomeType>>` — TypeScript treats `T` as invariant, but since `DnaObject` extends `DnaTypeWithWrappers<any, any>`, the `T` parameter is only used in `declare` fields (not subject to variance checks). The invariant `T` is never checked because it doesn't appear in any method signature or base class type parameter.
+
+2. **With `out T`**: TypeScript triggers a variance check on `DnaObject<sub-T>` <: `DnaObject<super-T>`. It must verify that `readonly()` is compatible, which requires `$ReadonlyValue<$DnaObjectOutput<sub-T>>` <: `$ReadonlyValue<$DnaObjectOutput<super-T>>`. This fails (TS2636) because:
+   - `$DnaObjectOutput<T>` is a **mapped type** `{ [K in keyof T]: $Output<T[K]> }`
+   - `$ReadonlyValue` is a **conditional type** `unknown extends T ? T : T extends primitive ? T : Readonly<T>`
+   - TypeScript decomposes `$ReadonlyValue<mapped<Sub>>` into a union: `mapped<Sub> | (mapped<Sub> extends primitive ? ... : Readonly<mapped<Sub>>)`
+   - The first branch (`mapped<Sub>` itself) is NOT assignable to `$ReadonlyValue<mapped<Super>>` — TypeScript cannot prove that a conditional type wrapping a mapped type is covariant in its parameter
+
+3. **`DnaPipe<out S, out T>` works** because `_output = $Output<T>` is a **conditional type** (not a mapped type). `$ReadonlyValue<$Output<T>>` resolves to `unknown` when `T` is unconstrained (because `$Output<T>` = `unknown` when `T` doesn't extend `{ _output: ... }`, and `$ReadonlyValue<unknown>` = `unknown`). `unknown` is trivially assignable to anything, so the variance check passes.
+
+**The root cause — conditional types wrapping mapped types are not provably covariant:**
+
+The key insight is that `$ReadonlyValue<T>` is a conditional type. When `T` is a mapped type with unresolved type parameters, TypeScript cannot prove covariance because:
+- It decomposes the conditional into a union of its branches
+- The first branch (`T` itself, before the `extends primitive` check) is not provably assignable to the target conditional type
+- Mapped types ARE covariant on their own (`Readonly<Sub> <: Readonly<Super>`), but wrapping them in a conditional type breaks this property
+
+**Why `out` on `DnaType` / `DnaTypeWithWrappers` / `DnaTransform` does not work:**
+
+Adding `out` to these classes moves the TS2636 error onto themselves. The same `$ReadonlyValue` conditional type wrapping indexed access `S["_output"]` creates the same variance violation at the parent level.
+
+**Summary of the variance chain:**
+
+| Class | `out`? | Why |
+|---|---|---|
+| `DnaObject` | no | `out T` triggers variance check on `$ReadonlyValue<mapped<T>>` which fails (conditional type wrapping mapped type is not provably covariant). Without `out`, `T` is invariant but never checked (only used in `declare` fields). |
+| `DnaPipe` | `out S, out T` | `_output = $Output<T>` is a conditional type. `$ReadonlyValue<$Output<T>>` resolves to `unknown` for unconstrained `T`, which is trivially covariant. `out` is needed for `transform()` chain compatibility. |
+| `DnaType` | no | `out` causes TS2636 on itself due to `$ReadonlyValue` wrapping indexed access |
+| `DnaTypeWithWrappers` | no | Same reason — inherits `readonly()` which uses `$ReadonlyReturnType` with indexed access |
+| `DnaTransform` | no | Same reason — appears in `DnaPipe`'s type args, but `DnaPipe<out S, out T>` handles variance at the `DnaPipe` level |
+
+#### Loose constraints (the `DnaSomeType` / `SomeType` parallel)
+
+In addition to deferral, the **type constraints** on builder functions and wrapper classes were loosened to match Zod v4's approach:
+
+- **`dna.object` / `strictObject` / `looseObject`**: `T extends Record<string, any>` (was `Record<string, DnaSomeType>`). This mirrors Zod's `$ZodLooseShape = Record<string, any>`.
+- **`dna.array` / `DnaArray`**: `S extends DnaSomeType` (was `DnaType<any, any>`). This mirrors Zod's `SomeType = { _zod: _$ZodTypeInternals }`.
+- **Wrapper classes** (`DnaOptional`, `DnaNullable`, …): `Inner extends DnaSomeType` (was `DnaType<any, any>`).
+- **`_DnaWrapper`**: `Inner extends DnaSomeType` (was `DnaType<unknown, unknown>`).
+- **`this`-typed builder methods** (`optional()`, `nullable()`, `default()`, …): `This extends DnaSomeType` (was `DnaTypeWithWrappers<T, I>`).
+
+The tighter `DnaType<any, any>` constraint forced TypeScript to resolve the full class hierarchy (including `_output`/`_input`) just to verify the constraint, which re-introduced the circular dependency. The looser `DnaSomeType` constraint only requires the structural shape `{ _output, _input, _head, … }`, which is satisfied by `any` (the deferred parent) without resolution.
+
+#### `default()` and `prefault()` use `this["_output"]` / `this["_input"]`
+
+The `default()` and `prefault()` methods on `DnaTypeWithWrappers` use `this["_output"]` and `this["_input"]` for their `value` parameter types, rather than the class type parameters `T` and `I`. This is necessary because the class parameters are `any` (deferred parent), and the actual output/input types are only accessible via the `this`-typed indexed access, which resolves through the `declare` fields on the concrete subclass.
 
 ### Practical consequences
 
 - Methods that must return the same concrete class should return `this` and use `cloner` callbacks typed as `this`.
-- Methods that intentionally lose the concrete class (cross-schema helpers, `unwrap`, `_inputSchema`/`_outputSchema`) return `IDnaType`.
-- Always use `instanceof DnaType` for runtime class checks; `IDnaType` is a compile-time view only.
-- Do not add `| any` parameters or `as any` casts to silence variance errors — widen the return type to `IDnaType` or fix the seed typing instead.
+- Methods that intentionally lose the concrete class (cross-schema helpers, `unwrap`, `_inputSchema`/`_outputSchema`) return `DnaSomeType`.
+- Always use `instanceof DnaType` for runtime class checks; `DnaSomeType` is a compile-time view only.
+- Do not add `| any` parameters or `as any` casts to silence variance errors — widen the return type to `DnaSomeType` or fix the seed typing instead.
+- Classes that compute `_output`/`_input` from a type parameter MUST use the deferred pattern (parent `any, any` + `declare readonly` re-declaration) to support recursive schemas. See [Deferred output/input](#deferred-outputinput-and-recursive-type-inference) above.
+- Builder methods that accept a schema argument (`optional()`, `nullable()`, `dna.array()`, …) MUST constrain it to `DnaSomeType`, not `DnaType<any, any>`, to avoid re-introducing circular type resolution.
+- Methods that transform `_output`/`_input` (e.g. `readonly()`) MUST NOT return `DnaType<NewOut, NewIn>` — the invariant `I` parameter breaks variance. Use a dedicated helper type (`$ReadonlyReturnType<S>`) that emits the transformed types as **intersection properties** instead of class type parameters. See [`readonly()` and variance](#readonly-and-variance-the-readonlyreturntype-helper) above.
+- **Do NOT add `out` to `DnaObject`'s `T` parameter.** Without `out`, `T` is invariant but never variance-checked (only used in `declare` fields), so everything works. With `out`, TypeScript triggers a variance check that fails because `$ReadonlyValue` (a conditional type) wrapping `$DnaObjectOutput<T>` (a mapped type) is not provably covariant. `DnaPipe<out S, out T>` works because `$Output<T>` is a conditional type that resolves to `unknown` for unconstrained `T`.

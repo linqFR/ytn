@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from "vitest";
 
 import { dna } from "../src/index.js";
-import { z, ZodNonOptional, ZodObject } from "zod";
+import { z, ZodNonOptional, ZodObject, ZodReadonly } from "zod";
 import type { tsDnaEnumInput } from "../src/types/api-builder.types.js";
 import type { $AppendToTemplateLiteral, $TemplateLiteral } from "../src/types/helpers.types.js";
 import type { DnaType } from "../src/builder/dna-interfaces.js";
@@ -365,8 +365,16 @@ test("assignability", () => {
 
   // Readonly
   expectTypeOf(dna.object({ key: dna.string() }).readonly()._output).toEqualTypeOf<{ readonly key: string }>();
+  const dnaReadOnly = dna.object({ key: dna.string() }).readonly();
+  type tsDnaReadOnly = dna.infer<typeof dnaReadOnly>;
+  expectTypeOf<tsDnaReadOnly>().toEqualTypeOf<{ readonly key: string }>();
   const zodReadonly = z.object({ key: z.string() }).readonly();
+  type tszodReadOnly = z.infer<typeof zodReadonly>;
   expectTypeOf<z.infer<typeof zodReadonly>>().toEqualTypeOf<{ readonly key: string }>();
+
+  // Readonly after transform — verifies out variance on DnaObject/DnaPipe/DnaTransform
+  const dnaTransformReadonly = dna.object({ key: dna.string() }).transform((v) => v).readonly();
+  expectTypeOf<typeof dnaTransformReadonly._output>().toEqualTypeOf<{ readonly key: string }>();
 
   // NaN
   expectTypeOf(dna.nan()._output).toEqualTypeOf<number>();

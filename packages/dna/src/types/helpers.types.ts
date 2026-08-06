@@ -1,4 +1,4 @@
-import type { DnaOptional, DnaType, IDnaType } from "../builder/dna-interfaces.js";
+import type { DnaOptional, DnaType, DnaSomeType } from "../builder/dna-interfaces.js";
 import type { tsDnaBaseCtx } from "../shared/meta-context.type.js";
 import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
 
@@ -18,7 +18,6 @@ export type $InputHead<T> = T extends { _head: infer H }
   ? $Input<T>
   : $InputHead<H>
   : $Input<T>;
-export type infer<T> = $Output<T>;
 
 // Readonly for non-primitive types, identity for primitives
 export type $ReadonlyValue<T> = unknown extends T ? T : T extends string | number | bigint | boolean | symbol | null | undefined ? T : Readonly<T>;
@@ -109,26 +108,26 @@ export type $Flatten<T> = { [K in keyof T]: T[K] } & {};
 export type $ToEnum<T extends string | number | bigint> = $Flatten<{ [K in T as K extends string | number | symbol ? K : never]: K }>;
 
 // Map object schemas to their output types
-export type $DnaObjectOutput<T extends Record<string, IDnaType>> = {
+export type $DnaObjectOutput<T extends Record<string, DnaSomeType>> = {
   [K in keyof T]: $Output<T[K]>
 };
 
 // Map object schemas to their input types
-export type $DnaObjectInput<T extends Record<string, IDnaType>> = {
+export type $DnaObjectInput<T extends Record<string, DnaSomeType>> = {
   [K in keyof T]: $Input<T[K]>
 };
 
 // Wrap a schema in DnaOptional unless it is already optional
-export type $DnaPartialProperty<S extends IDnaType> =
+export type $DnaPartialProperty<S extends DnaSomeType> =
   S extends DnaOptional<infer _U> ? S : S extends DnaType<any, any> ? DnaOptional<S> : S;
 
 // Mark selected keys partial; by default all keys
-export type $DnaPartialShape<T extends Record<string, IDnaType>, K extends keyof T = keyof T> = {
+export type $DnaPartialShape<T extends Record<string, DnaSomeType>, K extends keyof T = keyof T> = {
   [P in keyof T]: P extends K ? $DnaPartialProperty<T[P]> : T[P]
 };
 
 // Safe extend: restrict overrides to assignable (narrower) schemas
-export type $SafeExtendShape<Base extends Record<string, IDnaType>, Ext extends Record<string, IDnaType>> = {
+export type $SafeExtendShape<Base extends Record<string, DnaSomeType>, Ext extends Record<string, DnaSomeType>> = {
   [K in keyof Ext]: K extends keyof Base
     ? $Output<Ext[K]> extends $Output<Base[K]>
       ? $Input<Ext[K]> extends $Input<Base[K]>

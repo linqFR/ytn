@@ -1,6 +1,6 @@
 
 import type {
-  IDnaType,
+  DnaSomeType,
   DnaObject,
   DnaType,
 } from "../builder/dna-interfaces.js";
@@ -47,7 +47,7 @@ export type tsDnaEnumLike = Record<string, tsDnaEnumValueType>;
 // ============================================
 // Discriminated Unions
 // ============================================
-export type tsDnaDiscriminant = IDnaType;
+export type tsDnaDiscriminant = DnaSomeType;
 
 export interface tsDnaDiscriminatedBranch<Disc extends string> {
   shape: { [K in Disc]: tsDnaDiscriminant } | undefined;
@@ -76,7 +76,7 @@ export type tsDnaTupleValueWithRest<S extends tsDnaTupleSchemaRO, R> = [R] exten
 // Function Types
 // ============================================
 
-export type DnaFunctionInput = readonly [IDnaType<any, any>, ...IDnaType<any, any>[]] | readonly [] | IDnaType<any, any>;
+export type DnaFunctionInput = readonly [DnaSomeType<any, any>, ...DnaSomeType<any, any>[]] | readonly [] | DnaSomeType<any, any>;
 
 export interface DnaFunctionOptions<I extends DnaFunctionInput = DnaFunctionInput, O = unknown> {
   input?: I;

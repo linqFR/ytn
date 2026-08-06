@@ -73,6 +73,7 @@ import type {
 import type { IDnaCollector } from "./collector.types.js";
 import { BaseCore, initDna, bindMethods } from "./dna-core.js";
 import type { tsWrpPhase, tsWrpTypes } from "./state.types.js";
+import type { InternalEventTargetEventProperties } from "node:events";
 
 
 // ============================================
@@ -174,14 +175,14 @@ const SymSetHead = Symbol("setHead");
 const SymForceCoerce = Symbol("forceCoerce");
 const SymCore = Symbol("_core");
 
-export interface IDnaType<T = unknown, I = unknown> {
+export interface DnaSomeType<T = unknown, I = unknown> {
   readonly _output: T;
   readonly _input: I;
   readonly type: string;
   readonly templateRegex: string;
   readonly [SymCore]: BaseCore<any>;
   readonly _head: unknown;
-  [SymForceCoerce](): IDnaType<T, I>;
+  [SymForceCoerce](): DnaSomeType<T, I>;
   parse(value: unknown, ctx?: tsDnaExternals): T;
   safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult;
   parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T>;
@@ -190,7 +191,7 @@ export interface IDnaType<T = unknown, I = unknown> {
   validateAsync(value: unknown, ctx?: tsDnaExternals): Promise<boolean>;
 
   meta(): tsDnaInnerMeta;
-  meta(value: string | tsDnaMeta): IDnaType<T, I>;
+  meta(value: string | tsDnaMeta): DnaSomeType<T, I>;
 
   toDna(): tsDnaSeq;
   toDna(collector: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId;
@@ -203,7 +204,7 @@ export interface IDnaType<T = unknown, I = unknown> {
 // `safeParse`) detect — and reject — a schema they cannot run synchronously.
 const AsyncFunction = (async function () { }).constructor;
 
-function isDnaObject(schema: IDnaType): schema is DnaObject {
+function isDnaObject(schema: DnaSomeType): schema is DnaObject {
   return schema instanceof DnaObject;
 }
 
@@ -219,7 +220,10 @@ export function cloner<T extends DnaType<any, any>>(schema: T, fn: (cl: T) => vo
 // Schema Builder export classes (with discriminated types)
 // ============================================
 
-export class DnaType<T = unknown, I = unknown> implements IDnaType<T, I> {
+type $ReadonlyReturnType<S extends { _output: any; _input: any }> =
+  Omit<S, "_output" | "_input" | "readonly"> & { readonly _output: $ReadonlyValue<S["_output"]>; readonly _input: $ReadonlyValue<S["_input"]>; };
+
+export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
   // expected typescript type input
   readonly declare _input: I;
   // typescript type output if validation / parsing is ok
@@ -588,9 +592,9 @@ export class DnaType<T = unknown, I = unknown> implements IDnaType<T, I> {
   }
 
   describe(description: string) { return cloner(this, cl => cl._core.meta.description = description); }
-  readonly(): DnaType<$ReadonlyValue<T>, $ReadonlyValue<I>> & Omit<this, "_output" | "_input" | "readonly"> {
-    const r = cloner(this, cl => cl._core.meta.readonly = true);
-    return r as unknown as DnaType<$ReadonlyValue<T>, $ReadonlyValue<I>> & Omit<this, "_output" | "_input" | "readonly">;
+  readonly(): $ReadonlyReturnType<this> {
+    const r = cloner(this as unknown as DnaType<any, any>, cl => cl._core.meta.readonly = true);
+    return r as unknown as $ReadonlyReturnType<this>;
   }
 
   register(fn: (schema: this) => void) { return cloner(this, cl => fn(cl)); }
@@ -701,28 +705,28 @@ export class DnaType<T = unknown, I = unknown> implements IDnaType<T, I> {
 
 // export class DnatypeWithWrappers<T, I = T, StateDef extends tsStateDef = tsStateDef> extends DnaType<T, I, StateDef> {
 export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
-  unwrap(): IDnaType {
+  unwrap(): DnaSomeType {
     throw new Error("unwrap() can only be called when a wrapper (optional, nullable, nullish, default, prefault) has been applied");
   }
-  optional<This extends DnaTypeWithWrappers<T, I>>(this: This): DnaOptional<This> {
+  optional<This extends DnaSomeType>(this: This): DnaOptional<This> {
     return initDna(DnaOptional<This>, { inner: this })[SymSetHead](this._head);
   }
-  nonoptional<This extends DnaTypeWithWrappers<T, I>>(this: This): DnaNonOptional<This> {
+  nonoptional<This extends DnaSomeType>(this: This): DnaNonOptional<This> {
     return initDna(DnaNonOptional<This>, { inner: this })[SymSetHead](this._head);
   }
-  nullable<This extends DnaTypeWithWrappers<T, I>>(this: This): DnaNullable<This> {
+  nullable<This extends DnaSomeType>(this: This): DnaNullable<This> {
     return initDna(DnaNullable<This>, { inner: this })[SymSetHead](this._head);
   }
-  nullish<This extends DnaTypeWithWrappers<T, I>>(this: This): DnaNullish<This> {
+  nullish<This extends DnaSomeType>(this: This): DnaNullish<This> {
     return initDna(DnaNullish<This>, { inner: this })[SymSetHead](this._head);
   }
-  default<This extends DnaTypeWithWrappers<T, I>>(this: This, value: T): DnaDefault<This> {
+  default<This extends DnaSomeType>(this: This, value: This["_output"]): DnaDefault<This> {
     return initDna(DnaDefault<This>, { inner: this, value })[SymSetHead](this._head);
   }
-  prefault<This extends DnaTypeWithWrappers<T, I>>(this: This, value: I): DnaPrefault<This> {
+  prefault<This extends DnaSomeType>(this: This, value: This["_input"]): DnaPrefault<This> {
     return initDna(DnaPrefault<This>, { inner: this, value })[SymSetHead](this._head);
   }
-  exactOptional<This extends DnaTypeWithWrappers<T, I>>(this: This): DnaExactOptional<This> {
+  exactOptional<This extends DnaSomeType>(this: This): DnaExactOptional<This> {
     return initDna(DnaExactOptional<This>, { inner: this })[SymSetHead](this._head);
   }
 }
@@ -761,8 +765,8 @@ export class DnaNaN extends DnaTypeWithWrappers<typeof NaN, typeof NaN> {
 }
 
 // Generic combinator implementation (anyOf, allOf, oneOf)
-class DnaCombinator<T, I = T, S extends readonly IDnaType[] = readonly IDnaType[]> extends DnaTypeWithWrappers<T, I> {
-  protected override _core = new BaseCore<{ schemas: IDnaType[], combinatorType: tsDnaCombinatorType }>("anyOf");
+class DnaCombinator<T, I = T, S extends readonly DnaSomeType[] = readonly DnaSomeType[]> extends DnaTypeWithWrappers<T, I> {
+  protected override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("anyOf");
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     let nbItems = this._core.seed.schemas.length
@@ -778,12 +782,12 @@ class DnaCombinator<T, I = T, S extends readonly IDnaType[] = readonly IDnaType[
 }
 
 export class DnaUnion<S extends tsDnaTupleSchemaRO> extends DnaCombinator<$Output<S[number]>, $Output<S[number]>, S> {
-  protected override _core = new BaseCore<{ schemas: IDnaType[], combinatorType: tsDnaCombinatorType }>("anyOf")
+  protected override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("anyOf")
     .preSeed({ combinatorType: "anyOf" });
 }
 
 export class DnaIntersection<T, U, I = T & U> extends DnaCombinator<T & U, I, [DnaType<T, I>, DnaType<U, I>]> {
-  protected override _core = new BaseCore<{ schemas: IDnaType[], combinatorType: tsDnaCombinatorType }>("allOf")
+  protected override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("allOf")
     .preSeed({ combinatorType: "allOf" });
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
@@ -808,7 +812,7 @@ export class DnaIntersection<T, U, I = T & U> extends DnaCombinator<T & U, I, [D
 }
 
 export class DnaXorUnion<T = unknown, U = unknown> extends DnaCombinator<$Xor<T, U>> {
-  protected override _core = new BaseCore<{ schemas: IDnaType[], combinatorType: tsDnaCombinatorType }>("oneOf")
+  protected override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("oneOf")
     .preSeed({ combinatorType: "oneOf" });
 }
 
@@ -826,10 +830,10 @@ export class DnaTransform<T, R> extends DnaTypeWithWrappers<R, T> {
 /* Wrappers bubble up their meta, so they dont need one  */
 // export class WrapperImpl<T, I = T, Inner extends DnaType<T, I> = DnaType<T, I>, StateDef = tsStateDef> extends DnatypeWithWrappers<T, I, tsStateWrp<T, I, Inner> & StateDef> {
 class _DnaWrapper<
-  Inner extends DnaType<unknown, unknown>,
+  Inner extends DnaSomeType,
   Out = $Output<Inner>,
   In = $Input<Inner>,
-> extends DnaTypeWithWrappers<Out, In> {
+> extends DnaTypeWithWrappers<any, any> {
   protected override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In>, valueExternals?: tsDnaExternals }>("wrap");
   declare _input: In;
   declare _output: Out;
@@ -879,7 +883,7 @@ class _DnaWrapper<
     // Value-bearing wrappers serialize their payload so codegen/converters can read it.
     // The phase (pre/post/around/catch) drives codegen dispatch without re-testing wrapperType.
     if (wrapperType === "optional") {
-      let current: DnaType<any> | undefined = this.unwrap();
+      let current: DnaSomeType | undefined = this.unwrap();
       while (current instanceof _DnaWrapper) {
         if (current.wrapperType === "default" || current.wrapperType === "prefault") {
           this._core.rawMeta({ passDefault: true });
@@ -912,32 +916,40 @@ class _DnaWrapper<
 }
 
 // Optional wrapper - allows undefined
-export class DnaOptional<Inner extends DnaType<any, any> = DnaType<any, any>> extends _DnaWrapper<Inner, $Output<Inner> | undefined, $Input<Inner> | undefined> {
+export class DnaOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
+  declare readonly _output: $Output<Inner> | undefined;
+  declare readonly _input: $Input<Inner> | undefined;
   protected override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" });
 }
 
 // ExactOptional wrapper - type-level marker: makes an object key optional without adding `undefined` to the value type.
-export class DnaExactOptional<Inner extends DnaType<any, any> = DnaType<any, any>> extends _DnaWrapper<Inner> {
+export class DnaExactOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   protected override _core = new BaseCore<{ wrapperType: "exactOptional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "exactOptional", phase: "pre" }).rawMeta({ exactOptional: true });
 }
 
 // NonOptional wrapper - marks schema as required in object keys (preserves wrapper chain type)
-export class DnaNonOptional<Inner extends DnaType<any, any> = DnaType<any, any>> extends _DnaWrapper<Inner, $RemoveUndefined<$Output<Inner>>, $RemoveUndefined<$Input<Inner>>> {
+export class DnaNonOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
+  declare readonly _output: $RemoveUndefined<$Output<Inner>>;
+  declare readonly _input: $RemoveUndefined<$Input<Inner>>;
   protected override _core = new BaseCore<{ wrapperType: "nonoptional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nonoptional", phase: "pre" }).rawMeta({ nonoptional: true });
 }
 
 // Nullable wrapper - allows null
-export class DnaNullable<Inner extends DnaType<any, any> = DnaType<any, any>> extends _DnaWrapper<Inner, $Output<Inner> | null, $Input<Inner> | null> {
+export class DnaNullable<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
+  declare readonly _output: $Output<Inner> | null;
+  declare readonly _input: $Input<Inner> | null;
   protected override _core = new BaseCore<{ wrapperType: "nullable", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullable", phase: "pre" });
 }
 
 // Nullish wrapper - allows undefined and null
-export class DnaNullish<Inner extends DnaType<any, any> = DnaType<any, any>> extends _DnaWrapper<Inner, $Output<Inner> | null | undefined, $Input<Inner> | null | undefined> {
+export class DnaNullish<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
+  declare readonly _output: $Output<Inner> | null | undefined;
+  declare readonly _input: $Input<Inner> | null | undefined;
   protected override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" });
 }
 
 // Default wrapper - provides default value for output
-export class DnaDefault<Inner extends DnaType<any, any> = DnaType<any, any>> extends _DnaWrapper<Inner> {
+export class DnaDefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   protected override _core = Object.defineProperty(
     new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
     "defaultValue",
@@ -946,7 +958,7 @@ export class DnaDefault<Inner extends DnaType<any, any> = DnaType<any, any>> ext
 }
 
 // Prefault wrapper - provides default value for input
-export class DnaPrefault<Inner extends DnaType<any, any> = DnaType<any, any>> extends _DnaWrapper<Inner> {
+export class DnaPrefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   protected override _core = Object.defineProperty(
     new BaseCore<{ wrapperType: "prefault", phase: "pre", inner: Inner, value: $Input<Inner> }>("wrap").preSeed({ wrapperType: "prefault", phase: "pre" }),
     "prefaultValue",
@@ -955,7 +967,7 @@ export class DnaPrefault<Inner extends DnaType<any, any> = DnaType<any, any>> ex
 }
 
 // Catch wrapper - provides fallback value on error
-export class DnaCatch<Inner extends DnaType<any, any> = DnaType<any, any>> extends _DnaWrapper<Inner> {
+export class DnaCatch<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   protected override _core = Object.defineProperty(
     new BaseCore<{ wrapperType: "catch", phase: "post", inner: Inner, value: $CatchValue<$Output<Inner>, $Input<Inner>>, valueExternals?: tsDnaExternals }>("wrap").preSeed({ wrapperType: "catch", phase: "post" }),
     "catchValue",
@@ -976,9 +988,9 @@ export class DnaCatch<Inner extends DnaType<any, any> = DnaType<any, any>> exten
  *   `nullable` does NOT (only an explicit `null` is allowed, not an absent key).
  * - otherwise the leaf's meta decides (e.g. `preprocess`/`exactOptional`).
  */
-function isRequiredKey(schema: IDnaType): boolean {
+function isRequiredKey(schema: DnaSomeType): boolean {
   if (schema.meta()[WRAPPERS_KEYOPT.nonoptional]) return true;
-  let s: IDnaType = schema instanceof DnaLazy ? schema.innerType : schema;
+  let s: DnaSomeType = schema instanceof DnaLazy ? schema.innerType : schema;
   while (s instanceof _DnaWrapper) {
     if (ABSENT_TOLERANT_WRAPPERS.includes(s.wrapperType)) return false;
     s = s.unwrap();
@@ -1452,8 +1464,10 @@ export class DnaTemplateLiteral<Parts> extends DnaTmplLiteralMutate<Parts> {
 
 
 // Seq implementation - sequence of DNA operations
-export class DnaPipe<S, T> extends DnaTypeWithWrappers<$Output<T>, $Input<S>> {
-  protected override _core = new BaseCore<{ steps: IDnaType[] }>("pipe", {
+export class DnaPipe<out S, out T> extends DnaTypeWithWrappers<any, any> {
+  declare readonly _output: $Output<T>;
+  declare readonly _input: $Input<S>;
+  protected override _core = new BaseCore<{ steps: DnaSomeType[] }>("pipe", {
     rawDna: ["pipe"],
     seed: {
       steps: []
@@ -1808,8 +1822,10 @@ export class DnaEnum<T extends tsDnaEnumLike> extends DnaTypeWithWrappers<
 }
 
 // Array implementation
-export class DnaArray<S extends DnaType<any, any>> extends DnaTypeWithWrappers<$Output<S>[], $Input<S>[]> {
-  protected override _core = new BaseCore<{ itemSchema: IDnaType, min: number | null, max: number | null, length: number | null }>("array");
+export class DnaArray<S extends DnaSomeType = DnaSomeType> extends DnaTypeWithWrappers<any, any> {
+  declare readonly _output: $Output<S>[];
+  declare readonly _input: $Input<S>[];
+  protected override _core = new BaseCore<{ itemSchema: DnaSomeType, min: number | null, max: number | null, length: number | null }>("array");
 
 
   override unwrap<W extends S>(): W { //wrap for Array is not wrap for wrapper, unwrap of wrapper override until there is no wrapper anymore.
@@ -1850,13 +1866,13 @@ function syncPromiseIssue(value: unknown): tsParserError {
 }
 // TODO: comment about depreciation of dna.promise
 export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
-  protected override _core = new BaseCore<{ inner: IDnaType<T, I> }>("promise");
+  protected override _core = new BaseCore<{ inner: DnaSomeType<T, I> }>("promise");
 
   // static init<T, I = unknown>(innerSchema: DnaType<T>): any {
   //   return this.initCore<T, I, tsStatePromise<T, I>>("promise", { innerSchema: innerSchema as any });
   // }
 
-  override unwrap(): IDnaType {
+  override unwrap(): DnaSomeType {
     return this._core.seed.inner;
   }
 
@@ -1906,11 +1922,10 @@ export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
 
 // Tuple implementation (Zod's z.tuple(items, rest?)): one schema per position,
 // plus an optional rest schema for any extra items.
-export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> | never = never> extends DnaTypeWithWrappers<
-  tsDnaTupleValueWithRest<S, [R] extends [never] ? never : $Output<R>>,
-  tsDnaTupleValueWithRest<S, [R] extends [never] ? never : $Input<R>>
-> {
-  protected override _core = new BaseCore<{ items: IDnaType[], rest?: IDnaType }>("tuple");
+export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> | never = never> extends DnaTypeWithWrappers<any, any> {
+  declare readonly _output: tsDnaTupleValueWithRest<S, [R] extends [never] ? never : $Output<R>>;
+  declare readonly _input: tsDnaTupleValueWithRest<S, [R] extends [never] ? never : $Input<R>>;
+  protected override _core = new BaseCore<{ items: DnaSomeType[], rest?: DnaSomeType }>("tuple");
 
 
   min(n: number, meta?: string | tsDnaMeta) { return cloner(this, () => { }); }
@@ -1940,8 +1955,15 @@ export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> 
 }
 
 // Object implementation
-export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> = Record<string, IDnaType>> extends DnaTypeWithWrappers<Out, In> {
-  protected override _core = new BaseCore<{ propertySchemas: Record<string, IDnaType>, addPropSchema: IDnaType | boolean | undefined, objType: tsDnaObjectType, requiredKeys?: string[], declared?: boolean }>("object");
+export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, DnaSomeType>> extends DnaTypeWithWrappers<any, any> {
+  /** No `out` variance on `T`: the deferred pattern (parent `any, any` + `declare` fields) breaks circular type inference on its own. Adding `out T` triggers a variance check that fails because `$ReadonlyValue` (conditional type) wrapping `$DnaObjectOutput<T>` (mapped type) is not provably covariant. */
+  // Deferred output/input: the parent uses `any, any` to break circular type inference
+  // (recursive schemas with getters). The actual types are re-declared here via `declare`
+  // so that `this["_output"]` / `this["_input"]` resolve correctly. This mirrors Zod's
+  // pattern where `ZodObject<out Shape>` extends `$ZodType<any, any, $ZodObjectInternals<Shape>>`.
+  declare readonly _output: { [K in keyof T]: $Output<T[K]> };
+  declare readonly _input: { [K in keyof T]: $Input<T[K]> };
+  protected override _core = new BaseCore<{ propertySchemas: Record<string, DnaSomeType>, addPropSchema: DnaSomeType | boolean | undefined, objType: tsDnaObjectType, requiredKeys?: string[], declared?: boolean }>("object");
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const constraints: any[] = [];
@@ -1954,7 +1976,7 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
     // Add a per-property signature (leaf opcode + literal value) to distinguish them.
     const propSig = this._core.seed.propertySchemas
       ? Object.entries(this._core.seed.propertySchemas).map(([k, v]) => {
-        let leaf: IDnaType = v;
+        let leaf: DnaSomeType = v;
         while (leaf instanceof _DnaWrapper) leaf = leaf.unwrap();
         switch (true) {
           case leaf instanceof DnaLiteral:
@@ -1996,7 +2018,7 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
         // detect them even when their value is `undefined` or falsy. The actual
         // value lives in the `wrp` opcode params for runtime.
         const propMeta: tsDnaInnerMeta = { ...realMeta };
-        let current: IDnaType | undefined = schema instanceof DnaLazy ? schema.innerType : schema;
+        let current: DnaSomeType | undefined = schema instanceof DnaLazy ? schema.innerType : schema;
         while (current instanceof _DnaWrapper) {
           if (current.wrapperType === WRAPPERS_XFAULT.default) propMeta.default = true;
           else if (current.wrapperType === WRAPPERS_XFAULT.prefault) propMeta.prefault = true;
@@ -2064,11 +2086,11 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
   /** @deprecated Use standard() instead */
   strip() { return this.standard(); }
 
-  catchall(addPropSchema: IDnaType) { this._core.seed.addPropSchema = addPropSchema; return this }
+  catchall(addPropSchema: DnaSomeType) { this._core.seed.addPropSchema = addPropSchema; return this }
   /** Alias of catchall() for compatibility @see catchall() */
-  catchAll(addPropSchema: IDnaType) { return this.catchall(addPropSchema); }
+  catchAll(addPropSchema: DnaSomeType) { return this.catchall(addPropSchema); }
 
-  partial<const K extends keyof T = keyof T>(keys?: Record<K, boolean>): DnaObject<Partial<Out>, Partial<In>, $DnaPartialShape<T, K>> {
+  partial<const K extends keyof T = keyof T>(keys?: Record<K, boolean>): DnaObject<$DnaPartialShape<T, K>> {
     const ks = keys as Record<string, boolean> | undefined;
     return cloner(this, cl => {
       if (ks) cl._core.seed.requiredKeys = cl._core.seed.requiredKeys?.filter(k => !ks[k]); else cl._core.seed.requiredKeys = [];
@@ -2082,14 +2104,14 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
           }
         }
       }
-    }) as unknown as DnaObject<Partial<Out>, Partial<In>, $DnaPartialShape<T, K>>;
+    }) as unknown as DnaObject<$DnaPartialShape<T, K>>;
   }
 
-  required(keys?: Record<string, boolean>): DnaObject<Required<Out>, Required<In>, T> {
+  required(keys?: Record<string, boolean>): DnaObject<T> {
     return cloner(this, cl => {
       if (keys) cl._core.seed.requiredKeys = Object.keys(cl._core.seed.propertySchemas ?? {}).filter(k => keys[k]);
       else cl._core.seed.requiredKeys = Object.keys(cl._core.seed.propertySchemas ?? {});
-    }) as unknown as DnaObject<Required<Out>, Required<In>, T>;
+    }) as unknown as DnaObject<T>;
   }
 
   get shape(): T {
@@ -2108,25 +2130,25 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
     return fn(this);
   }
 
-  omit<K extends keyof T>(keys: Record<K, boolean>): DnaObject<$DnaObjectOutput<Omit<T, K>>, $DnaObjectInput<Omit<T, K>>, Omit<T, K>> {
-    const newPropertySchemas: Record<string, IDnaType> = {};
+  omit<K extends keyof T>(keys: Record<K, boolean>): DnaObject<Omit<T, K>> {
+    const newPropertySchemas: Record<string, DnaSomeType> = {};
     for (const [key, schema] of Object.entries(this._core.seed.propertySchemas ?? {})) {
       if (!keys[key as K]) {
         newPropertySchemas[key] = schema;
       }
     }
-    const newObject = initDna(DnaObject<$DnaObjectOutput<Omit<T, K>>, $DnaObjectInput<Omit<T, K>>, Omit<T, K>>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
+    const newObject = initDna(DnaObject<Omit<T, K>>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
     return newObject;
   }
 
-  pick<K extends keyof T>(keys: Record<K, boolean>): DnaObject<$DnaObjectOutput<Pick<T, K>>, $DnaObjectInput<Pick<T, K>>, Pick<T, K>> {
-    const newPropertySchemas: Record<string, IDnaType> = {};
+  pick<K extends keyof T>(keys: Record<K, boolean>): DnaObject<Pick<T, K>> {
+    const newPropertySchemas: Record<string, DnaSomeType> = {};
     for (const [key, schema] of Object.entries(this._core.seed.propertySchemas ?? {})) {
       if (keys[key as K]) {
         newPropertySchemas[key] = schema;
       }
     }
-    const newObject = initDna(DnaObject<$DnaObjectOutput<Pick<T, K>>, $DnaObjectInput<Pick<T, K>>, Pick<T, K>>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
+    const newObject = initDna(DnaObject<Pick<T, K>>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
     return newObject;
   }
 
@@ -2137,16 +2159,16 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
    * It does not perform validation / safety checks itself; callers such as `.extend()`
    * handle those before delegating here.
    */
-  private _applyExtend<U extends Record<string, IDnaType>>(shape: Record<string, IDnaType>): DnaObject<$DnaObjectOutput<T & U>, $DnaObjectInput<T & U>, T & U> {
-    const newPropertySchemas: Record<string, IDnaType> = { ...this._core.seed.propertySchemas };
+  private _applyExtend<U extends Record<string, DnaSomeType>>(shape: Record<string, DnaSomeType>): DnaObject<T & U> {
+    const newPropertySchemas: Record<string, DnaSomeType> = { ...this._core.seed.propertySchemas };
     for (const [key, schema] of Object.entries(shape)) {
       newPropertySchemas[key] = schema;
     }
-    const newObject = initDna(DnaObject<$DnaObjectOutput<T & U>, $DnaObjectInput<T & U>, T & U>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
+    const newObject = initDna(DnaObject<T & U>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
     return newObject;
   }
 
-  extend<U extends Record<string, IDnaType>>(shape: U): DnaObject<$DnaObjectOutput<T & U>, $DnaObjectInput<T & U>, T & U> {
+  extend<U extends Record<string, DnaSomeType>>(shape: U): DnaObject<T & U> {
     if (shape === null || typeof shape !== "object" || Array.isArray(shape)) {
       throw new Error("Invalid input to extend: expected a plain object");
     }
@@ -2161,9 +2183,9 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
     return this._applyExtend(shape);
   }
 
-  safeExtend<U extends Record<string, IDnaType>>(
-    shape: U & $SafeExtendShape<T, U> & Partial<Record<keyof T, IDnaType>>
-  ): DnaObject<$DnaObjectOutput<T & U>, $DnaObjectInput<T & U>, T & U> {
+  safeExtend<U extends Record<string, DnaSomeType>>(
+    shape: U & $SafeExtendShape<T, U> & Partial<Record<keyof T, DnaSomeType>>
+  ): DnaObject<T & U> {
     if (shape === null || typeof shape !== "object" || Array.isArray(shape)) {
       throw new Error("Invalid input to safeExtend: expected a plain object");
     }
@@ -2173,10 +2195,10 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
   /**
    * @deprecated Use `.extend()` instead.
    */
-  merge(other: DnaObject<any, any, any>): DnaObject<any, any, any> {
+  merge(other: DnaObject<Record<string, DnaSomeType>>): DnaObject<Record<string, DnaSomeType>> {
     const left = (this._core.seed.propertySchemas ?? {}) as Record<string, DnaType<any, any>>;
     const right = (other._core.seed.propertySchemas ?? {}) as Record<string, DnaType<any, any>>;
-    const merged: Record<string, IDnaType> = { ...left, ...right };
+    const merged: Record<string, DnaSomeType> = { ...left, ...right };
     for (const key of Object.keys(left)) {
       if (key in right) {
         merged[key] = left[key].and(right[key]);
@@ -2205,7 +2227,7 @@ export class DnaObject<Out = any, In = Out, T extends Record<string, IDnaType> =
  *   `nullable` -> null, `nullish` -> both; default/prefault/catch add nothing)
  * - `z.null()` / `z.undefined()` -> `null` / `undefined`
  */
-function finiteValueSet(s: IDnaType): tsPrimitiveLiteral[] | undefined {
+function finiteValueSet(s: DnaSomeType): tsPrimitiveLiteral[] | undefined {
   // Unwrap wrappers first so optional/nullable can add their sentinel values.
   if (s instanceof _DnaWrapper) {
     const inner = finiteValueSet(s.unwrap());
@@ -2248,11 +2270,10 @@ function finiteValueSet(s: IDnaType): tsPrimitiveLiteral[] | undefined {
 }
 
 // Discriminated union implementation (discriminator opcode)
-export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminatedUnionObjects<K>> extends DnaTypeWithWrappers<
-  $Output<S[number]>,
-  $Input<S[number]>
-> {
-  protected override _core = new BaseCore<{ discriminator: K, schemas: IDnaType[] }>("discriminator");
+export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminatedUnionObjects<K>> extends DnaTypeWithWrappers<any, any> {
+  declare readonly _output: $Output<S[number]>;
+  declare readonly _input: $Input<S[number]>;
+  protected override _core = new BaseCore<{ discriminator: K, schemas: DnaSomeType[] }>("discriminator");
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const schemas = this._core.seed.schemas;
@@ -2297,14 +2318,13 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
 
 
 // Record implementation
-export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>> extends DnaTypeWithWrappers<
-  Record<$Output<K> & PropertyKey, $Output<V>>,
-  Record<$Input<K> & PropertyKey, $Input<V>>
-> {
+export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>> extends DnaTypeWithWrappers<any, any> {
+  declare readonly _output: Record<$Output<K> & PropertyKey, $Output<V>>;
+  declare readonly _input: Record<$Input<K> & PropertyKey, $Input<V>>;
 
-  protected override _core = new BaseCore<{ keySchema: IDnaType, valueSchema: IDnaType, type: "partial" | "loose" | "standard" }>("record")
+  protected override _core = new BaseCore<{ keySchema: DnaSomeType, valueSchema: DnaSomeType, type: "partial" | "loose" | "standard" }>("record")
 
-  // static init<K extends DnaType<any>, V extends DnaType<any>, I = Record<$Output<K>, $Output<V>>>(keySchema: IDnaType, valueSchema: IDnaType, type: "partial" | "loose" | "standard" = "standard"): any {
+  // static init<K extends DnaType<any>, V extends DnaType<any>, I = Record<$Output<K>, $Output<V>>>(keySchema: DnaSomeType, valueSchema: DnaSomeType, type: "partial" | "loose" | "standard" = "standard"): any {
   //   return this.initCore<Record<$Output<K>, $Output<V>>, I, tsStateRecord<K, V>>("record", { keySchema, valueSchema, type });
   // }
 
@@ -2415,11 +2435,12 @@ export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
 
 
 
-export class DnaLazy<S extends DnaType<any, any>> extends DnaTypeWithWrappers<$Output<S>, $Input<S>> {
-  protected override _core = new BaseCore<{ getter: () => IDnaType }>("lazy");
+export class DnaLazy<Out = any, In = any, Inner extends DnaType<Out, In> = DnaType<Out, In>> extends DnaTypeWithWrappers<Out, In> {
+  readonly declare Inner: Inner;
+  protected override _core = new BaseCore<{ getter: () => Inner }>("lazy");
 
-  get innerType(): S {
-    return this._core.seed.getter() as S;
+  get innerType(): Inner {
+    return this._core.seed.getter();
   }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
@@ -2581,6 +2602,8 @@ export class DnaCheckProperty<K extends string | number, S extends DnaType<any, 
 
 }
 
+export type tsJsonValue = string | number | boolean | null | tsJsonValue[] | { [x: string]: tsJsonValue };
+
 // NEVER EDIT - if  TS triggers an error the cause is elsewhere
 export type DnaJsonRaw = DnaUnion<[
   DnaString,
@@ -2591,4 +2614,4 @@ export type DnaJsonRaw = DnaUnion<[
   DnaRecord<DnaString, DnaJson>
 ]>;
 // NEVER EDIT - if  TS triggers an error the cause is elsewhere
-export type DnaJson = DnaLazy<DnaJsonRaw>;
+export type DnaJson = DnaLazy<tsJsonValue>;

@@ -24,7 +24,7 @@ export type { DnaFunctionOptions as tsDnaFunctionOptions } from "./types/api-bui
 
 
 export type output<S> = $Output<S>;
-export type infer<S> = $Output<S>;
+export type { output as infer };
 
 export type inputLocal<S> = $Input<S>;
 export type input<S> = $InputHead<S>;
