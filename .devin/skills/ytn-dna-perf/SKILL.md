@@ -31,6 +31,23 @@ Direct `v["prop"]` is faster but changes semantics:
 
 `Object.assign(Object.create(null), v)` and object rewrites exist because the DNA parser contract builds a fresh, isolated output object. `parseFast` / `combineFast` is the only path that is allowed to return the input reference. Do not propose removing reconstruction in the normal parser unless the user explicitly asks for a "fast" or "in-place" mode.
 
+The parser is **not just a validator**; it is a `parse`+`transform` operation comparable to Zod `parse()`. On the official `schvalid` benchmark it is ~2-3x slower than AJV because it:
+
+1. allocates an `Object.create(null)` output object,
+2. copies the input via `Object.assign(...)` to preserve allowed unknown properties,
+3. rebuilds arrays into new arrays,
+4. returns a `{ success, data }` result object.
+
+Micro-benchmarks (5M iterations, simple 5-property object) show the cost breakdown:
+
+- no copy / parseFast-style: ~7-10 ns/call
+- `{ ...v }` (keeps `Object.prototype`): ~30-35 ns/call
+- `Object.assign({}, v)` (keeps `Object.prototype`): ~110-125 ns/call
+- `Object.assign(Object.create(null), v)` + array copy: ~200-220 ns/call
+- manual `Object.create(null)` with `Object.keys` loop: ~270-330 ns/call
+
+So `Object.assign(Object.create(null), v)` is already the **fastest** way to copy all own properties into a null-prototype object. Any faster alternative requires either keeping `Object.prototype` or knowing the exact set of keys in advance — both change the parser contract.
+
 ## 4. `L####` reference functions
 
 Every DNA `ref` becomes a `L####` function. The `.visit` Map is for cycle detection. To inline a ref, first prove at compile time that the reference graph is acyclic by analyzing `refList` and the `ref` edges in the DNA tuple. Without that analysis, inlining is unsafe and can stack overflow on circular schemas.
