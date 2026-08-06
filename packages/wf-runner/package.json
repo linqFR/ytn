@@ -36,10 +36,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@ytn/shared": "*",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.5",
-    "zod": "^4.4.3",
-    "@types/node": "^26.1.1"
+    "tsx": "^4.23.8",
+    "zod": "^4.4.3"
+  },
+  "dependencies": {
+    "jose": "^6.2.8"
   }
 }

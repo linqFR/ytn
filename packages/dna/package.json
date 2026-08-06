@@ -43,9 +43,9 @@
     "@types/node": "^26.1.2",
     "@ytn/shared": "*",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.5"
+    "tsx": "^4.23.8"
   },
   "dependencies": {
-    "jose": "^6.2.7"
+    "jose": "^6.2.8"
   }
 }
