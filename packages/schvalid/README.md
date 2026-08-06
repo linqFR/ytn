@@ -1,5 +1,8 @@
+[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@ytn/schvalid.svg)](https://www.npmjs.com/package/@ytn/schvalid)
+[![Bundle size](https://packagephobia.com/badge?p=@ytn/schvalid)](https://packagephobia.com/result?p=@ytn/schvalid)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-2472%2F2472%20Passed-brightgreen.svg)](#tests)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # @ytn/schvalid
 
