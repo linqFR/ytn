@@ -68,6 +68,7 @@ Every opcode handler follows a **decision tree model** with the following steps.
 
 - `array`: `needLength = true` when minItems/maxItems/contains present
 - `array`: `needLoop = true` when items/contains present
+- `array`: `itemsIndex` initialization — **sentinel discipline**: use `-1` (never `0`) as the "no items" sentinel, because DNA index `0` is a valid items target (e.g. a recursive `$ref` pointing back to the root node). Guards MUST use `itemsIndex >= 0`, never truthiness (`&& itemsIndex`) or explicit exclusion (`!== 0`).
 - `array`: `uniqueItemsState` initialization for deep equality checks
 - `object`: `hasDynamicProps` for propertyNames/patternProperties
 - `object`: `patternPropChecks` array for patternProperties matching
@@ -959,6 +960,13 @@ When adding a new opcode handler, choose the pattern based on the requirements:
 ---
 
 ## Known Issues and TODOs
+
+### Fixed Issues
+
+1. **Sentinel collision in `array` handler** (fixed 2026-08-05): `itemsIndex` defaulted to `0` as the "no items declared" sentinel, but DNA index `0` is a valid items target (e.g. a recursive `$ref` pointing back to the root node at index 0). The truthiness checks `&& itemsIndex` (validate mode) and `&& itemsIndex !== 0` (parser mode) both treated index 0 as "absent", so the items-loop body was emitted empty — invalid items inside a recursive array were silently accepted.
+   - **Fix**: Switched the sentinel to `-1` (the project's standard absent-constraint sentinel) and changed the guards to `itemsIndex >= 0` in both validate and parser modes.
+   - **Regression tests**: `packages/schvalid/tests/schemas/regression-failles.test.ts` (section "recursive $ref as array items — sentinel fix").
+   - **Lesson**: Any codegen field that can hold a DNA index MUST use `-1` as the absent sentinel and guard with `>= 0`. Using `0` as a sentinel collides with valid index-0 references; using truthiness or `!== 0` instead of `>= 0` reintroduces the silent-accept bug.
 
 ### seq Contract Violations
 
