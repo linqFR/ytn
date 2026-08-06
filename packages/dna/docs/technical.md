@@ -233,6 +233,7 @@ Underscore prefix (e.g., `"_o"`, `"_s"`, `"_n"`) indicates unconstrained types. 
 - `["items", ref]` - Items schema
 
   - `ref`: DNA index reference for schema to validate all array items
+  - **Sentinel**: The `toJs` `array` handler uses `-1` as the "no items declared" sentinel. DNA index `0` is a valid items target (e.g. a recursive `$ref` pointing back to the root node at index 0), so `0` MUST NOT be used as the absent-constraint marker. Guards in both validate and parser modes use `itemsIndex >= 0` to emit the items-loop body. Using truthiness (`&& itemsIndex`) or explicit exclusion (`!== 0`) instead of `>= 0` reintroduces a silent-accept bug for recursive schemas.
 
 - `["unevaluatedItems", ref]` - Unevaluated items
   - `ref`: DNA index reference for schema to validate unevaluated items
@@ -519,6 +520,7 @@ Both modules share the same low-level codegen primitives from `utils.ts` (`simpl
 - Direct DNA generation without intermediate representations
 - Short opcodes for V8 optimization
 - Numeric sentinels (-1, null) for absent constraints
+- **Sentinel discipline**: DNA index `0` is a valid reference. Any field that can hold a DNA index MUST use `-1` (never `0`) as the "absent" sentinel, and guards MUST use `>= 0` rather than truthiness. The `array` handler's `itemsIndex` previously defaulted to `0` and used truthiness checks, which silently dropped the items-loop body for recursive schemas whose `items` pointed to index 0 — fixed in the `array` handler, regression-tested in `packages/schvalid/tests/schemas/regression-failles.test.ts`.
 - Lazy evaluation with stack-based processing
 - Hashmap-based tracking for evaluated properties/items (no Set overhead)
 - Standalone generated functions (no external dependencies)

@@ -1128,7 +1128,11 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 
 	let prefixItemsIndices: any[] = [];
 	let prefixItemsLength = 0;
-	let itemsIndex: number | boolean = 0;
+	// Sentinel for "no items declared": use -1 (NOT 0). DNA index 0 is a
+	// perfectly valid items target (e.g. a recursive `$ref` pointing back to
+	// the root node). Using 0 as the sentinel collided with that valid index
+	// and produced an empty items-loop body — silently accepting invalid items.
+	let itemsIndex: number | boolean = -1;
 
 	let needLength = false;
 	let needLoop = false;
@@ -1248,7 +1252,7 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 
 	// If prefixItems are present but no items/contains is declared, the remaining
 	// positions are unconstrained and must be copied to the output.
-	if (prefixItemsLength && itemsIndex === 0 && !parentCtx.unEvalArr) {
+	if (prefixItemsLength && itemsIndex === -1 && !parentCtx.unEvalArr) {
 		needLoop = true;
 	}
 
@@ -1290,7 +1294,7 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 			innerSteps.push([STEP.BODY,
 			"for(let " + iName + "=" + prefixItemsLength + ";" + iName + "<" + aLen + ";" + iName + "++){const " + loopVar + "=" + inVar + "[" + iName + "];"
 			]);
-			if (typeof itemsIndex === "number" && itemsIndex) {
+			if (typeof itemsIndex === "number" && itemsIndex >= 0) {
 				innerSteps.push([itemsIndex, loopVar, "", pathVar + "/array/items", childCtx]);
 				if (evalAddItem_) innerSteps.push([STEP.BODY, evalAddItem_]);
 			} else if (itemsIndex === true) {
@@ -1319,7 +1323,7 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 			innerSteps.push([STEP.BODY, "for(let " + iName + "=" + prefixItemsLength + ";" + iName + "<" + aLen + ";" + iName + "++){const " + loopVar + "=" + inVar + "[" + iName + "];"]);
 			if (containsSteps.length) fastMergeArrays(innerSteps, containsSteps);
 			if (fuseUnique) innerSteps.push([STEP.BODY, uniqueItemsState!.perItem]);
-			if (typeof itemsIndex === "number" && itemsIndex !== 0) {
+			if (typeof itemsIndex === "number" && itemsIndex >= 0) {
 				innerSteps.push(
 					[itemsIndex, loopVar, outVar + "[" + iName + "]", pathVar + "/array/items", childCtx],
 					[STEP.BODY, innerIfErrFail_ + (evalParent ? evalParent + "[" + iName + "]=1;" : "")]

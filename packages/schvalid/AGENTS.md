@@ -177,6 +177,15 @@ cases + consistency checks against `validator`/`parser`), and
    - **Solution**: Use `"parser"`/`"all".parse` when a fresh output object is required; use
      `"fast"`/`"all".parseFast` only when `data === input` on success is acceptable.
 
+5. **Recursive `$ref` as `array.items`**: A recursive `$ref` that points back to a node
+   compiled earlier in the DNA sequence can land at DNA index `0`. The `toJs` `array`
+   handler previously used `0` as its "no items declared" sentinel, so `items` pointing to
+   index `0` produced an empty items-loop body and silently accepted invalid items. This is
+   fixed (sentinel is now `-1`), but any new codegen field that can hold a DNA index MUST
+   use `-1` as the absent sentinel and guard with `>= 0`, never truthiness.
+   - **Regression tests**: `tests/schemas/regression-failles.test.ts` (section
+     "recursive $ref as array items — sentinel fix").
+
 ---
 
 ## Debugging

@@ -10,6 +10,22 @@
  */
 
 // ============================================================================
+// FIXED — 2026-08-05: Sentinel collision in `array` handler
+// ============================================================================
+// BUG:    `itemsIndex` defaulted to `0` as the "no items declared" sentinel,
+//         but DNA index `0` is a valid items target (e.g. a recursive `$ref`
+//         pointing back to the root node). The truthiness checks
+//         `&& itemsIndex` (validate mode) and `&& itemsIndex !== 0` (parser
+//         mode) both treated index 0 as "absent", so the items-loop body was
+//         emitted empty — invalid items inside a recursive array were silently
+//         accepted.
+// FIX:    Switched the sentinel to `-1` (the project's standard
+//         absent-constraint sentinel) and changed the guards to
+//         `itemsIndex >= 0` in both validate and parser modes.
+// TESTS:  packages/schvalid/tests/schemas/regression-failles.test.ts
+//         (recursive $ref as array items — sentinel fix).
+
+// ============================================================================
 // HIGH PRIORITY — hot path, measurable allocation / GC pressure
 // ============================================================================
 

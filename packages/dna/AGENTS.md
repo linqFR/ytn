@@ -170,6 +170,9 @@ This package follows global naming standards:
 4. **Mode Confusion**: Mixing validator and parser patterns
    - **Solution**: Check `parentCtx.isCond` before generating code
 
+5. **Sentinel collision with DNA index `0`**: Using `0` as a "no constraint" sentinel for a numeric field that also holds a DNA index. DNA index `0` is a valid target (e.g. a recursive `$ref` pointing back to the root node at index 0), so a `0` sentinel is indistinguishable from a real index-0 reference. This previously caused the `array` handler's `items` loop to emit an empty body, silently accepting invalid items in recursive schemas.
+   - **Solution**: Use `-1` (the project's standard absent-constraint sentinel) instead of `0`. Always test with `itemsIndex >= 0` rather than truthiness (`&& itemsIndex`) or explicit exclusion (`!== 0`). Regression tests: `packages/schvalid/tests/schemas/regression-failles.test.ts`.
+
 ---
 
 ## Debugging
