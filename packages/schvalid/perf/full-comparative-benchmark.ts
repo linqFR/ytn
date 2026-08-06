@@ -190,17 +190,19 @@ const zodSchema = z.object({
   console.log("=".repeat(90));
   console.log("COMPILATION PERFORMANCE COMPARISON (ms per compilation)");
   console.log("Stats: mean = average; median = middle value; p95 = 95% of measurements are at or below this value (5% are slower); stddev = dispersion.");
+  console.log("NOTE: 'DNA Validation' and 'DNA Parser' are low-level @ytn/dna modes included for internal comparison with Zod.");
   console.log(`Workload: ${runs} runs x ${iterations.toLocaleString()} schemas = ${(runs * iterations).toLocaleString()} compilations per mode`);
   console.log("=".repeat(90));
   console.log("| Mode               | mean (ms)    | median (ms) | p95 (ms) | stddev (ms) |");
   console.log("|--------------------|--------------|-------------|----------|-------------|");
-  console.log(`| DNA Validation     | ${pad(dnaVal.mean, 12)} | ${pad(dnaVal.median, 11)} | ${pad(dnaVal.p95, 8)} | ${pad(dnaVal.stdDev, 11)} |`);
-  console.log(`| DNA Parser         | ${pad(dnaParse.mean, 12)} | ${pad(dnaParse.median, 11)} | ${pad(dnaParse.p95, 8)} | ${pad(dnaParse.stdDev, 11)} |`);
-  console.log(`| Schvalid Val       | ${pad(schvalidVal.mean, 12)} | ${pad(schvalidVal.median, 11)} | ${pad(schvalidVal.p95, 8)} | ${pad(schvalidVal.stdDev, 11)} |`);
-  console.log(`| Schvalid Parse     | ${pad(schvalidParse.mean, 12)} | ${pad(schvalidParse.median, 11)} | ${pad(schvalidParse.p95, 8)} | ${pad(schvalidParse.stdDev, 11)} |`);
-  console.log(`| Schvalid ParseFast | ${pad(schvalidFast.mean, 12)} | ${pad(schvalidFast.median, 11)} | ${pad(schvalidFast.p95, 8)} | ${pad(schvalidFast.stdDev, 11)} |`);
   console.log(`| AJV Minimal        | ${pad(ajvMin.mean, 12)} | ${pad(ajvMin.median, 11)} | ${pad(ajvMin.p95, 8)} | ${pad(ajvMin.stdDev, 11)} |`);
   console.log(`| AJV AllErrors      | ${pad(ajvAll.mean, 12)} | ${pad(ajvAll.median, 11)} | ${pad(ajvAll.p95, 8)} | ${pad(ajvAll.stdDev, 11)} |`);
+  console.log(`| Schvalid Val       | ${pad(schvalidVal.mean, 12)} | ${pad(schvalidVal.median, 11)} | ${pad(schvalidVal.p95, 8)} | ${pad(schvalidVal.stdDev, 11)} |`);
+  console.log(`| Schvalid ParseFast | ${pad(schvalidFast.mean, 12)} | ${pad(schvalidFast.median, 11)} | ${pad(schvalidFast.p95, 8)} | ${pad(schvalidFast.stdDev, 11)} |`);
+  console.log(`| DNA Validation     | ${pad(dnaVal.mean, 12)} | ${pad(dnaVal.median, 11)} | ${pad(dnaVal.p95, 8)} | ${pad(dnaVal.stdDev, 11)} |`);
+  console.log("|--------------------|--------------|-------------|----------|-------------|");
+  console.log(`| DNA Parser         | ${pad(dnaParse.mean, 12)} | ${pad(dnaParse.median, 11)} | ${pad(dnaParse.p95, 8)} | ${pad(dnaParse.stdDev, 11)} |`);
+  console.log(`| Schvalid Parse     | ${pad(schvalidParse.mean, 12)} | ${pad(schvalidParse.median, 11)} | ${pad(schvalidParse.p95, 8)} | ${pad(schvalidParse.stdDev, 11)} |`);
   console.log(`| Zod                | ${pad(zod.mean, 12)} | ${pad(zod.median, 11)} | ${pad(zod.p95, 8)} | ${pad(zod.stdDev, 11)} |`);
   console.log("=".repeat(90));
   const speedupLabel = (s: string) => s.padEnd(16);
@@ -228,26 +230,28 @@ const zodSchema = z.object({
   const iterations = 5000;
   const runs = 30;
 
-  const labels = ["AJV Minimal", "AJV AllErrors", "DNA Validation", "DNA Parser", "Schvalid Val", "Schvalid Parse", "Schvalid ParseFast", "Zod"];
+  const labels = ["AJV Minimal", "AJV AllErrors", "DNA Validation", "Schvalid Val", "Schvalid ParseFast", "DNA Parser", "Schvalid Parse", "Zod"];
   const fns = [
     (d: unknown) => ajvValid(d),
     (d: unknown) => ajvErrors(d),
     (d: unknown) => dnaValidNormal(d),
-    (d: unknown) => dnaErrorsNormal(d),
     (d: unknown) => schvalidValidNormal(d),
-    (d: unknown) => schvalidErrorsNormal(d),
     (d: unknown) => schvalidFastNormal(d),
+    (d: unknown) => dnaErrorsNormal(d),
+    (d: unknown) => schvalidErrorsNormal(d),
     (d: unknown) => zodSchema.safeParse(d),
   ];
+  const parserStartIndex = 5;
 
   const results = runValidationBenchInterleaved(fns, iterations, runs);
-  const [ajvMin, ajvAll, dnaVal, dnaParse, schvalidVal, schvalidParse, schvalidFast, zod] = results;
+  const [ajvMin, ajvAll, dnaVal, schvalidVal, schvalidFast, dnaParse, schvalidParse, zod] = results;
 
   console.log("\n");
   console.log("WARNING: Benchmark results may vary between runs due to parallel execution scheduling.");
   console.log("=".repeat(110));
   console.log("VALIDATION PERFORMANCE COMPARISON (ms per validation)");
   console.log("Stats: mean = average; median = middle value; p95 = 95% of measurements are at or below this value (5% are slower).");
+  console.log("NOTE: 'DNA Parser' is the low-level DNA parser included for apples-to-apples comparison with Zod's parse-and-transform contract.");
   console.log("=".repeat(110));
   console.log("Schema:     JSON Schema with string, number, email, array, boolean");
   console.log(`Valid:      ${JSON.stringify(validData)}`);
@@ -260,6 +264,9 @@ const zodSchema = z.object({
   for (let i = 0; i < labels.length; i++) {
     const r = results[i];
     console.log(`| ${labels[i].padEnd(18)} | ${pad(r.valid.mean, 10)} | ${pad(r.valid.median, 12)} | ${pad(r.valid.p95, 9)} | ${pad(r.invalid.mean, 12)} | ${pad(r.invalid.median, 14)} | ${pad(r.invalid.p95, 11)} |`);
+    if (i === parserStartIndex - 1) {
+      console.log("|--------------------|------------|--------------|-----------|--------------|----------------|-------------|");
+    }
   }
   console.log("=".repeat(110));
   const formatPercent = (ratio: number) => {
@@ -277,6 +284,9 @@ const zodSchema = z.object({
     const medianSpeedup = results[0].valid.median / r.valid.median;
     const meanSpeedup = results[0].valid.mean / r.valid.mean;
     console.log(`| ${labels[i].padEnd(18)} | x${medianSpeedup.toFixed(2).padEnd(5)} | ${formatPercent(medianSpeedup).padStart(8)} | x${meanSpeedup.toFixed(2).padEnd(5)} | ${formatPercent(meanSpeedup).padStart(8)} |`);
+    if (i === parserStartIndex - 1) {
+      console.log("|--------------------|--------|----------|--------|----------|");
+    }
   }
   console.log("=".repeat(62));
   console.log("\n" + "=".repeat(62));
@@ -290,6 +300,9 @@ const zodSchema = z.object({
     const medianSpeedup = results[1].valid.median / r.valid.median;
     const meanSpeedup = results[1].valid.mean / r.valid.mean;
     console.log(`| ${labels[i].padEnd(18)} | x${medianSpeedup.toFixed(2).padEnd(5)} | ${formatPercent(medianSpeedup).padStart(8)} | x${meanSpeedup.toFixed(2).padEnd(5)} | ${formatPercent(meanSpeedup).padStart(8)} |`);
+    if (i === parserStartIndex - 1) {
+      console.log("|--------------------|--------|----------|--------|----------|");
+    }
   }
   console.log("=".repeat(62));
   const totalValidations = runs * iterations;
@@ -306,6 +319,9 @@ const zodSchema = z.object({
     const ratioMin = totalTime(results[0]) / totalTime(r);
     const ratioAll = totalTime(results[1]) / totalTime(r);
     console.log(`| ${labels[i].padEnd(18)} | ${padTotal(totalTime(r))} | ${("x" + ratioMin.toFixed(2)).padStart(16)} | ${("x" + ratioAll.toFixed(2)).padStart(16)} |`);
+    if (i === parserStartIndex - 1) {
+      console.log("|--------------------|------------|------------------|------------------|");
+    }
   }
   console.log("=".repeat(80));
 }

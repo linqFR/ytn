@@ -188,10 +188,16 @@ The discriminator is optimized with a `switch` statement in the generated JavaSc
 
 **Benchmark Results** (vs AJV 2020 — not a correctness test, run via `npm run bench`):
 
-- Compilation: **~5x faster** than AJV Minimal
-- Validation (valid data): **~1.10x faster** than AJV Minimal
-- Parser mode: Collects first blocking error with **~20% smaller** standalone code than AJV validation function with **comparable or faster** validation performance.
-- `parseFast` (valid data, mean vs AJV AllErrors): **~1.47x faster** — validation-heavy workloads that don't need a fresh `data` object benefit from skipping the full parser's output construction on the happy path.
+- Compilation: ~4x faster than AJV Minimal.
+- Validation (valid data): about as fast as AJV Minimal.
+- Parser mode: produces a standalone function ~30% smaller than AJV, but is ~3x slower than AJV for simple valid data because it builds a fresh output object. It is also ~3x slower than AJV AllErrors on the reference benchmark.
+- `parseFast` (valid data, no error): about as fast as AJV Minimal and `validation`. On invalid data it is ~3x slower than AJV AllErrors because it runs the cheap validator first, then the full parser to collect errors — a deliberate trade-off.
+
+**Which mode should I use?**
+
+- Use `validation` for plain fail-fast boolean checks.
+- Use `parseFast` when you need detailed errors on failure but don’t need a fresh output object on success. `parseFast` runs the cheap fail-fast validator first; if the input is invalid, it falls back to the full parser to collect all errors. It is the fastest rich-error path and the one most users want.
+- Use `parser` only when you explicitly need a fresh, `Object.create(null)` output object with the original unknown properties preserved (the same contract as Zod `parse()`). It is slower than all above, because it is a `parse`+`transform` operation, not just a validator: it allocates an `Object.create(null)` object, copies the input, rebuilds arrays, and returns `{ success, data }`. That reconstruction is why it is slower than AJV on the reference benchmark.
 
 ## Development
 
