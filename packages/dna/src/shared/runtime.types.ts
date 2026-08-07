@@ -16,9 +16,11 @@ export type tsResExc<T = any> = { success: true; data: T } | { success: false; e
 /** External references a serialized function uses (imports/helpers). Array form derives
  * the name from each value's `.name`; object form uses its keys. The NAMES travel in the
  * DNA (so codegen can normalize bundler-mangled refs and expose `const name = externals.name`);
- * the VALUES are supplied at validate/parse time via the externals argument. */
+ * the VALUES are supplied at validate/parse time via the externals argument.
+ * The value type is `unknown` — the registry stores anything (functions, namespaces,
+ * constructors, primitives). The consumer is responsible for using the value correctly. */
 
-export type tsDnaExternals = Record<string, string | Function>;
+export type tsDnaExternals = Record<string, unknown>;
 
 /** Declaration form for externals (array or object) used in transform/refine/check/codec.
  * Array form: named functions with `.name` (e.g., `[myFn]`). Arrow functions or anonymous

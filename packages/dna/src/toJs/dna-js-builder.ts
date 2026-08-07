@@ -399,12 +399,12 @@ export const cidrv6 = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName
 export const jwt = (dnaOpt: [string | null, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
 	const alg = dnaOpt[0];
 	parentCtx.typeChecked = "string";
-	registerExternal("jose", jose as unknown as Function);
+	registerExternal("jwtFn", jose.decodeProtectedHeader);
 	const hVar = "jH" + labelId();
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/jwt", "Invalid JWT") + ";";
 	const algCheck = alg !== null ? '&&' + hVar + '.alg===' + JSON.stringify(alg) : "";
 	const catchBody = parentCtx.isCond ? parentCtx.failCase : condErr + parentCtx.failCase;
-	const preBody = 'let ' + hVar + ';try{' + hVar + '=jose.decodeProtectedHeader(' + _inVarName + ');}catch(e){' + catchBody + '}';
+	const preBody = 'let ' + hVar + ';try{' + hVar + '=jwtFn(' + _inVarName + ');}catch(e){' + catchBody + '}';
 	const test = hVar + '&&(' + hVar + '.typ===undefined||' + hVar + '.typ==="JWT")' + algCheck;
 	let body = preBody;
 	if (parentCtx.isCond) {
@@ -414,7 +414,7 @@ export const jwt = (dnaOpt: [string | null, tsDnaInnerMeta], _inVarName: string,
 		body += 'if(!(' + test + ')){' + condErr + parentCtx.failCase + '}';
 		if (_outVarName) body += _outVarName + '=' + _inVarName + ';';
 	}
-	return [[STEP.OUT_ARG, "jose"], [STEP.BODY, body]]
+	return [[STEP.OUT_ARG, "jwtFn"], [STEP.BODY, body]]
 };
 
 // `sb`: Zod V4 `z.stringbool()` — validates a string against allowed truthy/falsy

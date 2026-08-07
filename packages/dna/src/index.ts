@@ -10,6 +10,6 @@
 import * as dna from "./dna-namespace.js";
 import { registerExternal } from "./toJs/registry.js";
 
-registerExternal("dna", dna as unknown as Function);
+registerExternal("dna", dna);
 
 export { dna };

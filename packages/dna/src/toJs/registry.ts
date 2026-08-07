@@ -26,18 +26,18 @@
 // };
 
 // Constructor registry for instanceof validation
-const constructorRegistry = new Map<string, Function>();
+const externalRegistry = new Map<string, unknown>();
 
-export const registerExternal = (name: string, fnConstruct: Function): void => {
-	constructorRegistry.set(name, fnConstruct);
+export const registerExternal = (name: string, value: unknown): void => {
+	externalRegistry.set(name, value);
 };
 
-export const getExternal = (name: string): Function | undefined => {
-	return constructorRegistry.get(name);
+export const getExternal = (name: string): unknown => {
+	return externalRegistry.get(name);
 };
 
-export const getRegisteredExternals=()=>{
-	return Object.fromEntries(constructorRegistry);
+export const getRegisteredExternals = (): Record<string, unknown> => {
+	return Object.fromEntries(externalRegistry);
 }
 
 export default { registerExternal, getExternal };

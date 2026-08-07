@@ -4,6 +4,7 @@ import { DnaMap, DnaSet } from '../builder/api-enhanced.js';
 import { getRegisteredExternals } from '../toJs/registry.js';
 import type { tsDnaMeta } from '../shared/meta-context.type.js';
 import type { tsDna, tsDnaSeq } from '../types/core.types.js';
+import type { tsPrimitiveClass } from '../shared/base.types.js';
 
 function isMeta(v: unknown): v is tsDnaMeta {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -348,7 +349,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
 
     case 'instanceOf': {
       const constructorName = params as string;
-      const constructor = getRegisteredExternals()[constructorName];
+      const constructor = getRegisteredExternals()[constructorName] as tsPrimitiveClass;
       if (!constructor) throw new Error(`fromDna: external constructor not registered: ${constructorName}`);
       return initDna(c.DnaInstanceOf, { constructor }, meta);
     }
