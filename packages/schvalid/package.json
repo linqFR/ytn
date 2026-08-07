@@ -8,6 +8,7 @@
   "sideEffects": false,
   "engines": { "node": ">=24.0.0" },
   "publishConfig": { "access": "public" },
+  "files": ["dist", "README.md", "LICENSE"],
   "keywords": [
     "dna",
     "json-schema",
