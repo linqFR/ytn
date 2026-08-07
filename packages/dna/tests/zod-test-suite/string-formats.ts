@@ -134,4 +134,41 @@ export const stringFormatsTests = [
       },
     ],
   },
+  {
+    description: "guid format (permissive 8-4-4-4-12 hex, less strict than uuid)",
+    zodSchema: z.guid(),
+    dnaSchema: dna.guid(),
+    tests: [
+      {
+        description: "valid standard uuid",
+        data: "550e8400-e29b-41d4-a716-446655440000",
+        valid: true,
+      },
+      {
+        description: "valid guid with non-variant bits (01d4 — would fail uuid)",
+        data: "550e8400-e29b-01d4-a716-446655440000",
+        valid: true,
+      },
+      {
+        description: "valid guid with non-variant bits (ff in 3rd group)",
+        data: "550e8400-e29b-ff d4-a716-446655440000".replace(" ", ""),
+        valid: true,
+      },
+      {
+        description: "invalid non-hex character",
+        data: "550e8400-e29b-41d4-a716-44665544000g",
+        valid: false,
+      },
+      {
+        description: "invalid wrong length",
+        data: "550e8400-e29b-41d4-a716",
+        valid: false,
+      },
+      {
+        description: "invalid missing dashes",
+        data: "550e8400e29b41d4a716446655440000",
+        valid: false,
+      },
+    ],
+  },
 ];

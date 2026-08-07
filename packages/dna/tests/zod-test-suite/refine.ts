@@ -174,4 +174,43 @@ export const refineTests = [
       { description: "valid", data: { length: 6, size: 8 }, valid: true },
     ],
   },
+  {
+    description: "top-level dna.refine() reusable check",
+    zodSchema: z.string().check(z.refine((val: unknown) => val !== "forbidden")),
+    dnaSchema: dna.string().check(dna.refine((val: unknown) => val !== "forbidden")),
+    tests: [
+      { description: "valid string", data: "hello", valid: true },
+      { description: "invalid forbidden", data: "forbidden", valid: false },
+    ],
+  },
+  {
+    description: "top-level dna.check() reusable check (low-level ctx-based, Zod v4 z.check() parity)",
+    zodSchema: z.string().check(
+      z.check((ctx) => {
+        if (ctx.value.length <= 3) {
+          ctx.issues.push({ code: "custom", message: "Must be longer than 3", input: ctx.value });
+        }
+      })
+    ),
+    dnaSchema: dna.string().check(
+      dna.check((value, ctx) => {
+        if ((value as string).length <= 3) {
+          ctx.addIssue({ code: "custom", message: "Must be longer than 3", input: value });
+        }
+      })
+    ),
+    tests: [
+      { description: "valid long string", data: "hello", valid: true },
+      { description: "invalid short string", data: "hi", valid: false },
+    ],
+  },
+  {
+    description: "reusable check on multiple schemas",
+    zodSchema: null,
+    dnaSchema: dna.string().check(dna.refine((val: unknown) => (val as string).startsWith("a"))),
+    tests: [
+      { description: "valid starts with a", data: "apple", valid: true },
+      { description: "invalid does not start with a", data: "banana", valid: false },
+    ],
+  },
 ];

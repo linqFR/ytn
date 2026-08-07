@@ -111,6 +111,22 @@ describe("DNA vs Zod Compatibility Tests", () => {
             e?.message?.includes("Promise") ||
             e?.message?.includes("async");
 
+          // DNA-only tests (zodSchema === null): compare DNA against expected `valid`
+          if (zodSchema === null) {
+            let dnaValid = false;
+            try {
+              dnaValid = dnaSchema.validate(test.data);
+            } catch (e: any) {
+              if (isAsyncError(e)) {
+                dnaValid = await dnaSchema.validateAsync(test.data);
+              } else {
+                dnaValid = false;
+              }
+            }
+            expect(dnaValid).toBe(test.valid);
+            return;
+          }
+
           // Test Zod
           let zodResult: any;
           try {

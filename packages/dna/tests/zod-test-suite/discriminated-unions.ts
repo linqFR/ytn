@@ -77,4 +77,22 @@ export const discriminatedUnionsTests = [
       { description: "valid undefined", data: { type: undefined, val: "val" }, valid: true },
     ],
   },
+  {
+    description: "invalid discriminator value",
+    zodSchema: stringDiscriminatorZod,
+    dnaSchema: stringDiscriminatorDna,
+    tests: [
+      { description: "invalid type c", data: { type: "c", a: "abc" }, valid: false },
+      { description: "invalid missing type", data: { a: "abc" }, valid: false },
+      { description: "invalid wrong value for b", data: { type: "b", a: "abc" }, valid: false },
+    ],
+  },
+  {
+    description: "valid parse - type b",
+    zodSchema: stringDiscriminatorZod,
+    dnaSchema: stringDiscriminatorDna,
+    tests: [
+      { description: "valid type b", data: { type: "b", b: "xyz" }, valid: true },
+    ],
+  },
 ];
