@@ -1,7 +1,7 @@
 import { deepMerge, isPureObject } from "@ytn/shared/js/object-utils.js";
 import type { tsDnaInnerMeta, tsDnaMeta } from "../shared/meta-context.type.js";
 import type { tsDnaParserFn, tsDnaValidatorFn } from "../shared/runtime.types.js";
-import type { tsDna, tsDnaId, tsDnaNoMeta, tsDnaSeq } from "../types/core.types.js";
+import type { tsDna, tsDnaId, tsDnaNoMeta, tsDnaOpcode, tsDnaSeq } from "../types/core.types.js";
 import type { $Input, $Output } from "../types/helpers.types.js";
 import type { IDnaCollector } from "./collector.types.js";
 import type { tsStateDef, tsStateFull } from "./state.types.js";
@@ -42,7 +42,7 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
   readonly #state: tsStateFull<State>;
 
   constructor(
-    type: string,
+    kind: string,
     opt?: {
       rawDna?: tsDnaNoMeta,
       coerce?: boolean,
@@ -51,7 +51,7 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
       templateRegex?: string,
     }) {
     this.#state = {
-      type,
+      kind,
       rawDna: opt?.rawDna ?? ["T"],
       meta: {},
       coerce: opt?.coerce ?? false,
@@ -154,7 +154,7 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
 
   clone(): BaseCore<State> {
     const clonedState = this.cloneState();
-    const core = new BaseCore<State>(this.#state.type, { seed: clonedState });
+    const core = new BaseCore<State>(this.#state.kind, { seed: clonedState });
     core.#state.templateRegex = this.#state.templateRegex;
     core.#state.coerce = this.#state.coerce;
     core.#state.coerceCode = this.#state.coerceCode;

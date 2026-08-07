@@ -173,14 +173,13 @@ function metaNormalize(meta?: string | tsDnaInnerMeta, target?: string): tsDnaIn
 
 const SymSetHead = Symbol("setHead");
 const SymForceCoerce = Symbol("forceCoerce");
-const SymCore = Symbol("_core");
 
 export interface DnaSomeType<T = unknown, I = unknown> {
   readonly _output: T;
   readonly _input: I;
   readonly type: string;
   readonly templateRegex: string;
-  readonly [SymCore]: BaseCore<any>;
+  readonly _core: BaseCore<any>;
   readonly _head: unknown;
   [SymForceCoerce](): DnaSomeType<T, I>;
   parse(value: unknown, ctx?: tsDnaExternals): T;
@@ -235,13 +234,12 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
   [SymSetHead](head: unknown): this { this._core.setHead(head); return this; }
 
   // _core is already defined dans DnaType
-  protected _core = new BaseCore("any", { rawDna: ["T"] });
-  get [SymCore]() { return this._core; }
+  _core = new BaseCore("any", { rawDna: ["T"] });
 
   get _state() { return this._core.seed };
 
   get description(): string | undefined { return this._core.meta.description; }
-  get type() { return this._core.state.type; }
+  get type() { return this._core.state.kind; }
 
   /**
    * Standard Schema Protocol V1 compatibility
@@ -732,41 +730,49 @@ export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
 }
 
 export class DnaAny extends DnaTypeWithWrappers<any, any> {
-  protected override _core = new BaseCore("any", { templateRegex: "" });
+  override _core = new BaseCore("any", { templateRegex: "" });
 }
 
 export class DnaUnknown extends DnaTypeWithWrappers<unknown, unknown> {
-  protected override _core = new BaseCore("unknown", { templateRegex: "" });
+  override _core = new BaseCore("unknown", { templateRegex: "" });
 }
 
 export class DnaNever extends DnaTypeWithWrappers<never, unknown> {
-  protected override _core = new BaseCore("never", { rawDna: ["F"], templateRegex: "" });
+  override _core = new BaseCore("never", { rawDna: ["F"], templateRegex: "" });
 }
 
 export class DnaNull extends DnaTypeWithWrappers<null, null> {
-  protected override _core = new BaseCore("null", { rawDna: ["n0"] });
+  override _core = new BaseCore("null", { rawDna: ["n0"] });
 }
 
 export class DnaUndefined extends DnaTypeWithWrappers<undefined, undefined> {
-  protected override _core = new BaseCore("undefined", { rawDna: ["undefined"] });
+  override _core = new BaseCore("undefined", { rawDna: ["undefined"] });
 }
 
 
 export class DnaSymbol extends DnaTypeWithWrappers<symbol, symbol> {
-  protected override _core = new BaseCore("symbol", { rawDna: ["symbol"] });
+  override _core = new BaseCore("symbol", { rawDna: ["symbol"] });
 }
 
 export class DnaVoid extends DnaTypeWithWrappers<void, void> {
-  protected override _core = new BaseCore("void", { rawDna: ["undefined"] });
+  override _core = new BaseCore("void", { rawDna: ["undefined"] });
 }
 
 export class DnaNaN extends DnaTypeWithWrappers<typeof NaN, typeof NaN> {
-  protected override _core = new BaseCore("nan", { rawDna: ["nan"] });
+  override _core = new BaseCore("nan", { rawDna: ["nan"] });
 }
 
 // Generic combinator implementation (anyOf, allOf, oneOf)
 class DnaCombinator<T, I = T, S extends readonly DnaSomeType[] = readonly DnaSomeType[]> extends DnaTypeWithWrappers<T, I> {
-  protected override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("anyOf");
+  override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("anyOf");
+  override get type() {
+    switch (this._core.seed.combinatorType) {
+      case "anyOf": return "union";
+      case "allOf": return "intersection";
+      case "oneOf": return "xor";
+      default: return this._core.state.kind;
+    }
+  }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     let nbItems = this._core.seed.schemas.length
@@ -782,12 +788,15 @@ class DnaCombinator<T, I = T, S extends readonly DnaSomeType[] = readonly DnaSom
 }
 
 export class DnaUnion<S extends tsDnaTupleSchemaRO> extends DnaCombinator<$Output<S[number]>, $Output<S[number]>, S> {
-  protected override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("anyOf")
+  override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("anyOf")
     .preSeed({ combinatorType: "anyOf" });
+
+  /** Returns the union's option schemas (Zod v4 parity: `.options`). */
+  get options(): S { return this._core.seed.schemas as unknown as S; }
 }
 
 export class DnaIntersection<T, U, I = T & U> extends DnaCombinator<T & U, I, [DnaType<T, I>, DnaType<U, I>]> {
-  protected override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("allOf")
+  override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("allOf")
     .preSeed({ combinatorType: "allOf" });
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
@@ -812,13 +821,13 @@ export class DnaIntersection<T, U, I = T & U> extends DnaCombinator<T & U, I, [D
 }
 
 export class DnaXorUnion<T = unknown, U = unknown> extends DnaCombinator<$Xor<T, U>> {
-  protected override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("oneOf")
+  override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("oneOf")
     .preSeed({ combinatorType: "oneOf" });
 }
 
 
 export class DnaTransform<T, R> extends DnaTypeWithWrappers<R, T> {
-  protected override _core = new BaseCore<{ fnStr: string, arity: number }>("transform");
+  override _core = new BaseCore<{ fnStr: string, arity: number }>("transform");
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     this._core.rawDna = ["transform", [this._core.seed.fnStr, this._core.seed.arity]];
@@ -834,7 +843,7 @@ class _DnaWrapper<
   Out = $Output<Inner>,
   In = $Input<Inner>,
 > extends DnaTypeWithWrappers<any, any> {
-  protected override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In>, valueExternals?: tsDnaExternals }>("wrap");
+  override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In>, valueExternals?: tsDnaExternals }>("wrap");
   declare _input: In;
   declare _output: Out;
   // declare _output: $Output<Inner> & {
@@ -845,6 +854,7 @@ class _DnaWrapper<
   // catchValue?: () => $CatchValue<T, I> | undefined;
 
   get wrapperType(): tsWrpTypes { return this._core.seed.wrapperType; }
+  override get type() { return this._core.seed.wrapperType; }
 
   override unwrap(): Inner {
     // this._core.state.inner.meta({ [this.#wrapperType] undefined });
@@ -919,38 +929,38 @@ class _DnaWrapper<
 export class DnaOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | undefined;
   declare readonly _input: $Input<Inner> | undefined;
-  protected override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" });
+  override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" });
 }
 
 // ExactOptional wrapper - type-level marker: makes an object key optional without adding `undefined` to the value type.
 export class DnaExactOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
-  protected override _core = new BaseCore<{ wrapperType: "exactOptional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "exactOptional", phase: "pre" }).rawMeta({ exactOptional: true });
+  override _core = new BaseCore<{ wrapperType: "exactOptional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "exactOptional", phase: "pre" }).rawMeta({ exactOptional: true });
 }
 
 // NonOptional wrapper - marks schema as required in object keys (preserves wrapper chain type)
 export class DnaNonOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $RemoveUndefined<$Output<Inner>>;
   declare readonly _input: $RemoveUndefined<$Input<Inner>>;
-  protected override _core = new BaseCore<{ wrapperType: "nonoptional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nonoptional", phase: "pre" }).rawMeta({ nonoptional: true });
+  override _core = new BaseCore<{ wrapperType: "nonoptional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nonoptional", phase: "pre" }).rawMeta({ nonoptional: true });
 }
 
 // Nullable wrapper - allows null
 export class DnaNullable<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | null;
   declare readonly _input: $Input<Inner> | null;
-  protected override _core = new BaseCore<{ wrapperType: "nullable", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullable", phase: "pre" });
+  override _core = new BaseCore<{ wrapperType: "nullable", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullable", phase: "pre" });
 }
 
 // Nullish wrapper - allows undefined and null
 export class DnaNullish<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | null | undefined;
   declare readonly _input: $Input<Inner> | null | undefined;
-  protected override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" });
+  override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" });
 }
 
 // Default wrapper - provides default value for output
 export class DnaDefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
-  protected override _core = Object.defineProperty(
+  override _core = Object.defineProperty(
     new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
     "defaultValue",
     { get() { return this.seed.value; } }
@@ -959,7 +969,7 @@ export class DnaDefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWra
 
 // Prefault wrapper - provides default value for input
 export class DnaPrefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
-  protected override _core = Object.defineProperty(
+  override _core = Object.defineProperty(
     new BaseCore<{ wrapperType: "prefault", phase: "pre", inner: Inner, value: $Input<Inner> }>("wrap").preSeed({ wrapperType: "prefault", phase: "pre" }),
     "prefaultValue",
     { get() { return this.seed.value; } }
@@ -968,7 +978,7 @@ export class DnaPrefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWr
 
 // Catch wrapper - provides fallback value on error
 export class DnaCatch<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
-  protected override _core = Object.defineProperty(
+  override _core = Object.defineProperty(
     new BaseCore<{ wrapperType: "catch", phase: "post", inner: Inner, value: $CatchValue<$Output<Inner>, $Input<Inner>>, valueExternals?: tsDnaExternals }>("wrap").preSeed({ wrapperType: "catch", phase: "post" }),
     "catchValue",
     { get() { return this.seed.value; } }
@@ -1005,7 +1015,7 @@ function isRequiredKey(schema: DnaSomeType): boolean {
  * const literal values) as the type argument. Without `const`, TS would widen it to `any`.
  */
 export class DnaLiteral<const T> extends DnaTypeWithWrappers<T, T> {
-  protected override _core = new BaseCore<{ value: T }>("literal")
+  override _core = new BaseCore<{ value: T }>("literal")
 
   // TypeScript static warning: .value returns never for multi-value literals
   // Runtime check: throws error if accessed on multi-value literal
@@ -1078,7 +1088,8 @@ const strCoreFactory = (format: string = "", coerce: boolean = false) => {
 // String implementation
 // export class DnaString extends DnatypeWithWrappers<string, string, tsStateString> {
 export class DnaString extends DnaTypeWithWrappers<string, string> {
-  protected override _core = strCoreFactory();
+  override _core = strCoreFactory();
+  override get type() { return this._core.seed.format || "string"; }
 
   // static create(options?: { format?: string }): any {
   //   const format = options?.format ?? null
@@ -1142,13 +1153,14 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
   }
   regex = this.pattern;
 
-  format(fmt: string, meta?: string | tsDnaMeta) {
+  /** @internal Used by fromDna reconstruction and deprecated string constraint methods. Not part of the public API. */
+  _format(fmt: string, meta?: string | tsDnaMeta) {
     return cloner(this, cl => { cl._core.innerMeta("format", meta); cl.#addSeq(["s", "format", fmt, metaNormalize(meta, "format:" + fmt)]); cl._core.seed.format = fmt; });
   }
 
   /** @deprecated Use dna.email() instead */
   email(meta?: string | tsDnaMeta) {
-    return this.format("email", meta);
+    return this._format("email", meta);
   }
 
   /** @deprecated Use dna.url() instead */
@@ -1159,12 +1171,12 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
 
   /** @deprecated Use dna.uuid() instead */
   uuid(meta?: string | tsDnaMeta) {
-    return this.format("uuid", meta);
+    return this._format("uuid", meta);
   }
 
   /** @deprecated Use dna.base64() instead */
   base64(meta?: string | tsDnaMeta) {
-    return this.format("base64", meta);
+    return this._format("base64", meta);
   }
 
   override get templateRegex(): string {
@@ -1188,7 +1200,7 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
   }
 
   /** @deprecated Use dna.base64url() instead */
-  base64url(meta?: string | tsDnaMeta) { return this.format("base64url", meta); }
+  base64url(meta?: string | tsDnaMeta) { return this._format("base64url", meta); }
 
   /** @deprecated Use dna.jwt() instead */
   jwt(options?: { alg?: string }, meta?: string | tsDnaMeta): DnaJwt {
@@ -1196,37 +1208,37 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
   }
 
   /** @deprecated Use dna.emoji() instead */
-  emoji(meta?: string | tsDnaMeta) { return this.format("emoji", meta); }
+  emoji(meta?: string | tsDnaMeta) { return this._format("emoji", meta); }
 
   /** @deprecated Use dna.nanoid() instead */
-  nanoid(error?: string | tsDnaMeta) { return this.format("nanoid", error); }
+  nanoid(error?: string | tsDnaMeta) { return this._format("nanoid", error); }
 
   /** @deprecated Use dna.uuid() instead */
-  guid(error?: string | tsDnaMeta) { return this.format("guid", error); }
+  guid(error?: string | tsDnaMeta) { return this._format("guid", error); }
 
   /** @deprecated Use dna.cuid() instead */
-  cuid(meta?: string | tsDnaMeta) { return this.format("cuid", meta); }
+  cuid(meta?: string | tsDnaMeta) { return this._format("cuid", meta); }
 
   /** @deprecated Use dna.cuid2() instead */
-  cuid2(meta?: string | tsDnaMeta) { return this.format("cuid2", meta); }
+  cuid2(meta?: string | tsDnaMeta) { return this._format("cuid2", meta); }
 
   /** @deprecated Use dna.ulid() instead */
-  ulid(meta?: string | tsDnaMeta) { return this.format("ulid", meta); }
+  ulid(meta?: string | tsDnaMeta) { return this._format("ulid", meta); }
 
   /** @deprecated Use dna.xid() instead */
-  xid(meta?: string | tsDnaMeta) { return this.format("xid", meta); }
+  xid(meta?: string | tsDnaMeta) { return this._format("xid", meta); }
 
   /** @deprecated Use dna.ksuid() instead */
-  ksuid(meta?: string | tsDnaMeta) { return this.format("ksuid", meta); }
+  ksuid(meta?: string | tsDnaMeta) { return this._format("ksuid", meta); }
 
   /** @deprecated Use dna.ipv4() instead */
-  ipv4(meta?: string | tsDnaMeta) { return this.format("ipv4", meta); }
+  ipv4(meta?: string | tsDnaMeta) { return this._format("ipv4", meta); }
 
   /** @deprecated Use dna.ipv6() instead */
-  ipv6(meta?: string | tsDnaMeta) { return this.format("ipv6", meta); }
+  ipv6(meta?: string | tsDnaMeta) { return this._format("ipv6", meta); }
 
   /** @deprecated Use dna.mac() instead */
-  mac(meta?: string | tsDnaMeta) { return this.format("mac", meta); }
+  mac(meta?: string | tsDnaMeta) { return this._format("mac", meta); }
 
   trim() { return cloner(this, cl => cl.#addSeq(["mutate", ["trim"]])); }
   toLowerCase() { return cloner(this, cl => cl.#addSeq(["mutate", ["toLowerCase"]])); }
@@ -1306,64 +1318,67 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
 }
 
 export class DnaEmail extends DnaString {
-  protected override _core = strCoreFactory("email");
+  override _core = strCoreFactory("email");
 }
 export class DnaHttpUrl extends DnaString {
-  protected override _core = strCoreFactory("httpUrl");
+  override _core = strCoreFactory("httpUrl");
 }
 export class DnaHostname extends DnaString {
-  protected override _core = strCoreFactory("hostname");
+  override _core = strCoreFactory("hostname");
 }
 export class DnaUUID extends DnaString {
-  protected override _core = strCoreFactory("uuid");
+  override _core = strCoreFactory("uuid");
+}
+export class DnaGuid extends DnaString {
+  override _core = strCoreFactory("guid");
 }
 export class DnaE164 extends DnaString {
-  protected override _core = strCoreFactory("e164");
+  override _core = strCoreFactory("e164");
 }
 export class DnaEmoji extends DnaString {
-  protected override _core = strCoreFactory("emoji");
+  override _core = strCoreFactory("emoji");
 }
 export class DnaBase64 extends DnaString {
-  protected override _core = strCoreFactory("base64");
+  override _core = strCoreFactory("base64");
 }
 export class DnaBase64Url extends DnaString {
-  protected override _core = strCoreFactory("base64url");
+  override _core = strCoreFactory("base64url");
 }
 export class DnaHex extends DnaString {
-  protected override _core = strCoreFactory("hex");
+  override _core = strCoreFactory("hex");
 }
 export class DnaNanoId extends DnaString {
-  protected override _core = strCoreFactory("nanoid");
+  override _core = strCoreFactory("nanoid");
 }
 export class DnaCuid extends DnaString {
-  protected override _core = strCoreFactory("cuid");
+  override _core = strCoreFactory("cuid");
 }
 export class DnaCuid2 extends DnaString {
-  protected override _core = strCoreFactory("cuid2");
+  override _core = strCoreFactory("cuid2");
 }
 export class DnaUlid extends DnaString {
-  protected override _core = strCoreFactory("ulid");
+  override _core = strCoreFactory("ulid");
 }
 export class DnaXid extends DnaString {
-  protected override _core = strCoreFactory("xid");
+  override _core = strCoreFactory("xid");
 }
 export class DnaKsuid extends DnaString {
-  protected override _core = strCoreFactory("ksuid");
+  override _core = strCoreFactory("ksuid");
 }
 export class DnaIpv4 extends DnaString {
-  protected override _core = strCoreFactory("ipv4");
+  override _core = strCoreFactory("ipv4");
 }
 export class DnaIpv6 extends DnaString {
-  protected override _core = strCoreFactory("ipv6");
+  override _core = strCoreFactory("ipv6");
 }
 export class DnaMac extends DnaString {
-  protected override _core = strCoreFactory("mac");
+  override _core = strCoreFactory("mac");
 }
 export class DnaCidrv4 extends DnaString {
-  protected override _core = strCoreFactory("cidrv4");
+  override _core = strCoreFactory("cidrv4");
 }
 export class DnaCidrv6 extends DnaTypeWithWrappers<string, string> {
-  protected override _core = new BaseCore("cidrv6", { coerceCode: "toString" });
+  override _core = new BaseCore("cidrv6", { coerceCode: "toString" });
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     this._core.rawDna = ["cidrv6", this.meta()];
@@ -1371,7 +1386,7 @@ export class DnaCidrv6 extends DnaTypeWithWrappers<string, string> {
   }
 }
 export class DnaJwt extends DnaTypeWithWrappers<string, string> {
-  protected override _core = new BaseCore<{ alg: string | null }>("jwt", { coerceCode: "toString", seed: { alg: null } });
+  override _core = new BaseCore<{ alg: string | null }>("jwt", { coerceCode: "toString", seed: { alg: null } });
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     this._core.rawDna = ["jwt", this._core.seed.alg ?? null];
@@ -1379,7 +1394,7 @@ export class DnaJwt extends DnaTypeWithWrappers<string, string> {
   }
 }
 export class DnaHash extends DnaString {
-  protected override _core = strCoreFactory();
+  override _core = strCoreFactory();
 }
 
 
@@ -1388,7 +1403,7 @@ export class DnaHash extends DnaString {
 export class DnaTmplLiteralMutate<Parts> extends DnaTypeWithWrappers<Parts, Parts> {
   // declare _output: Parts;
   // declare _input: string;
-  protected override _core = new BaseCore<{ parts: readonly tsTmplLitPart[] }>("string", {
+  override _core = new BaseCore<{ parts: readonly tsTmplLitPart[] }>("string", {
     seed: { parts: [] }
   })
 
@@ -1417,7 +1432,7 @@ export class DnaTmplLiteralMutate<Parts> extends DnaTypeWithWrappers<Parts, Part
           let isOptional = false;
           let leaf: DnaType<any> = part;
           while (leaf instanceof _DnaWrapper) {
-            const wrapperType = leaf[SymCore].seed.wrapperType;
+            const wrapperType = leaf._core.seed.wrapperType;
             if (wrapperType === "optional" || wrapperType === "nullish" || wrapperType === "default" || wrapperType === "prefault" || wrapperType === "catch") isOptional = true;
             leaf = leaf.unwrap();
           }
@@ -1445,7 +1460,7 @@ export class DnaTmplLiteralMutate<Parts> extends DnaTypeWithWrappers<Parts, Part
       // its target type. Coercion belongs to the inner LEAF (e.g. number -> toNumber).
       let leaf: DnaType<any> = schema;
       while (leaf instanceof _DnaWrapper) leaf = leaf.unwrap();
-      leaf[SymCore].coerce = true;
+      leaf._core.coerce = true;
       schema.toDna(coll, storeId, schLen);
     }
     return dnaId;
@@ -1456,7 +1471,8 @@ export class DnaTmplLiteralMutate<Parts> extends DnaTypeWithWrappers<Parts, Part
 export class DnaTemplateLiteral<Parts> extends DnaTmplLiteralMutate<Parts> {
   // declare _output: Parts;
   // declare _input: string;
-  // protected override _core = new BaseCore<{parts: tsTmplLitArg[], canMutate: boolean}>("string");
+  // override _core = new BaseCore<{parts: tsTmplLitArg[], canMutate: boolean}>("string");
+  override get type() { return "templateLiteral"; }
 
   override get canMutate() { return false }
 
@@ -1467,7 +1483,7 @@ export class DnaTemplateLiteral<Parts> extends DnaTmplLiteralMutate<Parts> {
 export class DnaPipe<out S, out T> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<T>;
   declare readonly _input: $Input<S>;
-  protected override _core = new BaseCore<{ steps: DnaSomeType[] }>("pipe", {
+  override _core = new BaseCore<{ steps: DnaSomeType[] }>("pipe", {
     rawDna: ["pipe"],
     seed: {
       steps: []
@@ -1487,13 +1503,14 @@ export class DnaPipe<out S, out T> extends DnaTypeWithWrappers<any, any> {
 
 // StringBool implementation - Zod V4 stringbool compatibility
 export class DnaStringBool extends DnaTypeWithWrappers<boolean, boolean> {
-  protected override _core = new BaseCore<{ truthy: string[]; falsy: string[]; case: "sensitive" | "insensitive" }>("sb", {
+  override _core = new BaseCore<{ truthy: string[]; falsy: string[]; case: "sensitive" | "insensitive" }>("sb", {
     seed: {
       truthy: ["true", "yes", "1", "on", "y", "enabled"],
       falsy: ["false", "no", "0", "off", "n", "disabled"],
       case: "insensitive"
     }
   })
+  override get type() { return "stringbool"; }
 
   override get templateRegex(): string {
     const keys = [...this._core.seed.truthy, ...this._core.seed.falsy].map(k => this._core.seed.case === "insensitive" ? k.toLowerCase() : k);
@@ -1513,10 +1530,10 @@ export class DnaStringBool extends DnaTypeWithWrappers<boolean, boolean> {
   }
 }
 
-export class DnaIsoDatetime extends DnaString { protected override _core = strCoreFactory("date-time") }
-export class DnaIsoDate extends DnaString { protected override _core = strCoreFactory("date"); }
-export class DnaIsoTime extends DnaString { protected override _core = strCoreFactory("time"); }
-export class DnaIsoDuration extends DnaString { protected override _core = strCoreFactory("duration"); }
+export class DnaIsoDatetime extends DnaString { override _core = strCoreFactory("date-time") }
+export class DnaIsoDate extends DnaString { override _core = strCoreFactory("date"); }
+export class DnaIsoTime extends DnaString { override _core = strCoreFactory("time"); }
+export class DnaIsoDuration extends DnaString { override _core = strCoreFactory("duration"); }
 
 // ISO implementation - static methods
 export class Iso {
@@ -1545,7 +1562,7 @@ export class Iso {
 
 // Date implementation
 export class DnaDate extends DnaTypeWithWrappers<Date, Date> {
-  protected override _core = new BaseCore<{ min: Date | null, max: Date | null }>("date", { seed: { min: null, max: null } });
+  override _core = new BaseCore<{ min: Date | null, max: Date | null }>("date", { seed: { min: null, max: null } });
 
   // static create(): any {
   //   // State-only (like NumberImpl): bounds live in `_stt`, the node is built in
@@ -1565,7 +1582,7 @@ export class DnaDate extends DnaTypeWithWrappers<Date, Date> {
 
 // URL implementation
 export class DnaUrl extends DnaTypeWithWrappers<string, string> {
-  protected override _core = new BaseCore<{ normalize: boolean, protocol: RegExp | null, hostname: RegExp | null }>("url", { coerceCode: "toString", seed: { protocol: null, hostname: null, normalize: false } });
+  override _core = new BaseCore<{ normalize: boolean, protocol: RegExp | null, hostname: RegExp | null }>("url", { coerceCode: "toString", seed: { protocol: null, hostname: null, normalize: false } });
 
   // static init(options?: { normalize?: boolean, protocol?: RegExp, hostname?: RegExp }): any {
   //   const inst = this.initCore<string, string, tsStateUrl>("url", { protocol: null, hostname: null, normalize: false }, "toString");
@@ -1596,7 +1613,8 @@ export class DnaUrl extends DnaTypeWithWrappers<string, string> {
 
 // Boolean implementation
 export class DnaBoolean extends DnaTypeWithWrappers<boolean, boolean> {
-  protected override _core = new BaseCore("b", { coerceCode: "toBoolean", rawDna: ["b"] });
+  override _core = new BaseCore("b", { coerceCode: "toBoolean", rawDna: ["b"] });
+  override get type() { return "boolean"; }
 
   // static create(): any {
   //   const inst = this.initCore<boolean, boolean, tsStateBoolean>("b", {}, "toBoolean");
@@ -1629,7 +1647,8 @@ const numCoreFactory = <N extends number | bigint>(type: tsDnaOpcode, coerceCode
 // export class NumberImpl<T extends number | bigint, I = unknown> extends DnatypeWithWrappers<T, I, tsStateNumber<T>> implements schNumberMethods<T> {
 // export class NumberImpl<T extends number | bigint, I = unknown> extends DnatypeWithWrappers<T, I, tsStateNumber<T>>{
 export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeWithWrappers<T, I> {
-  protected override _core = numCoreFactory<T>("n", "toNumber");
+  override _core = numCoreFactory<T>("n", "toNumber");
+  override get type() { return "number"; }
 
   // static init<T extends number | bigint, I = T>(type: tsDnaOpcode = "n", coerceCode: string = "toNumber"): any {
   //   return this.initCore<T, I, tsStateNumber<T>>(type, { min: null, max: null, exclMin: false, exclMax: false, multOf: null }, coerceCode);
@@ -1712,7 +1731,7 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
   override get templateRegex(): string { return this._core.seed.min === null && this._core.seed.max === null && this._core.seed.multOf === null ? "-?\\d+(?:\\.\\d+)?" : "\x00"; }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
-    const selfDna: tsDna = [this._core.state.type as tsDnaOpcode, [this._core.seed.min, this._core.seed.exclMin, this._core.seed.max, this._core.seed.exclMax, this._core.seed.multOf], this.meta()];
+    const selfDna: tsDna = [this._core.state.kind as tsDnaOpcode, [this._core.seed.min, this._core.seed.exclMin, this._core.seed.max, this._core.seed.exclMax, this._core.seed.multOf], this.meta()];
     return coll.storeDNA(selfDna, storeMark, storePosition);
   }
 }
@@ -1720,7 +1739,8 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
 export class DnaNumber extends NumberImpl<number> { }
 
 export class DnaBigInt extends NumberImpl<bigint> {
-  protected override _core = numCoreFactory<bigint>("bi", "toBigInt");
+  override _core = numCoreFactory<bigint>("bi", "toBigInt");
+  override get type() { return "bigint"; }
   // static create(): any { return this.init<bigint>("bi", "toBigInt"); }
   // int() and safe() are not applicable to bigint, so they are not implemented
   override positive() { return cloner(this, cl => { cl._core.seed.min = BigInt(0); cl._core.seed.exclMin = true; }); }
@@ -1731,19 +1751,21 @@ export class DnaBigInt extends NumberImpl<bigint> {
   override get templateRegex(): string { return this._core.seed.min === null && this._core.seed.max === null && this._core.seed.multOf === null ? "-?\\d+n" : "\x00"; }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
-    const selfDna: tsDna = [this.type as tsDnaOpcode, [this._core.seed.min, this._core.seed.exclMin, this._core.seed.max, this._core.seed.exclMax, this._core.seed.multOf], this.meta()];
+    const selfDna: tsDna = [this._core.state.kind as tsDnaOpcode, [this._core.seed.min, this._core.seed.exclMin, this._core.seed.max, this._core.seed.exclMax, this._core.seed.multOf], this.meta()];
     return coll.storeDNA(selfDna, storeMark, storePosition);
   }
 }
 
 export class DnaInt extends NumberImpl<number> {
-  protected override _core = numCoreFactory<number>("i", "toInt");
+  override _core = numCoreFactory<number>("i", "toInt");
+  override get type() { return "int"; }
   // static create(): any { return this.init<number>("i", "toInt"); }
   override get templateRegex(): string { return this._core.seed.min === null && this._core.seed.max === null && this._core.seed.multOf === null ? "-?\\d+" : "\x00"; }
 }
 
 export class DnaInt32 extends NumberImpl<number> {
-  protected override _core = numCoreFactory<number>("i", "toInt", false, INT32Bounds);
+  override _core = numCoreFactory<number>("i", "toInt", false, INT32Bounds);
+  override get type() { return "int32"; }
   // static create(): any {
   //   const inst = this.init<number>("i", "toInt");
   //   (inst as any)._core.state.min = -(2 ** 31);
@@ -1763,14 +1785,14 @@ export class DnaInt32 extends NumberImpl<number> {
 }
 
 
-export class DnaCoerceString extends DnaString { protected override _core = strCoreFactory("", true); }
-export class DnaCoerceNumber extends DnaNumber { protected override _core = numCoreFactory<number>("n", "toNumber", true); }
-export class DnaCoerceInt extends DnaInt { protected override _core = numCoreFactory<number>("i", "toInt", true); }
-export class DnaCoerceInt32 extends DnaInt32 { protected override _core = numCoreFactory<number>("i", "toInt", true, INT32Bounds); }
-export class DnaCoerceBigInt extends DnaBigInt { protected override _core = numCoreFactory<bigint>("bi", "toBigInt", true); }
+export class DnaCoerceString extends DnaString { override _core = strCoreFactory("", true); }
+export class DnaCoerceNumber extends DnaNumber { override _core = numCoreFactory<number>("n", "toNumber", true); }
+export class DnaCoerceInt extends DnaInt { override _core = numCoreFactory<number>("i", "toInt", true); }
+export class DnaCoerceInt32 extends DnaInt32 { override _core = numCoreFactory<number>("i", "toInt", true, INT32Bounds); }
+export class DnaCoerceBigInt extends DnaBigInt { override _core = numCoreFactory<bigint>("bi", "toBigInt", true); }
 
-export class DnaCoerceBoolean extends DnaBoolean { protected override _core = new BaseCore("b", { coerce: true, coerceCode: "toBoolean", rawDna: ["b"] }); }
-export class DnaCoerceDate extends DnaDate { protected override _core = new BaseCore<{ min: Date | null, max: Date | null }>("date", { coerce: true, coerceCode: "toDate", seed: { min: null, max: null } }); }
+export class DnaCoerceBoolean extends DnaBoolean { override _core = new BaseCore("b", { coerce: true, coerceCode: "toBoolean", rawDna: ["b"] }); }
+export class DnaCoerceDate extends DnaDate { override _core = new BaseCore<{ min: Date | null, max: Date | null }>("date", { coerce: true, coerceCode: "toDate", seed: { min: null, max: null } }); }
 
 // Coerce implementation - static methods
 export class Coerce {
@@ -1793,7 +1815,7 @@ export class DnaEnum<T extends tsDnaEnumLike> extends DnaTypeWithWrappers<
   T[keyof T]
 > {
 
-  protected override _core = new BaseCore<{ enumObj: T }>("enum");
+  override _core = new BaseCore<{ enumObj: T }>("enum");
 
   get values(): T[keyof T][] { return Object.values(this._core.seed.enumObj) as T[keyof T][]; }
   get options(): T[keyof T][] { return Object.values(this._core.seed.enumObj) as T[keyof T][]; }
@@ -1825,7 +1847,7 @@ export class DnaEnum<T extends tsDnaEnumLike> extends DnaTypeWithWrappers<
 export class DnaArray<S extends DnaSomeType = DnaSomeType> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<S>[];
   declare readonly _input: $Input<S>[];
-  protected override _core = new BaseCore<{ itemSchema: DnaSomeType, min: number | null, max: number | null, length: number | null }>("array");
+  override _core = new BaseCore<{ itemSchema: DnaSomeType, min: number | null, max: number | null, length: number | null }>("array");
 
 
   override unwrap<W extends S>(): W { //wrap for Array is not wrap for wrapper, unwrap of wrapper override until there is no wrapper anymore.
@@ -1866,7 +1888,7 @@ function syncPromiseIssue(value: unknown): tsParserError {
 }
 // TODO: comment about depreciation of dna.promise
 export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
-  protected override _core = new BaseCore<{ inner: DnaSomeType<T, I> }>("promise");
+  override _core = new BaseCore<{ inner: DnaSomeType<T, I> }>("promise");
 
   // static init<T, I = unknown>(innerSchema: DnaType<T>): any {
   //   return this.initCore<T, I, tsStatePromise<T, I>>("promise", { innerSchema: innerSchema as any });
@@ -1925,13 +1947,21 @@ export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
 export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> | never = never> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: tsDnaTupleValueWithRest<S, [R] extends [never] ? never : $Output<R>>;
   declare readonly _input: tsDnaTupleValueWithRest<S, [R] extends [never] ? never : $Input<R>>;
-  protected override _core = new BaseCore<{ items: DnaSomeType[], rest?: DnaSomeType }>("tuple");
+  override _core = new BaseCore<{ items: DnaSomeType[], rest?: DnaSomeType, min: number | null, max: number | null, length: number | null }>("tuple")
+    .preSeed({ min: null, max: null, length: null });
 
 
-  min(n: number, meta?: string | tsDnaMeta) { return cloner(this, () => { }); }
-  max(n: number, meta?: string | tsDnaMeta) { return cloner(this, () => { }); }
-  length(n: number, meta?: string | tsDnaMeta) { return cloner(this, () => { }); }
-  nonempty() { return cloner(this, () => { }); }
+  /** Sets the rest schema for extra items beyond the fixed prefix. */
+  rest<R2 extends DnaType<any, any>>(restSchema: R2): DnaTuple<S, R2> {
+    return cloner(this, cl => { cl._core.seed.rest = restSchema; }) as unknown as DnaTuple<S, R2>;
+  }
+  /** Validates that the tuple has at least `n` items. */
+  min(n: number, meta?: string) { return cloner(this, cl => { cl._core.seed.min = n; cl._core.innerMeta("min", meta); }); }
+  /** Validates that the tuple has at most `n` items. */
+  max(n: number, meta?: string) { return cloner(this, cl => { cl._core.seed.max = n; cl._core.innerMeta("max", meta); }); }
+  /** Validates that the tuple has exactly `n` items. */
+  length(n: number, meta?: string) { return cloner(this, cl => { cl._core.seed.length = n; cl._core.innerMeta("length", meta); }); }
+  nonempty() { return this.min(1); }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const len = this._core.seed.items.length;
@@ -1942,9 +1972,13 @@ export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> 
     const itemsStoreId = this._core.seed.rest ? coll.setStore(itemsDef) : -1;
     const constraints: any[] = [
       ["prefixItems", prefixItems],
-      ["minItems", len],
-      itemsDef,
     ];
+    // Native minItems/maxItems opcodes: prefix length is the baseline; user constraints override if larger/smaller
+    const userMin = this._core.seed.length !== null ? this._core.seed.length : this._core.seed.min;
+    const userMax = this._core.seed.length !== null ? this._core.seed.length : this._core.seed.max;
+    constraints.push(["minItems", userMin !== null ? Math.max(len, userMin) : len]);
+    if (userMax !== null) constraints.push(["maxItems", userMax]);
+    constraints.push(itemsDef);
     this._core.rawDna = ["a", constraints];
     const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, prefixStoreId);
     this._core.setDnaId(coll, dnaId);
@@ -1963,7 +1997,7 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
   // pattern where `ZodObject<out Shape>` extends `$ZodType<any, any, $ZodObjectInternals<Shape>>`.
   declare readonly _output: { [K in keyof T]: $Output<T[K]> };
   declare readonly _input: { [K in keyof T]: $Input<T[K]> };
-  protected override _core = new BaseCore<{ propertySchemas: Record<string, DnaSomeType>, addPropSchema: DnaSomeType | boolean | undefined, objType: tsDnaObjectType, requiredKeys?: string[], declared?: boolean }>("object");
+  override _core = new BaseCore<{ propertySchemas: Record<string, DnaSomeType>, addPropSchema: DnaSomeType | boolean | undefined, objType: tsDnaObjectType, requiredKeys?: string[], declared?: boolean }>("object");
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const constraints: any[] = [];
@@ -1982,11 +2016,11 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
           case leaf instanceof DnaLiteral:
             return [k, "l", Array.from(leaf.values)];
           case leaf instanceof DnaEnum:
-            return [k, leaf.type, Array.from(leaf.values)];
+            return [k, leaf._core.state.kind, Array.from(leaf.values)];
           case leaf instanceof DnaObject:
-            return [k, leaf.type, Object.keys(leaf._core.seed.propertySchemas ?? {})];
+            return [k, leaf._core.state.kind, Object.keys(leaf._core.seed.propertySchemas ?? {})];
           default:
-            return [k, leaf.type];
+            return [k, leaf._core.state.kind];
         }
       })
       : undefined;
@@ -2006,7 +2040,7 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
       // survive so an explicitly-present `undefined` (e.g. `{ a: undefined }`) is
       // still accepted. Absent keys are handled separately via the required list.
       for (const [key, schema] of Object.entries(this._core.seed.propertySchemas)) {
-        const schemaMeta = schema[SymCore].meta;
+        const schemaMeta = schema._core.meta;
         // A `lazy`/getter property can't be resolved at object-init time (the
         // recursive const is still in its TDZ), so its key-optionality meta
         // (optional/nullable/default on the recursive ref) is invisible there. At emit
@@ -2099,7 +2133,7 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
           const schema = cl._core.seed.propertySchemas[key];
           const makeOptional = ks ? ks[key] : true;
           if (makeOptional) {
-            const meta = schema[SymCore].meta;
+            const meta = schema._core.meta;
             if (meta && meta.optional === undefined) cl._core.seed.propertySchemas[key] = initDna(DnaOptional, { inner: schema });
           }
         }
@@ -2240,7 +2274,7 @@ function finiteValueSet(s: DnaSomeType): tsPrimitiveLiteral[] | undefined {
     }
   }
   if (s instanceof DnaPipe) {
-    return finiteValueSet(s[SymCore].seed.steps[0]);
+    return finiteValueSet(s._core.seed.steps[0]);
   }
   // Use the type itself if _head is not explicitly set (e.g. DnaLiteral, DnaNull, DnaUndefined).
   const head = s._head ?? s;
@@ -2253,9 +2287,9 @@ function finiteValueSet(s: DnaSomeType): tsPrimitiveLiteral[] | undefined {
     return undefined;
   }
   if (head instanceof DnaCombinator) {
-    if (head[SymCore].seed.combinatorType !== "anyOf") return undefined; // only unions have a value set
+    if (head._core.seed.combinatorType !== "anyOf") return undefined; // only unions have a value set
     const out: tsPrimitiveLiteral[] = [];
-    for (const m of head[SymCore].seed.schemas) {
+    for (const m of head._core.seed.schemas) {
       const mv = finiteValueSet(m);
       if (!mv) return undefined;
       out.push(...mv);
@@ -2273,7 +2307,13 @@ function finiteValueSet(s: DnaSomeType): tsPrimitiveLiteral[] | undefined {
 export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminatedUnionObjects<K>> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<S[number]>;
   declare readonly _input: $Input<S[number]>;
-  protected override _core = new BaseCore<{ discriminator: K, schemas: DnaSomeType[] }>("discriminator");
+  override _core = new BaseCore<{ discriminator: K, schemas: DnaSomeType[] }>("discriminator");
+  override get type() { return "discriminatedUnion"; }
+
+  /** Returns the discriminated union's option schemas (Zod v4 parity: `.options`). */
+  get options(): S { return this._core.seed.schemas as S; }
+  /** Returns the discriminator property name (Zod v4 parity: via `._zod.def.discriminator`). */
+  get discriminator(): K { return this._core.seed.discriminator; }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const schemas = this._core.seed.schemas;
@@ -2322,7 +2362,16 @@ export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>>
   declare readonly _output: Record<$Output<K> & PropertyKey, $Output<V>>;
   declare readonly _input: Record<$Input<K> & PropertyKey, $Input<V>>;
 
-  protected override _core = new BaseCore<{ keySchema: DnaSomeType, valueSchema: DnaSomeType, type: "partial" | "loose" | "standard" }>("record")
+  override _core = new BaseCore<{ keySchema: DnaSomeType, valueSchema: DnaSomeType, type: "partial" | "loose" | "standard" }>("record")
+
+  /** Returns the key schema (Zod v4 parity: `keyType`). */
+  get keySchema(): K { return this._core.seed.keySchema as K; }
+  /** Returns the value schema (Zod v4 parity: `valueType`). */
+  get valueSchema(): V { return this._core.seed.valueSchema as V; }
+  /** Alias for {@link keySchema} (Zod v4 naming). */
+  get keyType(): K { return this.keySchema; }
+  /** Alias for {@link valueSchema} (Zod v4 naming). */
+  get valueType(): V { return this.valueSchema; }
 
   // static init<K extends DnaType<any>, V extends DnaType<any>, I = Record<$Output<K>, $Output<V>>>(keySchema: DnaSomeType, valueSchema: DnaSomeType, type: "partial" | "loose" | "standard" = "standard"): any {
   //   return this.initCore<Record<$Output<K>, $Output<V>>, I, tsStateRecord<K, V>>("record", { keySchema, valueSchema, type });
@@ -2376,12 +2425,12 @@ export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>>
       const isLiteralArray = head instanceof DnaLiteral && head._rawValues.length > 1;
       // Preserve pipe/transform/refine key schemas before falling back to
       // EnumImpl for literal arrays or other finite schemas.
-      const hasRefiners = keySchema[SymCore].refinerList.length > 0;
+      const hasRefiners = keySchema._core.refinerList.length > 0;
       if (
         keySchema.type === "pipe" ||
         keySchema.type === "transform" ||
         hasRefiners ||
-        (keySchema instanceof DnaType && keySchema[SymCore].seed.wrapperType === "transform")
+        (keySchema instanceof DnaType && keySchema._core.seed.wrapperType === "transform")
       ) {
         keySchema.toDna(coll, keyStoreId, 1);
       } else if (isLiteralArray) {
@@ -2414,7 +2463,7 @@ export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>>
 // overrides `toDna()` to return the decode twin, so the base `_validate`/`_safeParse`
 // build the right thing). Only the ENCODE direction needs its own cache here.
 export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
-  protected override _core = new BaseCore<{ decodeTwin: DnaType<O>, encodeTwin: DnaType<I>, cachedEncodeParser?: tsDnaParserFn }>("codec");
+  override _core = new BaseCore<{ decodeTwin: DnaType<O>, encodeTwin: DnaType<I>, cachedEncodeParser?: tsDnaParserFn }>("codec");
   // Emit the decode twin as this codec's own node via `_emitSelf` (NOT a `toDna`
   // override) so the base refiner layer (`_emitRefiners`) still wraps any
   // `.refine()`/`.check()` added on the codec around it. A `toDna` override returned
@@ -2437,7 +2486,7 @@ export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
 
 export class DnaLazy<Out = any, In = any, Inner extends DnaType<Out, In> = DnaType<Out, In>> extends DnaTypeWithWrappers<Out, In> {
   readonly declare Inner: Inner;
-  protected override _core = new BaseCore<{ getter: () => Inner }>("lazy");
+  override _core = new BaseCore<{ getter: () => Inner }>("lazy");
 
   get innerType(): Inner {
     return this._core.seed.getter();
@@ -2460,7 +2509,7 @@ export class DnaFunction<I extends DnaFunctionInput = never, O = unknown> extend
   tsFunctionType<I, O>,
   tsFunctionType<I, O>
 > {
-  protected override _core = new BaseCore<{ input: DnaFunctionInput | DnaType<any, any>, output: DnaType<O> }>("function");
+  override _core = new BaseCore<{ input: DnaFunctionInput | DnaType<any, any>, output: DnaType<O> }>("function");
 
 
   input<const NewI extends DnaTuple<any, any>>(input: NewI): DnaFunction<NewI, O>;
@@ -2558,11 +2607,11 @@ export class DnaFunction<I extends DnaFunctionInput = never, O = unknown> extend
 
 
 export class DnaCustom<TSType extends any = any, I = any> extends DnaTypeWithWrappers<TSType, I> {
-  protected override _core = new BaseCore<{ fn: (v?: TSType) => boolean }>("custom", { templateRegex: "" });
+  override _core = new BaseCore<{ fn: (v?: TSType) => boolean }>("custom", { templateRegex: "" });
 }
 
 export class DnaInstanceOf<T extends abstract new (...args: any[]) => any, O = InstanceType<T>> extends DnaTypeWithWrappers<O, O> {
-  protected override _core = new BaseCore<{ constructor: T }>("instanceOf");
+  override _core = new BaseCore<{ constructor: T }>("instanceOf");
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const constructorName = this._core.seed.constructor.name;
@@ -2573,7 +2622,7 @@ export class DnaInstanceOf<T extends abstract new (...args: any[]) => any, O = I
 }
 
 export class DnaFile extends DnaTypeWithWrappers<File, File> {
-  protected override _core = new BaseCore<{ constructor: new (...args: any[]) => File, min?: number, max?: number, mime?: string | string[] }>("instanceOf", {
+  override _core = new BaseCore<{ constructor: new (...args: any[]) => File, min?: number, max?: number, mime?: string | string[] }>("instanceOf", {
     seed: { constructor: File }
   });
 

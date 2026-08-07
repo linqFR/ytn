@@ -199,7 +199,20 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
         const restId = itemsEntry[1] as number | false;
         const items = prefixIds.map(build);
         const rest = restId === false ? undefined : build(restId);
-        return initDna(c.DnaTuple, { items, rest }, meta);
+        const minEntry = constraints.find(([name]) => name === 'minItems');
+        const maxEntry = constraints.find(([name]) => name === 'maxItems');
+        const prefixLen = prefixIds.length;
+        const minVal = minEntry ? (minEntry[1] as number) : null;
+        const maxVal = maxEntry ? (maxEntry[1] as number) : null;
+        // Distinguish user-specified .length() from .min()/.max()
+        const isLength = minEntry && maxEntry && (minEntry[1] as number) === (maxEntry[1] as number);
+        return initDna(c.DnaTuple, {
+          items,
+          rest,
+          min: isLength ? null : (minVal !== null && minVal > prefixLen ? minVal : null),
+          max: isLength ? null : maxVal,
+          length: isLength ? minVal : null,
+        }, meta);
       }
       const itemEntry = constraints.find(([name]) => name === 'items');
       if (!itemEntry) throw new Error('fromDna: array missing items');
@@ -317,7 +330,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
             case 'max': inner = str.max(stepParams[1] as number, stepItemMeta); break;
             case 'length': inner = str.length(stepParams[1] as number, stepItemMeta); break;
             case 'pattern': inner = str.pattern(new RegExp(stepParams[1] as string, 'u'), stepItemMeta); break;
-            case 'format': inner = str.format(stepParams[1] as string, stepItemMeta); break;
+            case 'format': inner = str._format(stepParams[1] as string, stepItemMeta); break;
             default:
               throw new Error(`fromDna: refine check kind not implemented: ${kind}`);
           }

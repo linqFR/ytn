@@ -16,7 +16,7 @@ export class DnaMap<K extends DnaType<any, any>, V extends DnaType<any, any>> ex
 // tsStateMap<K, V>
 > {
 
-  protected override _core = new MapSetCore("map", { min: null, max: null, size: null, keySchema: null, valueSchema: null })
+  override _core = new MapSetCore("map", { min: null, max: null, size: null, keySchema: null, valueSchema: null })
 
   // static init<K extends DnaType<any>, V extends DnaType<any>>(keySchema: K, valueSchema: V): tsDnaMap<K, V> {
   //   const inst = this.initCore<Map<$Output<K>, $Output<V>>, Map<$Input<K>, $Input<V>>, tsStateMap<K, V>>("map", { min: null, max: null, size: null, keySchema, valueSchema });
@@ -48,7 +48,6 @@ export class DnaMap<K extends DnaType<any, any>, V extends DnaType<any, any>> ex
 
     return transformed.toDna(coll, storeMark!, storePosition);
   }
-
 }
 
 // Set implementation
@@ -58,7 +57,7 @@ export class DnaSet<T extends DnaType<any, any>> extends DnaTypeWithWrappers<
 // tsStateSet<T>
 > {
 
-  protected override _core = new MapSetCore("set", { min: null, max: null, size: null, itemSchema: null })
+  override _core = new MapSetCore("set", { min: null, max: null, size: null, itemSchema: null })
 
   // static init<T extends DnaType<any>>(itemSchema: T): tsDnaSet<T> {
   //   return this.initCore<Set<$Output<T>>, Set<$Input<T>>, tsStateSet<T>>("set", { min: null, max: null, size: null, itemSchema }) as unknown as tsDnaSet<T>;
@@ -91,7 +90,7 @@ export class DnaSet<T extends DnaType<any, any>> extends DnaTypeWithWrappers<
 
 
 export const map = <K extends DnaType<any, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
-  initDna(DnaMap<K,V>, { keySchema, valueSchema }, meta);
+  initDna(DnaMap<K, V>, { keySchema, valueSchema }, meta);
 
 export const set = <T extends DnaType<any, any>>(schema: T, meta?: string | tsDnaMeta) =>
   // withMeta(SetImpl.init(schema), meta);

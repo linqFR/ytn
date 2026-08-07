@@ -13,6 +13,7 @@ import type {
   tsDnaEnumValues,
   tsDnaEnumValueType,
   tsDnaMetaCheck,
+  tsDnaValidationCheck,
   tsDnaTupleSchemaBase,
   tsDnaTupleSchemaRO,
   DnaFunctionInput,
@@ -30,6 +31,7 @@ import {
   DnaHttpUrl,
   DnaHostname,
   DnaUUID,
+  DnaGuid,
   DnaE164,
   DnaEmoji,
   DnaBase64,
@@ -67,6 +69,8 @@ import {
   DnaNullish,
   DnaCoerceString,
   DnaCoerceNumber,
+  DnaCoerceInt,
+  DnaCoerceInt32,
   DnaCoerceBoolean,
   DnaCoerceBigInt,
   DnaCoerceDate,
@@ -170,19 +174,61 @@ export const json = (meta?: string | tsDnaMeta): DnaJson => {
   return jsonSchema as DnaJson;
 };
 
-export const string = (meta?: string | tsDnaMeta) => initDna(DnaString, undefined, meta);
+export const string = (params?: string | ({ coerce?: true } & tsDnaMeta)) => {
+  if (params && typeof params === "object" && params.coerce) {
+    const { coerce: _, ...meta } = params;
+    return initDna(DnaCoerceString, undefined, Object.keys(meta).length ? meta : undefined);
+  }
+  return initDna(DnaString, undefined, params);
+};
 
-export const number = (meta?: string | tsDnaMeta) => initDna(DnaNumber, undefined, meta);
+export const number = (params?: string | ({ coerce?: true } & tsDnaMeta)) => {
+  if (params && typeof params === "object" && params.coerce) {
+    const { coerce: _, ...meta } = params;
+    return initDna(DnaCoerceNumber, undefined, Object.keys(meta).length ? meta : undefined);
+  }
+  return initDna(DnaNumber, undefined, params);
+};
 
-export const bigint = (meta?: string | tsDnaMeta) => initDna(DnaBigInt, undefined, meta);
+export const bigint = (params?: string | ({ coerce?: true } & tsDnaMeta)) => {
+  if (params && typeof params === "object" && params.coerce) {
+    const { coerce: _, ...meta } = params;
+    return initDna(DnaCoerceBigInt, undefined, Object.keys(meta).length ? meta : undefined);
+  }
+  return initDna(DnaBigInt, undefined, params);
+};
 
-export const int = (meta?: string | tsDnaMeta) => initDna(DnaInt, undefined, meta);
+export const int = (params?: string | ({ coerce?: true } & tsDnaMeta)) => {
+  if (params && typeof params === "object" && params.coerce) {
+    const { coerce: _, ...meta } = params;
+    return initDna(DnaCoerceInt, undefined, Object.keys(meta).length ? meta : undefined);
+  }
+  return initDna(DnaInt, undefined, params);
+};
 
-export const int32 = (meta?: string | tsDnaMeta) => initDna(DnaInt32, undefined, meta);
+export const int32 = (params?: string | ({ coerce?: true } & tsDnaMeta)) => {
+  if (params && typeof params === "object" && params.coerce) {
+    const { coerce: _, ...meta } = params;
+    return initDna(DnaCoerceInt32, undefined, Object.keys(meta).length ? meta : undefined);
+  }
+  return initDna(DnaInt32, undefined, params);
+};
 
-export const boolean = (meta?: string | tsDnaMeta) => initDna(DnaBoolean, undefined, meta);
+export const boolean = (params?: string | ({ coerce?: true } & tsDnaMeta)) => {
+  if (params && typeof params === "object" && params.coerce) {
+    const { coerce: _, ...meta } = params;
+    return initDna(DnaCoerceBoolean, undefined, Object.keys(meta).length ? meta : undefined);
+  }
+  return initDna(DnaBoolean, undefined, params);
+};
 
-export const date = (meta?: string | tsDnaMeta) => initDna(DnaDate, undefined, meta);
+export const date = (params?: string | ({ coerce?: true } & tsDnaMeta)) => {
+  if (params && typeof params === "object" && params.coerce) {
+    const { coerce: _, ...meta } = params;
+    return initDna(DnaCoerceDate, undefined, Object.keys(meta).length ? meta : undefined);
+  }
+  return initDna(DnaDate, undefined, params);
+};
 
 /**
  * Literal schema for a single primitive value or a union of primitive values.
@@ -249,6 +295,8 @@ export const promise = <T, I = T>(schema: DnaSomeType<T, I>, meta?: string | tsD
 export const hostname = (meta?: string | tsDnaMeta) => initDna(DnaHostname, undefined, meta);
 
 export const uuid = (meta?: string | tsDnaMeta) => initDna(DnaUUID, undefined, meta);
+
+export const guid = (meta?: string | tsDnaMeta) => initDna(DnaGuid, undefined, meta);
 
 export const e164 = (meta?: string | tsDnaMeta) => initDna(DnaE164, undefined, meta);
 
@@ -369,6 +417,28 @@ export const meta = (meta: tsDnaMeta): tsDnaMetaCheck => ({
   kind: "meta",
   meta,
 });
+
+/** Top-level refine: returns a reusable validation check (Zod v4 `z.refine()` parity).
+ *  The function receives the value and returns a boolean (falsy = failure).
+ *  The body is wrapped with `ctx.addIssue()` on failure, matching `.refine()`.
+ *  Pass the result to `.check()`. */
+export const refine = (fn: (arg: unknown) => unknown, options?: string | { error?: string; path?: PropertyKey[] }): tsDnaValidationCheck => {
+  const errorMessage = typeof options === "string" ? options : (options?.error ?? "Invalid");
+  const errorPath = typeof options === "string" ? [] : (options?.path ?? []);
+  const fnStr = fn.toString().trim();
+  const callArgs = fn.length === 2 ? "value,ctx" : "value";
+  const issue = "{code:'custom',message:" + JSON.stringify(errorMessage) + ",path:" + JSON.stringify(errorPath) + ",input:value}";
+  const body = "function(value,ctx){var ret=(" + fnStr + ")(" + callArgs + ");if(!ret)ctx.addIssue(" + issue + ");}";
+  return { kind: "validation", check: ["func", body, 2] };
+};
+
+/** Top-level check: returns a reusable low-level validation check (Zod v4 `z.check()` parity).
+ *  The function receives `(value, ctx)` and pushes issues manually via `ctx.addIssue()`.
+ *  This is the low-level API — prefer {@link refine} for simple boolean checks.
+ *  Pass the result to `.check()`. */
+export const check = (fn: (value: unknown, ctx: { addIssue: (issue: { code: string; message: string; path?: PropertyKey[]; input?: unknown }) => void }) => void): tsDnaValidationCheck => {
+  return { kind: "validation", check: ["func", fn.toString().trim(), fn.length] };
+};
 
 
 // export const validation = (check: tsCheckOpt): IValidationCheck => ({

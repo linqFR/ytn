@@ -41,7 +41,7 @@ export type tsStateDef = {
 // Layer 2: Internal state for StateManager
 // Contains StateManager-specific metadata + the pure state declaration
 export type tsStateFull<T extends tsStateDef = tsStateDef> = {
-  type: string;
+  kind: string;
   meta: tsDnaInnerMeta;
   coerce?: boolean;
   coerceCode?: string;
