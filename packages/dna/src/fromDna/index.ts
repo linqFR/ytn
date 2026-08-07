@@ -3,8 +3,9 @@ import * as c from '../builder/dna-interfaces.js';
 import { DnaMap, DnaSet } from '../builder/api-enhanced.js';
 import { getRegisteredExternals } from '../toJs/registry.js';
 import type { tsDnaMeta } from '../shared/meta-context.type.js';
-import type { tsDna, tsDnaSeq } from '../types/core.types.js';
-import type { tsPrimitiveClass } from '../shared/base.types.js';
+import type { tsDna, tsDnaId, tsDnaSeq } from '../types/core.types.js';
+import type { tsPrimitiveClass, tsPrimitiveLiteral } from '../shared/base.types.js';
+import type { IDnaCollector, tsStoreMark, tsStorePosition } from '../builder/collector.types.js';
 
 function isMeta(v: unknown): v is tsDnaMeta {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -35,6 +36,34 @@ function regexFromString(s: string | null): RegExp | null {
   if (!s) return null;
   const match = s.match(/^\/(.*)\/([a-z]*)$/);
   return match ? new RegExp(match[1], match[2]) : new RegExp(s);
+}
+
+/**
+ * Internal subclass for fromDna reconstruction of `template` opcodes.
+ * Overrides `_emitSelf` to inject the pre-computed `passiveParts` and child
+ * schema IDs directly, bypassing the normal part→regex transformation (which
+ * is irreversible: literals and regex fragments are indistinguishable after
+ * the original serialization).
+ */
+class DnaTemplateReconstructed extends c.DnaTmplLiteralMutate<any> {
+  declare _reconstructedPassiveParts: tsPrimitiveLiteral[];
+  declare _reconstructedSchemaParts: c.DnaType<any>[];
+  declare _reconstructedCanMutate: boolean;
+
+  override get canMutate() { return this._reconstructedCanMutate; }
+  override get type() { return this._reconstructedCanMutate ? "templateLiteralMutate" : "templateLiteral"; }
+
+  protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
+    const partIds = new Array<number>(this._reconstructedSchemaParts.length);
+    const storeId = coll.setStore(partIds);
+    this._core.rawDna = ["template", this._reconstructedPassiveParts, partIds, this.canMutate];
+    const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, storeId);
+    this._core.setDnaId(coll, dnaId);
+    for (let i = this._reconstructedSchemaParts.length; i--;) {
+      this._reconstructedSchemaParts[i].toDna(coll, storeId, i);
+    }
+    return dnaId;
+  }
 }
 
 function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any, any>, dnaList: tsDna[], id?: number, cache?: Map<number, c.DnaTypeWithWrappers<any, any>>): c.DnaTypeWithWrappers<any, any> {
@@ -365,6 +394,32 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       const constructor = getRegisteredExternals()[constructorName] as tsPrimitiveClass;
       if (!constructor) throw new Error(`fromDna: external constructor not registered: ${constructorName}`);
       return initDna(c.DnaInstanceOf, { constructor }, meta);
+    }
+
+    case 'template': {
+      // DNA layout: ["template", passiveParts, partIds, canMutate, meta?]
+      // passiveParts, partIds, canMutate are direct node elements (not nested in params)
+      const passiveParts = node[1] as tsPrimitiveLiteral[];
+      const partIds = node[2] as number[];
+      const canMutate = node[3] as boolean;
+      const schemaParts: c.DnaType<any>[] = [];
+      for (const partId of partIds) {
+        schemaParts.push(build(partId));
+      }
+      const inst = initDna(DnaTemplateReconstructed, { parts: [] }, meta) as DnaTemplateReconstructed;
+      inst._reconstructedPassiveParts = passiveParts;
+      inst._reconstructedSchemaParts = schemaParts;
+      inst._reconstructedCanMutate = canMutate;
+      return inst;
+    }
+
+    case 'function': {
+      // DNA layout: ["function", [inputDnaId, outputDnaId], meta?]
+      const ids = node[1] as number[];
+      const inputSchema = build(ids[0]);
+      const outputSchema = build(ids[1]);
+      const inst = initDna(c.DnaFunction, { input: inputSchema, output: outputSchema }, meta);
+      return inst;
     }
 
     default:

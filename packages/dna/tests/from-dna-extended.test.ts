@@ -6,15 +6,17 @@ import { fromDna } from "../src/fromDna/index.js";
 import type { DnaType } from "../src/builder/dna-interfaces.js";
 import type { tsDna, tsDnaSeq } from "../src/types/core.types.js";
 import type { tsDnaExternals } from "../src/shared/runtime.types.js";
+import type { tsPrimitiveLiteral } from "../src/shared/base.types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const suiteDir = path.resolve(__dirname, "./zod-test-suite");
 
 const supportedOpcodes = new Set<string>([
-  's', 'n', 'i', 'bi', 'b', '$o', 'l', 'e', 'n0', 'undefined', 'T', 'F', 'nan',
-  'symbol', 'date', 'coerce', 'a', 'anyOf', 'allOf', 'oneOf', 'rcd', 'ref', 'discriminator',
-  'chk', 'url', 'instanceOf', 'wrp', 'cidrv6', 'jwt', 'promise',
+  's', 'sb', 'n', 'i', 'bi', 'b', 'cidrv6', 'l', 'e', 'n0', 'undefined', 'T', 'F', 'nan',
+  'symbol', 'date', 'wrp', 'o', '_o', 'coerce', 'a', 'anyOf', 'allOf', 'oneOf', 'rcd',
+  'jwt', 'promise', 'discriminator', 'chkSeq', 'chkList', 'transform', 'url', 'instanceOf',
+  'ref', 'pipe', 'template', 'function',
 ]);
 const supportedWrp = new Set<string>(['optional', 'nullable', 'nullish', 'nonoptional', 'exactOptional', 'default', 'prefault', 'catch']);
 
@@ -91,6 +93,25 @@ function normalizeDna(seq: tsDnaSeq): tsDna[] {
         for (const v of p) if (typeof v === 'number') out.push(v);
         break;
       }
+      case 'chkSeq':
+      case 'chkList': {
+        const p = Array.isArray(params) ? params : [];
+        for (const v of p) if (typeof v === 'number') out.push(v);
+        break;
+      }
+      case 'template': {
+        // DNA layout: ["template", passiveParts, partIds, canMutate, meta?]
+        // partIds are at node[2], not inside params (node[1])
+        const ids = (seq[id] as tsDna)[2];
+        if (Array.isArray(ids)) for (const v of ids) if (typeof v === 'number') out.push(v);
+        break;
+      }
+      case 'function': {
+        // DNA layout: ["function", [inputDnaId, outputDnaId], meta?]
+        const ids = (seq[id] as tsDna)[1];
+        if (Array.isArray(ids)) for (const v of ids) if (typeof v === 'number') out.push(v);
+        break;
+      }
       default:
         break;
     }
@@ -100,17 +121,32 @@ function normalizeDna(seq: tsDnaSeq): tsDna[] {
   const oldToNew = new Map<number, number>();
   const order: number[] = [];
   const visited = new Set<number>();
+  // All ref nodes are redirectors: they should be collapsed to their final
+  // target via resolveRef, not emitted as separate nodes in the normalized output.
+  // This handles both single-ref (direct recursion via getter) and double-ref
+  // (DnaLazy reconstruction) patterns, which are semantically equivalent.
+  const refNodes = new Set<number>();
+  for (let i = 0; i < seq.length; i++) {
+    const node = seq[i] as tsDna | number[];
+    if (typeof node[0] === 'string' && node[0] === 'ref') refNodes.add(i);
+  }
   function add(id: number) {
     if (id < 0 || id >= seq.length || visited.has(id)) return;
     visited.add(id);
     for (const child of childIds(id)) add(child);
-    oldToNew.set(id, order.length);
-    order.push(id);
+    if (!refNodes.has(id)) {
+      oldToNew.set(id, order.length);
+      order.push(id);
+    }
   }
   add(0);
-  for (let i = 0; i < seq.length; i++) if (!visited.has(i)) { oldToNew.set(i, order.length); order.push(i); }
+  for (let i = 0; i < seq.length; i++) if (!visited.has(i) && !refNodes.has(i)) { oldToNew.set(i, order.length); order.push(i); }
 
-  function remap(oldId: number): number { return oldToNew.has(oldId) ? oldToNew.get(oldId)! : oldId; }
+  function remap(oldId: number): number {
+    // Follow ref chains to the final target, then remap
+    const resolved = refNodes.has(oldId) ? resolveRef(oldId) : oldId;
+    return oldToNew.has(resolved) ? oldToNew.get(resolved)! : resolved;
+  }
 
   function buildNode(oldId: number): tsDna {
     const node = seq[oldId] as tsDna;
@@ -171,6 +207,32 @@ function normalizeDna(seq: tsDnaSeq): tsDna[] {
         const p = Array.isArray(params) ? params : [params];
         newParams = [typeof p[0] === 'number' ? remap(resolveRef(p[0])) : p[0], ...p.slice(1)];
         break;
+      }
+      case 'pipe': {
+        const p = Array.isArray(params) ? params : [];
+        newParams = p.map((v: unknown) => typeof v === 'number' ? remap(v) : v);
+        break;
+      }
+      case 'chkSeq':
+      case 'chkList': {
+        const p = Array.isArray(params) ? params : [];
+        newParams = p.map((v: unknown) => typeof v === 'number' ? remap(v) : v);
+        break;
+      }
+      case 'template': {
+        // DNA layout: ["template", passiveParts, partIds, canMutate, meta?]
+        // Destructuring gives wrong meta (node[2]=partIds), so build manually.
+        const passiveParts = node[1] as tsPrimitiveLiteral[];
+        const partIds = Array.isArray(node[2] as number[]) ? (node[2] as number[]).map(remap) : node[2];
+        const canMutate = node[3] as boolean;
+        const last = node[node.length - 1];
+        const tplMeta = last !== null && typeof last === 'object' && !Array.isArray(last) ? last : {};
+        return ["template", passiveParts, partIds, canMutate, tplMeta] as tsDna;
+      }
+      case 'function': {
+        // DNA layout: ["function", [inputDnaId, outputDnaId], meta?]
+        const ids = Array.isArray(node[1] as number[]) ? (node[1] as number[]).map(remap) : node[1];
+        return ["function", ids, meta] as tsDna;
       }
       default:
         newParams = params;
