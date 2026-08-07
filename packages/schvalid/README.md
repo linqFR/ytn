@@ -40,6 +40,22 @@ npm install @ytn/schvalid
 
 **External URIs:** This package does not currently handle external JSON Schema references (`$ref` pointing to external files or HTTP URIs). Only internal references within the same schema document are supported.
 
+## Comparison with AJV
+
+@ytn/schvalid covers all core JSON Schema 2020-12 keywords with full parity — types,
+object/array constraints, const/enum, allOf/anyOf/oneOf, if/then/else, not,
+patternProperties, dependentRequired/Schemas, internal $ref, $id, $defs, discriminator.
+It does not aim to replace AJV in all use cases. Key differences:
+
+- **schvalid adds**: DNA bytecode intermediate representation (IR), `parseFast` hybrid mode,
+  three-mode compilation API, parser output construction, standalone JS via `toJS()`,
+  ~4x faster compilation.
+- **schvalid lacks**: external $ref, custom formats, user-defined keywords, async
+  validation, $data, type coercion, default injection, removeAdditional, vocabularies,
+  schema registry, multi-draft support.
+
+Full feature-by-feature comparison: [docs/ajv-comparison.md](docs/ajv-comparison.md).
+
 ## Usage
 
 ### Converting JSON Schema to DNA
