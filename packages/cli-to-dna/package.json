@@ -5,9 +5,20 @@
   "author": "linqFR",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
+  "engines": { "node": ">=24.0.0" },
+  "publishConfig": { "access": "public" },
   "keywords": [
-    "CLI",
-    "DNA"
+    "cli",
+    "dna",
+    "schema",
+    "validation",
+    "validator",
+    "json-schema",
+    "code-generation",
+    "compiler",
+    "typescript",
+    "developer-tools"
   ],
   "scripts": {
     "build": "tsup",
@@ -28,6 +39,6 @@
     "@types/node": "^26.1.2",
     "@ytn/dna": "*",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.8"
+    "tsx": "^4.23.10"
   }
 }
