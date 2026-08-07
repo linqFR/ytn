@@ -19,6 +19,7 @@ DNA bytecode Builder and Validation/Parsing engine.
   - [Compiling DNA to JavaScript Validators](#compiling-dna-to-javascript-validators)
   - [Using the Low-Level toJS Compiler](#using-the-low-level-tojs-compiler)
   - [Round-trip DNA Reconstruction](#round-trip-dna-reconstruction)
+- [Externals Mechanism](#externals-mechanism)
 - [Development](#development)
 - [Technical Documentation](#technical-documentation)
 
@@ -180,6 +181,25 @@ Limitations:
 - Fully arbitrary JavaScript functions or closures with captured external variables may not roundtrip.
 - Async `transform` / `pipe` / `codec` roundtrip parity is verified with `safeParseAsync` / `parseAsync`.
 - `safeParse`/`validate` parity for the rebuilt schema still depends on the `toJs` codegen supporting the same opcodes.
+
+## Externals Mechanism
+
+DNA compiles schemas into standalone JavaScript functions. Any value referenced inside `.transform()`, `.refine()`, `.catch()`, or `dna.jwt()` that is not a parameter or a global must be declared as an **external** so it can be injected at compile time.
+
+```typescript
+import { dna } from "@ytn/dna";
+
+const myHelper = (v: string) => v.toUpperCase();
+
+const schema = dna.string().transform(
+  (v) => myHelper(v),
+  [myHelper]  // ← declare myHelper as an external
+);
+
+schema.safeParse("hello");  // { success: true, data: "HELLO" }
+```
+
+For the full specification — contract, registry, built-in externals (`dna`, `jwtFn`, constructors), user externals (transform, refine, catch), declaration forms, and portability rules — see [docs/externals.md](docs/externals.md).
 
 ## Development
 
