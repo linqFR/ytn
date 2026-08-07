@@ -818,6 +818,62 @@ const test = parentCtx.typeChecked === "string" ? "" : "typeof " + inVar + '==="
 parentCtx.typeChecked = "string";
 ```
 
+### `state.kind` vs `.type` getter: the hybrid label problem
+
+The internal `BaseCore` stores a `kind` field (formerly `type`) that serves a **dual purpose** depending on the schema class:
+
+1. **As the DNA opcode** (directly emitted into bytecode by `_emitSelf`):
+   - `DnaNumber`: `kind = "n"` → emitted as `["n", ...]`
+   - `DnaBigInt`: `kind = "bi"` → emitted as `["bi", ...]`
+   - `DnaInt`: `kind = "i"` → emitted as `["i", ...]`
+   - `DnaBoolean`: `kind = "b"` → emitted as `["b"]`
+
+2. **As a descriptive label only** (the opcode is hardcoded in `rawDna` or constructed in `_emitSelf`):
+   - `DnaAny`: `kind = "any"` → `rawDna = ["T"]` (opcode is `"T"`)
+   - `DnaUnknown`: `kind = "unknown"` → `rawDna = ["F"]` (opcode is `"F"`)
+   - `DnaNull`: `kind = "null"` → `rawDna = ["n0"]` (opcode is `"n0"`)
+   - `DnaString`: `kind = "string"` → `rawDna = ["s", ...]` (opcode is `"s"`)
+   - `_DnaWrapper`: `kind = "wrap"` → `rawDna = ["wrp", ...]` (opcode is `"wrp"`)
+
+Because of this duality, `kind` is typed as `string` (not `tsDnaOpcode`). When `_emitSelf` uses `kind` as an opcode, it casts with `as tsDnaOpcode`.
+
+The public `.type` getter returns a **Zod-aligned descriptive name** via per-class overrides:
+
+| Class | `state.kind` (internal) | `.type` getter (public) | Source of `.type` |
+|---|---|---|---|
+| `DnaNumber` | `"n"` | `"number"` | `NumberImpl` override |
+| `DnaBigInt` | `"bi"` | `"bigint"` | `DnaBigInt` override |
+| `DnaInt` | `"i"` | `"int"` | `DnaInt` override |
+| `DnaInt32` | `"i"` | `"int32"` | `DnaInt32` override |
+| `DnaBoolean` | `"b"` | `"boolean"` | `DnaBoolean` override |
+| `DnaStringBool` | `"sb"` | `"stringbool"` | `DnaStringBool` override |
+| `DnaString` | `"string"` | `seed.format \|\| "string"` | `DnaString` override |
+| `DnaEmail` | `"string"` | `"email"` | inherited from `DnaString` (via `seed.format`) |
+| `DnaUUID` | `"string"` | `"uuid"` | inherited (via `seed.format`) |
+| `DnaTemplateLiteral` | `"string"` | `"templateLiteral"` | `DnaTemplateLiteral` override |
+| `DnaUnion` | `"anyOf"` | `"union"` | `DnaCombinator` override (via `seed.combinatorType`) |
+| `DnaIntersection` | `"allOf"` | `"intersection"` | `DnaCombinator` override |
+| `DnaXorUnion` | `"oneOf"` | `"xor"` | `DnaCombinator` override |
+| `DnaDiscriminatedUnion` | `"discriminator"` | `"discriminatedUnion"` | `DnaDiscriminatedUnion` override |
+| `_DnaWrapper` subclasses | `"wrap"` | `seed.wrapperType` | `_DnaWrapper` override |
+| `DnaOptional` | `"wrap"` | `"optional"` | inherited (via `seed.wrapperType`) |
+| `DnaNullable` | `"wrap"` | `"nullable"` | inherited |
+| `DnaDefault` | `"wrap"` | `"default"` | inherited |
+| `DnaAny` | `"any"` | `"any"` | base getter (`state.kind` is already descriptive) |
+| `DnaUnknown` | `"unknown"` | `"unknown"` | base getter |
+| `DnaLiteral` | `"literal"` | `"literal"` | base getter |
+| `DnaObject` | `"object"` | `"object"` | base getter |
+| ... | ... | ... | base getter (when `kind` is already descriptive) |
+
+The base `DnaType.get type()` returns `this._core.state.kind` as-is. Classes where `kind` is a short opcode override the getter to return a descriptive name. Classes where `kind` is already descriptive (e.g. `"any"`, `"object"`, `"literal"`) rely on the base getter.
+
+### `_core` is public (no more `SymCore`)
+
+The `_core` field on `DnaType` was previously `protected` and accessed externally via a `SymCore` symbol. This indirection was removed: `_core` is now `public` on `DnaType` and all subclasses. The `SymCore` symbol declaration has been deleted. The `DnaSomeType` interface declares `readonly _core: BaseCore<any>` directly.
+
+This simplifies internal access patterns (e.g. `schema._core.seed` instead of `schema[SymCore].seed`) and eliminates the symbol-based escape hatch.
+```
+
 When `test === ""`, `simpleNodeToJs` emits no test branch — just the success marker. See `s`/`_s`, `n`/`_n`/`i`/`bi`, `boolean`, `nullType`, `sym`, `date`, `file` in `dna-js-json.ts` and `dna-js-builder.ts`.
 
 ### 6. Snippet: `wrp` (builder wrapper for optional/nullable/default/prefault)
@@ -1056,7 +1112,7 @@ The `passed0` plain-object hashmap accumulates the declared keys that matched (`
 
 ### Core state and the `BaseCore` indirection
 
-Every `DnaType` instance delegates runtime state to a `BaseCore` object keyed by the `SymCore` symbol. Core state includes the seed constraints, the collector, the pre-process wrapper list, meta, and `head`.
+Every `DnaType` instance delegates runtime state to a `BaseCore` object exposed via the public `_core` field. Core state includes the seed constraints, the collector, the pre-process wrapper list, meta, and `head`.
 
 - `head` is stored as `unknown` in `BaseCore` and in the `tsStateFull` type. It is an *opaque* link to the previous schema in a chain and is only consumed by the type-level helper `$InputHead`; it is never typed as `DnaType` at runtime.
 - `SymSetHead(head: unknown)` mutates the core and returns `this`. The method signature accepts `unknown` so that the head link can be set from any schema type without casting.
@@ -1078,7 +1134,7 @@ Every `DnaType` instance delegates runtime state to a `BaseCore` object keyed by
 
 ### Why `_head` is `unknown`
 
-`$InputHead<T>` recursively resolves a schema's effective input by following `_head` links. If `_head` were typed as `DnaSomeType | undefined`, the recursion had no base case and `dna.input`/`dna.infer` for array/object chains would hit instantiation depth limits or produce `any`. By declaring `_head: unknown` in `DnaSomeType`, the head link becomes an opaque edge and `$InputHead` falls back to `$Input<T>` when the head is not a concrete schema. This is the reason `BaseCore.head` and `DnaSomeType._head` are both `unknown`.
+`$InputHead<T>` recursively resolves a schema's effective input by following `_head` links. If `_head` were typed as `DnaSomeType | undefined`, the recursion had no base case and `dna.inputHead`/`dna.infer` for array/object chains would hit instantiation depth limits or produce `any`. By declaring `_head: unknown` in `DnaSomeType`, the head link becomes an opaque edge and `$InputHead` falls back to `$Input<T>` when the head is not a concrete schema. This is the reason `BaseCore.head` and `DnaSomeType._head` are both `unknown`.
 
 ### Deferred output/input and recursive type inference
 

@@ -140,12 +140,12 @@ Every opcode handler follows a **decision tree model** with the following steps.
 
 **Examples**:
 
-- `string`: `let strCnt=fCount(v);` for min/max checks
-- `array`: `let aLen=v.length;` for minItems/maxItems
-- `array`: `let val;` for loop variable
-- `array`: `let containsCnt=0;` for contains validation
-- `object`: `let ob0pp0=v[name];` for property value extraction
-- `object`: `let oLen=Object.keys(v).length;` for property count
+- `string`: `strCnt=fCount(v);` for min/max checks (preBody statement, no keyword)
+- `array`: `const aLen=v.length;` for minItems/maxItems
+- `array`: `const val=valIdx;` for loop variable (inside loop)
+- `array`: `let containsCount=0;` for contains validation
+- `object`: `const propVal=ob+idx+pp+counter` for property value extraction
+- `object`: `const oLen=oVar.length` where `oVar` is `Object.keys(inVar)` for property count
 
 **Impact**:
 
@@ -183,7 +183,7 @@ Every opcode handler follows a **decision tree model** with the following steps.
 
 - `string.min(5)`: `strCnt>=5`
 - `string.pattern(/abc/)`: `/abc/u.test(v)`
-- `number.multipleOf(3)`: `v%3===0`
+- `number.multipleOf(3)`: `v%3===0` for integers, `v%3n===0n` for bigint (suffix `"n"`), `Math.abs(v/3-Math.round(v/3))<1e-10` for floats
 
 **Impact**:
 
@@ -417,7 +417,7 @@ data = typeof v === "string" ? v : errors.push({ message: "String is required", 
 
 ### 2. StepsArray Pattern (Steps 0, 1, 2a, 2b, 4, 8, 9, 10, 11, 12, 13)
 
-**Return Type**: `tsJSStepOp[]`
+**Return Type**: `tsStackFrame[]`
 
 **Description**: Used for handlers that need to generate multiple statements, create labeled blocks, or dispatch child schemas. Returns an array of step operations that are processed by the main compiler loop.
 
@@ -438,8 +438,8 @@ data = typeof v === "string" ? v : errors.push({ message: "String is required", 
 **Signature**:
 
 ```typescript
-export const handler = (dnaOpt: [...], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepOp[] => {
-  const steps: tsJSStepOp[] = [];
+export const handler = (dnaOpt: [...], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+  const steps: tsStackFrame[] = [];
   const idx = labelId();
   const block = "handlerB" + idx;
 
@@ -501,7 +501,7 @@ pipeB0:{
 
 ### 3. StringStepsHybrid Pattern (Steps 0, 1, 2a, 3, 4, 5, 6, 12, 13)
 
-**Return Type**: `tsJSFn` (either `tsJSStepString` or `tsJSStepOp[]`)
+**Return Type**: `tsJSFn` (either `tsJSStepString` or `tsStackFrame[]`)
 
 **Description**: Used for type handlers that may generate simple code or complex steps depending on the presence of constraints. Often uses internal helper functions with `_errMode()` for constraint generation.
 
@@ -523,7 +523,7 @@ pipeB0:{
 const internalHandler = (dnaOpt: [...], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, declared: boolean): tsJSFn => {
   const isCond = parentCtx.isCond;
   const body: string[] = [];
-  const steps: tsJSStepOp[] = [];
+  const steps: tsJSStepAct[] = [];
 
   // Add constraints using _errMode
   if (constraint) {
@@ -653,7 +653,7 @@ return false;
 
 ### 5. Mutate Pattern (Steps 1, 2b, 11, 13)
 
-**Return Type**: `tsJSStepString` (or `tsJSStepOp[]` for async mutations)
+**Return Type**: `tsJSFn` (string | tsStackFrame[])
 
 **Description**: Used for transformation operations that modify the input value. In validator mode (`isCond`), the mutation is applied in place on `_inVarName` and `_outVarName` is signaled as `true` via `okFlag`. In parser mode, the mutation is applied to `_outVarName` (which holds the current value) so the result propagates to the returned `data`.
 
@@ -716,7 +716,7 @@ data = data.trim();
 
 ### 6. Check Pattern (Steps 1, 3, 7, 12, 13)
 
-**Return Type**: `tsJSStepString`
+**Return Type**: `tsJSFn` (string | tsStackFrame[])
 
 **Description**: Used for custom validation checks. Uses `simpleNodeToJs` and relies on `parentCtx.failCase` (not `breakBlock`) for proper break behavior. The `failCase`/`outerblock` context properties replaced the older `breakBlock` mechanism after the `seq` → `chkList`/`pipe`/`chkSeq` refactor.
 
@@ -731,7 +731,7 @@ data = data.trim();
 **Signature**:
 
 ```typescript
-export const check = (dnaOpt: [...], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const check = (dnaOpt: [...], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
   const op = dnaOpt[0][0];
   let path, errMsg, test;
 
@@ -904,9 +904,9 @@ simpleNodeToJs(
   _outVarName: string,
   errMsg: string,
   test: string,
-  preBody: string,
-  body: string | string[],
-  mustMatchType: boolean
+  preBody: string = "",
+  body: string | string[] = "",
+  mustMatchType: boolean = true
 ): string
 ```
 

@@ -692,4 +692,4 @@ const result = generated("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature
 // If this works, the value is portable.
 ```
 
-See `sandbox/externals-lazy-pattern.ts` for a full portability test of `jwtFn`.
+The example above serves as a portability test for `jwtFn`.

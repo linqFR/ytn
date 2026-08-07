@@ -18,7 +18,7 @@ This package provides the DNA bytecode runtime engine. It is NOT the JSON Schema
 
 ### Core Modules
 
-- **`src/builder/index.ts`**: DNA schema factory with Zod-like fluent API (`dna.string()`, `dna.object()`, etc.)
+- **`src/builder/api-primitives.ts`** + **`src/builder/api-enhanced.ts`**: DNA schema factory with Zod-like fluent API (`dna.string()`, `dna.object()`, etc.), re-exported via `src/dna-namespace.ts`
 - **`src/fromDna/index.ts`**: DNA → fluent-schema reconstruction (`fromDna`). Rebuilds a builder schema from a DNA bytecode sequence produced by the builder.
 - **`src/toJs/dna-to-js.ts`**: Main compiler entry point, orchestrates DNA → JavaScript conversion
 - **`src/toJs/dna-js-json.ts`**: Opcode-to-JavaScript mapper for JSON Schema-derived opcodes (`object`, `array`, `string`, `number`, `anyOf`, `oneOf`, `discriminator`, etc.)
@@ -136,7 +136,7 @@ This package follows global naming standards:
 
 ### 3. Opcodes
 
-- Opcodes are defined in `dna-core.types.ts`
+- Opcodes are defined in `src/types/core.types.ts`
 - Use descriptive names: `"string"`, `"number"`, `"object"`, `"array"`, etc.
 
 ---
@@ -262,7 +262,7 @@ The input `dnaSeq` is the same tuple returned by `schema.toDna()` (a flat array 
 ## Build & Distribution
 
 - **tsup Configuration**: Standard build with JSDoc preservation
-- **No Minification**: This package is a library, not a production bundle
+- **Minification**: Minified builds are produced via `tsup.config.base.ts` `minConfig` and exported as `./toJs/min` and `./min` subpath entries
 - **Type Declarations**: Automatically generated via tsup
 
 ---

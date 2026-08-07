@@ -1,5 +1,12 @@
 # Performance Technical Notes
 
+> **⚠️ HISTORICAL DOCUMENT — Patterns described below may not match the current codebase.**
+> The instanceof, loop, and IIFE patterns documented here were written for an earlier version of the codegen.
+> The actual implementation now uses `STEP.OUT_CONST` / `STEP.OUT_ARG` for constructor hoisting (not `preBody`),
+> `for(let i=...length;i--;)` loops (not external initialization), and standard IIFE return-function patterns.
+> Benchmark numbers are from the original development period and may not reflect current performance.
+> This document is kept for architectural context. For accurate implementation details, see `technical.md`.
+
 ## Instanceof Validation Performance
 
 ### Test Results (1M iterations)

@@ -16,7 +16,8 @@ DNA bytecode Builder and Validation/Parsing engine.
 - [Installation](#installation)
 - [Usage](#usage)
   - [Using the DNA Builder API](#using-the-dna-builder-api)
-  - [Compiling DNA to JavaScript Validators](#compiling-dna-to-javascript-validators)
+  - [Validating and Parsing with Schema Methods](#validating-and-parsing-with-schema-methods)
+  - [Compiling DNA to JavaScript Validators (Advanced)](#compiling-dna-to-javascript-validators-advanced)
   - [Using the Low-Level toJS Compiler](#using-the-low-level-tojs-compiler)
   - [Round-trip DNA Reconstruction](#round-trip-dna-reconstruction)
 - [Externals Mechanism](#externals-mechanism)
@@ -77,7 +78,7 @@ import { dna } from "@ytn/dna";
 const schema = dna.object({
   name: dna.string().min(2),
   age: dna.number().min(0),
-  email: dna.string().email()
+  email: dna.email()
 });
 
 // Get the DNA bytecode
@@ -85,15 +86,60 @@ const dnaBytecode = schema.toDna();
 ```
 
 Supported builder methods:
-- **Primitives**: `dna.string()`, `dna.number()`, `dna.integer()`, `dna.boolean()`, `dna.null()`
-- **Constraints**: `.min()`, `.max()`, `.length()`, `.pattern()`, `.email()`, `.uuid()`, `.url()`
+- **Primitives**: `dna.string()`, `dna.number()`, `dna.int()`, `dna.boolean()`, `dna.null()`
+- **Constraints**: `.min()`, `.max()`, `.length()`, `.pattern()`
+- **Formats**: `dna.email()`, `dna.uuid()`, `dna.url()` (top-level functions; the `.email()`, `.uuid()`, `.url()` string constraints are deprecated)
 - **Compound**: `dna.object()`, `dna.array()`, `dna.optional()`, `dna.nullable()`
-- **Logic**: `dna.anyOf()`, `dna.allOf()`, `dna.oneOf()`, `dna.not()`
+- **Logic**: `dna.union()`, `dna.intersection()`, `dna.xor()`
 
-### Compiling DNA to JavaScript Validators
+### Validating and Parsing with Schema Methods
+
+Every schema instance built with the `dna.*` builder exposes high-level validation and parsing methods. These are the **primary API** for most use cases — you do not need to compile DNA bytecode manually.
 
 ```typescript
-import { validator, parser, toJS } from "@ytn/dna";
+import { dna } from "@ytn/dna";
+
+const schema = dna.object({
+  name: dna.string().min(2),
+  age: dna.number().min(0),
+});
+
+// --- Boolean validation (fail-fast, no error collection) ---
+const isValid: boolean = schema.validate({ name: "John", age: 30 });
+const isAsync: Promise<boolean> = schema.validateAsync({ name: "John", age: 30 });
+
+// --- Safe parse (returns a result object, never throws) ---
+const result = schema.safeParse({ name: "Jo", age: -1 });
+// { success: false, errors: [...] }
+
+const ok = schema.safeParse({ name: "John", age: 30 });
+// { success: true, data: { name: "John", age: 30 } }
+
+// Async safe parse (alias: .spa())
+const asyncResult = await schema.safeParseAsync({ name: "John", age: 30 });
+const aliasResult = await schema.spa({ name: "John", age: 30 });
+
+// --- Throwing parse (throws on invalid input) ---
+const data = schema.parse({ name: "John", age: 30 });
+const asyncData = await schema.parseAsync({ name: "John", age: 30 });
+```
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `.validate(value)` | `boolean` | Synchronous boolean validation (fail-fast) |
+| `.validateAsync(value)` | `Promise<boolean>` | Async boolean validation |
+| `.safeParse(value)` | `{ success, data } \| { success, errors }` | Synchronous safe parse (never throws) |
+| `.safeParseAsync(value)` | `Promise<...>` | Async safe parse |
+| `.spa(value)` | `Promise<...>` | Alias for `.safeParseAsync()` |
+| `.parse(value)` | `T` (throws on error) | Synchronous parse (throws on invalid input) |
+| `.parseAsync(value)` | `Promise<T>` | Async parse (throws on invalid input) |
+
+### Compiling DNA to JavaScript Validators (Advanced)
+
+> **Note**: The `validator()`, `parser()`, and `toJS()` functions are low-level compilation utilities for exceptional use cases (e.g. pre-compiling DNA bytecode from `@ytn/schvalid`, serializing validators, or performance-critical paths). For everyday schema validation, prefer the [high-level schema methods](#validating-and-parsing-with-schema-methods) (`.validate()`, `.safeParse()`, `.parse()`).
+
+```typescript
+import { validator, parser, toJS } from "@ytn/dna/toJs";
 
 // DNA bytecode (typically obtained from @ytn/schvalid)
 const dna = /* DNA bytecode array */;
@@ -114,7 +160,7 @@ const invalidResult = parse({ name: "Jo", age: -1 });
 ### Using the Low-Level toJS Compiler
 
 ```typescript
-import { toJS } from "@ytn/dna";
+import { toJS } from "@ytn/dna/toJs";
 
 const dna = /* DNA bytecode array */;
 
@@ -130,7 +176,7 @@ const parseFn = new Function(parseCode[0], parseCode.slice(1).join('\n'))();
 Use the second argument `enhancedMapper: true` when compiling DNA produced by the fluent `dna.*` builder API:
 
 ```typescript
-import { toJS } from "@ytn/dna";
+import { toJS } from "@ytn/dna/toJs";
 
 const dna = /* DNA bytecode array from dna builder */;
 const result = toJS(true, true)(dna) as { code: string[]; requiredExternals: string[] };
@@ -142,7 +188,8 @@ const fn = new Function(...result.code)({ /* required externals */ });
 `@ytn/dna` can rebuild a fluent builder schema from its own DNA bytecode. This is used by the `fromDna` roundtrip tests and lets you serialize, transfer, and restore a schema without touching JSON Schema:
 
 ```typescript
-import { dna, fromDna } from "@ytn/dna";
+import { dna } from "@ytn/dna";
+// fromDna is an internal roundtrip utility (not part of the public package exports).
 
 const original = dna.object({
   name: dna.string().min(2),
@@ -169,7 +216,7 @@ Supported roundtrip families:
 - **Primitives**: `string`, `number`, `integer`, `bigint`, `boolean`, `null`, `undefined`, `NaN`, `literal`, `enum`, `any`, `never`, `unknown`.
 - **Wrappers**: `optional`, `nullable`, `nullish`, `nonoptional`, `default`, `prefault`, `catch`.
 - **Collections**: `object` (`$o`), `array`/`tuple`, `record` (`rcd`), `Map`/`Set` reconstructed from `seq`.
-- **Logic**: `anyOf`, `allOf`, `not`, `discriminator`.
+- **Logic**: `anyOf`, `allOf`, `discriminator`.
 - **Refinements**: `property` checks (min/max/size), `func` checks (`.refine`, `.superRefine`, `.check`), `jwt`.
 - **External / special types**: `instanceOf` (registered constructors), `url` (protocol/hostname regex).
 - **Pipelines**: `seq`, `transform`, `pipe` (sync and async), `codec` when the encode/decode functions are serializable.
@@ -181,6 +228,21 @@ Limitations:
 - Fully arbitrary JavaScript functions or closures with captured external variables may not roundtrip.
 - Async `transform` / `pipe` / `codec` roundtrip parity is verified with `safeParseAsync` / `parseAsync`.
 - `safeParse`/`validate` parity for the rebuilt schema still depends on the `toJs` codegen supporting the same opcodes.
+
+## Comparison with Zod
+
+@ytn/dna covers ~95% of the Zod v4 API with full parity — all primitives, string formats,
+coercions, transforms, refinements, unions, objects, arrays, tuples, records, maps, sets,
+functions, lazy, wrappers, brand, readonly, stringbool, template literals, and JSON Schema
+export. Key differences:
+
+- **DNA adds**: compiled standalone functions (`validator()`, `parser()`, `toJS()`), DNA
+  bytecode serialization (`.toDna()` / `fromDna()`), boolean validation (`.validate()`),
+  `dna.templateLiteralMutate()`, `.eq()` on date, `.register()`.
+- **DNA lacks**: `.deepPartial()`, `z.flattenError()` / `z.formatError()` / `z.treeifyError()`,
+  `z.deno()` / `z.node()`, some introspection getters (`.options`, `.discriminator`).
+
+Full feature-by-feature comparison: [docs/zod-comparison.md](docs/zod-comparison.md).
 
 ## Externals Mechanism
 
