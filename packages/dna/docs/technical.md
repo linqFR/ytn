@@ -596,14 +596,20 @@ A fluent `dna.map(dna.string(), dna.number())` emits a `pipe` opcode containing:
 
 `extractMapSet` scans the `pipe` steps for the `instanceOf`, `chk` (size), `rcd` / `a`, and `transform` markers, then calls `initDna(DnaMap, ...)` or `initDna(DnaSet, ...)` with the rebuilt key/value/item schemas. The `readonly` flag is read from the `instanceOf` step's meta, not the `pipe` node, because the builder stores it there.
 
-### `chk` and refinements
+### `chkSeq` and refinements
 
-The `chk` opcode carries the schema's accumulated `refinerList`. `fromDna` supports two shapes:
+The `chkSeq` opcode carries the schema's accumulated `refinerList`. `fromDna` supports two shapes:
 
 - `["property", propertyName, schema]` → rebuilds a property-level check.
 - `["func", fnStr, arity, errorOpt?]` → pushes the function string directly back into the cloned schema's `refinerList` so that `toDna()` emits the same entry.
 
 `refine()` / `superRefine()` / `.check()` all now emit `func` entries, so `fromDna` does not need to distinguish them at reconstruction time.
+
+### `template` reconstruction
+
+The `template` opcode stores pre-computed regex fragments (`passiveParts`) and child schema IDs (`partIds`). Reconstructing via the normal `dna.templateLiteral(parts)` API is **not possible** because `_emitSelf` re-escapes string parts (literals and regex fragments are indistinguishable after the original serialization).
+
+`fromDna` uses an internal subclass `DnaTemplateReconstructed` that overrides `_emitSelf` to inject the `passiveParts` and child schemas directly, bypassing the part→regex transformation. The `canMutate` flag (index 3) distinguishes `templateLiteral` (false) from `templateLiteralMutate` (true).
 
 ### Metadata preservation
 
@@ -617,7 +623,7 @@ Every `buildNode` branch calls `initDna(Class, seed, meta)` with the normalized 
 
 - `func` entries only roundtrip when the original function's `toString()` is complete (no captured variables, no `__name` helpers).
 - `async` refinements and `transform`/`preprocess`/`coerce` roundtrip at the DNA level but `toJs` may not generate the matching `ctx` / `await` code yet.
-- `z.function()`, `z.promise()`, `oneOf` / `xor`, and some JSON Schema-specific opcodes are not reconstructed yet.
+- `dna.function()` serializes as `["function", [inputDnaId, outputDnaId]]` — the input tuple and output schema are full children in the DNA graph. `fromDna` reconstructs the `DnaFunction` with both child schemas. `.implement(fn, externals?)` / `.implementAsync(fn, externals?)` accept an optional externals map (merged with `getRegisteredExternals()`); the returned function exposes `requiredExternals: string[]`.
 - `toDna()` equality is a necessary but not sufficient condition for `safeParse` parity; the `toJs` codegen must also support the same opcodes.
 
 ## Generated JS Code — Shape & Conventions

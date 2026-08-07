@@ -240,13 +240,14 @@ The input `dnaSeq` is the same tuple returned by `schema.toDna()` (a flat array 
 ### Notable implementation points
 
 - **Metadata preservation**: `initDna(Class, seed, meta)` is called with the trailing `meta` object for every node, preserving `readonly`, `description`, `~inner` constraints, etc.
-- **Recursive objects (`$o`)**: A `DnaObject` skeleton is pre-cached before its children are built. A `ref` opcode that points to a node currently under construction returns this skeleton instead of recursing, so `fromDna` emits the same single `ref` node as the original builder.
+- **Recursive objects (`$o`/`o`)**: A `DnaObject` skeleton is pre-cached before its children are built. A `ref` opcode that points to a node currently under construction returns this skeleton instead of recursing, so `fromDna` emits the same single `ref` node as the original builder. Double-ref chains from `DnaLazy` reconstruction are collapsed by `normalizeDna` in the test suite.
 - **`wrp` (wrappers)**: Reconstructs `optional`, `nullable`, `nullish`, `nonoptional`, `exactOptional`, `default`, `prefault`, and `catch` by wrapping the inner schema with `dna.<wrapper>(...)`.
-- **`seq` / `transform`**: Generic `seq` DNA is reconstructed as a `DnaPipe` whose `steps` are the rebuilt children. `transform` opcodes create `DnaTransform` instances from `["transform", [fnStr, arity], meta]`.
+- **`pipe` / `transform`**: Generic `pipe` DNA is reconstructed as a `DnaPipe` whose `steps` are the rebuilt children. `transform` opcodes create `DnaTransform` instances from `["transform", [fnStr, arity], meta]`.
 - **Records (`rcd`)**: Distinguishes `standard`, `loose`, and `partial` records based on the presence of `required` and finite `keys` constraints.
-- **Map / Set**: `extractMapSet` scans a `seq` for `instanceOf`, `chk` (size constraints), `rcd` / `a`, and `transform` steps, reconstructing `DnaMap` / `DnaSet` with their key/value/item schemas. `readonly` metadata is taken from the `instanceOf` step, not the `seq` node.
-- **Refinement checks (`chk`)**: `property` checks rebuild `min`/`max`/`size` constraints. `func` entries are pushed directly into `refinerList` as `["func", fnStr, arity, errorOpt?]` so the rebuilt `toDna()` matches the original layout.
-- **JWT / discriminator / URL / instanceOf**: Directly instantiated via `DnaJwt`, `DnaDiscriminatedUnion`, `DnaUrl`, and `DnaInstanceOf` with the decoded parameters. `url` rehydrates protocol/hostname regexes from their string form; `instanceOf` resolves the constructor from the registered externals map.
+- **Map / Set**: `extractMapSet` scans a `pipe` for `instanceOf`, `chkSeq` (size constraints), `rcd` / `a`, and `transform` steps, reconstructing `DnaMap` / `DnaSet` with their key/value/item schemas. `readonly` metadata is taken from the `instanceOf` step, not the `pipe` node.
+- **Refinement checks (`chkSeq`/`chkList`)**: `property` checks rebuild `min`/`max`/`size` constraints. `func` entries are pushed directly into `refinerList` as `["func", fnStr, arity, errorOpt?]` so the rebuilt `toDna()` matches the original layout.
+- **Templates (`template`)**: Reconstructed via internal `DnaTemplateReconstructed` subclass that overrides `_emitSelf` to inject pre-computed `passiveParts` and child schema IDs directly, bypassing the irreversible part→regex re-escaping. The `canMutate` flag (index 3) distinguishes `templateLiteral` (false) from `templateLiteralMutate` (true).
+- **JWT / discriminator / URL / instanceOf / promise / cidrv6**: Directly instantiated via `DnaJwt`, `DnaDiscriminatedUnion`, `DnaUrl`, `DnaInstanceOf`, `DnaPromise`, and `DnaCidrv6` with the decoded parameters. `url` rehydrates protocol/hostname regexes from their string form; `instanceOf` resolves the constructor from the registered externals map.
 
 ### Testing
 
@@ -256,8 +257,7 @@ The input `dnaSeq` is the same tuple returned by `schema.toDna()` (a flat array 
 ### Limitations
 
 - `.transform`, `.preprocess`, `.coerce`, and custom codecs roundtrip only when their function source is serializable (`fn.toString()`). Closures or captured variables are lost.
-- `z.function()`, `z.promise()`, and some `oneOf` / `xor` unions are not supported yet.
-- `toJs` codegen may lag behind the builder; a correct `toDna()` roundtrip does not guarantee `safeParse` parity for newly-added opcodes.
+- `dna.function()` serializes as `["function", [inputDnaId, outputDnaId]]` — the input tuple and output schema are full children in the DNA graph. `fromDna` reconstructs the `DnaFunction` with both child schemas. `.implement(fn, externals?)` / `.implementAsync(fn, externals?)` accept an optional externals map (merged with `getRegisteredExternals()`); the returned function exposes `requiredExternals: string[]`.
 
 ## Build & Distribution
 

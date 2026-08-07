@@ -213,13 +213,15 @@ if (originalResult.success && rebuiltResult.success) {
 
 Supported roundtrip families:
 
-- **Primitives**: `string`, `number`, `integer`, `bigint`, `boolean`, `null`, `undefined`, `NaN`, `literal`, `enum`, `any`, `never`, `unknown`.
+- **Primitives**: `string`, `number`, `integer`, `bigint`, `boolean`, `null`, `undefined`, `NaN`, `literal`, `enum`, `any`, `never`, `unknown`, `symbol`, `date`.
 - **Wrappers**: `optional`, `nullable`, `nullish`, `nonoptional`, `default`, `prefault`, `catch`.
-- **Collections**: `object` (`$o`), `array`/`tuple`, `record` (`rcd`), `Map`/`Set` reconstructed from `seq`.
-- **Logic**: `anyOf`, `allOf`, `discriminator`.
-- **Refinements**: `property` checks (min/max/size), `func` checks (`.refine`, `.superRefine`, `.check`), `jwt`.
-- **External / special types**: `instanceOf` (registered constructors), `url` (protocol/hostname regex).
-- **Pipelines**: `seq`, `transform`, `pipe` (sync and async), `codec` when the encode/decode functions are serializable.
+- **Collections**: `object` (`$o`/`o`), `array`/`tuple`, `record` (`rcd`), `Map`/`Set` reconstructed from `pipe`.
+- **Logic**: `anyOf`, `allOf`, `oneOf`, `discriminator`.
+- **Refinements**: `property` checks, `func` checks (`.refine`, `.superRefine`, `.check`), `chkSeq`, `chkList`.
+- **Templates**: `templateLiteral` and `templateLiteralMutate` (via internal `DnaTemplateReconstructed` that bypasses re-escaping).
+- **External / special types**: `instanceOf` (registered constructors), `url` (protocol/hostname regex), `jwt`, `promise`, `cidrv6`.
+- **Pipelines**: `pipe`, `transform`, `coerce`, `codec` when the encode/decode functions are serializable.
+- **Recursion**: `ref` nodes (including `DnaLazy` reconstruction with double-ref collapsing).
 - **Metadata**: `readonly`, `description`, `~inner` constraints are preserved.
 
 Limitations:
