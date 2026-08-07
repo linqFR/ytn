@@ -1,53 +1,24 @@
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { afterAll, describe, expect, it } from "vitest";
 import { schvalid } from "../../src/index.js";
 import { OutOfScopeError } from "../../src/jschema-to-dna.js";
+import {
+  discoverJsonFiles,
+  loadRemotes,
+  shouldSkipFile,
+  suiteDir,
+} from "./json-schema-suite-helpers.js";
 
-// Emulate __dirname in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Load remote schemas (for potential future refRemote support)
+loadRemotes();
 
-const suiteDir = path.resolve(
-  __dirname,
-  "../json-schema-suite/tests/draft2020-12",
-);
+// Discover all JSON test files recursively (includes optional/)
+const files = discoverJsonFiles(suiteDir);
 
-const remotesDir = path.resolve(__dirname, "../json-schema-suite/remotes");
-const remoteRegistry = new Map<string, any>();
-
-function loadRemotes(dir: string, base: string = "") {
-  const items = fs.readdirSync(dir);
-  for (const item of items) {
-    const fullPath = path.join(dir, item);
-    const rel = base ? base + "/" + item : item;
-    if (fs.statSync(fullPath).isDirectory()) {
-      loadRemotes(fullPath, rel);
-    } else if (item.endsWith(".json")) {
-      try {
-        const schema = JSON.parse(fs.readFileSync(fullPath, "utf-8"));
-        remoteRegistry.set("http://localhost:1234/" + rel, schema);
-      } catch {}
-    }
-  }
-}
-if (fs.existsSync(remotesDir)) {
-  loadRemotes(remotesDir);
-}
-
-// Découvre tous les fichiers JSON
-const files = fs.readdirSync(suiteDir).filter((f) => f.endsWith(".json"));
-
-describe("JSON Schema Draft 2020-12 Official Suite (DNA-JS Engine)", () => {
+describe("JSON Schema Draft 2020-12 Official Suite (Validator mode)", () => {
   for (const file of files) {
-    // skip refRemote tests (not supported, not planned)
-    if (file === "refRemote.json") continue;
-    // skip not implemented features
-    // if (file === "dependentSchemas.json") continue;
-    if (file === "dynamicRef.json") continue;
-    if (file === "content.json") continue;
-    if (file === "vocabulary.json") continue;
+    if (shouldSkipFile(file)) continue;
 
     const filePath = path.join(suiteDir, file);
     const testGroups = JSON.parse(fs.readFileSync(filePath, "utf-8"));
@@ -58,8 +29,6 @@ describe("JSON Schema Draft 2020-12 Official Suite (DNA-JS Engine)", () => {
           let validate: (v: any) => boolean;
           let compileError: any = null;
           let isOutOfScope = false;
-
-          // console.log(`Compiling: ${file} > ${group.description}`);
 
           try {
             validate = schvalid("validation").compile(group.schema);
@@ -110,7 +79,6 @@ describe("JSON Schema Draft 2020-12 Official Suite (DNA-JS Engine)", () => {
             });
           }
 
-          // Print summary after all tests in group
           afterAll(() => {
             // Vitest already provides summary
           });
