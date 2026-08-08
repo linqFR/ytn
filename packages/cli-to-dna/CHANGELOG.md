@@ -1,5 +1,11 @@
 # @ytrynot/cdna
 
+## 0.2.1
+
+### Patch Changes
+
+- a6a381d: Add `repository`, `bugs`, and `homepage` fields to package.json. Fix GitHub URLs to point to `linqFR/ytn` (was `linqFR/ytrynot` in cli-to-zvo).
+
 ## 0.2.0
 
 ### Minor Changes
