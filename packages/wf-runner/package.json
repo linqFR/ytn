@@ -1,6 +1,7 @@
 {
   "name": "@ytrynot/wf",
   "version": "0.1.0",
+  "private": true,
   "description": "Workflow Router for the ytrynot project",
   "type": "module",
   "scripts": {

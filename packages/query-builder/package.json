@@ -1,6 +1,7 @@
 {
   "name": "@ytrynot/qb",
   "version": "2.0.3",
+  "private": true,
   "description": "SQLite Query Builder",
   "author": "linqFR",
   "license": "MIT",
