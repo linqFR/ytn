@@ -75,15 +75,6 @@ const dna = jschemaToDna(schema);
 // Returns DNA bytecode array
 ```
 
-### Converting DNA back to JSON Schema (soon)
-
-```typescript
-import { dnaToJSchema } from "@ytn/schvalid";
-
-const schema = dnaToJSchema(dna);
-// Returns original JSON Schema
-```
-
 ### Compile Once, Validate Many
 
 For performance-critical scenarios, use the `schvalid()` builder API to compile a schema once and reuse the validation function:
