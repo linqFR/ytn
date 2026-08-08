@@ -4,6 +4,15 @@
   "description": "Schema validation that compiles to standalone JS function. Zod-like API, serializable, portable, using DNA bytecodes",
   "author": "linqFR",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/linqFR/ytn.git",
+    "directory": "packages/dna"
+  },
+  "bugs": {
+    "url": "https://github.com/linqFR/ytn/issues"
+  },
+  "homepage": "https://github.com/linqFR/ytn/tree/main/packages/dna#readme",
   "keywords": [
     "dna",
     "schema",

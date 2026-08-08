@@ -6,13 +6,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/linqFR/ytrynot.git",
+    "url": "git+ssh://git@github.com/linqFR/ytn.git",
     "directory": "packages/cli-to-zvo"
   },
   "bugs": {
-    "url": "https://github.com/linqFR/ytrynot/issues"
+    "url": "https://github.com/linqFR/ytn/issues"
   },
-  "homepage": "https://github.com/linqFR/ytrynot/tree/main/packages/cli-to-zvo#readme",
+  "homepage": "https://github.com/linqFR/ytn/tree/main/packages/cli-to-zvo#readme",
   "type": "module",
   "keywords": [
     "CLI",

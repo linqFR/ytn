@@ -4,6 +4,15 @@
   "description": "JSON Schema 2020-12 validator with compiled standalone JS function using DNA bytecodes. OpenAPI 3.1 discriminator support. Close to AJV's speed.",
   "author": "linqFR",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/linqFR/ytn.git",
+    "directory": "packages/schvalid"
+  },
+  "bugs": {
+    "url": "https://github.com/linqFR/ytn/issues"
+  },
+  "homepage": "https://github.com/linqFR/ytn/tree/main/packages/schvalid#readme",
   "type": "module",
   "sideEffects": false,
   "engines": {
