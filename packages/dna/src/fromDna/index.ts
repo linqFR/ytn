@@ -161,7 +161,11 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
         // passDefault is a runtime marker emitted by DnaOptional._emitSelf; it
         // should not be persisted as schema meta because it pollutes object propMeta.
         delete cleanMeta.passDefault;
-        if (Object.keys(cleanMeta).length) wrapped = wrapped.meta(cleanMeta);
+        // Use _core.rawMeta directly (mutate in place) instead of wrapped.meta()
+        // which clones the wrapper AND its inner — breaking object identity for
+        // recursive types (cycle detection in the collector keys on this._core).
+        // `wrapped` is freshly created above, so mutating it is safe.
+        if (Object.keys(cleanMeta).length) wrapped._core.rawMeta(cleanMeta);
       }
       return wrapped;
     }

@@ -680,15 +680,31 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
 
   // Information methods
   isOptional(): boolean {
-    return this._core.seed.meta.optional === true;
+    let s: DnaSomeType = this instanceof DnaLazy ? this.innerType : this;
+    while (s instanceof _DnaWrapper) {
+      if (s.wrapperType === "nonoptional") return false;
+      if (ABSENT_TOLERANT_WRAPPERS.includes(s.wrapperType)) return true;
+      s = s.unwrap();
+    }
+    return false;
   }
 
   isNullable(): boolean {
-    return this._core.seed.meta.nullable === true;
+    let s: DnaSomeType = this instanceof DnaLazy ? this.innerType : this;
+    while (s instanceof _DnaWrapper) {
+      if (s.wrapperType === "nullable" || s.wrapperType === "nullish") return true;
+      s = s.unwrap();
+    }
+    return false;
   }
 
   isNullish(): boolean {
-    return this._core.seed.meta.nullish === true;
+    let s: DnaSomeType = this instanceof DnaLazy ? this.innerType : this;
+    while (s instanceof _DnaWrapper) {
+      if (s.wrapperType === "nullish") return true;
+      s = s.unwrap();
+    }
+    return false;
   }
 }
 
@@ -920,7 +936,7 @@ class _DnaWrapper<
 export class DnaOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | undefined;
   declare readonly _input: $Input<Inner> | undefined;
-  override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" });
+  override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" }).rawMeta({optional:true});
 }
 
 // ExactOptional wrapper - type-level marker: makes an object key optional without adding `undefined` to the value type.
@@ -939,14 +955,14 @@ export class DnaNonOptional<Inner extends DnaSomeType = DnaSomeType> extends _Dn
 export class DnaNullable<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | null;
   declare readonly _input: $Input<Inner> | null;
-  override _core = new BaseCore<{ wrapperType: "nullable", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullable", phase: "pre" });
+  override _core = new BaseCore<{ wrapperType: "nullable", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullable", phase: "pre" }).rawMeta({ nullable: true });
 }
 
 // Nullish wrapper - allows undefined and null
 export class DnaNullish<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | null | undefined;
   declare readonly _input: $Input<Inner> | null | undefined;
-  override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" });
+  override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" }).rawMeta({ nullish: true, optional:true, nullable:true });
 }
 
 // Default wrapper - provides default value for output
