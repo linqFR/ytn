@@ -241,7 +241,7 @@ npm run bench
 npm run perf
 ```
 
-**Test Coverage of JSON validation Suite**: 1201 passing, 44 skipped.
+**Test Coverage of JSON validation Suite**: 1243 passing per mode, 44 skipped.
 
 - The 44 skipped tests are from the JSON Schema Test Suite and involve external references (`$ref` to HTTP URIs, URNs, or external files), which are explicitly out of scope for DNA Schema (only internal references are supported).
 

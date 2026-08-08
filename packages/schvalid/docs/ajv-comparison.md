@@ -19,7 +19,7 @@
 | Internal $ref (pointer + anchor) | ✅ | ✅ | None |
 | External $ref | ✅ | ❌ | Complete gap |
 | $dynamicRef | ✅ | ❌ | Complete gap |
-| Formats (built-in) | ✅ 20+ | ✅ 18 | Minor gap |
+| Formats (built-in) | ✅ 20+ | ✅ 19 | Minor gap |
 | Custom formats | ✅ | ❌ | Complete gap |
 | User-defined keywords | ✅ | ❌ | Complete gap |
 | Async validation | ✅ | ❌ | Complete gap |
@@ -40,13 +40,13 @@
 | parseFast hybrid | ❌ | ✅ | schvalid advantage |
 | Parser output construction | ❌ | ✅ | schvalid advantage |
 | Standalone JS (toJS) | ⚠️ (ajv-pack) | ✅ (native) | schvalid advantage |
-| Compilation speed | Baseline | ~4x faster | schvalid advantage |
+| Compilation speed | Baseline | ~4x faster (see `tests/bench/`) | schvalid advantage |
 
 **Bottom line**: @ytn/schvalid covers all core JSON Schema 2020-12 keywords with full parity.
 It does not aim to replace AJV in all use cases — external $ref, custom keywords, async
 validation, type coercion, and vocabularies are intentionally out of scope for 0.2.x.
 schvalid's value proposition is: standalone compiled functions, DNA bytecode IR, parseFast
-hybrid mode, and ~4x faster compilation.
+hybrid mode, and ~4x faster compilation (benchmark data in `tests/bench/`).
 
 ---
 
@@ -86,7 +86,7 @@ hybrid mode, and ~4x faster compilation.
 
 ### format keyword (assertion mode)
 - **AJV**: Full format library + custom formats (sync and async)
-- **schvalid**: 18 built-in regex formats, no custom format API
+- **schvalid**: 19 built-in regex formats, no custom format API
 - **Built-in formats**: `date`, `time`, `date-time`, `duration`, `uri`, `uri-reference`,
   `uri-template`, `email`, `hostname`, `idn-hostname`, `ipv4`, `ipv6`, `uuid`,
   `json-pointer`, `json-pointer-uri-fragment`, `relative-json-pointer`, `regex`, `iri`,
@@ -104,7 +104,7 @@ hybrid mode, and ~4x faster compilation.
 ### unevaluatedProperties
 - **AJV**: Full annotation-based tracking
 - **schvalid**: Structural wrapper approach (wraps inner content)
-- **Status**: ✅ Test suite passes (1201 passing). The structural approach covers all
+- **Status**: ✅ Test suite passes (1243 passing per mode). The structural approach covers all
   tested cases. The difference is implementation strategy (structural wrapping vs
   annotation tracking), not a feature gap. Edge cases with `$ref` +
   `unevaluatedProperties` may differ but are not covered by the test suite.
@@ -148,7 +148,7 @@ hybrid mode, and ~4x faster compilation.
 | 4 | Parser mode with output construction | Validation only, no output | `parser()` returns `{ success, data }` with fresh `Object.create(null)` output | Similar to Zod's `parse()` contract. AJV never constructs output objects. |
 | 5 | Standalone JS output via toJS | Requires `ajv-pack` (semi-maintained) | `toJS()` from `@ytn/dna/toJs` | Core feature. Self-contained JS source code for both validator and parser. |
 | 6 | Compact DNA representation | N/A | Numeric array with minimal memory | Sentinels (`-1`, `null`) for absent constraints. DNA can be cached, serialized, transferred. |
-| 7 | Compilation speed | Baseline | ~4x faster | Stack-based traversal, no AST construction, no code gen during conversion |
+| 7 | Compilation speed | Baseline | ~4x faster (see `tests/bench/`) | Stack-based traversal, no AST construction, no code gen during conversion |
 | 8 | Parser output size | N/A | ~30% smaller standalone function | Compact DNA opcode-based code generation |
 | 9 | OpenAPI 3.1 discriminator — native, optimized | Plugin/keyword needed | Native with switch-based dispatch | Removes discriminator property from each `oneOf` branch, re-injects as `true`, inherits `additionalProperties` from root, O(1) switch dispatch |
 | 10 | DeepEqual complexity detection | N/A | Automatic for uniqueItems/const/enum | Analyzes item types to determine whether `deepEqual` is needed or fast `===` suffices. Compile-time optimization. |
@@ -201,21 +201,20 @@ All core JSON Schema 2020-12 keywords are fully supported:
 | `optional/ecmascript-regex.json` | **Not run** | Same |
 | `optional/non-bmp-regex.json` | **Not run** | Same |
 | `optional/dynamicRef.json` | **Not run** | Same |
-| All other root `.json` files | ✅ Run | 1201 passing per AGENTS.md |
+| All other root `.json` files | ✅ Run | 1243 passing per mode per AGENTS.md |
 
-**Total**: 1201 passing, 44 skipped. The `optional/` directory not being walked is a
-**test runner bug** (not a feature gap) — the runner uses `fs.readdirSync` on the root
-only, not recursive walking. Fix: make file discovery recursive (similar to `loadRemotes`).
+**Total**: 1287 tests per mode, 1243 passing, 44 skipped. The test runner IS recursive — `discoverJsonFiles()`
+walks all directories including `optional/`. Files in the `optional/` directory are filtered
+out by `shouldSkipFile()` due to unsupported features (external references, content
+vocabulary, etc.), not because the directory isn't walked.
 
 ---
 
 ## Source References
 
-- `src/jschema-to-dna.ts`: Main converter — 965 lines. Handles all keyword processing.
-- `src/string-formats.ts`: 33 lines. Static `JSONFORMAT` record with 18 regex formats.
-- `src/index.ts`: 107 lines. Public API: `schvalid()`, `parserFast()`, `combineFast()`.
-- `src/dna-helpers.ts`: 56 lines. `parseType()`, `resolveUri()` utilities.
-- `tests/schemas/json-schema-suite.test.ts`: Test runner — skips 4 files, only walks root directory.
+- `src/jschema-to-dna.ts`: Main converter. Handles all keyword processing.
+- `src/string-formats.ts`: Static `JSONFORMAT` record with 19 regex formats.
+- `src/index.ts`: Public API: `schvalid()`, `parserFast()`, `combineFast()`.
+- `src/dna-helpers.ts`: `parseType()`, `resolveUri()` utilities.
+- `tests/schemas/json-schema-suite.test.ts`: Test runner — skips 4 files, walks all directories recursively.
 - `tests/schemas/json-schema-suite-parser.test.ts`: Parser test runner — same skips.
-- `AGENTS.md`: Documents supported/unsupported features, 1201 passing / 44 skipped.
-- `README.md`: Documents external ref limitation, performance benchmarks vs AJV.

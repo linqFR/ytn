@@ -150,7 +150,7 @@ cases + consistency checks against `validator`/`parser`), and
 
 ### Testing
 
-- **JSON Schema Test Suite**: The package includes the official JSON Schema 2020-12 test suite (1160 passing, 44 skipped)
+- **JSON Schema Test Suite**: The package includes the official JSON Schema 2020-12 test suite (1243 passing per mode, 44 skipped)
 - **Skipped Tests**: The 44 skipped tests involve external references (refRemote.json, dynamicRef.json, content.json, vocabulary.json) which are out of scope
 - **Discriminator Tests**: Full coverage of OpenAPI 3.1 discriminator keyword
 - **Performance Benchmarks**: Comparative benchmarks against AJV
@@ -279,7 +279,7 @@ npm run perf
 
 ### Test Coverage
 
-- **JSON Schema Test Suite**: 1201 passing, 44 skipped (external references)
+- **JSON Schema Test Suite**: 1243 passing per mode, 44 skipped (external references)
 - **Discriminator Tests**: 10 passing in `tests/schemas/discriminator.test.ts`
 - **Edge-Cases Tests**: 148 passing in `tests/schemas/edge-cases.test.ts`
 - **Performance Benchmarks**: Comparative benchmarks against AJV
