@@ -1,6 +1,7 @@
 {
   "name": "@ytrynot/cdna",
   "version": "0.2.1",
+  "private": true,
   "description": "Command-line tool to compile JSON Schema into standalone JS CLI validator and parser using DNA bytecodes.",
   "author": "linqFR",
   "license": "MIT",
