@@ -1,6 +1,6 @@
 {
   "name": "@ytn/dna",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Schema validation that compiles to standalone JS function. Zod-like API, serializable, portable, using DNA bytecodes",
   "author": "linqFR",
   "license": "MIT",
@@ -20,9 +20,17 @@
   ],
   "type": "module",
   "sideEffects": false,
-  "engines": { "node": ">=24.0.0" },
-  "publishConfig": { "access": "public" },
-  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
