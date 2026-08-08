@@ -5,7 +5,7 @@ import { execute } from "../src/index.js";
 describe("mycmd.ts Behavioral Matrix", () => {
   const schemDef = {
     step: pico.string().desc("ID of the step").min(3),
-    ytnUI: pico.string().desc("ynt UI").optional(),
+    ytrynotUI: pico.string().desc("ytrynot UI").optional(),
   };
 
   const localHelp = pico.help("Command Step Help");
@@ -30,7 +30,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
       stepResultOk: {
         result: pico.literal("ok"),
         step: schemDef.step,
-        ytnUi: schemDef.ytnUI,
+        ytrynotUi: schemDef.ytrynotUI,
       },
       stepResultFail: {
         result: pico.literal("fail"),
@@ -39,7 +39,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
       stepToto: {
         result: pico.enum("ok", "fail", "zut"),
         step: pico.literal("toto"),
-        ytnUi: pico.literal("dark"),
+        ytrynotUi: pico.literal("dark"),
       },
     },
     fallbacks: {
@@ -97,11 +97,11 @@ describe("mycmd.ts Behavioral Matrix", () => {
     if (res.success) {
       expect(res.data.route).toBe("stepToto");
       expect(res.data.data.step).toBe("toto");
-      expect(res.data.data.ytnUi).toBe("dark");
+      expect(res.data.data.ytrynotUi).toBe("dark");
     }
   });
 
-  it("should fall back to stepResultOk if ytnUi is not 'dark' for step 'toto'", () => {
+  it("should fall back to stepResultOk if ytrynotUi is not 'dark' for step 'toto'", () => {
     const res = parser(["toto", "light", "-r", "ok"]);
     expect(res.success).toBe(true);
     if (res.success) {

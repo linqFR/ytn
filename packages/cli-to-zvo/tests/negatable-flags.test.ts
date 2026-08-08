@@ -15,7 +15,7 @@ describe("🧪 Negative  Flags (--no-flag) Support", () => {
     targets: {
       main: {
         verbose: pico.boolean().optional().default(true),
-        ytnUi: pico.boolean().optional(),
+        ytrynotUi: pico.boolean().optional(),
       },
     },
     options: {
@@ -43,7 +43,7 @@ describe("🧪 Negative  Flags (--no-flag) Support", () => {
     const res = parser(["--no-ytrynot-ui"]);
     expect(res.success).toBe(true);
     if (res.success) {
-      expect(res.data.data.ytnUi).toBe(false);
+      expect(res.data.data.ytrynotUi).toBe(false);
     }
   });
 
