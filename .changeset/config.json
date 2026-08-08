@@ -8,6 +8,8 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@ytrynot/wf"
+    "@ytrynot/wf",
+    "@ytrynot/qb",
+    "@ytrynot/czvo"
   ]
 }
