@@ -55,10 +55,10 @@
     "czvo-compile": "./dist/cli.js"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.10",
+    "tsx": "^4.23.11",
     "zod": "^4.4.3"
   }
 }

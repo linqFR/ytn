@@ -62,7 +62,7 @@
     "@ytrynot/dna": "*"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@ytrynot/shared": "*",
     "ajv": "^8.20.0",
     "tsup": "^8.5.1",
