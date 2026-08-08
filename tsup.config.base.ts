@@ -114,6 +114,7 @@ export function getEntriesFromPackage(cwd: string) {
 
   for (const [key] of Object.entries(exports)) {
     if (key.endsWith("/min")) continue;
+    if (key === "./package.json") continue;
     const entryName = key === "." ? "index" : key.replace("./", "");
     const tsFile = `${entryName}.ts`;
     const srcPath = join(cwd, "src", tsFile);
