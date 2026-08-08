@@ -1,7 +1,7 @@
 {
   "name": "@ytn/cdna",
   "version": "0.1.0",
-  "description": "Command Line Interface to DNA (CDNA)",
+  "description": "Command-line tool to compile JSON Schema into standalone JS CLI validator and parser using DNA bytecodes.",
   "author": "linqFR",
   "license": "MIT",
   "type": "module",

@@ -1,7 +1,7 @@
 {
   "name": "@ytn/dna",
   "version": "0.2.0",
-  "description": "DNA-based schema builder with Zod-like syntax and native DNA bytecode serialization",
+  "description": "Schema validation that compiles to standalone JS function. Zod-like API, serializable, portable, using DNA bytecodes",
   "author": "linqFR",
   "license": "MIT",
   "keywords": [
@@ -47,7 +47,8 @@
     "./min": {
       "import": "./dist/index.min.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
