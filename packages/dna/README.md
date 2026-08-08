@@ -6,7 +6,7 @@
 
 # @ytn/dna
 
-DNA bytecode Builder and Validation/Parsing engine.
+Zod-like schema API with serializable DNA bytecode and standalone compiled validators.
 
 **Motivation**: Zod is powerful but makes it difficult to serialize schemas and to build optimal and autonomous JS functions. Hence the creation of this package.
 
