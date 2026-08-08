@@ -1,19 +1,17 @@
 /**
  * DNA Schema Builder Core
  */
-import { DnaError } from "../shared/error.types.js";
-import type { IAddIssue, IRefinerErrorOpt, tsParserError, tsRefineOptions } from "../shared/error.types.js";
+import type { tsParserError, tsRefineOptions } from "../shared/error.types.js";
+import { DnaError, dnaErrorSource } from "../shared/error.types.js";
 import type {
   tsCheckOpt,
-  tsDecodeFn,
-  tsEncodeFn,
   tsTransformFn
 } from "../shared/handlers-builder.types.js";
 import type {
   tsDnaBaseCtx,
-  tsDnaRefineCtx,
   tsDnaInnerMeta,
-  tsDnaMeta
+  tsDnaMeta,
+  tsDnaRefineCtx
 } from "../shared/meta-context.type.js";
 import type {
   tsDnaExternals, tsDnaExternalsDecl, tsDnaParserFn,
@@ -22,8 +20,6 @@ import type {
 } from "../shared/runtime.types.js";
 
 import { stringify } from "@ytn/shared/js/json.js";
-import { isAsyncFnStr } from "../toJs/utils.js";
-import { cacheKey } from "./util.js";
 import { isValidRegex } from "@ytn/shared/regex/is-valid-regex.js";
 import type {
   tsPrimitiveLiteral,
@@ -31,35 +27,31 @@ import type {
   tsStorePosition,
   tsTmplLitPart
 } from "../shared/base.types.js";
-import { ABSENT_TOLERANT_WRAPPERS, INT32Bounds, WRAPPERS_KEYOPT, WRAPPERS_OPT, WRAPPERS_PREPROCESS, WRAPPERS_XFAULT, isWrapped } from "../shared/const-wrp.js";
+import { ABSENT_TOLERANT_WRAPPERS, INT32Bounds, WRAPPERS_KEYOPT, WRAPPERS_XFAULT, isWrapped } from "../shared/const-wrp.js";
 import { convertToStandardFailure } from "../shared/standard-schema-utils.js";
 import type { StandardJSONSchemaV1, StandardSchemaV1, StandardSchemaWithJSONProps } from "../shared/standard-schema.types.js";
 import { STRING_FORMAT_PATTERNS, escReg } from "../shared/string-format.js";
-import { parserBuilder, validatorBuilder, toJS } from "../toJs/dna-to-js.js";
-import { registerExternal, getRegisteredExternals } from "../toJs/registry.js";
+import type { tsToJSResult } from "../toJs/dna-to-js.js";
+import { parserBuilder, toJS, validatorBuilder } from "../toJs/dna-to-js.js";
 import { dnaToJsonSchema } from "../toJs/dna-to-json-schema.js";
+import { getRegisteredExternals, registerExternal } from "../toJs/registry.js";
+import { isAsyncFnStr } from "../toJs/utils.js";
 import type {
-  tsDnaCheck,
-  tsDnaEnumInput,
-  tsDnaEnumLike,
-  tsDnaEnumValueType,
-  tsDnaEnumValues,
   DnaFunctionArgs,
   DnaFunctionInput,
-  tsFunctionType,
+  tsDnaCheck,
+  tsDnaDiscriminatedUnionObjects,
+  tsDnaEnumLike,
+  tsDnaEnumValueType,
   tsDnaTupleSchemaArray,
-  tsDnaTupleSchemaBase,
   tsDnaTupleSchemaRO,
   tsDnaTupleValueWithRest,
-  tsDnaDiscriminatedUnionObjects
+  tsFunctionType
 } from "../types/api-builder.types.js";
 import type { tsDna, tsDnaCombinatorType, tsDnaId, tsDnaObjectType, tsDnaOpcode, tsDnaSeq } from "../types/core.types.js";
 import type {
   $CatchValue,
   $DnaBranded,
-  $DnaObjectInput,
-  $DnaObjectOutput,
-  $DnaPartialProperty,
   $DnaPartialShape,
   $Input,
   $MaybeAsync,
@@ -67,13 +59,12 @@ import type {
   $ReadonlyValue,
   $RemoveUndefined,
   $SafeExtendShape,
-  $TemplateLiteral,
   $Xor
 } from "../types/helpers.types.js";
 import type { IDnaCollector } from "./collector.types.js";
-import { BaseCore, initDna, bindMethods } from "./dna-core.js";
+import { BaseCore, bindMethods, initDna } from "./dna-core.js";
 import type { tsWrpPhase, tsWrpTypes } from "./state.types.js";
-import type { InternalEventTargetEventProperties } from "node:events";
+import { cacheKey } from "./util.js";
 
 
 // ============================================
@@ -2505,11 +2496,13 @@ export class DnaLazy<Out = any, In = any, Inner extends DnaType<Out, In> = DnaTy
 }
 
 
-export class DnaFunction<I extends DnaFunctionInput = never, O = unknown> extends DnaTypeWithWrappers<
+export class DnaFunction<I extends DnaFunctionInput = never, O extends DnaType<any> = DnaType<unknown>> extends DnaTypeWithWrappers<
   tsFunctionType<I, O>,
   tsFunctionType<I, O>
 > {
-  override _core = new BaseCore<{ input: DnaFunctionInput | DnaType<any, any>, output: DnaType<O> }>("function");
+  override _core = new BaseCore<{ input: DnaFunctionInput | DnaType<any, any>, output: DnaType<any> }>("function");
+  #inputJS?: tsToJSResult;
+  #outputJS?: tsToJSResult;
 
 
   input<const NewI extends DnaTuple<any, any>>(input: NewI): DnaFunction<NewI, O>;
@@ -2526,7 +2519,7 @@ export class DnaFunction<I extends DnaFunctionInput = never, O = unknown> extend
     return newSchema;
   }
 
-  output<NewO>(output: DnaType<NewO>): DnaFunction<I, NewO> {
+  output<NewO extends DnaType<any>>(output: NewO): DnaFunction<I, NewO> {
     const newSchema = initDna(DnaFunction<I, NewO>, { input: this._core.seed.input, output }, this._core.meta);
     newSchema._core.rawDna = this._core.rawDna;
     return newSchema;
@@ -2547,9 +2540,9 @@ export class DnaFunction<I extends DnaFunctionInput = never, O = unknown> extend
    * `undefined`) into a concrete `DnaType` usable with `.parse()`/`.parseAsync()`.
    * Defaults to `DnaUnknown` when no output schema was provided.
    */
-  private _outputSchema(): DnaType<O> {
+  private _outputSchema(): O {
     const raw = this._core.seed.output;
-    return (raw instanceof DnaType ? raw : initDna(DnaUnknown, {})) as DnaType<O>;
+    return (raw instanceof DnaType ? raw : initDna(DnaUnknown, {})) as unknown as O;
   }
 
   /**
@@ -2565,32 +2558,34 @@ export class DnaFunction<I extends DnaFunctionInput = never, O = unknown> extend
    * used by `transform`/`refine` (names are inlined, not accessed via
    * `externals.name`).
    */
-  implement(fn: (...args: DnaFunctionArgs<I>) => O, externals?: tsDnaExternals): ((...args: DnaFunctionArgs<I>) => O) & { requiredExternals: string[] } {
-    const inputJS = toJS(false, true)(this._inputSchema().toDna());
-    const outputJS = toJS(false, true)(this._outputSchema().toDna());
+  implement(fn: (...args: DnaFunctionArgs<I>) => $Output<O>, externals?: tsDnaExternals): ((...args: DnaFunctionArgs<I>) => $Output<O>) & { requiredExternals: string[] } {
+    const inputJS = this.#inputJS ??= toJS(false, true)(this._inputSchema().toDna());
+    const outputJS = this.#outputJS ??= toJS(false, true)(this._outputSchema().toDna());
+    const inputBody = inputJS.code.length > 1 ? inputJS.code[1] : inputJS.code[0];
+    const outputBody = outputJS.code.length > 1 ? outputJS.code[1] : outputJS.code[0];
+    if (fn instanceof AsyncFunction || isAsyncFnStr(inputBody) || isAsyncFnStr(outputBody)) {
+      throw new Error("Schema or function is async — use implementAsync() instead of implement().");
+    }
     // toJS code layout: [externalsParam?, body] where externalsParam is a
     // destructuring pattern (e.g. "{ext1,ext2}") and body is
     // "const ...; return [async] function(v){...};".
     // Inline each as an IIFE so externals are destructured from the shared
     // `externals` argument and baked into the parser's closure scope.
     const inputParam = inputJS.code.length > 1 ? inputJS.code[0] : "";
-    const inputBody = inputJS.code.length > 1 ? inputJS.code[1] : inputJS.code[0];
     const outputParam = outputJS.code.length > 1 ? outputJS.code[0] : "";
-    const outputBody = outputJS.code.length > 1 ? outputJS.code[1] : outputJS.code[0];
-    const dnaErrorSource = 'class DnaError extends Error { constructor(issues){ super(issues[0]?.message || "DNA validation error"); this.name="DnaError"; this.issues=issues; this.type=undefined; this._dna={output:undefined,def:issues}; if(typeof Error.captureStackTrace==="function") Error.captureStackTrace(this,DnaError); } }';
     const body = dnaErrorSource + ";" +
       "const inputParse=(function(" + inputParam + "){" + inputBody + "})(externals);" +
       "const outputParse=(function(" + outputParam + "){" + outputBody + "})(externals);" +
       "return function(...args){" +
-      "const inRes=inputParse(args,{});" +
+      "const inRes=inputParse(args);" +
       "if(!inRes.success){throw new DnaError(inRes.errors);}" +
       "const result=fn.apply(this,inRes.data);" +
-      "const outRes=outputParse(result,{});" +
+      "const outRes=outputParse(result);" +
       "if(!outRes.success){throw new DnaError(outRes.errors);}" +
       "return outRes.data;" +
       "}";
     const mergedExternals = { ...getRegisteredExternals(), ...externals };
-    const result = new Function("fn", "externals", body).call(undefined, fn, mergedExternals) as ((...args: DnaFunctionArgs<I>) => O) & { requiredExternals: string[] };
+    const result = new Function("fn", "externals", body).call(undefined, fn, mergedExternals) as ((...args: DnaFunctionArgs<I>) => $Output<O>) & { requiredExternals: string[] };
     result.requiredExternals = [...new Set([...inputJS.requiredExternals, ...outputJS.requiredExternals])];
     return result;
   }
@@ -2605,27 +2600,26 @@ export class DnaFunction<I extends DnaFunctionInput = never, O = unknown> extend
    * the second argument; merged with `getRegisteredExternals()` and destructured
    * directly into the closure scope.
    */
-  implementAsync(fn: (...args: DnaFunctionArgs<I>) => $MaybeAsync<O>, externals?: tsDnaExternals): ((...args: DnaFunctionArgs<I>) => Promise<O>) & { requiredExternals: string[] } {
-    const inputJS = toJS(false, true)(this._inputSchema().toDna());
-    const outputJS = toJS(false, true)(this._outputSchema().toDna());
+  implementAsync(fn: (...args: DnaFunctionArgs<I>) => $MaybeAsync<$Output<O>>, externals?: tsDnaExternals): ((...args: DnaFunctionArgs<I>) => Promise<$Output<O>>) & { requiredExternals: string[] } {
+    const inputJS = this.#inputJS ??= toJS(false, true)(this._inputSchema().toDna());
+    const outputJS = this.#outputJS ??= toJS(false, true)(this._outputSchema().toDna());
     const inputParam = inputJS.code.length > 1 ? inputJS.code[0] : "";
     const inputBody = inputJS.code.length > 1 ? inputJS.code[1] : inputJS.code[0];
     const outputParam = outputJS.code.length > 1 ? outputJS.code[0] : "";
     const outputBody = outputJS.code.length > 1 ? outputJS.code[1] : outputJS.code[0];
-    const dnaErrorSource = 'class DnaError extends Error { constructor(issues){ super(issues[0]?.message || "DNA validation error"); this.name="DnaError"; this.issues=issues; this.type=undefined; this._dna={output:undefined,def:issues}; if(typeof Error.captureStackTrace==="function") Error.captureStackTrace(this,DnaError); } }';
     const body = dnaErrorSource + ";" +
       "const inputParse=(function(" + inputParam + "){" + inputBody + "})(externals);" +
       "const outputParse=(function(" + outputParam + "){" + outputBody + "})(externals);" +
       "return async function(...args){" +
-      "const inRes=await inputParse(args,{});" +
+      "const inRes=await inputParse(args);" +
       "if(!inRes.success){throw new DnaError(inRes.errors);}" +
       "const result=await fn.apply(this,inRes.data);" +
-      "const outRes=await outputParse(result,{});" +
+      "const outRes=await outputParse(result);" +
       "if(!outRes.success){throw new DnaError(outRes.errors);}" +
       "return outRes.data;" +
       "}";
     const mergedExternals = { ...getRegisteredExternals(), ...externals };
-    const result = new Function("fn", "externals", body).call(undefined, fn, mergedExternals) as ((...args: DnaFunctionArgs<I>) => Promise<O>) & { requiredExternals: string[] };
+    const result = new Function("fn", "externals", body).call(undefined, fn, mergedExternals) as ((...args: DnaFunctionArgs<I>) => Promise<$Output<O>>) & { requiredExternals: string[] };
     result.requiredExternals = [...new Set([...inputJS.requiredExternals, ...outputJS.requiredExternals])];
     return result;
   }

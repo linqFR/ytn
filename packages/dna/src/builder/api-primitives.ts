@@ -371,8 +371,8 @@ export const codec = <In extends DnaType<any, any>, Out extends DnaType<any, any
 };
 
 
-const function_ = <I extends DnaFunctionInput = never, O = unknown>(opts?: DnaFunctionOptions<I, O>) => {
-  const input = opts?.input ?? [];
+const function_ = <I extends DnaFunctionInput = never, O extends DnaType<any> = DnaType<unknown>>(opts?: DnaFunctionOptions<I, O>) => {
+  const input = opts?.input ?? initDna(DnaTuple, { items: [], rest: initDna(DnaUnknown) });
   const output = opts?.output ?? initDna(DnaUnknown);
   return initDna(DnaFunction<I, O>, { input, output });
 };

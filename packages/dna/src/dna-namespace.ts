@@ -98,6 +98,8 @@ export type {
   DnaFile,
   DnaCheckProperty,
   DnaSomeType,
+  DnaJson,
+  tsJsonValue,
 } from "./builder/dna-interfaces.js";
 
 // Utility exports
@@ -107,7 +109,7 @@ export * as util from "./builder/util.js"
 // export type * from "./types/api-builder.types.js";
 // export type * as ts from "./types/api-builder.types.js";
 export type { tsDna, tsDnaOpcode as tsDnaOpcode, tsDnaSeq } from "./types/core.types.js";
-export type { DnaFunctionOptions as tsDnaFunctionOptions } from "./types/api-builder.types.js";
+export type { DnaFunctionOptions } from "./types/api-builder.types.js";
 
 
 

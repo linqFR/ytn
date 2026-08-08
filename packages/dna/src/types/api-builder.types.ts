@@ -3,7 +3,9 @@ import type {
   DnaSomeType,
   DnaObject,
   DnaType,
+  DnaTuple,
 } from "../builder/dna-interfaces.js";
+import type { $Output } from "./helpers.types.js";
 
 import type { tsDnaMeta } from "../shared/meta-context.type.js";
 
@@ -78,9 +80,9 @@ export type tsDnaTupleValueWithRest<S extends tsDnaTupleSchemaRO, R> = [R] exten
 
 export type DnaFunctionInput = readonly [DnaSomeType<any, any>, ...DnaSomeType<any, any>[]] | readonly [] | DnaSomeType<any, any>;
 
-export interface DnaFunctionOptions<I extends DnaFunctionInput = DnaFunctionInput, O = unknown> {
+export interface DnaFunctionOptions<I extends DnaFunctionInput = DnaFunctionInput, O extends DnaType<any> = DnaType<unknown>> {
   input?: I;
-  output?: DnaType<O>;
+  output?: O;
 }
 
 export type DnaFunctionArgs<I extends DnaFunctionInput> = [I] extends [never]
@@ -99,5 +101,7 @@ export type DnaFunctionArgs<I extends DnaFunctionInput> = [I] extends [never]
 
 // Inferred callable shape of a `DnaFunction<I, O>` schema — mirrors Zod's
 // `z.function()`: the schema's own `$Output`/`$Input` IS a function type.
-export type tsFunctionType<I extends DnaFunctionInput, O> = (...args: DnaFunctionArgs<I>) => O;
+// `O` is a schema instance (e.g. DnaNumber), so `$Output<O>` extracts the raw
+// output type (e.g. number) — same pattern as DnaArray<S> using $Output<S>[].
+export type tsFunctionType<I extends DnaFunctionInput, O extends DnaType<any>> = (...args: DnaFunctionArgs<I>) => $Output<O>;
 

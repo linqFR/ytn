@@ -66,7 +66,7 @@ class DnaTemplateReconstructed extends c.DnaTmplLiteralMutate<any> {
   }
 }
 
-function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any, any>, dnaList: tsDna[], id?: number, cache?: Map<number, c.DnaTypeWithWrappers<any, any>>): c.DnaTypeWithWrappers<any, any> {
+function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any, any>, dnaList: tsDna[], id?: number, cache?: Map<number, c.DnaTypeWithWrappers<any, any>>) {
   const opcode = node[0];
   const params = getParams(node);
   const meta = getMeta(node);
@@ -427,7 +427,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
   }
 }
 
-export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
+export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, any>>(seq: tsDnaSeq): S {
   const refListRaw = seq[seq.length - 1];
   const dnaList = (Array.isArray(refListRaw) ? seq.slice(0, -1) : seq) as tsDna[];
   const cache = new Map<number, c.DnaTypeWithWrappers<any, any>>();
@@ -563,5 +563,7 @@ export function fromDna(seq: tsDnaSeq): c.DnaType<any, any> {
     return inst;
   }
 
-  return build(0);
+  const finalBuild = build(0);
+  // S defaults to DnaSomeType<any, any>; callers can narrow via explicit type arg.
+  return finalBuild as unknown as S;
 }

@@ -96,4 +96,13 @@ export const set = <T extends DnaType<any, any>>(schema: T, meta?: string | tsDn
   // withMeta(SetImpl.init(schema), meta);
   initDna(DnaSet<T>, { itemSchema: schema }, meta);
 
+/**
+ * Convert a DNA schema to a JSON Schema 2020-12 document.
+ * Top-level equivalent of the instance method `.toJSONSchema()`.
+ * @param schema - Any DNA schema instance
+ * @returns A JSON Schema 2020-12 object with `$schema` set
+ */
+export const toJSONSchema = (schema: DnaType<any, any>): Record<string, unknown> =>
+  schema.toJSONSchema();
+
 

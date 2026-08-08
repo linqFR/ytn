@@ -312,40 +312,26 @@ test("implement async with transforms", async () => {
         code: "custom",
         message: "Invalid code",
       });
-      return data;
     }
   });
-  const inputSchema = dna.object({
-    code: codeSchema,
-  });
-  const outputSchema = dna.object({
-    data: dna.array(dna.string()).default([]),
-  });
-  const fnImplementation = async (data: dna.infer<typeof inputSchema>): Promise<dna.infer<typeof outputSchema>> => {
-    return {
-      data: [data.code],
-    };
-  };
-  const schema = dna.function().input([inputSchema]).output(outputSchema);
+  const schema = dna
+    .function()
+    .input([codeSchema])
+    .output(dna.string());
 
-  const func = schema.implementAsync(fnImplementation);
-  type TheInterface = {
-    myFunction: (data: dna.infer<typeof inputSchema>) => Promise<dna.infer<typeof outputSchema>>;
-  };
-  const theImplementation: TheInterface = {
-    myFunction: func,
-  };
+  const func = schema.implementAsync((val) => {
+    return val + "!";
+  });
+
   const results = [];
   try {
-    await theImplementation.myFunction({
-      code: "1234",
-    });
+    await func("1234");
     results.push("success");
   } catch (_) {
     results.push("fail");
   }
   try {
-    await func({ data: "asdflkjasdflkjsf" } as any);
+    await func("1235");
     results.push("success");
   } catch (_) {
     results.push("fail");
@@ -354,35 +340,41 @@ test("implement async with transforms", async () => {
   expect(results).toEqual(["success", "fail"]);
 });
 
-test("non async function with async refinements should fail", async () => {
-  const func = dna
-    .function()
-    .input([dna.string().refine(async (val) => val.length > 10)])
-    .output(dna.number().refine(async (val) => val > 10))
-    .implement((val) => {
-      return val.length;
-    });
-
-  const results = [];
-  try {
-    await func("asdasdfasdffasdf");
-    results.push("success");
-  } catch (_) {
-    results.push("fail");
-  }
-
-  expect(results).toEqual(["fail"]);
+test("non async function with async refinements should fail", () => {
+  expect(() =>
+    dna
+      .function()
+      .input([dna.string().refine(async (val) => val.length > 10)])
+      .output(dna.number().refine(async (val) => val > 10))
+      .implement((val) => val.length)
+  ).toThrow("use implementAsync() instead of implement()");
 });
 
 test("extra parameters with rest", () => {
   const maxLength5 = dna
     .function()
-    .input([dna.string()], dna.unknown())
-    .output(dna.boolean())
-    .implement((str, _arg, _qewr) => {
-      return str.length <= 5;
-    });
+    .input([dna.string()], dna.number().int().positive());
+  const func = maxLength5.implement((s, ...rest) => {
+    return rest.length;
+  });
+  expect(func("asdf", 1, 2, 3, 4)).toBe(4);
+});
 
-  const filteredList = ["apple", "orange", "pear", "banana", "strawberry"].filter(maxLength5);
-  expect(filteredList.length).toEqual(2);
+test("no input", () => {
+  const func = dna
+    .function()
+    .input([])
+    .output(dna.string())
+    .implement(() => "hello");
+  expect(func()).toBe("hello");
+});
+
+test("no output", () => {
+  const func = dna
+    .function()
+    .input([dna.string()])
+    .implement((s) => {
+      expect(s).toBe("hello");
+    });
+  func("hello");
 });

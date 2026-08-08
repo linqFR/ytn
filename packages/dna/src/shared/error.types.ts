@@ -194,6 +194,9 @@ export class DnaError<T = unknown> extends Error {
 	}
 }
 
+/** Inlined DnaError class source for `new Function` bodies (no module access). Must stay in sync with the class above. */
+export const dnaErrorSource='class DnaError extends Error{constructor(issues){super(issues[0]?.message||"DNA validation error");this.name="DnaError";this.issues=issues;this.type=undefined;this._dna={output:undefined,def:issues};if(typeof Error.captureStackTrace==="function")Error.captureStackTrace(this,DnaError);}}';
+
 ///////////////////    ERROR UTILITIES (TYPES ONLY)   ////////////////////////
 
 export type tsDnaFlattenedError<T, U = string> = {
