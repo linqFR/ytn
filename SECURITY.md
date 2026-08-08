@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We currently support and provide security updates for the following versions of YTN:
+We currently support and provide security updates for the following versions of ytrynot:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -13,7 +13,7 @@ We currently support and provide security updates for the following versions of 
 
 We take the security of our project seriously. If you believe you have found a security vulnerability, please report it privately via GitHub's **Private Vulnerability Reporting** feature:
 
-1. Navigate to the **Security** tab of the `linqFR/ytn` repository.
+1. Navigate to the **Security** tab of the `linqFR/ytrynot` repository.
 2. Under **Advisories**, click **Report a vulnerability**.
 
 Alternatively, you can reach out directly to the maintainers if private reporting is unavailable.

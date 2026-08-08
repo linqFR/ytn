@@ -12,7 +12,7 @@ import type { tsHandler } from "../launcher/czvo-launcher.js";
  */
 export const AOT_CONTRACT: IProcessedContract = defineContract({
   name: "CZVO AOT Compiler",
-  description: "Standard YTN AOT Compiler Engine for CZVO.",
+  description: "Standard ytrynot AOT Compiler Engine for CZVO.",
   cli: {
     positionals: ["source-file"],
     flags: {

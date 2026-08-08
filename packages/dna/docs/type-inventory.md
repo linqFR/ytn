@@ -247,7 +247,7 @@ Top-level wrappers: `dna.optional(s)`, `dna.nonoptional(s)`, `dna.nullable(s)`, 
 
 ## Type Aliases
 
-### Public (exported from `@ytn/dna`)
+### Public (exported from `@ytrynot/dna`)
 
 | Alias | Definition |
 |---|---|

@@ -19,7 +19,7 @@ export interface ICompilerLauncherOptions {
 
 /**
  * @function launchAotCompiler
- * @description Factorized entry point for YTN AOT compilers.
+ * @description Factorized entry point for ytrynot AOT compilers.
  * Handles CLI argument parsing, file resolution, dynamic module loading,
  * and standard error reporting.
  *

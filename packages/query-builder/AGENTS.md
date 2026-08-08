@@ -1,4 +1,4 @@
-# AGENTS.md (Package: @ytn/qb)
+# AGENTS.md (Package: @ytrynot/qb)
 
 > [!IMPORTANT]
 > This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to the Query Builder.

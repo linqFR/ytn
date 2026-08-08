@@ -1,5 +1,5 @@
-import { vmCodecFactory } from "@ytn/shared/zod/vm-codecs.js";
-import type { tsVMSandbox } from "@ytn/shared/js/vm-ops.js";
+import { vmCodecFactory } from "@ytrynot/shared/zod/vm-codecs.js";
+import type { tsVMSandbox } from "@ytrynot/shared/js/vm-ops.js";
 import { z } from "zod";
 import type { tsWFStep } from "../types/step.type.js";
 

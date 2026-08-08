@@ -1,16 +1,16 @@
-# @ytn/schvalid
+# @ytrynot/schvalid
 
 ## 0.3.0
 
 ### Minor Changes
 
-- 4fcdb3c: @ytn/schvalid: Add `parserFast` hybrid parser (validate-then-parse) exposed via `schvalid("fast")` and `schvalid("all").compile(schema).parseFast`. Rename `schvalid("both")` mode to `schvalid("all")`, which now also returns `parseFast` alongside `validate`/`parse`, all compiled once and sharing the same `validate`/`parse` instances (see `combineFast`).
+- 4fcdb3c: @ytrynot/schvalid: Add `parserFast` hybrid parser (validate-then-parse) exposed via `schvalid("fast")` and `schvalid("all").compile(schema).parseFast`. Rename `schvalid("both")` mode to `schvalid("all")`, which now also returns `parseFast` alongside `validate`/`parse`, all compiled once and sharing the same `validate`/`parse` instances (see `combineFast`).
 
-  @ytn/dna: Optimize object parser codegen (`dna-js-json.ts`) to skip the redundant `keepOnly` scratch object and filter-copy loop when there are no dynamic properties (no `patternProperties`/`propertyNames`/schema-based `additionalProperties`). Per-key writes are already scoped to the declared key set and conditionally guarded, so writing directly into the output variable is safe and equivalent — measured ~2.9x speedup on the parser's happy path for typical object schemas.
+  @ytrynot/dna: Optimize object parser codegen (`dna-js-json.ts`) to skip the redundant `keepOnly` scratch object and filter-copy loop when there are no dynamic properties (no `patternProperties`/`propertyNames`/schema-based `additionalProperties`). Per-key writes are already scoped to the declared key set and conditionally guarded, so writing directly into the output variable is safe and equivalent — measured ~2.9x speedup on the parser's happy path for typical object schemas.
 
 ### Patch Changes
 
-- 240ebbf: "@ytn/dna": Type-system refactor, new combinators, and validator performance improvements since the architecture changeset.
+- 240ebbf: "@ytrynot/dna": Type-system refactor, new combinators, and validator performance improvements since the architecture changeset.
 
   - **Breaking**: Renames exported interface `IDnaType` → `DnaSomeType` to comply with naming conventions (`I*` is reserved for Input/Config data).
   - **Breaking**: Removes the `infer<T>` helper type alias from `helpers.types.ts` (use `$Output<T>` instead).
@@ -25,26 +25,26 @@
   - Adds comprehensive `docs/dnatype-inventory.md` (2186 lines) documenting the full DnaType architecture and type-system.
   - Bumps `jose` to ^6.2.7, adds `tsconfig.diag.json` for focused diagnostics, centralizes tsconfig include patterns.
 
-  "@ytn/schvalid": Performance tooling and testing infrastructure.
+  "@ytrynot/schvalid": Performance tooling and testing infrastructure.
 
   - Adds `perf/runtime-function-analyzer.ts` (258 lines) for inspecting generated validator/parser function characteristics.
   - Clarifies benchmark results documentation in README.
   - Adds JSON Schema Test Suite as git submodule for testing.
   - Migrates build back to tsup and cleans up imports.
 
-  "@ytn/qb": Build infrastructure and configuration.
+  "@ytrynot/qb": Build infrastructure and configuration.
 
   - Migrates build from tsup to tsdown and back to tsup.
   - Centralizes tsconfig include patterns in `tsconfig.base.json`.
 
-  "@ytn/czvo": Codec refactor and build infrastructure.
+  "@ytrynot/czvo": Codec refactor and build infrastructure.
 
   - Refactors `makeEmptyTo` in `zod-codecs.ts`: removes the `z.coerce.string().pipe(...)` wrapper in favor of a direct `z.preprocess(...)` with explicit return type annotation. Non-string inputs are no longer coerced to string before preprocessing — they fall through to the `""` branch (same as before for non-string `typeof` checks).
   - Reorganizes performance tests from `tests/performance/` to `perf/` (standalone tsx scripts).
   - Migrates build from tsup to tsdown and back to tsup.
   - Centralizes tsconfig include patterns in `tsconfig.base.json`.
 
-- 6abc226: "@ytn/dna": Major architecture hardening and feature expansion for the DNA bytecode engine.
+- 6abc226: "@ytrynot/dna": Major architecture hardening and feature expansion for the DNA bytecode engine.
 
   - Reworks the builder internals (`api-primitives.ts`, `api-enhanced.ts`, `dna-interfaces.ts`) for a clearer Zod-like fluent API.
   - Adds `fromDna` reconstruction to rebuild fluent schemas from DNA bytecode.
@@ -56,7 +56,7 @@
   - Removes the `fastFail` option in favor of a cleaner compiler architecture.
   - Corrects `toJs` type declaration export paths.
 
-  "@ytn/schvalid": JSON Schema conversion and testing improvements.
+  "@ytrynot/schvalid": JSON Schema conversion and testing improvements.
 
   - Integrates the official JSON Schema Test Suite as a git submodule.
   - Reorganizes tests under `tests/schemas/` with parser-fast, discriminator and edge-cases suites.
@@ -78,29 +78,29 @@
 - Updated dependencies [0e17551]
 - Updated dependencies [95a3fd6]
 - Updated dependencies [4fcdb3c]
-  - @ytn/dna@0.3.0
+  - @ytrynot/dna@0.3.0
 
 ## 0.2.2
 
 ### Patch Changes
 
-- Extract DNA JS builder from @ytn/schvalid into new @ytn/dna package, refactor DNA type structure (tsDnaOpcode, tsDna), wrap generated validator/parser functions in context closure, remove deprecated schvalid files, add Zod test suite port, and enable IDE type checking for tests by removing them from tsconfig.base.json exclude
+- Extract DNA JS builder from @ytrynot/schvalid into new @ytrynot/dna package, refactor DNA type structure (tsDnaOpcode, tsDna), wrap generated validator/parser functions in context closure, remove deprecated schvalid files, add Zod test suite port, and enable IDE type checking for tests by removing them from tsconfig.base.json exclude
 - Updated dependencies
-  - @ytn/dna@0.2.0
+  - @ytrynot/dna@0.2.0
 
 ## 0.2.1
 
 ### Patch Changes
 
-- Extract DNA JS builder from @ytn/schvalid into new @ytn/dna package, refactor DNA type structure (tsDnaOpcode, tsDna), wrap generated validator/parser functions in context closure, remove deprecated schvalid files, add Zod test suite port, and enable IDE type checking for tests by removing them from tsconfig.base.json exclude
+- Extract DNA JS builder from @ytrynot/schvalid into new @ytrynot/dna package, refactor DNA type structure (tsDnaOpcode, tsDna), wrap generated validator/parser functions in context closure, remove deprecated schvalid files, add Zod test suite port, and enable IDE type checking for tests by removing them from tsconfig.base.json exclude
 - Updated dependencies
-  - @ytn/dna@0.1.0
+  - @ytrynot/dna@0.1.0
 
 ## 0.2.0
 
 ### Minor Changes
 
-- - Refactor to use @ytn/dna as dependency for validation engine
+- - Refactor to use @ytrynot/dna as dependency for validation engine
   - Add convenience validate() and parse() functions combining schema conversion and validation
   - Create tsup build configuration with DTS generation
   - Add README documentation with usage examples

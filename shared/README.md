@@ -1,6 +1,6 @@
 # @shared (Toolbox)
 
-Centralized, lightweight, and type-safe utilities for the YTN monorepo. This toolbox is shared across all internal packages to ensure logic consistency and high performance.
+Centralized, lightweight, and type-safe utilities for the ytrynot monorepo. This toolbox is shared across all internal packages to ensure logic consistency and high performance.
 
 ## Design Philosophy
 
@@ -26,21 +26,21 @@ Centralized, lightweight, and type-safe utilities for the YTN monorepo. This too
 
 ## Best Practices: Direct Imports
 
-While a barrel file exists at `@ytn/shared/index.js` for convenience, we highly recommend using **Direct Imports**.
+While a barrel file exists at `@ytrynot/shared/index.js` for convenience, we highly recommend using **Direct Imports**.
 
 > [!TIP] > **Performance Booster**: Importing directly from the atomic file ensures the smallest possible bundle size and optimal tree-shaking.
 
 **Avoid (Barrel Import):**
 
 ```typescript
-import { vms } from "@ytn/shared/index.js"; // This might pull unnecessary code.
+import { vms } from "@ytrynot/shared/index.js"; // This might pull unnecessary code.
 ```
 
 **Prefer (Direct Import):**
 
 ```typescript
-import { safeRunVM } from "@ytn/shared/js/vm-ops.js";
-import { unwrapZodDeep } from "@ytn/shared/zod/zod-reflection.js";
+import { safeRunVM } from "@ytrynot/shared/js/vm-ops.js";
+import { unwrapZodDeep } from "@ytrynot/shared/zod/zod-reflection.js";
 ```
 
 ---
@@ -48,8 +48,8 @@ import { unwrapZodDeep } from "@ytn/shared/zod/zod-reflection.js";
 ## Quick Start Example
 
 ```typescript
-import { safeRunVM } from "@ytn/shared/js/vm-ops.js";
-import { getFnUndeclared } from "@ytn/shared/js/fn-reflect.js";
+import { safeRunVM } from "@ytrynot/shared/js/vm-ops.js";
+import { getFnUndeclared } from "@ytrynot/shared/js/fn-reflect.js";
 
 const code = " (data) => db.save(data) ";
 

@@ -1,4 +1,4 @@
-# @ytn/shared
+# @ytrynot/shared
 
 ## 1.0.1
 

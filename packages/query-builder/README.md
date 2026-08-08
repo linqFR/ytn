@@ -45,10 +45,10 @@ Import the builder from the package. It is a **Pure ESM** package.
 
 ```typescript
 // Standard version (with full JSDoc support)
-import { QueryBuilder } from "@ytn/qb";
+import { QueryBuilder } from "@ytrynot/qb";
 
 // Minified version (optimized for production)
-import { QueryBuilder } from "@ytn/qb/min";
+import { QueryBuilder } from "@ytrynot/qb/min";
 ```
 
 ### Basic Selection
@@ -351,7 +351,7 @@ const sql = QueryBuilder.table("events")
 
 ```typescript
 import { z } from "zod";
-import { QueryBuilder } from "@ytn/qb";
+import { QueryBuilder } from "@ytrynot/qb";
 
 const UserSchema = z.object({
   id: z.string().uuid().meta({ pk: true }), // Primary Key

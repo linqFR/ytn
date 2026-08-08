@@ -1,6 +1,6 @@
 # DNA Externals Mechanism
 
-> Technical specification of the externals system used by `@ytn/dna` to inject
+> Technical specification of the externals system used by `@ytrynot/dna` to inject
 > runtime values (libraries, constructors, helpers, user functions) into compiled
 > validator/parser functions.
 
@@ -186,7 +186,7 @@ registerExternal("dna", dna);
 - **Purpose**: the `jwt` opcode handler generates code that calls
   `jwtFn(input)` to decode a JWT's protected header and validate its `typ`/`alg`.
 
-Since `@ytn/dna` is its own consumer for JWT validation (the `jwt` handler imports
+Since `@ytrynot/dna` is its own consumer for JWT validation (the `jwt` handler imports
 `jose` and registers `decodeProtectedHeader` under the name `jwtFn`), `jose` remains
 in `dependencies`. External consumers who do not use `dna.jwt()` still pay the `jose`
 bundle cost — this is a known trade-off for the 0.2.x line. Isolating `jose` into an
@@ -212,7 +212,7 @@ this._core.rawDna = ["instanceOf", constructorName];
 The consumer can also register constructors manually:
 
 ```typescript
-import { registerExternal } from "@ytn/dna";
+import { registerExternal } from "@ytrynot/dna";
 registerExternal("MyClass", MyClass);
 ```
 
@@ -231,7 +231,7 @@ must be declared as an external so the codegen can inject it.
 referenced inside `fn` that is not a parameter or a global must be listed in `externals`.
 
 ```typescript
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 
 const myHelper = (v: string) => v.toUpperCase();
 
@@ -259,7 +259,7 @@ they must be registered via `registerExternal` before compilation, or passed via
 > `validate`/`safeParse`:
 
 ```typescript
-import { dna, registerExternal } from "@ytn/dna";
+import { dna, registerExternal } from "@ytrynot/dna";
 
 const isAdult = (age: number) => age >= 18;
 registerExternal("isAdult", isAdult);
@@ -324,7 +324,7 @@ non-function values):
 ### Complete transform + externals example
 
 ```typescript
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 
 // External values
 const normalize = (v: string) => v.trim().toLowerCase();
@@ -355,7 +355,7 @@ function({ normalize, MAX_LEN }) {
 ### Complete refine + externals example
 
 ```typescript
-import { dna, registerExternal } from "@ytn/dna";
+import { dna, registerExternal } from "@ytrynot/dna";
 
 // External validation helper
 const checkLuhn = (cardNumber: string): boolean => {
@@ -378,7 +378,7 @@ schema.safeParse("4111111111111111");  // { success: true, data: "41111111111111
 You can pass a class constructor as an external for use inside transforms or refines:
 
 ```typescript
-import { dna, registerExternal } from "@ytn/dna";
+import { dna, registerExternal } from "@ytrynot/dna";
 
 class Point {
   constructor(public x: number, public y: number) {}
@@ -401,7 +401,7 @@ const schema = dna.object({ x: dna.number(), y: dna.number() })
 You can pass an entire module/namespace as an external:
 
 ```typescript
-import { dna, registerExternal } from "@ytn/dna";
+import { dna, registerExternal } from "@ytrynot/dna";
 import * as myUtils from "./my-utils.js";
 
 registerExternal("myUtils", myUtils);
@@ -491,7 +491,7 @@ The merge order (`{ ...registry, ...userExternals }`) means user-provided extern
 ### Providing externals at compile time
 
 ```typescript
-import { validatorBuilder, parserBuilder } from "@ytn/dna";
+import { validatorBuilder, parserBuilder } from "@ytrynot/dna";
 
 // Built-in externals (dna, jwtFn if registered) are included automatically.
 // User externals override or supplement them.
@@ -519,7 +519,7 @@ schema.safeParse(value, { myHelper: otherFn });  // second call: uses cached fun
 ### Registering externals globally
 
 ```typescript
-import { registerExternal } from "@ytn/dna";
+import { registerExternal } from "@ytrynot/dna";
 
 // Available to all subsequent validatorBuilder/parserBuilder calls
 registerExternal("myHelper", (v) => v.length > 0);
@@ -624,7 +624,7 @@ if (!(jH1 && (jH1.typ === undefined || jH1.typ === "JWT") && jH1.alg === "HS256"
 
 ### Registration
 
-Since `@ytn/dna` is its own consumer for JWT validation, the `jwt` handler imports
+Since `@ytrynot/dna` is its own consumer for JWT validation, the `jwt` handler imports
 `jose` and registers `decodeProtectedHeader` under the name `jwtFn`:
 
 ```typescript

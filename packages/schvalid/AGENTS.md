@@ -1,10 +1,10 @@
-# AGENTS.md (Package: @ytn/schvalid)
+# AGENTS.md (Package: @ytrynot/schvalid)
 
 > [!IMPORTANT]
 > This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to the JSON Schema to DNA conversion package.
 
 > [!WARNING]
-> **CRITICAL DEPENDENCY**: This package depends on `@ytn/dna` for DNA bytecode types and the `toJS` compiler. The DNA to JavaScript compilation logic lives in `@ytn/dna/src/toJs/`. Changes to DNA opcodes or toJS in @ytn/dna can break schvalid. Always test both packages together.
+> **CRITICAL DEPENDENCY**: This package depends on `@ytrynot/dna` for DNA bytecode types and the `toJS` compiler. The DNA to JavaScript compilation logic lives in `@ytrynot/dna/src/toJs/`. Changes to DNA opcodes or toJS in @ytrynot/dna can break schvalid. Always test both packages together.
 
 ---
 
@@ -22,9 +22,9 @@ This package provides JSON Schema 2020-12 to DNA bytecode conversion. It is the 
 
 ### What This Package Does NOT Do
 
-- **DNA to JavaScript compilation**: This is handled by `@ytn/dna/src/toJs/`
-- **DNA runtime validation**: This is handled by `@ytn/dna`'s `validator()` and `parser()` functions
-- **DNA schema builder**: This is handled by `@ytn/dna`'s `dna` fluent API
+- **DNA to JavaScript compilation**: This is handled by `@ytrynot/dna/src/toJs/`
+- **DNA runtime validation**: This is handled by `@ytrynot/dna`'s `validator()` and `parser()` functions
+- **DNA schema builder**: This is handled by `@ytrynot/dna`'s `dna` fluent API
 - **Zod conversion**: Zod ↔ DNA conversion is NOT in scope for this package
 
 ---
@@ -36,7 +36,7 @@ This package provides JSON Schema 2020-12 to DNA bytecode conversion. It is the 
 The `jschemaToDna()` function converts JSON Schema 2020-12 schemas into DNA bytecode:
 
 ```typescript
-import { jschemaToDna } from "@ytn/schvalid";
+import { jschemaToDna } from "@ytrynot/schvalid";
 
 const schema = {
   type: "object",
@@ -73,11 +73,11 @@ const dna = jschemaToDna(schema);
 ### Two-Step Conversion + Validation for debugging
 
 There is no one-shot `validate(schema, data)` / `parse(schema, data)` function. Convert the
-schema to DNA once, then use `@ytn/schvalid`'s `validator`/`parser` (re-exported from
-`@ytn/dna/toJs`) on the result:
+schema to DNA once, then use `@ytrynot/schvalid`'s `validator`/`parser` (re-exported from
+`@ytrynot/dna/toJs`) on the result:
 
 ```typescript
-import { jschemaToDna, validator, parser } from "@ytn/schvalid";
+import { jschemaToDna, validator, parser } from "@ytrynot/schvalid";
 
 const dna = jschemaToDna(schema);
 
@@ -93,7 +93,7 @@ const result = parser(dna)(data); // returns { success: true, data: ... } | { su
 The `schvalid()` builder API allows compiling a schema once and reusing the validation function:
 
 ```typescript
-import { schvalid } from "@ytn/schvalid";
+import { schvalid } from "@ytrynot/schvalid";
 
 const compiler = schvalid("validation");
 const validate = compiler.compile(schema);
@@ -116,7 +116,7 @@ Modes:
 construction happens at all. On failure, it falls back to the full `parser` to collect
 detailed errors.
 
-**KEY TRADE-OFF** (schvalid-only — NOT offered on `@ytn/dna` builder schemas, where output
+**KEY TRADE-OFF** (schvalid-only — NOT offered on `@ytrynot/dna` builder schemas, where output
 construction is a core part of the parse contract, not an optional side-effect):
 - `parser()` on success always returns a **fresh** output object (its own copy, built via
   `Object.assign(Object.create(null), value)` or similar in the generated code).
@@ -193,7 +193,7 @@ cases + consistency checks against `validator`/`parser`), and
 ### Quick inspection
 
 ```typescript
-import { jschemaToDna } from "@ytn/schvalid";
+import { jschemaToDna } from "@ytrynot/schvalid";
 
 const dna = jschemaToDna(schema);
 console.dir(dna, { depth: null }); // Inspect DNA bytecode
@@ -203,11 +203,11 @@ console.dir(dna, { depth: null }); // Inspect DNA bytecode
 
 ### Working with generated JavaScript
 
-For a single schema, generate the source of the validator/parser with `@ytn/dna/toJS`:
+For a single schema, generate the source of the validator/parser with `@ytrynot/dna/toJS`:
 
 ```typescript
-import { jschemaToDna } from "@ytn/schvalid";
-import { toJS } from "@ytn/dna/toJs";
+import { jschemaToDna } from "@ytrynot/schvalid";
+import { toJS } from "@ytrynot/dna/toJs";
 
 const dna = jschemaToDna(schema, "#");
 const validateCode = toJS(true, false)(dna) as string[];

@@ -1,16 +1,16 @@
 
-// DNA types now imported from @ytn/dna
-// export type * from "@ytn/dna";
+// DNA types now imported from @ytrynot/dna
+// export type * from "@ytrynot/dna";
 export * from "./jschema-to-dna.js";
 // export * from "./zod-to-dna.js"; // deprecated
 
-// Re-export validation functions from @ytn/dna for convenience
+// Re-export validation functions from @ytrynot/dna for convenience
 // Use schvalid-specific versions (canonical DNA opcodes only)
-import { validator, parser, toJS } from "@ytn/dna/toJs";
-import type { tsDnaParserFn, tsDnaValidatorFn, tsDnaSeq } from "@ytn/dna/toJs"
+import { validator, parser, toJS } from "@ytrynot/dna/toJs";
+import type { tsDnaParserFn, tsDnaValidatorFn, tsDnaSeq } from "@ytrynot/dna/toJs"
 
 // Convenience functions that combine schema conversion and validation
-// import { validator as dnaValidator, parser as dnaParser } from "@ytn/dna";
+// import { validator as dnaValidator, parser as dnaParser } from "@ytrynot/dna";
 import { jschemaToDna } from "./jschema-to-dna.js";
 export { validator, parser, toJS };
 export type { tsDnaParserFn as DnaParseFn, tsDnaValidatorFn as DnaValidatorFn };
@@ -33,7 +33,7 @@ type tsCompileOptions = {
  * reference (not a filtered/copied object) on the happy path. On failure, falls
  * back to the full parser to collect detailed errors.
  *
- * TRADE-OFF (schvalid-only — not offered on `@ytn/dna` builder schemas, where
+ * TRADE-OFF (schvalid-only — not offered on `@ytrynot/dna` builder schemas, where
  * output construction is a core part of the parse contract):
  * on success, `parse()` returns a FRESH output object (its own copy, e.g. via
  * `Object.assign(Object.create(null), value)`), while this hybrid returns

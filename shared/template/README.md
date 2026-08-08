@@ -1,4 +1,4 @@
-# @ytn/shared/template
+# @ytrynot/shared/template
 
 Dynamic template rendering, tag injection, and safe YAML parsing. This package provides lightweight tools for content generation and structured configuration analysis.
 
@@ -22,7 +22,7 @@ The `tpl` namespace offers a direct approach to string interpolation using tag-b
 Replaces multiple placeholders in a string using a predefined map.
 
 ```typescript
-import { renderTemplate } from "@ytn/shared/template/template-parser.js";
+import { renderTemplate } from "@ytrynot/shared/template/template-parser.js";
 
 const text = "Hello {{ name }}! Welcome to {{ city }}.";
 const tags = [
@@ -45,7 +45,7 @@ We use a safe and type-verified YAML parser to handle complex configurations.
 Deterministic YAML parsing using the **SafeMode** philosophy. Returns a `SafeResult`.
 
 ```typescript
-import { safeParseYaml } from "@ytn/shared/template/yaml-parser.js";
+import { safeParseYaml } from "@ytrynot/shared/template/yaml-parser.js";
 const [err, config] = safeParseYaml(rawYaml);
 ```
 
@@ -58,7 +58,7 @@ Bidirectional serialization. Transforms a JavaScript object back into a clean YA
 Specialized utility for parsing markdown or text files with `---` YAML headers. Returns both the structured data and the remaining content.
 
 ```typescript
-import { extractSafeFrontmatter } from "@ytn/shared/template/yaml-parser.js";
+import { extractSafeFrontmatter } from "@ytrynot/shared/template/yaml-parser.js";
 
 const raw = "---\ntitle: Hello\n---\nBody text here";
 const [err, { data, content }] = extractSafeFrontmatter(raw);

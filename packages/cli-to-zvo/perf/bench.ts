@@ -80,7 +80,7 @@ for (let i = 0; i < 10000; i++) {
 }
 const endParse = performance.now();
 const avgParse = (endParse - startParse) / 10000;
-console.log(`@ytn/czvo avg time: ${avgParse.toFixed(6)}ms per call`);
+console.log(`@ytrynot/czvo avg time: ${avgParse.toFixed(6)}ms per call`);
 
 // Compilation overhead
 const startCompile = performance.now();
@@ -99,7 +99,7 @@ const compileContract = defineContract({
 });
 const endCompile = performance.now();
 const compileTime = endCompile - startCompile;
-console.log(`@ytn/czvo compilation time: ${compileTime.toFixed(2)}ms`);
+console.log(`@ytrynot/czvo compilation time: ${compileTime.toFixed(2)}ms`);
 
 // Routing only
 const startRouting = performance.now();
@@ -108,7 +108,7 @@ for (let i = 0; i < 10000; i++) {
 }
 const endRouting = performance.now();
 const avgRouting = (endRouting - startRouting) / 10000;
-console.log(`@ytn/czvo routing only (object lookup): ${avgRouting.toFixed(6)}ms per call`);
+console.log(`@ytrynot/czvo routing only (object lookup): ${avgRouting.toFixed(6)}ms per call`);
 
 // Manual parsing baseline
 const manualParse = (args: string[]) => {
@@ -138,10 +138,10 @@ console.log(`Manual parsing baseline: ${avgManual.toFixed(6)}ms per call`);
 
 // Summary
 console.log("\n=== Performance Summary ===");
-console.log("Note: These are internal @ytn/czvo benchmarks.");
+console.log("Note: These are internal @ytrynot/czvo benchmarks.");
 console.log("For comparison with other CLI libraries (commander.js, yargs, etc.),");
 console.log("additional benchmarks would need to be created with those libraries installed.");
-console.log("Current setup only tests @ytn/czvo to avoid external dependencies.");
+console.log("Current setup only tests @ytrynot/czvo to avoid external dependencies.");
 
 // Startup time
 const iterations = 1000;
@@ -176,6 +176,6 @@ const avgStartup = times.reduce((a, b) => a + b, 0) / iterations;
 const minStartup = Math.min(...times);
 const maxStartup = Math.max(...times);
 
-console.log(`@ytn/czvo startup + command: ${avgStartup.toFixed(2)}ms (avg)`);
+console.log(`@ytrynot/czvo startup + command: ${avgStartup.toFixed(2)}ms (avg)`);
 console.log(`  Min: ${minStartup.toFixed(2)}ms, Max: ${maxStartup.toFixed(2)}ms`);
 console.log(`  Iterations: ${iterations}`);

@@ -1,8 +1,8 @@
 {
-  "name": "@ytn/shared",
+  "name": "@ytrynot/shared",
   "version": "1.0.1",
   "private": true,
-  "description": "Global shared utilities for the YTN project",
+  "description": "Global shared utilities for the ytrynot project",
   "type": "module",
   "scripts": {
     "test": "vitest run"

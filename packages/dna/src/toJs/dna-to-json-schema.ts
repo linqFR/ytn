@@ -239,7 +239,7 @@ function convertObject(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta
 		properties: {}
 	};
 
-	if (kind !== "object") schema["x-ytn-object-kind"] = kind;
+	if (kind !== "object") schema["x-ytrynot-object-kind"] = kind;
 
 	const constraints = params[0] as Array<[string, any]> | undefined;
 	if (constraints) {

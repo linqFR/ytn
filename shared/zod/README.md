@@ -1,4 +1,4 @@
-# @ytn/shared/zod
+# @ytrynot/shared/zod
 
 Advanced Zod V4 inspection, unwrapping, and bidirectional codec layer. This package provides high-performance utilities to reflect upon Zod schemas and serialize them for storage or rehydration.
 
@@ -17,7 +17,7 @@ Advanced Zod V4 inspection, unwrapping, and bidirectional codec layer. This pack
 
 ## V4 Inspection Protocol
 
-In **YTN**, we strictly adhere to Zod V4 standards. We **FORBID** any access to `_def` (V3 internals) and rely on the authoritative `._zod.def` structure and `instanceof z.Zod*` for all identification.
+In **ytrynot**, we strictly adhere to Zod V4 standards. We **FORBID** any access to `_def` (V3 internals) and rely on the authoritative `._zod.def` structure and `instanceof z.Zod*` for all identification.
 
 ---
 
@@ -30,7 +30,7 @@ When a schema is wrapped in multiple layers (Optional, Nullable, Default, Lazy, 
 Recursively follows all standard Zod V4 wrappers and special types (Pipes, Lazy) until the actual base schema is found.
 
 ```typescript
-import { unwrapZodDeep } from "@ytn/shared/zod/zod-reflection.js";
+import { unwrapZodDeep } from "@ytrynot/shared/zod/zod-reflection.js";
 import { z } from "zod";
 
 const schema = z.string().optional().default("test").pipe(z.string().email());

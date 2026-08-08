@@ -1,18 +1,18 @@
 {
-  "name": "@ytn/czvo",
+  "name": "@ytrynot/czvo",
   "version": "2.2.1",
   "description": "Transform Command lines into Zod-Validated Objects (ZVO)",
   "author": "linqFR",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/linqFR/ytn.git",
+    "url": "git+ssh://git@github.com/linqFR/ytrynot.git",
     "directory": "packages/cli-to-zvo"
   },
   "bugs": {
-    "url": "https://github.com/linqFR/ytn/issues"
+    "url": "https://github.com/linqFR/ytrynot/issues"
   },
-  "homepage": "https://github.com/linqFR/ytn/tree/main/packages/cli-to-zvo#readme",
+  "homepage": "https://github.com/linqFR/ytrynot/tree/main/packages/cli-to-zvo#readme",
   "type": "module",
   "keywords": [
     "CLI",
@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "@ytn/shared": "*",
+    "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
     "tsx": "^4.23.10",
     "zod": "^4.4.3"

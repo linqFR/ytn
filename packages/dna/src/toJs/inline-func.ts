@@ -1,4 +1,4 @@
-import { deepMerge } from "@ytn/shared/js/object-utils.js";
+import { deepMerge } from "@ytrynot/shared/js/object-utils.js";
 
 export class InlineFunc {
 	constructor(public name: string, public body: string) { }

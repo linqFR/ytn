@@ -1,18 +1,18 @@
 # Technical Documentation
 
-## Relationship with @ytn/schvalid
+## Relationship with @ytrynot/schvalid
 
 > [!IMPORTANT]
-> Understanding `@ytn/schvalid` is essential to understanding this document: **`@ytn/schvalid` and its performance rely entirely on `@ytn/dna`**.
+> Understanding `@ytrynot/schvalid` is essential to understanding this document: **`@ytrynot/schvalid` and its performance rely entirely on `@ytrynot/dna`**.
 
-`@ytn/schvalid` is the **JSON Schema** front-end (pure JSON Schema validation); `@ytn/dna` is the back-end engine that does the heavy lifting, and also exposes its own **Zod-like builder** API:
+`@ytrynot/schvalid` is the **JSON Schema** front-end (pure JSON Schema validation); `@ytrynot/dna` is the back-end engine that does the heavy lifting, and also exposes its own **Zod-like builder** API:
 
-- **`@ytn/schvalid` converts** a JSON Schema into **DNA bytecode** (`jschemaToDna`).
-- **`@ytn/dna` provides** a Zod-like fluent builder (`dna.string()`, `dna.object()`, …) that emits DNA bytecode directly, **and compiles** any DNA bytecode into standalone JavaScript validators/parsers (`toJS` in `src/toJs/`).
+- **`@ytrynot/schvalid` converts** a JSON Schema into **DNA bytecode** (`jschemaToDna`).
+- **`@ytrynot/dna` provides** a Zod-like fluent builder (`dna.string()`, `dna.object()`, …) that emits DNA bytecode directly, **and compiles** any DNA bytecode into standalone JavaScript validators/parsers (`toJS` in `src/toJs/`).
 
-Therefore, every performance characteristic of `@ytn/schvalid` is inherited from `@ytn/dna`'s code generation: the short opcodes, the numeric sentinels, the labelled-block control flow, the fused per-key object blocks, the plain-object eval-sets, and the `if(!(test)) break <label>;` fast-fail discipline documented below. **A change to the DNA format or to the `toJs` codegen directly impacts `@ytn/schvalid`** — the two packages MUST be reasoned about and tested together.
+Therefore, every performance characteristic of `@ytrynot/schvalid` is inherited from `@ytrynot/dna`'s code generation: the short opcodes, the numeric sentinels, the labelled-block control flow, the fused per-key object blocks, the plain-object eval-sets, and the `if(!(test)) break <label>;` fast-fail discipline documented below. **A change to the DNA format or to the `toJs` codegen directly impacts `@ytrynot/schvalid`** — the two packages MUST be reasoned about and tested together.
 
-The sections below (notably **DNA Opcodes** and the generated-code examples routed through `@ytn/schvalid`'s `jschemaToDna`) describe this shared contract from the DNA side.
+The sections below (notably **DNA Opcodes** and the generated-code examples routed through `@ytrynot/schvalid`'s `jschemaToDna`) describe this shared contract from the DNA side.
 
 ## DNA Format Specification
 
@@ -534,11 +534,11 @@ The DNA-to-JS compiler produces two types of functions:
 
 #### Opcode handler modules: `dna-js-json.ts` vs `dna-js-builder.ts`
 
-The opcode-to-JavaScript handlers are split across two modules, along the same front-end boundary as the **[Relationship with @ytn/schvalid](#relationship-with-ytnschvalid)** section:
+The opcode-to-JavaScript handlers are split across two modules, along the same front-end boundary as the **[Relationship with @ytrynot/schvalid](#relationship-with-ytrynotschvalid)** section:
 
-- **`dna-js-json.ts` — canonical / JSON-validation opcodes.** Contains everything needed for **JSON Schema validation**: the opcodes that `@ytn/schvalid`'s `jschemaToDna` produces (`s`/`_s`, `n`/`_n`/`i`/`bi`, `b`, `o`/`_o`, `a`/`_a`, `anyOf`/`oneOf`/`allOf`/`not`, `discriminator`, `if`/`then`/`else`, `c`/`cD`/`l`/`e`/`eD`, `ref`, `unevaluated*`, etc.). This is the JSON-Schema-complete handler set; it is the module imported and consumed by `@ytn/schvalid`.
+- **`dna-js-json.ts` — canonical / JSON-validation opcodes.** Contains everything needed for **JSON Schema validation**: the opcodes that `@ytrynot/schvalid`'s `jschemaToDna` produces (`s`/`_s`, `n`/`_n`/`i`/`bi`, `b`, `o`/`_o`, `a`/`_a`, `anyOf`/`oneOf`/`allOf`/`not`, `discriminator`, `if`/`then`/`else`, `c`/`cD`/`l`/`e`/`eD`, `ref`, `unevaluated*`, etc.). This is the JSON-Schema-complete handler set; it is the module imported and consumed by `@ytrynot/schvalid`.
 
-- **`dna-js-builder.ts` — builder-specific opcodes.** Contains the handlers for opcodes emitted **only** by the `@ytn/dna` Zod-like builder, which have no JSON Schema equivalent: `wrp` (the generic `optional`/`nullable`/`default`/`prefault` wrapper dispatcher), `mutate` (transforms), `check` (string refinements like `lowercase`/`startsWith`/…), `coerce`, plus extra runtime types `sym`, `date`, `file`. `@ytn/schvalid` does NOT use these — it produces canonical DNA opcodes directly.
+- **`dna-js-builder.ts` — builder-specific opcodes.** Contains the handlers for opcodes emitted **only** by the `@ytrynot/dna` Zod-like builder, which have no JSON Schema equivalent: `wrp` (the generic `optional`/`nullable`/`default`/`prefault` wrapper dispatcher), `mutate` (transforms), `check` (string refinements like `lowercase`/`startsWith`/…), `coerce`, plus extra runtime types `sym`, `date`, `file`. `@ytrynot/schvalid` does NOT use these — it produces canonical DNA opcodes directly.
 
 Both modules share the same low-level codegen primitives from `utils.ts` (`simpleNodeToJs`, `_err`, `_envFrame`, the `ERR_*` fragments), so the generated code style is identical regardless of which module emitted a given opcode. `dna-to-js.ts` orchestrates dispatch across both.
 
@@ -556,7 +556,7 @@ Both modules share the same low-level codegen primitives from `utils.ts` (`simpl
 
 ## DNA → Schema Reconstruction (`fromDna`)
 
-`src/fromDna/index.ts` rebuilds a fluent `@ytn/dna` builder schema from the bytecode produced by `schema.toDna()`. It is the inverse of the builder's emission layer and is the backbone of the `from-dna-extended.test.ts` roundtrip suite.
+`src/fromDna/index.ts` rebuilds a fluent `@ytrynot/dna` builder schema from the bytecode produced by `schema.toDna()`. It is the inverse of the builder's emission layer and is the backbone of the `from-dna-extended.test.ts` roundtrip suite.
 
 ### Input format
 
@@ -1025,7 +1025,7 @@ Callers that participate in **in-place applicator propagation** (e.g. a `$ref` s
 
 ### 10. Real generated examples
 
-The following snippets are the **actual output** of `toJS` for representative JSON Schemas (Draft 2020-12), routed through `@ytn/schvalid`'s `jschemaToDna` converter. They are regeneratable for any schema by converting it to DNA and calling `toJS(true, false)(dna)` / `toJS(false, false)(dna)`; the full collection for the test suite is produced by `packages/schvalid/sandbox/collect-schema-adn-functions.ts`.
+The following snippets are the **actual output** of `toJS` for representative JSON Schemas (Draft 2020-12), routed through `@ytrynot/schvalid`'s `jschemaToDna` converter. They are regeneratable for any schema by converting it to DNA and calling `toJS(true, false)(dna)` / `toJS(false, false)(dna)`; the full collection for the test suite is produced by `packages/schvalid/sandbox/collect-schema-adn-functions.ts`.
 
 Formatting note: the codegen emits a single-line body (no whitespace). The snippets below are presented as-emitted; line breaks are visual aids only.
 

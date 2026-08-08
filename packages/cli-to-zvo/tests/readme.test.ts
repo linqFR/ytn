@@ -7,10 +7,10 @@ import { writeFile, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 
 describe("README Examples Verification", () => {
-  it("Package Quick Start Example (ytn/dl)", () => {
+  it("Package Quick Start Example (ytrynot/dl)", () => {
     // 1. Define the Contract (from packages/cli-to-zvo/README.md)
     const contract: tsContract = {
-      name: "ytn",
+      name: "ytrynot",
       description: "YouTube Downloader",
       cli: {
         positionals: ["url"],
@@ -54,10 +54,10 @@ describe("README Examples Verification", () => {
     }
   });
 
-  it("Root Quick Preview Example (ytn-cli/deploy)", () => {
+  it("Root Quick Preview Example (ytrynot-cli/deploy)", () => {
     // 1. Define the Contract (from root README.md)
     const contract: tsContract = {
-      name: "ytn-cli",
+      name: "ytrynot-cli",
       description: "Deployment Tool",
       cli: {
         positionals: ["env"],

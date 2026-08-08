@@ -2,7 +2,7 @@
 trigger: always_on
 ---
 
-npm.cmd run build -w @ytn/dna; npm.cmd run build -w @ytn/schvalid;npm.cmd test -w @ytn/schvalid; npm.cmd run test -w @ytn/schvalid
+npm.cmd run build -w @ytrynot/dna; npm.cmd run build -w @ytrynot/schvalid;npm.cmd test -w @ytrynot/schvalid; npm.cmd run test -w @ytrynot/schvalid
 
 puis pour dna npm.cmd run test
 

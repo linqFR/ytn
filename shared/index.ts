@@ -1,5 +1,5 @@
 /**
- * Global YTN Toolbox Barrel File.
+ * Global ytrynot Toolbox Barrel File.
  * All utilities are namespaced to avoid global scope pollution.
  */
 

@@ -2,7 +2,7 @@ import {
   isZodDefault,
   isZodOptional,
   unwrapZodDeep,
-} from "@ytn/shared/zod/zod-reflection.js";
+} from "@ytrynot/shared/zod/zod-reflection.js";
 import { z } from "zod";
 import { Introspector } from "./introspection.js";
 import type { IDDLOptions } from "./types.js";

@@ -1,5 +1,5 @@
-import { unique as arrUnique } from "@ytn/shared/js/array-ops.js";
-import type { $Entries } from "@ytn/shared/types/modifiers.type.js";
+import { unique as arrUnique } from "@ytrynot/shared/js/array-ops.js";
+import type { $Entries } from "@ytrynot/shared/types/modifiers.type.js";
 import type {
   ParseArgsConfig,
   ParseArgsOptionDescriptor,

@@ -1,5 +1,5 @@
 ---
-name: ytn-dna-perf
+name: ytrynot-dna-perf
 description: Lessons and guardrails for analyzing DNA-generated validator/parser performance
 subagent: true
 allowed-tools:
@@ -11,7 +11,7 @@ allowed-tools:
 
 # DNA / schvalid generated-code performance analysis
 
-When inspecting JavaScript produced by `@ytn/dna/toJs`, treat every static metric as a question, not a conclusion. The heuristics measure patterns; the actual cost and correctness depend on DNA semantics.
+When inspecting JavaScript produced by `@ytrynot/dna/toJs`, treat every static metric as a question, not a conclusion. The heuristics measure patterns; the actual cost and correctness depend on DNA semantics.
 
 ## 1. `Object.keys(...)` / `passed` sets
 
@@ -85,13 +85,13 @@ There is an open `PERF-M1` in `packages/dna/src/toJs/todo.ts` to investigate `pa
 A generated function with many `Object.keys`, `Object.assign` or `Object.hasOwn` calls is not necessarily the bottleneck. Always:
 
 - Read the actual compiler source in `packages/dna/src/toJs/` (`dna-to-js.ts`, `dna-js-json.ts`, `dna-js-builder.ts`, `utils.ts`).
-- Run `npm.cmd test -w @ytn/dna` and `npm.cmd test -w @ytn/schvalid` after any codegen change.
-- Run `npm.cmd run perf -w @ytn/schvalid` for the official perf suite.
+- Run `npm.cmd test -w @ytrynot/dna` and `npm.cmd test -w @ytrynot/schvalid` after any codegen change.
+- Run `npm.cmd run perf -w @ytrynot/schvalid` for the official perf suite.
 - Measure with real benchmarks in `packages/schvalid/perf/` before claiming a runtime improvement.
 
 ## 8. The official `schvalid` perf suite
 
-`npm run perf -w @ytn/schvalid` runs two benchmarks:
+`npm run perf -w @ytrynot/schvalid` runs two benchmarks:
 
 1. `full-comparative-benchmark.ts` — 15 000 compilation samples plus 1 200 000 validation calls, comparing DNA / Schvalid / AJV / Zod. The fixed test schema (object with string, number, `email` format, array, boolean) **does not** use `pattern` or `patternProperties`, so a regex hoisting win will not appear in these numbers unless the schema is changed or a dedicated regex bench is added.
 2. `bundle-performance.ts` — 300 000 validations of the full bundle vs the minified bundle. Treat differences below 5 % as noise; min vs full has been observed to be ~2-3 % slower on one run while still passing.

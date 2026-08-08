@@ -24,7 +24,7 @@ describe("Standard Schema Protocol V1", () => {
 		it("should have vendor name", () => {
 			const schema = dna.string();
 			const standard = schema["~standard"];
-			expect(standard.vendor).toBe("@ytn/dna");
+			expect(standard.vendor).toBe("@ytrynot/dna");
 		});
 
 		it("should have types with input and output", () => {

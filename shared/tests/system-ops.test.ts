@@ -35,7 +35,7 @@ describe("shared/system-ops (Functional & Rupture)", () => {
       const pkgPath = path.resolve("./packages/cli-to-zvo");
       const res = await pkg.loadPackage(pkgPath);
       expect(isSuccess(res)).toBe(true);
-      expect(res[1].name).toBe("@ytn/czvo");
+      expect(res[1].name).toBe("@ytrynot/czvo");
       expect(res[1].version).toBeDefined();
     });
 

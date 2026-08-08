@@ -1,4 +1,4 @@
-import { FUNC_SERIALIZED_REGEX } from "@ytn/shared/zod/vm-codecs.js";
+import { FUNC_SERIALIZED_REGEX } from "@ytrynot/shared/zod/vm-codecs.js";
 import { z } from "zod";
 import { TERMINAL_STEP_ID } from "./constants.js";
 import { schWFGateFn } from "./gate-schema.js";

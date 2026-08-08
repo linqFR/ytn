@@ -1,4 +1,4 @@
-# @ytn/shared/dirpath
+# @ytrynot/shared/dirpath
 
 Normalized path handling and deterministic, failure-transparent I/O operations. This package provides safeguards against cross-platform directory issues (Windows/Linux) and silent I/O failures.
 
@@ -14,13 +14,13 @@ Normalized path handling and deterministic, failure-transparent I/O operations. 
 
 ## Path Normalization (`pathops`)
 
-In the **YTN** monorepo, we enforce **Forward Slashes (/)** for all paths in code and configuration. Node.js handles this correctly even on Windows.
+In the **ytrynot** monorepo, we enforce **Forward Slashes (/)** for all paths in code and configuration. Node.js handles this correctly even on Windows.
 
 > [!CAUTION]
 > Always use `pathops` to normalize paths before persisting them or using them for comparisons.
 
 ```typescript
-import * as pathops from "@ytn/shared/dirpath/path-ops.js";
+import * as pathops from "@ytrynot/shared/dirpath/path-ops.js";
 
 const clean = pathops.normalize("src\\core/module.ts"); // "src/core/module.ts"
 const abs = pathops.resolveToRoot("shared"); // Absolute path to the toolbox
@@ -37,7 +37,7 @@ We avoid `fs.readFileSync` because it throws and halts the process. Instead, `fs
 Uses `fs.promises` under the hood.
 
 ```typescript
-import * as fsops from "@ytn/shared/dirpath/fs-ops.js";
+import * as fsops from "@ytrynot/shared/dirpath/fs-ops.js";
 
 // 1. Read asynchronously
 const [err, content] = await fsops.readSafe("config.json");

@@ -19,8 +19,8 @@ import type {
   tsDnaValidatorFn
 } from "../shared/runtime.types.js";
 
-import { stringify } from "@ytn/shared/js/json.js";
-import { isValidRegex } from "@ytn/shared/regex/is-valid-regex.js";
+import { stringify } from "@ytrynot/shared/js/json.js";
+import { isValidRegex } from "@ytrynot/shared/regex/is-valid-regex.js";
 import type {
   tsPrimitiveLiteral,
   tsStoreMark,
@@ -239,7 +239,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
   get "~standard"(): StandardSchemaWithJSONProps<I, T> {
     return {
       version: 1,
-      vendor: "@ytn/dna",
+      vendor: "@ytrynot/dna",
       types: {
         input: undefined as I,
         output: undefined as T

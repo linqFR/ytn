@@ -18,7 +18,7 @@ export function toJS(validateMode: boolean, enhancedMapper: false): (dna: tsDnaS
 export function toJS(validateMode: boolean, enhancedMapper: true): (dna: tsDnaSeq) => tsToJSResult;
 export function toJS(validateMode: boolean = true, enhancedMapper: boolean = false) {
 
-	// Mapper for @ytn/schvalid (canonical DNA opcodes only)
+	// Mapper for @ytrynot/schvalid (canonical DNA opcodes only)
 	// Mapper for DNA builder (canonical + builder-specific opcodes)
 	const mapper: tsMapperIndex = enhancedMapper ? { ...basicHandlers, ...builderHandlers } : basicHandlers;
 

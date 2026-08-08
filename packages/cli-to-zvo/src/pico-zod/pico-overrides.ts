@@ -1,4 +1,4 @@
-import { jsonCodec, jsonlCodec, jsonSchemaCodec } from "@ytn/shared/zod/codecs.js";
+import { jsonCodec, jsonlCodec, jsonSchemaCodec } from "@ytrynot/shared/zod/codecs.js";
 import { z } from "zod";
 import {
   type ISealedInterface, toZod,

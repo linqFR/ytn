@@ -1,5 +1,5 @@
 /**
- * Advanced structural Type Modifiers for the YTN ecosystem.
+ * Advanced structural Type Modifiers for the ytrynot ecosystem.
  * Rules: use '$*' prefix for active type modifiers.
  */
 

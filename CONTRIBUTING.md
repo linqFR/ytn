@@ -1,15 +1,15 @@
-# Contributing to YTN
+# Contributing to ytrynot
 
-First off, thank you for considering contributing to YTN! It's people like you who make the open-source community such an amazing place to learn, inspire, and create.
+First off, thank you for considering contributing to ytrynot! It's people like you who make the open-source community such an amazing place to learn, inspire, and create.
 
 ## Monorepo Overview
 
-YTN is a monorepo containing several independent TypeScript packages:
+ytrynot is a monorepo containing several independent TypeScript packages:
 
-- `@ytn/qb`: SQLite Query Builder.
-- `@ytn/czvo`: CLI to Zod-Validated Objects.
-- `@ytn/wf`: Workflow Router.
-- `@ytn/shared`: Internal shared toolbox (Private).
+- `@ytrynot/qb`: SQLite Query Builder.
+- `@ytrynot/czvo`: CLI to Zod-Validated Objects.
+- `@ytrynot/wf`: Workflow Router.
+- `@ytrynot/shared`: Internal shared toolbox (Private).
 
 ## Development Workflow
 

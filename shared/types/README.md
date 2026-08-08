@@ -1,6 +1,6 @@
-# @ytn/shared/types
+# @ytrynot/shared/types
 
-Standard structural and utility types for the YTN monorepo. This directory establishes the common language for type safety across all independent packages.
+Standard structural and utility types for the ytrynot monorepo. This directory establishes the common language for type safety across all independent packages.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ To prevent logic errors where different string identifiers (e.g., `UserId` vs `O
 Creates an opaque/branded type that remains compatible with base type `T` at runtime but stays incompatible with other identical structures at compile-time.
 
 ```typescript
-import type { $Branded } from "@ytn/shared/types/index.js";
+import type { $Branded } from "@ytrynot/shared/types/index.js";
 
 type UserId = $Branded<string, "UserId">;
 type OrderId = $Branded<string, "OrderId">;
@@ -43,7 +43,7 @@ Simplifies handling of asynchronous values and function returns.
 Represents a value that may or may not be wrapped in a Promise. Essential for defining flexible interfaces that support both sync and async implementations.
 
 ```typescript
-import type { $Awaitable } from "@ytn/shared/types/index.js";
+import type { $Awaitable } from "@ytrynot/shared/types/index.js";
 
 type MyGate = (data: unknown) => $Awaitable<string>;
 ```
@@ -67,7 +67,7 @@ The base set of primitives allowed in a JSON structure: `string | number | boole
 Strict recursive type checking to ensure a structure `T` is fully serializable to JSON. It validates arrays and objects while forbidding symbols, bigints, and functions.
 
 ```typescript
-import type { tsValidJSON } from "@ytn/shared/types/index.js";
+import type { tsValidJSON } from "@ytrynot/shared/types/index.js";
 
 // ✅ Valid structure
 const payload: tsValidJSON<{ id: string }> = { id: "1" };
@@ -95,7 +95,7 @@ Low-level structural transformations used for complex type orchestration.
 
 ## Global Conventions
 
-All types in this directory follow the **YTN Naming Standards**:
+All types in this directory follow the **ytrynot Naming Standards**:
 
 - **`I*`**: Interfaces/Types for Input/Config data (e.g., `IContract`).
 - **`O*`**: Interfaces/Types for Output/Result data (e.g., `OResult`).
@@ -105,15 +105,15 @@ All types in this directory follow the **YTN Naming Standards**:
 
 ### Integration with SafeMode
 
-While defined in `shared/safe`, the `tsSafeResult` type is the cornerstone of YTN's error management:
+While defined in `shared/safe`, the `tsSafeResult` type is the cornerstone of ytrynot's error management:
 `[error: E | null | undefined, result: R | null | undefined]`.
 
 ### The `ts.` Namespace
 
-In the `@ytn/shared` package, all these types are gathered under the global `ts` namespace for easy access:
+In the `@ytrynot/shared` package, all these types are gathered under the global `ts` namespace for easy access:
 
 ```typescript
-import { ts } from "@ytn/shared";
+import { ts } from "@ytrynot/shared";
 
 type MyId = ts.$Branded<string, "MyId">;
 ```

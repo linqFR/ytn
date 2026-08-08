@@ -64,7 +64,7 @@ export function uint8ArrayToBase64url(bytes: Uint8Array): string {
  * 
  * @example
  * ```ts
- * import { util } from "@ytn/dna";
+ * import { util } from "@ytrynot/dna";
  * const bytes = util.hexToUint8Array("48656c6c6f");
  * // => Uint8Array([72, 101, 108, 108, 111])
  * ```
@@ -89,7 +89,7 @@ export function hexToUint8Array(hex: string): Uint8Array<ArrayBuffer> {
  * 
  * @example
  * ```ts
- * import { util } from "@ytn/dna";
+ * import { util } from "@ytrynot/dna";
  * const hex = util.uint8ArrayToHex(new Uint8Array([72, 101, 108, 108, 111]));
  * // => "48656c6c6f"
  * ```

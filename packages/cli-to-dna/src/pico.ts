@@ -1,4 +1,4 @@
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 
 export interface IResult {
   success: boolean;

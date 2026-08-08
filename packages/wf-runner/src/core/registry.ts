@@ -1,7 +1,7 @@
-import { existsSync, readdirSyncSafe } from "@ytn/shared/dirpath/fs-ops.js";
-import { importSafe } from "@ytn/shared/js/loader.js";
-import { toKebabCase } from "@ytn/shared/js/string-cases.js";
-import "@ytn/shared/polyfill/map-ext.js";
+import { existsSync, readdirSyncSafe } from "@ytrynot/shared/dirpath/fs-ops.js";
+import { importSafe } from "@ytrynot/shared/js/loader.js";
+import { toKebabCase } from "@ytrynot/shared/js/string-cases.js";
+import "@ytrynot/shared/polyfill/map-ext.js";
 import path from "node:path";
 import type { tsNodeSignature } from "../types/node-def.type.js";
 

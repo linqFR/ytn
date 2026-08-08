@@ -1,16 +1,16 @@
-# AGENTS.md (Package: @ytn/dna)
+# AGENTS.md (Package: @ytrynot/dna)
 
 > [!IMPORTANT]
 > This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to the DNA bytecode engine.
 
 > [!WARNING]
-> **CRITICAL DEPENDENCY**: This package is intimately linked to `@ytn/schvalid`. The `toJs` module (especially `dna-to-js.ts`, `dna-js-builder.ts`, and `dna-js-json.ts`) is imported and used by `@ytn/schvalid` for DNA → JavaScript compilation. **ANY changes to toJS can have direct repercussions on schvalid**. Always test both packages together when modifying toJS code.
+> **CRITICAL DEPENDENCY**: This package is intimately linked to `@ytrynot/schvalid`. The `toJs` module (especially `dna-to-js.ts`, `dna-js-builder.ts`, and `dna-js-json.ts`) is imported and used by `@ytrynot/schvalid` for DNA → JavaScript compilation. **ANY changes to toJS can have direct repercussions on schvalid**. Always test both packages together when modifying toJS code.
 
 ---
 
 ## Core Architecture
 
-This package provides the DNA bytecode runtime engine. It is NOT the JSON Schema converter (that's `@ytn/schvalid`). This package focuses on:
+This package provides the DNA bytecode runtime engine. It is NOT the JSON Schema converter (that's `@ytrynot/schvalid`). This package focuses on:
 
 - **DNA Schema Builder**: Zod-like API for constructing DNA bytecode schemas
 - **DNA → JavaScript Compilation**: High-performance code generation from DNA opcodes
@@ -108,7 +108,7 @@ This mirrors Zod's `z.promise()` behavior and keeps the `toJS` code generation f
 The builder provides a Zod-like fluent API:
 
 ```typescript
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 
 const schema = dna.object({
   name: dna.string().min(2),
@@ -180,7 +180,7 @@ This package follows global naming standards:
 ### Inspect generated JavaScript
 
 ```typescript
-import { validator, parser } from "@ytn/dna";
+import { validator, parser } from "@ytrynot/dna";
 
 const validateFn = validator(dna);
 const parseFn = parser(dna);
@@ -192,7 +192,7 @@ console.log(parseFn.toString());     // joined array in parser mode
 For the raw string array before joining:
 
 ```typescript
-import { toJS } from "@ytn/dna/toJs";
+import { toJS } from "@ytrynot/dna/toJs";
 
 const validateCode = toJS(true, false)(dna) as string[];
 const parseCode = toJS(false, false)(dna) as string[];
@@ -220,12 +220,12 @@ console.log(parseCode.join("\n"));
 
 ## fromDna (DNA → Schema reconstruction)
 
-`fromDna` in `src/fromDna/index.ts` rebuilds a fluent `@ytn/dna` schema from a DNA bytecode sequence produced by `toDna()`. It is primarily used by the roundtrip tests, but it also proves that the DNA format is self-describing for supported schemas.
+`fromDna` in `src/fromDna/index.ts` rebuilds a fluent `@ytrynot/dna` schema from a DNA bytecode sequence produced by `toDna()`. It is primarily used by the roundtrip tests, but it also proves that the DNA format is self-describing for supported schemas.
 
 ### Entry point
 
 ```typescript
-import { fromDna } from "@ytn/dna";
+import { fromDna } from "@ytrynot/dna";
 const schema = fromDna(dnaSeq);
 ```
 

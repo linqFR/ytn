@@ -4,7 +4,7 @@ import { pico, defineContract } from "../src/editor.js";
 describe("CliContract Validation", () => {
   it("should validate a correct hybrid contract", () => {
     const processed = defineContract({
-      name: "ytn",
+      name: "ytrynot",
       description: "YT Downloader",
       cli: {
         positionals: ["input-path"],
@@ -20,7 +20,7 @@ describe("CliContract Validation", () => {
       },
     });
 
-    expect(processed.name).toBe("ytn");
+    expect(processed.name).toBe("ytrynot");
   });
 
   it("should throw on invalid contract", () => {

@@ -14,7 +14,7 @@ describe("mycmd.ts Behavioral Matrix", () => {
     name: "footprint",
     description: "commande system for my footprint",
     cli: {
-      positionals: ["step", "ytn-ui"],
+      positionals: ["step", "ytrynot-ui"],
       flags: {
         result: { short: "r", type: "string", desc: "result of the step id" },
         verbose: { short: "v", type: "string", desc: "verbosity" },

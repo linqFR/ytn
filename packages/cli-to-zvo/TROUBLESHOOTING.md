@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This document covers common errors and their solutions when using @ytn/czvo.
+This document covers common errors and their solutions when using @ytrynot/czvo.
 
 ## Common Error: "Invalid input"
 

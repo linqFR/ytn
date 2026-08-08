@@ -11,7 +11,7 @@ import {
   ensureSafe,
   SAFE_MODE_WMARK,
 } from "../safe/safemode.js";
-import { failfastBouncer } from "@ytn/shared/safe/bouncer.js";
+import { failfastBouncer } from "@ytrynot/shared/safe/bouncer.js";
 
 describe("shared/safemode (Functional & Rupture)", () => {
   it("should brand SafeResult correctly", () => {

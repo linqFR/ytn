@@ -1,9 +1,9 @@
-import { castArrayValuesToString } from "@ytn/shared/js/cast-ops.js";
+import { castArrayValuesToString } from "@ytrynot/shared/js/cast-ops.js";
 import {
   getZodValueDeep,
   isZodDefaultDeep,
   isZodOptionalDeep,
-} from "@ytn/shared/zod/zod-reflection.js";
+} from "@ytrynot/shared/zod/zod-reflection.js";
 
 /**
  * @function getZodValue

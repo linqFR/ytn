@@ -1,6 +1,6 @@
-# @ytn/schvalid vs AJV 8.x — Feature Comparison
+# @ytrynot/schvalid vs AJV 8.x — Feature Comparison
 
-> Generated from source code analysis of `@ytn/schvalid` (src/jschema-to-dna.ts,
+> Generated from source code analysis of `@ytrynot/schvalid` (src/jschema-to-dna.ts,
 > src/string-formats.ts, src/index.ts, README.md, AGENTS.md) and the JSON Schema
 > Test Suite runner (tests/schemas/json-schema-suite.test.ts).
 >
@@ -13,7 +13,7 @@
 
 ## Summary
 
-| Category | AJV 8.x | @ytn/schvalid | Gap |
+| Category | AJV 8.x | @ytrynot/schvalid | Gap |
 |---|---|---|---|
 | Core 2020-12 keywords | ✅ Full | ✅ Full | None |
 | Internal $ref (pointer + anchor) | ✅ | ✅ | None |
@@ -42,7 +42,7 @@
 | Standalone JS (toJS) | ⚠️ (ajv-pack) | ✅ (native) | schvalid advantage |
 | Compilation speed | Baseline | ~4x faster (see `tests/bench/`) | schvalid advantage |
 
-**Bottom line**: @ytn/schvalid covers all core JSON Schema 2020-12 keywords with full parity.
+**Bottom line**: @ytrynot/schvalid covers all core JSON Schema 2020-12 keywords with full parity.
 It does not aim to replace AJV in all use cases — external $ref, custom keywords, async
 validation, type coercion, and vocabularies are intentionally out of scope for 0.2.x.
 schvalid's value proposition is: standalone compiled functions, DNA bytecode IR, parseFast
@@ -146,7 +146,7 @@ hybrid mode, and ~4x faster compilation (benchmark data in `tests/bench/`).
 | 2 | parseFast hybrid mode | N/A | `schvalid("fast")` | Runs fail-fast `validator()` first. On success, returns `{ success: true, data: value }` (same reference). On failure, falls back to full `parser()` for detailed errors. |
 | 3 | Three-mode compilation API | Single compile → validate function | `schvalid("validation" \| "parser" \| "fast" \| "all")` | Choose between boolean validation, full parsing, hybrid, or all three at once |
 | 4 | Parser mode with output construction | Validation only, no output | `parser()` returns `{ success, data }` with fresh `Object.create(null)` output | Similar to Zod's `parse()` contract. AJV never constructs output objects. |
-| 5 | Standalone JS output via toJS | Requires `ajv-pack` (semi-maintained) | `toJS()` from `@ytn/dna/toJs` | Core feature. Self-contained JS source code for both validator and parser. |
+| 5 | Standalone JS output via toJS | Requires `ajv-pack` (semi-maintained) | `toJS()` from `@ytrynot/dna/toJs` | Core feature. Self-contained JS source code for both validator and parser. |
 | 6 | Compact DNA representation | N/A | Numeric array with minimal memory | Sentinels (`-1`, `null`) for absent constraints. DNA can be cached, serialized, transferred. |
 | 7 | Compilation speed | Baseline | ~4x faster (see `tests/bench/`) | Stack-based traversal, no AST construction, no code gen during conversion |
 | 8 | Parser output size | N/A | ~30% smaller standalone function | Compact DNA opcode-based code generation |

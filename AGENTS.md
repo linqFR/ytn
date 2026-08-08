@@ -29,13 +29,13 @@ AGENTS MUST ONLY INSERT OR APPEND NEW INSTRUCTIONS.
 
 ---
 
-This is a monorepo for the **YTN project**, maintained by **linqFR**. It contains independent, lightweight, and type-safe TypeScript packages.
+This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It contains independent, lightweight, and type-safe TypeScript packages.
 
 ### Main Packages
 
-- **`@ytn/qb`** (`packages/query-builder`): A fluent SQLite query builder with Zod integration.
-- **`@ytn/czvo`** (`packages/cli-to-zvo`): A CLI contract definition and routing engine.
-- **`@ytn/wf`** (`packages/wf-runner`): A high-performance workflow router.
+- **`@ytrynot/qb`** (`packages/query-builder`): A fluent SQLite query builder with Zod integration.
+- **`@ytrynot/czvo`** (`packages/cli-to-zvo`): A CLI contract definition and routing engine.
+- **`@ytrynot/wf`** (`packages/wf-runner`): A high-performance workflow router.
 
 ### Monorepo Structure
 
@@ -76,8 +76,8 @@ This is a monorepo for the **YTN project**, maintained by **linqFR**. It contain
 - **Build all packages**: `npm.cmd run build` (uses workspaces)
 - **Run all tests**: `npm.cmd test` (uses workspaces)
 - **Work on a specific package**: Use `-w` or `--workspace` flag.
-  - Example: `npm.cmd test -w @ytn/qb`
-  - Example: `npm.cmd run build -w @ytn/czvo`
+  - Example: `npm.cmd test -w @ytrynot/qb`
+  - Example: `npm.cmd run build -w @ytrynot/czvo`
 
 ---
 
@@ -170,7 +170,7 @@ Reminder: Use Zod V4 exclusively.
 ## Commits & Versions
 
 - **Versioning**: We use **Changesets**. If you make changes that require a version bump, run `npx.cmd changeset` to create a markdown file in the `.changeset` directory.
-- **PR Title Format**: `[<project_name>] <Title>` (e.g., `[@ytn/qb] Fix recursive unwrapping of ZodOptional`).
+- **PR Title Format**: `[<project_name>] <Title>` (e.g., `[@ytrynot/qb] Fix recursive unwrapping of ZodOptional`).
 
 ---
 
@@ -210,11 +210,11 @@ Reminder: Use Zod V4 exclusively.
 
 ### Shared Toolbox (The "linqFR" way)
 
-All access to global utilities MUST use the namespaces defined in `@ytn/shared`:
+All access to global utilities MUST use the namespaces defined in `@ytrynot/shared`:
 
-- **Private Status**: `@ytn/shared` is a **strictly private** toolbox. It will NEVER be published to npm.
-- **Mandatory Inlining**: Because it handles internal logic and is not published, it MUST always be inlined into the `dist/` of public packages using `noExternal: ["@ytn/shared"]` in `tsup`. This ensures public packages remain standalone.
-- **Dependency Type**: To ensure it NEVER appears as a runtime requirement for end-users, `@ytn/shared` MUST be declared in **`devDependencies`**, never in `dependencies`.
+- **Private Status**: `@ytrynot/shared` is a **strictly private** toolbox. It will NEVER be published to npm.
+- **Mandatory Inlining**: Because it handles internal logic and is not published, it MUST always be inlined into the `dist/` of public packages using `noExternal: ["@ytrynot/shared"]` in `tsup`. This ensures public packages remain standalone.
+- **Dependency Type**: To ensure it NEVER appears as a runtime requirement for end-users, `@ytrynot/shared` MUST be declared in **`devDependencies`**, never in `dependencies`.
 - `safe.*`: Deterministic error management (`[err, res]`).
 - `lockobj.*`: Data integrity protection (Lockable Proxies).
 - `fsops.*`: Secure and deterministic I/O primitives.
@@ -244,7 +244,7 @@ All access to global utilities MUST use the namespaces defined in `@ytn/shared`:
 
 #### DSL & Inferred Contexts
 
-- **this-less Inference**: You can safely use method shorthand `name(args) { ... }` in object literal DSLs (like `@ytn/wf`) if `this` is not required; TS 6.0 inference is now stable for these "this-less" functions, unlike previous versions where they were often inferred as `unknown`.
+- **this-less Inference**: You can safely use method shorthand `name(args) { ... }` in object literal DSLs (like `@ytrynot/wf`) if `this` is not required; TS 6.0 inference is now stable for these "this-less" functions, unlike previous versions where they were often inferred as `unknown`.
 
 ---
 
@@ -283,17 +283,17 @@ All public packages have been migrated from `tsup` to `tsdown`.
 
 ### Migrated packages
 
-- `@ytn/dna`
-- `@ytn/schvalid`
-- `@ytn/qb`
-- `@ytn/czvo`
-- `@ytn/wf`
+- `@ytrynot/dna`
+- `@ytrynot/schvalid`
+- `@ytrynot/qb`
+- `@ytrynot/czvo`
+- `@ytrynot/wf`
 
 Each package uses a `tsdown.config.ts` that extends the shared `tsdown.config.base.ts` in the repository root.
 
 ### Known tooling workaround
 
-`rolldown-plugin-dts` versions prior to `0.25.1` drop the `type` modifier on type-only imports/exports when bundling declaration files. This causes `MISSING_EXPORT` errors for symbols imported from `@ytn/shared`, such as `$Awaitable` and `tsWFTools`.
+`rolldown-plugin-dts` versions prior to `0.25.1` drop the `type` modifier on type-only imports/exports when bundling declaration files. This causes `MISSING_EXPORT` errors for symbols imported from `@ytrynot/shared`, such as `$Awaitable` and `tsWFTools`.
 
 To prevent this, `package.json` pins `rolldown-plugin-dts` through an `overrides` field:
 
@@ -303,13 +303,13 @@ To prevent this, `package.json` pins `rolldown-plugin-dts` through an `overrides
 }
 ```
 
-This override is currently required for a clean build of `@ytn/czvo` and `@ytn/wf`.
+This override is currently required for a clean build of `@ytrynot/czvo` and `@ytrynot/wf`.
 
 ### Package-specific dts notes
 
-- `@ytn/dna`, `@ytn/schvalid`, and `@ytn/qb` build with the default `tsdown` dts configuration.
-- `@ytn/czvo` uses `dts: { resolver: "tsc", eager: true }` to resolve complex shared types.
-- `@ytn/wf` uses `dts: { eager: true }`.
+- `@ytrynot/dna`, `@ytrynot/schvalid`, and `@ytrynot/qb` build with the default `tsdown` dts configuration.
+- `@ytrynot/czvo` uses `dts: { resolver: "tsc", eager: true }` to resolve complex shared types.
+- `@ytrynot/wf` uses `dts: { eager: true }`.
 
 ### Conditions for removing the `overrides`
 
@@ -317,13 +317,13 @@ The `overrides` block may be removed when **all** of the following are true:
 
 1. `tsdown` releases a version that bundles or depends on `rolldown-plugin-dts >= 0.25.1`.
 2. Running `npm install` without the override still resolves `rolldown-plugin-dts` to `>= 0.25.1`.
-3. `npm.cmd run build -w @ytn/czvo` and `npm.cmd run build -w @ytn/wf` succeed with the default dependency tree.
-4. `npm.cmd run test -w @ytn/czvo` and `npm.cmd run test -w @ytn/wf` still pass after the override is removed.
+3. `npm.cmd run build -w @ytrynot/czvo` and `npm.cmd run build -w @ytrynot/wf` succeed with the default dependency tree.
+4. `npm.cmd run test -w @ytrynot/czvo` and `npm.cmd run test -w @ytrynot/wf` still pass after the override is removed.
 
 ### Test status after migration
 
-- `@ytn/dna` — passing
-- `@ytn/schvalid` — passing
-- `@ytn/qb` — passing
-- `@ytn/wf` — passing
-- `@ytn/czvo` — functional tests passing; 3 performance threshold tests are slightly flaky because they assert sub-millisecond timings. These are not build failures.
+- `@ytrynot/dna` — passing
+- `@ytrynot/schvalid` — passing
+- `@ytrynot/qb` — passing
+- `@ytrynot/wf` — passing
+- `@ytrynot/czvo` — functional tests passing; 3 performance threshold tests are slightly flaky because they assert sub-millisecond timings. These are not build failures.

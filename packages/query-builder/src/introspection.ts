@@ -1,4 +1,4 @@
-import { getZodMetaDeep, getZodShapeDeep } from "@ytn/shared/zod/zod-reflection.js";
+import { getZodMetaDeep, getZodShapeDeep } from "@ytrynot/shared/zod/zod-reflection.js";
 import { z } from "zod";
 
 /**

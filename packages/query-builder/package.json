@@ -1,5 +1,5 @@
 {
-  "name": "@ytn/qb",
+  "name": "@ytrynot/qb",
   "version": "2.0.3",
   "description": "SQLite Query Builder",
   "author": "linqFR",
@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
-    "@ytn/shared": "*",
+    "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
     "tsx": "^4.23.10",
     "zod": "^4.4.3"

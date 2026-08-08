@@ -1,6 +1,6 @@
 import { jschemaToDna } from "../src/index.js";
-import { validator as validatorFull } from "@ytn/dna/toJs";
-import { validator as validatorMin } from "@ytn/dna/toJs/min";
+import { validator as validatorFull } from "@ytrynot/dna/toJs";
+import { validator as validatorMin } from "@ytrynot/dna/toJs/min";
 
 const schema = {
   type: "object" as const,

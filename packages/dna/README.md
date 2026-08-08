@@ -1,10 +1,10 @@
-[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@ytn/dna.svg)](https://www.npmjs.com/package/@ytn/dna)
-[![Bundle size](https://packagephobia.com/badge?p=@ytn/dna)](https://packagephobia.com/result?p=@ytn/dna)
+[![CI](https://github.com/linqFR/ytrynot/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytrynot/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@ytrynot/dna.svg)](https://www.npmjs.com/package/@ytrynot/dna)
+[![Bundle size](https://packagephobia.com/badge?p=@ytrynot/dna)](https://packagephobia.com/result?p=@ytrynot/dna)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# @ytn/dna
+# @ytrynot/dna
 
 Zod-like schema API with serializable DNA bytecode and standalone compiled validators.
 
@@ -26,9 +26,9 @@ Zod-like schema API with serializable DNA bytecode and standalone compiled valid
 
 ## Overview
 
-`@ytn/dna` is the core validation engine that compiles DNA bytecode into high-performance JavaScript validators. The DNA format uses opcodes and numeric sentinels for optimal V8 performance.
+`@ytrynot/dna` is the core validation engine that compiles DNA bytecode into high-performance JavaScript validators. The DNA format uses opcodes and numeric sentinels for optimal V8 performance.
 
-This package provides the runtime validation engine only. For JSON Schema to DNA conversion, use `@ytn/schvalid`.
+This package provides the runtime validation engine only. For JSON Schema to DNA conversion, use `@ytrynot/schvalid`.
 
 DNA Schema provides two validation modes:
 
@@ -63,7 +63,7 @@ For detailed information about DNA opcodes, architecture, and implementation det
 ## Installation
 
 ```bash
-npm install @ytn/dna
+npm install @ytrynot/dna
 ```
 
 ## Usage
@@ -73,7 +73,7 @@ npm install @ytn/dna
 The DNA builder provides a Zod-like fluent API for constructing DNA bytecode schemas directly:
 
 ```typescript
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 
 const schema = dna.object({
   name: dna.string().min(2),
@@ -97,7 +97,7 @@ Supported builder methods:
 Every schema instance built with the `dna.*` builder exposes high-level validation and parsing methods. These are the **primary API** for most use cases — you do not need to compile DNA bytecode manually.
 
 ```typescript
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 
 const schema = dna.object({
   name: dna.string().min(2),
@@ -136,12 +136,12 @@ const asyncData = await schema.parseAsync({ name: "John", age: 30 });
 
 ### Compiling DNA to JavaScript Validators (Advanced)
 
-> **Note**: The `validator()`, `parser()`, and `toJS()` functions are low-level compilation utilities for exceptional use cases (e.g. pre-compiling DNA bytecode from `@ytn/schvalid`, serializing validators, or performance-critical paths). For everyday schema validation, prefer the [high-level schema methods](#validating-and-parsing-with-schema-methods) (`.validate()`, `.safeParse()`, `.parse()`).
+> **Note**: The `validator()`, `parser()`, and `toJS()` functions are low-level compilation utilities for exceptional use cases (e.g. pre-compiling DNA bytecode from `@ytrynot/schvalid`, serializing validators, or performance-critical paths). For everyday schema validation, prefer the [high-level schema methods](#validating-and-parsing-with-schema-methods) (`.validate()`, `.safeParse()`, `.parse()`).
 
 ```typescript
-import { validator, parser, toJS } from "@ytn/dna/toJs";
+import { validator, parser, toJS } from "@ytrynot/dna/toJs";
 
-// DNA bytecode (typically obtained from @ytn/schvalid)
+// DNA bytecode (typically obtained from @ytrynot/schvalid)
 const dna = /* DNA bytecode array */;
 
 // Fast boolean validator (fail-fast, no error collection)
@@ -160,7 +160,7 @@ const invalidResult = parse({ name: "Jo", age: -1 });
 ### Using the Low-Level toJS Compiler
 
 ```typescript
-import { toJS } from "@ytn/dna/toJs";
+import { toJS } from "@ytrynot/dna/toJs";
 
 const dna = /* DNA bytecode array */;
 
@@ -176,7 +176,7 @@ const parseFn = new Function(parseCode[0], parseCode.slice(1).join('\n'))();
 Use the second argument `enhancedMapper: true` when compiling DNA produced by the fluent `dna.*` builder API:
 
 ```typescript
-import { toJS } from "@ytn/dna/toJs";
+import { toJS } from "@ytrynot/dna/toJs";
 
 const dna = /* DNA bytecode array from dna builder */;
 const result = toJS(true, true)(dna) as { code: string[]; requiredExternals: string[] };
@@ -185,10 +185,10 @@ const fn = new Function(...result.code)({ /* required externals */ });
 
 ### Round-trip DNA Reconstruction
 
-`@ytn/dna` can rebuild a fluent builder schema from its own DNA bytecode. This is used by the `fromDna` roundtrip tests and lets you serialize, transfer, and restore a schema without touching JSON Schema:
+`@ytrynot/dna` can rebuild a fluent builder schema from its own DNA bytecode. This is used by the `fromDna` roundtrip tests and lets you serialize, transfer, and restore a schema without touching JSON Schema:
 
 ```typescript
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 // fromDna is an internal roundtrip utility (not part of the public package exports).
 
 const original = dna.object({
@@ -260,7 +260,7 @@ const impl = rebuiltFn.implement((s: string) => s.length);  // ✓ typed
 
 ## Comparison with Zod
 
-@ytn/dna covers ~95% of the Zod v4 API with full parity — all primitives, string formats,
+@ytrynot/dna covers ~95% of the Zod v4 API with full parity — all primitives, string formats,
 coercions, transforms, refinements, unions, objects, arrays, tuples, records, maps, sets,
 functions, lazy, wrappers, brand, readonly, stringbool, template literals, and JSON Schema
 export. Key differences:
@@ -278,7 +278,7 @@ Full feature-by-feature comparison: [docs/zod-comparison.md](docs/zod-comparison
 DNA compiles schemas into standalone JavaScript functions. Any value referenced inside `.transform()`, `.refine()`, `.catch()`, or `dna.jwt()` that is not a parameter or a global must be declared as an **external** so it can be injected at compile time.
 
 ```typescript
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 
 const myHelper = (v: string) => v.toUpperCase();
 

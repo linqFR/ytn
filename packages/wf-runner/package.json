@@ -1,7 +1,7 @@
 {
-  "name": "@ytn/wf",
+  "name": "@ytrynot/wf",
   "version": "0.1.0",
-  "description": "Workflow Router for the YTN project",
+  "description": "Workflow Router for the ytrynot project",
   "type": "module",
   "scripts": {
     "build": "tsup",
@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
-    "@ytn/shared": "*",
+    "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
     "tsx": "^4.23.10",
     "zod": "^4.4.3"

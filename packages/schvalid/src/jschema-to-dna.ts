@@ -1,8 +1,8 @@
-import { isPureObject } from "@ytn/shared/js/object-utils.js";
-import { isValidRegex } from "@ytn/shared/regex/is-valid-regex.js";
+import { isPureObject } from "@ytrynot/shared/js/object-utils.js";
+import { isValidRegex } from "@ytrynot/shared/regex/is-valid-regex.js";
 import { resolveUri } from "./dna-helpers.js";
 import { fastMergeArrays } from "./utils.js";
-import type { tsDnaSeq } from "@ytn/dna/toJs";
+import type { tsDnaSeq } from "@ytrynot/dna/toJs";
 
 export class OutOfScopeError extends Error {
   constructor(feature: string) {

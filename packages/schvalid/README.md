@@ -1,10 +1,10 @@
-[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@ytn/schvalid.svg)](https://www.npmjs.com/package/@ytn/schvalid)
-[![Bundle size](https://packagephobia.com/badge?p=@ytn/schvalid)](https://packagephobia.com/result?p=@ytn/schvalid)
+[![CI](https://github.com/linqFR/ytrynot/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytrynot/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@ytrynot/schvalid.svg)](https://www.npmjs.com/package/@ytrynot/schvalid)
+[![Bundle size](https://packagephobia.com/badge?p=@ytrynot/schvalid)](https://packagephobia.com/result?p=@ytrynot/schvalid)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# @ytn/schvalid
+# @ytrynot/schvalid
 
 JSON Schema 2020-12 validation with compiled standalone JS functions.
 
@@ -28,12 +28,12 @@ JSON Schema 2020-12 validation with compiled standalone JS functions.
 
 ## Overview
 
-`@ytn/schvalid` provides JSON Schema to DNA bytecode conversion and validation using the high-performance DNA engine from `@ytn/dna`. It serves as the primary interface for JSON Schema validation in the YTN ecosystem.
+`@ytrynot/schvalid` provides JSON Schema to DNA bytecode conversion and validation using the high-performance DNA engine from `@ytrynot/dna`. It serves as the primary interface for JSON Schema validation in the ytrynot ecosystem.
 
 ## Installation
 
 ```bash
-npm install @ytn/schvalid
+npm install @ytrynot/schvalid
 ```
 
 ## Limitations
@@ -42,7 +42,7 @@ npm install @ytn/schvalid
 
 ## Comparison with AJV
 
-@ytn/schvalid covers all core JSON Schema 2020-12 keywords with full parity — types,
+@ytrynot/schvalid covers all core JSON Schema 2020-12 keywords with full parity — types,
 object/array constraints, const/enum, allOf/anyOf/oneOf, if/then/else, not,
 patternProperties, dependentRequired/Schemas, internal $ref, $id, $defs, discriminator.
 It does not aim to replace AJV in all use cases. Key differences:
@@ -61,7 +61,7 @@ Full feature-by-feature comparison: [docs/ajv-comparison.md](docs/ajv-comparison
 ### Converting JSON Schema to DNA
 
 ```typescript
-import { jschemaToDna } from "@ytn/schvalid";
+import { jschemaToDna } from "@ytrynot/schvalid";
 
 const schema = {
   type: "object",
@@ -80,7 +80,7 @@ const dna = jschemaToDna(schema);
 For performance-critical scenarios, use the `schvalid()` builder API to compile a schema once and reuse the validation function:
 
 ```typescript
-import { schvalid } from "@ytn/schvalid";
+import { schvalid } from "@ytrynot/schvalid";
 
 const schema = {
   type: "object",
@@ -107,7 +107,7 @@ The `schvalid()` function accepts four modes:
 - **"all"**: Returns an object with `validate`, `parse`, and `parseFast` functions (compiled once, shared instances)
 
 ```typescript
-import { schvalid } from "@ytn/schvalid";
+import { schvalid } from "@ytrynot/schvalid";
 
 // Get validator, parser, and the fast hybrid parser
 const compiler = schvalid("all");
@@ -124,7 +124,7 @@ parseFast(data); // same shape as parse(), but data===input on the happy path (n
 validates first (cheap, fail-fast) and only re-runs the full parser if validation fails:
 
 ```typescript
-import { schvalid } from "@ytn/schvalid";
+import { schvalid } from "@ytrynot/schvalid";
 
 const parseFast = schvalid("fast").compile(schema);
 
@@ -144,7 +144,7 @@ copy of the validated data.
 
 ```typescript
 // Get validate + parse + parseFast in one compile pass (single validate/parse compilation,
-// shared between parse() and parseFast() — see @ytn/schvalid AGENTS.md for the invariant)
+// shared between parse() and parseFast() — see @ytrynot/schvalid AGENTS.md for the invariant)
 const { validate, parse, parseFast } = schvalid("all").compile(schema);
 ```
 
@@ -153,7 +153,7 @@ const { validate, parse, parseFast } = schvalid("all").compile(schema);
 DNA Schema supports the OpenAPI 3.1 `discriminator` keyword for optimized validation of polymorphic schemas:
 
 ```typescript
-import { schvalid } from "@ytn/schvalid";
+import { schvalid } from "@ytrynot/schvalid";
 
 const schema = {
   type: "object",
@@ -248,7 +248,7 @@ The full test suite includes:
 
 ## Dependencies
 
-- `@ytn/dna`: \* (workspace dependency)
+- `@ytrynot/dna`: \* (workspace dependency)
 
 ## License
 

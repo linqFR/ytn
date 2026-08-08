@@ -1,4 +1,4 @@
-# AGENTS.md (Package: @ytn/czvo)
+# AGENTS.md (Package: @ytrynot/czvo)
 
 > [!IMPORTANT]
 > This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**.

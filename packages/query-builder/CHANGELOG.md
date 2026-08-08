@@ -1,10 +1,10 @@
-# @ytn/qb
+# @ytrynot/qb
 
 ## 2.0.3
 
 ### Patch Changes
 
-- 240ebbf: "@ytn/dna": Type-system refactor, new combinators, and validator performance improvements since the architecture changeset.
+- 240ebbf: "@ytrynot/dna": Type-system refactor, new combinators, and validator performance improvements since the architecture changeset.
 
   - **Breaking**: Renames exported interface `IDnaType` → `DnaSomeType` to comply with naming conventions (`I*` is reserved for Input/Config data).
   - **Breaking**: Removes the `infer<T>` helper type alias from `helpers.types.ts` (use `$Output<T>` instead).
@@ -19,19 +19,19 @@
   - Adds comprehensive `docs/dnatype-inventory.md` (2186 lines) documenting the full DnaType architecture and type-system.
   - Bumps `jose` to ^6.2.7, adds `tsconfig.diag.json` for focused diagnostics, centralizes tsconfig include patterns.
 
-  "@ytn/schvalid": Performance tooling and testing infrastructure.
+  "@ytrynot/schvalid": Performance tooling and testing infrastructure.
 
   - Adds `perf/runtime-function-analyzer.ts` (258 lines) for inspecting generated validator/parser function characteristics.
   - Clarifies benchmark results documentation in README.
   - Adds JSON Schema Test Suite as git submodule for testing.
   - Migrates build back to tsup and cleans up imports.
 
-  "@ytn/qb": Build infrastructure and configuration.
+  "@ytrynot/qb": Build infrastructure and configuration.
 
   - Migrates build from tsup to tsdown and back to tsup.
   - Centralizes tsconfig include patterns in `tsconfig.base.json`.
 
-  "@ytn/czvo": Codec refactor and build infrastructure.
+  "@ytrynot/czvo": Codec refactor and build infrastructure.
 
   - Refactors `makeEmptyTo` in `zod-codecs.ts`: removes the `z.coerce.string().pipe(...)` wrapper in favor of a direct `z.preprocess(...)` with explicit return type annotation. Non-string inputs are no longer coerced to string before preprocessing — they fall through to the `""` branch (same as before for non-string `typeof` checks).
   - Reorganizes performance tests from `tests/performance/` to `perf/` (standalone tsx scripts).
@@ -44,12 +44,12 @@
 
 - bac7fd2: # Major stabilization and Zod V4 compliance
 
-  ## @ytn/qb
+  ## @ytrynot/qb
 
   - Stabilized `Introspector.getSchemaShape` to correctly handle ZodPipe (transforms/preprocess) and ZodLazy schemas using Zod V4 public APIs.
   - Implemented "First Object Wins" structural discovery for DDL generation.
 
-  ## @ytn/czvo
+  ## @ytrynot/czvo
 
   - Removed obsolete `intercept` (global flags) property from codebase and tests (feature removed in v2.1.0).
 
@@ -71,7 +71,7 @@
 
 - 3353455: # Major Engine Refactor, Architecture Reorganization & Breaking Parameter Changes
 
-  ## @ytn/czvo (v2.0.0)
+  ## @ytrynot/czvo (v2.0.0)
 
   - **Engine Refactor**: Unified recursive Proxy logic into a single `bridgeZod` engine. Enforced strict Zod v4 nominal compliance while maintaining full API method chaining.
   - **Breaking API Changes**: Renamed `listof` to `list` and updated `pico` API methods to function calls for better consistency.
@@ -79,7 +79,7 @@
   - **Public API**: Enhanced `index.ts` with explicit type exports (`OResponse`, `OHelpData`, `tsProcessedContract`). Fixed internal `Contract` import path.
   - **Tests**: Comprehensive suite expansion with dedicated tests for `codecs`, `dsl-conversion`, and `contract-schema` validation. Added `zvo-test-gate.ts` to streamline assertions.
 
-  ## @ytn/qb (v2.0.0)
+  ## @ytrynot/qb (v2.0.0)
 
   - **Query Cloning**: Added `.clone()` method to the `Builder` to allow safe reuse of base queries without mutation.
   - **Breaking Search Change**: Switched `.search()` to use named parameters (`@search_term`) instead of the traditional `?` to improve parameter safety and consistency.

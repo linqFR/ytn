@@ -1,6 +1,6 @@
 import { Ajv2020 as Ajv } from "ajv/dist/2020.js";
 import { z } from "zod";
-import { validator as validatorDnaNormal, parser as parserDnaNormal } from "@ytn/dna/toJs";
+import { validator as validatorDnaNormal, parser as parserDnaNormal } from "@ytrynot/dna/toJs";
 import { jschemaToDna, schvalid as schvalidNormal } from "../src/index.js";
 
 type BenchmarkStats = {
@@ -190,7 +190,7 @@ const zodSchema = z.object({
   console.log("=".repeat(90));
   console.log("COMPILATION PERFORMANCE COMPARISON (ms per compilation)");
   console.log("Stats: mean = average; median = middle value; p95 = 95% of measurements are at or below this value (5% are slower); stddev = dispersion.");
-  console.log("NOTE: 'DNA Validation' and 'DNA Parser' are low-level @ytn/dna modes included for internal comparison with Zod.");
+  console.log("NOTE: 'DNA Validation' and 'DNA Parser' are low-level @ytrynot/dna modes included for internal comparison with Zod.");
   console.log(`Workload: ${runs} runs x ${iterations.toLocaleString()} schemas = ${(runs * iterations).toLocaleString()} compilations per mode`);
   console.log("=".repeat(90));
   console.log("| Mode               | mean (ms)    | median (ms) | p95 (ms) | stddev (ms) |");

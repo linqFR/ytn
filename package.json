@@ -1,7 +1,7 @@
 {
-  "name": "ytn",
+  "name": "ytrynot",
   "private": true,
-  "description": "Monorepo for the YTN project",
+  "description": "Monorepo for the ytrynot project",
   "type": "module",
   "workspaces": [
     "packages/*",

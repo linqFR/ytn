@@ -100,7 +100,7 @@ export function serializeToFile(
 
   if (filePath.endsWith(".ts") || filePath.endsWith(".js")) {
     // For TS/JS, we wrap the JSON in an exported constant for easy re-import.
-    const code = `/** @type {import("@ytn/czvo").IExportedContract} */\nexport const contract = ${json};`;
+    const code = `/** @type {import("@ytrynot/czvo").IExportedContract} */\nexport const contract = ${json};`;
     fs.writeFileSync(filePath, code, "utf8");
   } else {
     fs.writeFileSync(filePath, json, "utf8");

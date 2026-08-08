@@ -1,5 +1,5 @@
 /**
- * @ytn/dna toJS compiler — active performance / correctness backlog
+ * @ytrynot/dna toJS compiler — active performance / correctness backlog
  *
  * Cleaned on 2026-08-05. Old items marked FIXED or superseded by the
  * builder/WrapperImpl refactor were removed; the previous version is in git

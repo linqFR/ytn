@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { unwrapZodDeep } from "@ytn/shared/zod/zod-reflection.js";
-import { protectObject } from "@ytn/shared/js/guarded_object.js";
+import { unwrapZodDeep } from "@ytrynot/shared/zod/zod-reflection.js";
+import { protectObject } from "@ytrynot/shared/js/guarded_object.js";
 import type { tsGateResult } from "./gate.types.js";
 import type { tsWFSendTools, tsWFTools, tsWFToolSendFn } from "./tools.type.js";
 

@@ -1,5 +1,5 @@
 import { sGateResult } from "../core/constants.js";
-import type { $Awaitable } from "@ytn/shared/types/async.type.js"
+import type { $Awaitable } from "@ytrynot/shared/types/async.type.js"
 
 export type tsWFGateName = string;
 export type tsWFOnMapKey = string;

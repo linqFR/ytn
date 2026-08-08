@@ -1,4 +1,4 @@
-import { catchAsyncFn } from "@ytn/shared/safe/safemode.js";
+import { catchAsyncFn } from "@ytrynot/shared/safe/safemode.js";
 import { execute } from "../runtime/execute.js";
 import { buildHelp } from "../output/help-builder.js";
 import { printHelp } from "../output/help-printer.js";

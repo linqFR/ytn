@@ -232,7 +232,7 @@ export function uBuildRuntimePerfReport(analysis: tsFunctionAnalysis[]): string 
     "5. Repeated `Array.isArray(v)` + `typeof v === 'object'` checks — a single monomorphic type guard at entry can shrink the generated body.",
     "",
     "## Note",
-    "These are static observations on the compiled source of the generated JS functions. Architecture-level changes should be evaluated against the DNA-to-JS compiler in @ytn/dna before applying.",
+    "These are static observations on the compiled source of the generated JS functions. Architecture-level changes should be evaluated against the DNA-to-JS compiler in @ytrynot/dna before applying.",
   );
 
   return lines.join("\n");

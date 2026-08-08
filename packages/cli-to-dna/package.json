@@ -1,5 +1,5 @@
 {
-  "name": "@ytn/cdna",
+  "name": "@ytrynot/cdna",
   "version": "0.2.0",
   "description": "Command-line tool to compile JSON Schema into standalone JS CLI validator and parser using DNA bytecodes.",
   "author": "linqFR",
@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "@ytn/dna": "*",
+    "@ytrynot/dna": "*",
     "tsup": "^8.5.1",
     "tsx": "^4.23.10"
   }

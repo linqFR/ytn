@@ -9,7 +9,7 @@ describe("🧪 Negative  Flags (--no-flag) Support", () => {
     cli: {
       flags: {
         verbose: { type: "boolean", short: "v" },
-        "ytn-ui": { type: "boolean" },
+        "ytrynot-ui": { type: "boolean" },
       },
     },
     targets: {
@@ -40,7 +40,7 @@ describe("🧪 Negative  Flags (--no-flag) Support", () => {
   });
 
   it("should handle Negative  flags with kebab-case mapping", () => {
-    const res = parser(["--no-ytn-ui"]);
+    const res = parser(["--no-ytrynot-ui"]);
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data.data.ytnUi).toBe(false);

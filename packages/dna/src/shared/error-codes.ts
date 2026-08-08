@@ -2,7 +2,7 @@
 // DNA Error Codes (runtime constants for Zod compatibility)
 // ============================================
 
-import { stringify } from "@ytn/shared/js/json.js";
+import { stringify } from "@ytrynot/shared/js/json.js";
 import type { tsDnaInnerMeta, tsDnaMeta } from "./meta-context.type.js";
 
 // Error codes enum for runtime use

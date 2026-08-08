@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { jschemaToDna, validator, parser } from "../../src/index.js";
-import { toJS } from "@ytn/dna/toJs";
+import { toJS } from "@ytrynot/dna/toJs";
 
 /**
- * Regression tests derived from a deep-failure analysis session of @ytn/dna and
- * @ytn/schvalid. Each test guards a behavior that was flagged as a potential
+ * Regression tests derived from a deep-failure analysis session of @ytrynot/dna and
+ * @ytrynot/schvalid. Each test guards a behavior that was flagged as a potential
  * flaw by static analysis but verified to be correct at runtime; keeping them
  * as real Vitest cases prevents future regressions in the toJS codegen and the
  * jschemaToDna converter.

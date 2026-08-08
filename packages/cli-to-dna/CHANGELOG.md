@@ -1,4 +1,4 @@
-# @ytn/cdna
+# @ytrynot/cdna
 
 ## 0.2.0
 

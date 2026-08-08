@@ -1,6 +1,6 @@
-# @ytn/shared/js
+# @ytrynot/shared/js
 
-Core JavaScript utility layer for the YTN monorepo. This directory contains agnostic, high-performance helpers for data manipulation, logic isolation, and execution.
+Core JavaScript utility layer for the ytrynot monorepo. This directory contains agnostic, high-performance helpers for data manipulation, logic isolation, and execution.
 
 ## Table of Contents
 

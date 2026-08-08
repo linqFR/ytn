@@ -1,4 +1,4 @@
-# @ytn/wf
+# @ytrynot/wf
 
 High-performance Agentic Workflow Runner based on Zod v4. Orchestrate workflows and state machines with strict type safety at every step.
 
@@ -12,7 +12,7 @@ High-performance Agentic Workflow Runner based on Zod v4. Orchestrate workflows 
 
 ## Introduction
 
-`@ytn/wf` allows you to define a workflow graph (a state machine) where:
+`@ytrynot/wf` allows you to define a workflow graph (a state machine) where:
 - Each step is strictly validated by a Zod schema.
 - Business logic is executed within a `gate` function.
 - Step transitions are handled by sending signals to the next step, preventing anarchic mutations.
@@ -20,9 +20,9 @@ High-performance Agentic Workflow Runner based on Zod v4. Orchestrate workflows 
 
 ## Installation
 
-Within a YTN monorepo / npm workspaces environment:
+Within a ytrynot monorepo / npm workspaces environment:
 ```bash
-npm install @ytn/wf
+npm install @ytrynot/wf
 ```
 
 ## How To (Usage Guide)
@@ -40,7 +40,7 @@ Each step must implement:
 
 ```typescript
 import { z } from "zod";
-import { WFRunner } from "@ytn/wf";
+import { WFRunner } from "@ytrynot/wf";
 
 const workflowSpec = {
   // Initial step

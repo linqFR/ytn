@@ -1,4 +1,4 @@
-# @ytn/shared/safe
+# @ytrynot/shared/safe
 
 Deterministic Error Management and Orchestration layer. This package implements the **SafeMode** philosophy, favoring tuples over exceptions to ensure linear and predictable code execution.
 
@@ -27,7 +27,7 @@ In the **linqFR** ecosystem, we avoid `try/catch` cascades and unhandled excepti
 
 ## Dual Result Styles and Fluent API
 
-YTN's SafeMode supports two interchangeable representations for results. Results are **branded objects** that behave like arrays but provide a **Fluent API** for easy transformation.
+ytrynot's SafeMode supports two interchangeable representations for results. Results are **branded objects** that behave like arrays but provide a **Fluent API** for easy transformation.
 
 ### 1. Tuple Style (Default / Array-like)
 
@@ -35,7 +35,7 @@ Optimized for fast destructuring and linear flow.
 `type SafeResult<T> = [error: unknown, result: T | undefined]`
 
 ```typescript
-import { safeParse } from "@ytn/shared/js/json.js";
+import { safeParse } from "@ytrynot/shared/js/json.js";
 const [err, res] = safeParse(jsonString);
 ```
 
@@ -44,7 +44,7 @@ const [err, res] = safeParse(jsonString);
 Optimized for named access. You can convert any result instantly using the **`.toObject`** getter (no parentheses required).
 
 ```typescript
-import { safeParseYaml } from "@ytn/shared/template/yaml-parser.js";
+import { safeParseYaml } from "@ytrynot/shared/template/yaml-parser.js";
 
 // Fluent chaining with getters
 const result = safeParseYaml(rawYaml).toObject;
@@ -67,7 +67,7 @@ if (result.success) {
 The guards **`isSuccess()`** and **`isFailure()`** work transparently with **BOTH** styles (Tuples and Objects).
 
 ```typescript
-import { isSuccess } from "@ytn/shared/safe/safemode.js";
+import { isSuccess } from "@ytrynot/shared/safe/safemode.js";
 
 if (isSuccess(anyResult)) {
   // TypeScript correctly narrows the type regardless of format

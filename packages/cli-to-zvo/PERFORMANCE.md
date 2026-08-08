@@ -1,12 +1,12 @@
 # Performance & Technical Considerations
 
-This document provides detailed technical information about performance characteristics and deployment considerations for `@ytn/czvo`.
+This document provides detailed technical information about performance characteristics and deployment considerations for `@ytrynot/czvo`.
 
 ## Data Sources & Methodology
 
 The performance data in this document comes from three sources:
 
-1. **Internal Benchmarks**: Measured using `performance.now()` with 10,000 iterations on Node.js v25.9.0 on Windows 11 (hardware specs: Intel64 Family 6 Model 158 ~3600 MHz, 16GB RAM). These include parsing/validation, compilation, and routing measurements for `@ytn/czvo` only. Source: `tests/benchmarks/cli-libraries-comparison.test.ts`
+1. **Internal Benchmarks**: Measured using `performance.now()` with 10,000 iterations on Node.js v25.9.0 on Windows 11 (hardware specs: Intel64 Family 6 Model 158 ~3600 MHz, 16GB RAM). These include parsing/validation, compilation, and routing measurements for `@ytrynot/czvo` only. Source: `tests/benchmarks/cli-libraries-comparison.test.ts`
 
 2. **External Benchmarks**: Data from published articles comparing popular CLI frameworks (Commander, Yargs, Oclif). These measure startup time (cold start), not per-call performance. Source: "CLI Framework Comparison: Commander vs Yargs vs Oclif" (https://www.grizzlypeaksoftware.com/library/cli-framework-comparison-commander-vs-yargs-vs-oclif-utxlf9v9). Platform: 2023 MacBook Pro, Node.js 20.
 
@@ -98,7 +98,7 @@ For CLI usage, the total time (~0.05ms per call) is virtually unnoticeable to us
 
 ### Internal Benchmarks (No External Libraries)
 
-The following benchmarks measure `@ytn/czvo` performance against a manual parsing baseline. For comparisons with other CLI libraries (commander.js, yargs, oclif), additional benchmarks would need to be created with those libraries installed.
+The following benchmarks measure `@ytrynot/czvo` performance against a manual parsing baseline. For comparisons with other CLI libraries (commander.js, yargs, oclif), additional benchmarks would need to be created with those libraries installed.
 
 #### Test Conditions
 - **Contract**: 10 targets with mixed string/boolean fields
@@ -111,9 +111,9 @@ The following benchmarks measure `@ytn/czvo` performance against a manual parsin
 
 | Operation | Time per call | Notes |
 |-----------|---------------|-------|
-| @ytn/czvo parsing + validation | 0.0156ms | Full pipeline with pre-compiled validator |
-| @ytn/czvo compilation | 1.80ms | One-time cost at contract creation |
-| @ytn/czvo routing only | 0.000031ms | Pure object property lookup |
+| @ytrynot/czvo parsing + validation | 0.0156ms | Full pipeline with pre-compiled validator |
+| @ytrynot/czvo compilation | 1.80ms | One-time cost at contract creation |
+| @ytrynot/czvo routing only | 0.000031ms | Pure object property lookup |
 | Manual parsing baseline | 0.000222ms | Simple argument parsing without validation |
 
 #### Analysis
@@ -140,9 +140,9 @@ The following data comes from external benchmarks comparing popular CLI framewor
 | Commander | 18-25ms | 0 |
 | Yargs | 35-48ms | ~7 |
 | Oclif | 85-135ms | ~30 |
-| @ytn/czvo | 1.50ms (avg) | Zod (peer dependency) |
+| @ytrynot/czvo | 1.50ms (avg) | Zod (peer dependency) |
 
-**Note**: @ytn/czvo benchmark measures contract creation + execution (comparable methodology), measured on Node.js v24+ with 1000 iterations.
+**Note**: @ytrynot/czvo benchmark measures contract creation + execution (comparable methodology), measured on Node.js v24+ with 1000 iterations.
 
 #### Install Size
 
@@ -151,18 +151,18 @@ The following data comes from external benchmarks comparing popular CLI framewor
 | Commander | 180 KB | 0 |
 | Yargs | 850 KB | ~7 |
 | @oclif/core | 12 MB | ~30 |
-| @ytn/czvo (core) | ~69 KB | Zod (peer dependency) |
+| @ytrynot/czvo (core) | ~69 KB | Zod (peer dependency) |
 
-**Note on Zod bundle size**: Zod v4 full is ~17KB gzipped (~50-70KB uncompressed). With tree-shaking, only used validators are included. Total bundle impact with @ytn/czvo + Zod is approximately 120-140KB uncompressed (~100-120KB with tree-shaking).
+**Note on Zod bundle size**: Zod v4 full is ~17KB gzipped (~50-70KB uncompressed). With tree-shaking, only used validators are included. Total bundle impact with @ytrynot/czvo + Zod is approximately 120-140KB uncompressed (~100-120KB with tree-shaking).
 
 #### Comparison Notes
 
-- **@ytn/czvo compilation (1.80ms)** is comparable to Commander's startup overhead (18-25ms) and significantly faster than Yargs (35-48ms) and Oclif (85-135ms).
-- **@ytn/czvo parsing + validation (0.0156ms)** is per-call performance, not startup time. For comparison, the external benchmarks don't provide per-call parsing metrics.
-- **Validation**: @ytn/czvo provides comprehensive Zod validation (type safety, regex, constraints), while Commander only provides basic parsing and type coercion without schema validation.
-- **Dependencies**: @ytn/czvo has minimal dependencies (Zod as peer dependency), while Commander is truly zero-dependency.
+- **@ytrynot/czvo compilation (1.80ms)** is comparable to Commander's startup overhead (18-25ms) and significantly faster than Yargs (35-48ms) and Oclif (85-135ms).
+- **@ytrynot/czvo parsing + validation (0.0156ms)** is per-call performance, not startup time. For comparison, the external benchmarks don't provide per-call parsing metrics.
+- **Validation**: @ytrynot/czvo provides comprehensive Zod validation (type safety, regex, constraints), while Commander only provides basic parsing and type coercion without schema validation.
+- **Dependencies**: @ytrynot/czvo has minimal dependencies (Zod as peer dependency), while Commander is truly zero-dependency.
 
-**Important**: These benchmarks measure different metrics. The external benchmarks measure cold startup time (framework initialization), while @ytn/czvo benchmarks measure per-call parsing and validation performance.
+**Important**: These benchmarks measure different metrics. The external benchmarks measure cold startup time (framework initialization), while @ytrynot/czvo benchmarks measure per-call parsing and validation performance.
 
 ---
 

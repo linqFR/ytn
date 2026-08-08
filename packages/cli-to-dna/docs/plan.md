@@ -1,17 +1,17 @@
 # cli-to-dna package plan
 
-Create a new `@ytn/cdna` package that ports the `pico` DSL and `cli-to-zvo` runtime from Zod to DNA, starting with a sandbox prototype and then hardening the package.
+Create a new `@ytrynot/cdna` package that ports the `pico` DSL and `cli-to-zvo` runtime from Zod to DNA, starting with a sandbox prototype and then hardening the package.
 
 ## Context
 
-`@ytn/czvo` (`packages/cli-to-zvo`) already proves the concept with `pico-zod`:
+`@ytrynot/czvo` (`packages/cli-to-zvo`) already proves the concept with `pico-zod`:
 
 - `pico` is a sealed Zod-based DSL for CLI argument schemas (`string`, `number`, `bool`, `url`, `json`, `list`...)
 - A string DSL is compiled into Zod schemas (`dsl-converter.zod.ts`)
 - `bridgeZod`/`sealZod` restricts the API to CLI-safe modifiers
 - `execute.ts` runs `node:util.parseArgs` and validates with the precompiled Zod schema
 
-The goal is to offer the same developer experience on top of `@ytn/dna`.
+The goal is to offer the same developer experience on top of `@ytrynot/dna`.
 
 ## Status
 
@@ -19,32 +19,32 @@ The goal is to offer the same developer experience on top of `@ytn/dna`.
 - [x] Phase 0: `DnaXorUnion` / `.xor()` and `DnaDiscriminatedUnion` / `discriminator` opcode confirmed; coercion and `toJS` validation verified through `pico` tests
 - [x] Phase 1: `pico` DSL prototype working (moved from sandbox to `src/pico.ts`)
 - [x] Phase 2: `packages/cli-to-dna` package skeleton created
-- [ ] Build with `tsdown` `buildConfig` is blocked: `@ytn/dna` has no `.d.ts` declarations, so `.d.ts` generation for `@ytn/cdna` must be disabled
+- [ ] Build with `tsdown` `buildConfig` is blocked: `@ytrynot/dna` has no `.d.ts` declarations, so `.d.ts` generation for `@ytrynot/cdna` must be disabled
 - [ ] Phase 3: `createContract` and `execute` runtime working with `node:util.parseArgs`
 - [ ] Phase 4: `discriminator` routing optimization (pending)
 - [ ] Phase 5: hardening, tests, optional `.d.ts` generation (pending)
 
 ## Constraints
 
-- **Do not modify `@ytn/dna` in any way.** `cli-to-dna` must be built strictly on top of the existing DNA API.
+- **Do not modify `@ytrynot/dna` in any way.** `cli-to-dna` must be built strictly on top of the existing DNA API.
 - If the implementation requires an opcode, method, type, or behavior that does not already exist in DNA, stop and ask the user instead of patching DNA.
 - DNA gaps are blockers to escalate, not workarounds to implement in place.
 
 ## Notes from implementation
 
-- Package: `packages/cli-to-dna` (`@ytn/cdna`).
+- Package: `packages/cli-to-dna` (`@ytrynot/cdna`).
 - `DnaXOR` is not needed: `DnaXorUnion` / `.xor()` already exist; `pico.xor` works.
 - `DnaDiscriminatedUnion` exists and can be used later for O(1) subcommand routing.
 - `toJS`/`safeParse` works for CLI coercion.
-- Workarounds applied without touching `@ytn/dna`:
+- Workarounds applied without touching `@ytrynot/dna`:
   - CSV lists use per-item `dna.preprocess` with custom `toNumber`/`toBool` helpers to avoid a `coerce`-inside-array codegen issue.
-  - `tsdown.config.ts` now uses the repo-global `buildConfig` helper; the ESM build succeeds but `.d.ts` generation must be disabled because `@ytn/dna` emits no declaration file.
+  - `tsdown.config.ts` now uses the repo-global `buildConfig` helper; the ESM build succeeds but `.d.ts` generation must be disabled because `@ytrynot/dna` emits no declaration file.
   - `pico.ts` now relies on DNA's own parameter types (`Parameters<typeof dna.…>`); `IBaseSchema`/`IPico`/`isPico`/`picoTypeToDna`/`define` were removed and the Proxy was replaced by a plain object. Casts are reduced to the unavoidable `dna.looseObject`/result casts in `contract.ts`/`execute.ts`.
 
 ## Open questions (answered)
 
-1. **Package name and location**: `packages/cli-to-dna` + `@ytn/cdna`.
-2. **Reuse `cli-to-zvo`**: no; fresh implementation using only `@ytn/dna`.
+1. **Package name and location**: `packages/cli-to-dna` + `@ytrynot/cdna`.
+2. **Reuse `cli-to-zvo`**: no; fresh implementation using only `@ytrynot/dna`.
 3. **`DnaXOR`**: already exists as `DnaXorUnion` / `.xor()`; no DNA change needed.
 4. **Discriminator optimization**: defer to Phase 4; `DnaDiscriminatedUnion` is available.
 5. **First deliverable**: `pico`-like API + `createContract`/`execute` runtime.
@@ -61,7 +61,7 @@ The goal is to offer the same developer experience on top of `@ytn/dna`.
 
 ### Phase 0 — DNA capability audit
 
-- Confirm which pico types already exist in `@ytn/dna` (`DnaString`, `DnaNumber`, `DnaBoolean`, `DnaStringBool`, `DnaDate`, `DnaUrl`, `DnaUuid`, `DnaJson`, `DnaArray`, `DnaTuple`, `DnaUnion`, `DnaLiteral`, `DnaEnum`, `DnaObject`...)
+- Confirm which pico types already exist in `@ytrynot/dna` (`DnaString`, `DnaNumber`, `DnaBoolean`, `DnaStringBool`, `DnaDate`, `DnaUrl`, `DnaUuid`, `DnaJson`, `DnaArray`, `DnaTuple`, `DnaUnion`, `DnaLiteral`, `DnaEnum`, `DnaObject`...)
 - Confirm `DnaXorUnion` and the `.xor()` method already provide oneOf semantics; confirm `DnaDiscriminatedUnion` handles discriminator cases
 - Confirm `coerce` support for number, bigint, date, boolean from strings
 - Confirm `toJS` output can validate a plain `parseArgs` result object
@@ -81,7 +81,7 @@ The goal is to offer the same developer experience on top of `@ytn/dna`.
 
 - Create `packages/cli-to-dna/package.json`, `tsconfig.json`, `tsup.config.ts`
 - Add workspace reference in root `package.json` if needed
-- Wire `@ytn/dna` as dependency
+- Wire `@ytrynot/dna` as dependency
 - Add `src/index.ts`, `src/editor.ts`, `src/core.ts` exports mirroring `cli-to-zvo`
 
 ### Phase 3 — Contract compiler and runtime
@@ -98,7 +98,7 @@ The goal is to offer the same developer experience on top of `@ytn/dna`.
 
 ### Phase 4 — Discriminator optimization
 
-- Evaluate `discriminator` opcode in `@ytn/dna` for subcommand routing
+- Evaluate `discriminator` opcode in `@ytrynot/dna` for subcommand routing
 - If kept in `cli-to-dna`, precompute a `Map<discriminantValue, targetName>` to avoid union iteration
 - Benchmark routing against `cli-to-zvo`
 
@@ -125,25 +125,25 @@ The goal is to offer the same developer experience on top of `@ytn/dna`.
 
 ## Blocker
 
-`npm.cmd run build -w @ytn/cdna` now uses the standard `buildConfig` helper, but the `.d.ts` build fails because `@ytn/dna` does not ship `dist/index.d.ts`.
+`npm.cmd run build -w @ytrynot/cdna` now uses the standard `buildConfig` helper, but the `.d.ts` build fails because `@ytrynot/dna` does not ship `dist/index.d.ts`.
 
 Possible paths:
 
-1. Re-authorize a local workaround (e.g. `defineConfig` with `dts: false`, or a `buildConfig` option to disable `.d.ts`) without touching `@ytn/dna`.
-2. Authorize a fix of `@ytn/dna` declaration generation (Phase 6) so `@ytn/cdna` can build normally.
-3. Ship `@ytn/cdna` without `.d.ts` for now and continue Phases 4–5.
+1. Re-authorize a local workaround (e.g. `defineConfig` with `dts: false`, or a `buildConfig` option to disable `.d.ts`) without touching `@ytrynot/dna`.
+2. Authorize a fix of `@ytrynot/dna` declaration generation (Phase 6) so `@ytrynot/cdna` can build normally.
+3. Ship `@ytrynot/cdna` without `.d.ts` for now and continue Phases 4–5.
 
 ## Decision on the blocker
 
-Given the constraint **Do not modify `@ytn/dna`**, the immediate path is **Option 1**:
+Given the constraint **Do not modify `@ytrynot/dna`**, the immediate path is **Option 1**:
 
-- Add a package-local `tsdown.config.ts` that disables `.d.ts` generation (`dts: false`) until `@ytn/dna` ships `dist/index.d.ts`.
+- Add a package-local `tsdown.config.ts` that disables `.d.ts` generation (`dts: false`) until `@ytrynot/dna` ships `dist/index.d.ts`.
 - Keep the build config aligned with the repo conventions (`buildConfig`) and centralize the `dts` flag override in `cli-to-dna` only.
-- Ship `@ytn/cdna` ESM build first; re-enable `.d.ts` in Phase 6 once DNA declarations are available.
+- Ship `@ytrynot/cdna` ESM build first; re-enable `.d.ts` in Phase 6 once DNA declarations are available.
 
 ## Next steps
 
-1. **Unblock the build** — create `packages/cli-to-dna/tsdown.config.ts` with `dts: false` and confirm `npm.cmd run build -w @ytn/cdna` succeeds.
+1. **Unblock the build** — create `packages/cli-to-dna/tsdown.config.ts` with `dts: false` and confirm `npm.cmd run build -w @ytrynot/cdna` succeeds.
 2. **Phase 4** — implement discriminator-based O(1) subcommand routing using `DnaDiscriminatedUnion` and benchmark against `cli-to-zvo`.
 3. **Phase 5** — add Vitest tests, remaining atomic factories, and harden the package; keep `.d.ts` generation disabled for now.
-4. **Phase 6 (future, out of scope for now)** — re-enable `.d.ts` generation when `@ytn/dna` emits `dist/index.d.ts`.
+4. **Phase 6 (future, out of scope for now)** — re-enable `.d.ts` generation when `@ytrynot/dna` emits `dist/index.d.ts`.

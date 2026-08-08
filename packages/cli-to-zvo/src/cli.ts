@@ -13,7 +13,7 @@ launchCzvo(
 /**
  * CZVO AOT COMPILER (Original Logic - Commented)
  * -------------------------------------------
- * import { launchAotCompiler } from "@ytn/shared/cli/aot-launcher.js";
+ * import { launchAotCompiler } from "@ytrynot/shared/cli/aot-launcher.js";
  * import { compileContractToFile } from "./compiler/compiler.api.js";
  * 
  * launchAotCompiler({

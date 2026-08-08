@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-      - '@ytn/*@*'
+      - '@ytrynot/*@*'
 
 permissions:
   contents: write # Obligatoire pour créer la release

@@ -1,11 +1,11 @@
-import * as setOp from "@ytn/shared/js/set-ops.js";
+import * as setOp from "@ytrynot/shared/js/set-ops.js";
 import { z } from "zod";
 
 import {
   hasZodValueDeep,
   isZodDefaultDeep,
   isZodOptionalDeep,
-} from "@ytn/shared/zod/zod-reflection.js";
+} from "@ytrynot/shared/zod/zod-reflection.js";
 import {
   contractCliToParseArgs,
   contractCliToParseArgSchema,

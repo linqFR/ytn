@@ -1,4 +1,4 @@
-import { dna } from "@ytn/dna";
+import { dna } from "@ytrynot/dna";
 import { pico, picoToDna, type BasePico, type DnaSchema } from "./pico.js";
 
 export interface ICliFlag {

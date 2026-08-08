@@ -8,8 +8,8 @@ const outExtension = ({ format }: { format: Format }) => ({
 });
 
 /**
- * Common build configuration for all YTN packages.
- * Targets modern ESM with source maps and inlined @ytn/shared.
+ * Common build configuration for all ytrynot packages.
+ * Targets modern ESM with source maps and inlined @ytrynot/shared.
  */
 export const commonConfig: Options = {
   outDir: "dist",
@@ -17,12 +17,12 @@ export const commonConfig: Options = {
   sourcemap: true,
   target: "esnext",
   outExtension,
-  dts: { resolve: ["@ytn/shared"], compilerOptions: { ignoreDeprecations: "6.0" } },
+  dts: { resolve: ["@ytrynot/shared"], compilerOptions: { ignoreDeprecations: "6.0" } },
   bundle: true,
   splitting: false,
   treeshake: true,
-  external: ["acorn", "acorn-walk", "zod", "@ytn/dna"],
-  noExternal: ["@ytn/shared"],
+  external: ["acorn", "acorn-walk", "zod", "@ytrynot/dna"],
+  noExternal: ["@ytrynot/shared"],
   platform: "node",
 };
 
@@ -37,7 +37,7 @@ export const minConfig: Options = {
 };
 
 /**
- * Build configuration orchestration for YTN packages.
+ * Build configuration orchestration for ytrynot packages.
  *
  * @param cwd - Package directory (process.cwd()).
  * @param options - Optional overrides per entry, base config, extra externals and min toggle.

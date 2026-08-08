@@ -1,4 +1,4 @@
-# cli-to-zvo (@ytn/czvo)
+# cli-to-zvo (@ytrynot/czvo)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
 [![Zod](https://img.shields.io/badge/Zod-v4%20Compatible-darkred.svg)](https://zod.dev/)
@@ -21,7 +21,7 @@
 ## Installation
 
 ```bash
-npm install @ytn/czvo
+npm install @ytrynot/czvo
 ```
 
 ---
@@ -29,13 +29,13 @@ npm install @ytn/czvo
 ## Quick Start
 
 ```typescript
-import { createContract, pico } from "@ytn/czvo/editor.js";
-import { execute } from "@ytn/czvo";
+import { createContract, pico } from "@ytrynot/czvo/editor.js";
+import { execute } from "@ytrynot/czvo";
 
 // 1. Define the Contract (using String DSL or pico API)
 // Use createContract to compile your configuration into a reactive engine.
 const contract = createContract({
-	name: "ytn",
+	name: "ytrynot",
 	description: "YouTube Downloader",
 	cli: {
 		positionals: ["url"],
@@ -309,8 +309,8 @@ For detailed performance analysis, routing engine details, and deployment consid
 You can use `createContract` to get access to the underlying tools (schemas, bitmask router, etc.):
 
 ```typescript
-import { createContract } from "@ytn/czvo/editor.js";
-import { execute } from "@ytn/czvo";
+import { createContract } from "@ytrynot/czvo/editor.js";
+import { execute } from "@ytrynot/czvo";
 
 const contract = createContract(config);
 const { zvoSchema, parsingArgs } = contract;
@@ -324,7 +324,7 @@ const result = zvoSchema.safeParse({ url: "...", quality: "1080" });
 For loading pre-compiled contracts from disk (useful for serverless environments):
 
 ```typescript
-import { execWithFile } from "@ytn/czvo";
+import { execWithFile } from "@ytrynot/czvo";
 
 // Load contract from .json or .ts file and execute
 const result = await execWithFile("./my-contract.json", process.argv.slice(2));
@@ -335,7 +335,7 @@ const result = await execWithFile("./my-contract.json", process.argv.slice(2));
 For executing contracts with raw, pre-parsed CLI arguments:
 
 ```typescript
-import { executeRaw } from "@ytn/czvo/core.js";
+import { executeRaw } from "@ytrynot/czvo/core.js";
 import { parseArgs } from "node:util";
 
 const contract = createContract(config);
@@ -350,8 +350,8 @@ const result = executeRaw(contract, parsed);
 For most applications, use `launchCzvo` to handle routing and error reporting automatically:
 
 ```typescript
-import { createContract } from "@ytn/czvo/editor.js";
-import { launchCzvo } from "@ytn/czvo/launcher.js";
+import { createContract } from "@ytrynot/czvo/editor.js";
+import { launchCzvo } from "@ytrynot/czvo/launcher.js";
 
 const contract = createContract({
 	name: "my-cli",
@@ -386,8 +386,8 @@ await launchCzvo(contract, handlers);
 ### Help Generation
 
 ```typescript
-import { createContract } from "@ytn/czvo/editor.js";
-import { buildHelp } from "@ytn/czvo/core.js";
+import { createContract } from "@ytrynot/czvo/editor.js";
+import { buildHelp } from "@ytrynot/czvo/core.js";
 
 const contract = createContract(config);
 const helpData = buildHelp(contract);

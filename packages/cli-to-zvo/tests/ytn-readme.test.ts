@@ -7,8 +7,8 @@ describe("README CLI Example", () => {
   it("should parse and validate the deployment command correctly", () => {
     // 1. Define the Contract
     const contract: tsContract = {
-      name: "ytn-cli",
-      description: "YTN CLI tool",
+      name: "ytrynot-cli",
+      description: "ytrynot CLI tool",
       cli: {
         positionals: ["env"],
         flags: {
@@ -42,8 +42,8 @@ describe("README CLI Example", () => {
 
   it("should handle the short flag -v correctly", () => {
     const contract: tsContract = {
-      name: "ytn-cli",
-      description: "YTN CLI tool",
+      name: "ytrynot-cli",
+      description: "ytrynot CLI tool",
       cli: {
         positionals: ["env"],
         flags: {

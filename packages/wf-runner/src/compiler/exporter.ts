@@ -44,7 +44,7 @@ export function serializeToFile(wf: tsWFSpec, filePath: string): void {
   const json = JSON.stringify(serializeToExportedObject(wf), null, 2);
 
   if (filePath.endsWith(".ts") || filePath.endsWith(".js")) {
-    const code = `/** @type {import("@ytn/wf").IExportedWorkflow} */\nexport const workflow = ${json};`;
+    const code = `/** @type {import("@ytrynot/wf").IExportedWorkflow} */\nexport const workflow = ${json};`;
     fs.writeFileSync(filePath, code, "utf8");
   } else {
     fs.writeFileSync(filePath, json, "utf8");

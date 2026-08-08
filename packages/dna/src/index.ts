@@ -1,5 +1,5 @@
 /**
- * @ytn/dna - DNA-based schema builder with Zod-like syntax
+ * @ytrynot/dna - DNA-based schema builder with Zod-like syntax
  *
  * Main exports:
  * - dna: Schema factory

@@ -1,4 +1,4 @@
-import { deepMerge, isPureObject } from "@ytn/shared/js/object-utils.js";
+import { deepMerge, isPureObject } from "@ytrynot/shared/js/object-utils.js";
 import type { tsDnaInnerMeta, tsDnaMeta } from "../shared/meta-context.type.js";
 import type { tsDnaParserFn, tsDnaValidatorFn } from "../shared/runtime.types.js";
 import type { tsDna, tsDnaId, tsDnaNoMeta, tsDnaOpcode, tsDnaSeq } from "../types/core.types.js";

@@ -1,4 +1,4 @@
-import { protectObject } from "@ytn/shared/js/guarded_object.js";
+import { protectObject } from "@ytrynot/shared/js/guarded_object.js";
 import { z } from "zod";
 import { TERMINAL_STEP_ID } from "./constants.js";
 import { boxedStepSchemaFactory, terminalStepSchema } from "./step-schema.js";

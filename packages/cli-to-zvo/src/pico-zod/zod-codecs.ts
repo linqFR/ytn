@@ -40,7 +40,7 @@ export const makeEmptyTo = <T extends z.ZodTypeAny>(
  * @returns {T} A pure collection schema that performs internal CSV splitting.
  */
 import { bridgeZod } from "./sealer.js";
-import { parseCommaSeparated } from "@ytn/shared/js/str-ops.js";
+import { parseCommaSeparated } from "@ytrynot/shared/js/str-ops.js";
 
 /**
  * @function csvPreProcess

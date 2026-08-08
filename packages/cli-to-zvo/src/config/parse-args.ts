@@ -1,12 +1,12 @@
 import {
   schCamelCase,
   schKebabCase,
-} from "@ytn/shared/zod/zod-strcases.js";
+} from "@ytrynot/shared/zod/zod-strcases.js";
 import {
   toCamelCase,
-} from "@ytn/shared/js/string-cases.js";
+} from "@ytrynot/shared/js/string-cases.js";
 import type { ZodRecord, ZodType } from "zod";
-import type { tsCamelCase, tsKebabCase } from "@ytn/shared/types/str.type.js";
+import type { tsCamelCase, tsKebabCase } from "@ytrynot/shared/types/str.type.js";
 
 /**
  * @constant {z.ZodSchema} ParseArgFlagNameSchema

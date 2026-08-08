@@ -1,6 +1,6 @@
-# @ytn/dna vs Zod v4 — Feature Comparison
+# @ytrynot/dna vs Zod v4 — Feature Comparison
 
-> Generated from source code analysis of `@ytn/dna` (api-primitives.ts, api-enhanced.ts,
+> Generated from source code analysis of `@ytrynot/dna` (api-primitives.ts, api-enhanced.ts,
 > dna-namespace.ts, dna-interfaces.ts) and the Zod v4 public API (zod.dev).
 >
 > Last updated: 2026-08-07.
@@ -17,7 +17,7 @@
 | DNA advantages (not in Zod) | 7 | 🟢 |
 
 **Bottom line**:
-- @ytn/dna covers the vast majority of the Zod v4 API with full parity,
+- @ytrynot/dna covers the vast majority of the Zod v4 API with full parity,
 including `z.codec()`, `z.int32()`, `z.xor()`, `z.e164()`, `z.hostname()`, `z.json()`,
 `z.partialRecord()`, `z.looseRecord()`, `.brand(dir)`, `.safeExtend()`, `.spa()`,
 `.nonempty()`, `.unwrap()` on arrays, `encode/decode/safeEncode/safeDecode`, and
