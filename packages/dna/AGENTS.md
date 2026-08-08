@@ -231,6 +231,43 @@ const schema = fromDna(dnaSeq);
 
 The input `dnaSeq` is the same tuple returned by `schema.toDna()` (a flat array of DNA nodes followed by `refList` and `externals`).
 
+### Typing `fromDna` — Type parameter and inference
+
+`fromDna` accepts an optional type parameter `S extends DnaSomeType<any, any>`:
+
+```typescript
+function fromDna<S extends DnaSomeType<any, any> = DnaSomeType<any, any>>(seq: tsDnaSeq): S
+```
+
+**Why a type parameter is needed**: A `tsDnaSeq` is a flat array of opcodes (`[...tsDna[], number[]]`). The opcode at index 0 determines the root schema class, but this is a runtime string — TypeScript cannot infer the concrete schema type from the bytecode. This is the same limitation as `JSON.parse()` returning `any`: the data format carries no compile-time type information.
+
+**Default (no type argument)**: `fromDna(seq)` returns `DnaSomeType<any, any>`. This is a fully functional schema — `safeParse`, `validate`, `toDna`, `meta` are all available — but `_output` is `any`, so `dna.infer<typeof rebuilt>` resolves to `any`.
+
+```typescript
+const rebuilt = fromDna(bytecode);              // DnaSomeType<any, any>
+type Out = dna.infer<typeof rebuilt>;           // any
+rebuilt.safeParse(input);                        // ✓ works
+rebuilt.validate(input);                         // ✓ works
+```
+
+**With explicit type argument**: Pass the expected schema class to get full type safety, including `_output` inference and schema-specific methods like `.implement()` on `DnaFunction`.
+
+```typescript
+// Primitive — pass the DNA class directly
+const rebuiltStr = fromDna<dna.DnaString>(bytecode);
+type OutStr = dna.infer<typeof rebuiltStr>;     // string
+
+// Object — pass the DNA class with its shape generic
+const rebuiltObj = fromDna<dna.DnaObject<{ name: dna.DnaString; age: dna.DnaNumber }>>(bytecode);
+type OutObj = dna.infer<typeof rebuiltObj>;     // { name: string, age: number }
+
+// Function — pass the DNA class with its input/output generics to unlock .implement()
+const rebuiltFn = fromDna<dna.DnaFunction<readonly [dna.DnaString], dna.DnaNumber>>(bytecode);
+const impl = rebuiltFn.implement((s: string) => s.length);  // ✓ typed
+```
+
+**Available DNA classes for type arguments**: All exported classes that extend `DnaTypeWithWrappers` can be used: `dna.DnaString`, `dna.DnaNumber`, `dna.DnaBoolean`, `dna.DnaObject<...>`, `dna.DnaArray<...>`, `dna.DnaTuple<...>`, `dna.DnaEnum<...>`, `dna.DnaLiteral<...>`, `dna.DnaOptional<...>`, `dna.DnaNullable<...>`, `dna.DnaFunction<...>`, `dna.DnaPipe<...>`, `dna.DnaRecord<...>`, `dna.DnaMap<...>`, `dna.DnaSet<...>`, etc. For complex generics, instantiate the DNA class directly with its type parameters (e.g. `dna.DnaObject<{ name: dna.DnaString }>`, `dna.DnaFunction<readonly [dna.DnaString], dna.DnaNumber>`).
+
 ### Core reconstruction helpers
 
 - **`getMeta` / `getParams`**: DNA tuples may end with a `{meta}` object and an optional `{meta}` object can also appear as the only argument (e.g. `["b", {readonly: true}]`). These helpers normalize extraction so every opcode receives its `params` and `meta` consistently.
@@ -258,6 +295,9 @@ The input `dnaSeq` is the same tuple returned by `schema.toDna()` (a flat array 
 
 - `.transform`, `.preprocess`, `.coerce`, and custom codecs roundtrip only when their function source is serializable (`fn.toString()`). Closures or captured variables are lost.
 - `dna.function()` serializes as `["function", [inputDnaId, outputDnaId]]` — the input tuple and output schema are full children in the DNA graph. `fromDna` reconstructs the `DnaFunction` with both child schemas. `.implement(fn, externals?)` / `.implementAsync(fn, externals?)` accept an optional externals map (merged with `getRegisteredExternals()`); the returned function exposes `requiredExternals: string[]`.
+- `.implement()` is sync-only: it detects async input/output schemas (`isAsyncFnStr`) and async `fn` (`fn instanceof AsyncFunction`) at construction time and throws — use `.implementAsync()` instead. The generated function body is clean (no runtime `instanceof Promise` checks).
+- `DnaError` is inlined as `dnaErrorSource` (exported from `error.types.ts`) in `new Function` bodies because generated functions have no access to module imports. The `;` after the class is required in the generated body (separates the class declaration from subsequent statements).
+- `dna.function()` without `.input()` defaults to a tuple with `rest: dna.unknown()` (pass-through, matching Zod). Explicit `.input([])` remains a strict empty tuple that rejects extra args.
 
 ## Build & Distribution
 

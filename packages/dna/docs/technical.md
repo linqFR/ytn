@@ -22,7 +22,7 @@ The DNA bytecode is an array of instruction tuples. During processing, DNA is st
 
 ```typescript
 type tsDna = [tsDnaOpcode, ...any[]];
-type tsDnaOpcode = "string" | "number" | "boolean" | "object" | "array" | ...;
+type tsDnaOpcode = "s" | "n" | "b" | "o" | "a" | ...;
 ```
 
 ### Example DNA Output
@@ -51,12 +51,40 @@ type tsDnaOpcode = "string" | "number" | "boolean" | "object" | "array" | ...;
 
 **Note**: The implementation uses opcodes:
 
-- `"o"` for object type
-- `"s"` for string type
-- `"n"` for number type
-- `"i"` for integer type
+- `"_a"` for unconstrained array type
+- `"$o"` for constrained object type
 - `"b"` for boolean type
+- `"bi"` for BigInt type
+- `"chkList"` for list check type
+- `"chkSeq"` for sequential check type
+- `"cidrv6"` for CIDR v6 format
+- `"codec"` for codec type
+- `"coerce"` for coercion type
+- `"date"` for Date type
+- `"F"` for false literal
+- `"function"` for function type
+- `"i"` for integer type
+- `"instanceOf"` for instance-of type
+- `"json"` for JSON type
+- `"jwt"` for JWT format
+- `"map"` for Map type
+- `"mutate"` for mutation type
+- `"n"` for number type
 - `"n0"` for null type
+- `"nan"` for NaN type
+- `"o"` for object type
+- `"pipe"` for pipe type
+- `"promise"` for Promise type
+- `"rcd"` for record type
+- `"s"` for string type
+- `"sb"` for Symbol-based type
+- `"set"` for Set type
+- `"symbol"` for Symbol type
+- `"T"` for true literal
+- `"template"` for template literal type
+- `"transform"` for transform type
+- `"url"` for URL format
+- `"void"` for void type
 
 ## DNA Opcodes
 
@@ -94,7 +122,6 @@ Underscore prefix (e.g., `"_o"`, `"_s"`, `"_n"`) indicates unconstrained types. 
 - `["i", [min, exclMin, max, exclMax, multOf], {meta}]` - Integer type with constraints
 
   - Same args as `"n"`, but validates integer with `%1===0` check
-  - Used for Zod `.int()` schemas (detected via `format: "safeint"`)
 
 - `["bi", [min, exclMin, max, exclMax, multOf], {meta}]` - BigInt type with constraints
 
@@ -538,6 +565,45 @@ Both modules share the same low-level codegen primitives from `utils.ts` (`simpl
 ```typescript
 const rebuilt = fromDna(schema.toDna());
 ```
+
+### Typing `fromDna` — Type parameter and inference
+
+`fromDna` accepts an optional type parameter `S extends DnaSomeType<any, any>`:
+
+```typescript
+function fromDna<S extends DnaSomeType<any, any> = DnaSomeType<any, any>>(seq: tsDnaSeq): S
+```
+
+**Why a type parameter is needed**: A `tsDnaSeq` is a flat array of opcodes (`[...tsDna[], number[]]`). The opcode at index 0 determines the root schema class, but this is a runtime string — TypeScript cannot infer the concrete schema type from the bytecode. This is the same limitation as `JSON.parse()` returning `any`: the data format carries no compile-time type information.
+
+**Default (no type argument)**: `fromDna(seq)` returns `DnaSomeType<any, any>`. This is a fully functional schema — `safeParse`, `validate`, `toDna`, `meta` are all available — but `_output` is `any`, so `dna.infer<typeof rebuilt>` resolves to `any`.
+
+```typescript
+const rebuilt = fromDna(bytecode);              // DnaSomeType<any, any>
+type Out = dna.infer<typeof rebuilt>;           // any
+rebuilt.safeParse(input);                        // ✓ works
+rebuilt.validate(input);                         // ✓ works
+```
+
+**With explicit type argument**: Pass the expected schema class to get full type safety, including `_output` inference and schema-specific methods like `.implement()` on `DnaFunction`.
+
+```typescript
+// Primitive — pass the DNA class directly
+const rebuiltStr = fromDna<dna.DnaString>(bytecode);
+type OutStr = dna.infer<typeof rebuiltStr>;     // string
+
+// Object — pass the exact schema type
+const objSchema = dna.object({ name: dna.string(), age: dna.number() });
+const rebuiltObj = fromDna<typeof objSchema>(objSchema.toDna());
+type OutObj = dna.infer<typeof rebuiltObj>;     // { name: string, age: number }
+
+// Function — pass ReturnType to unlock .implement()
+const fnSchema = dna.function().input([dna.string()]).output(dna.number());
+const rebuiltFn = fromDna<ReturnType<typeof dna.function>>(fnSchema.toDna());
+const impl = rebuiltFn.implement((s: string) => s.length);  // ✓ typed
+```
+
+**Available DNA classes for type arguments**: All exported classes that extend `DnaTypeWithWrappers` can be used: `dna.DnaString`, `dna.DnaNumber`, `dna.DnaBoolean`, `dna.DnaObject<...>`, `dna.DnaArray<...>`, `dna.DnaTuple<...>`, `dna.DnaEnum<...>`, `dna.DnaLiteral<...>`, `dna.DnaOptional<...>`, `dna.DnaNullable<...>`, `dna.DnaFunction<...>`, `dna.DnaPipe<...>`, `dna.DnaRecord<...>`, `dna.DnaMap<...>`, `dna.DnaSet<...>`, etc. For complex generics, prefer `typeof originalSchema` or `ReturnType<typeof dna.<factory>>`.
 
 ### Core helpers
 

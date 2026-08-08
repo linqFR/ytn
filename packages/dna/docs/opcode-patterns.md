@@ -25,17 +25,26 @@ Every opcode handler follows a **decision tree model** with the following steps.
 
 **Examples**:
 
-- `string`: `const fCount=s=>{let i=s.length,c=0;while(i--){if((s.charCodeAt(i)&0xFC00)!==0xDC00)c++}return c};`
-- `constTypeComplex`: `const dEq=(a,b)=>a===b||typeof a==="object"&&a!==null&&typeof b==="object"&&b!==null&&deepEqual(a,b);`
+- `string`: `fCount` — grapheme count helper (iterative char-by-char loop, see `src/toJs/inline-func.ts`)
+- `constTypeComplex`: `dEq` — iterative deep equality with stack-based comparison (see `src/toJs/inline-func.ts`)
 - `object`: `passed0={}` for additionalProperties tracking
 - `array`: `unik0=true` for uniqueItems tracking
-- `object`: `rxPP0_0=/pattern/u` for patternProperties
+- `object`: `rxPP0_0=/pattern/u` for patternProperties (emitted via `[STEP.OUT_CONST]` in the outer closure)
 
 **Impact**:
 
-- Emits via `[STEP.CONST, "constName=code"]`
+- Emits via one of three mechanisms depending on the constant type:
+  - `[STEP.OUT_CONST, "name=code"]` — outer closure hoisting (helper functions like `fCount`, `dEq`, regex patterns). Compiled once, shared across all calls.
+  - `preDecls` → `[STEP.BODY, "const name=value;"]` — inline in the function body (tracking variables like `passed0={}`, `unik0=true`). Recreated per call.
+  - `[STEP.CONST, "name=code"]` — inner function scope (rare, used only by `enumTypeDeep` for `dEq`).
 - Helpers are available in generated code
 - Eval sets track which properties/items have been evaluated
+
+#### STEP.CONST vs STEP.OUT_CONST
+
+- **`STEP.OUT_CONST`**: Hoists the declaration into the **outer closure** of the generated function. The value is computed once at compile time and shared across all validation calls. Used for helper functions (`fCount`, `dEq`), regex patterns (`rxPP0_0`), and any constant that doesn't depend on the input value.
+- **`STEP.CONST`**: Declares the variable inside the **inner function scope**. The value is recomputed on every validation call. Rarely used — only `enumTypeDeep` uses this for `dEq`.
+- **`preDecls` → `STEP.BODY`**: Inline `const` declarations concatenated into the function body header. Used for tracking variables (`passed0={}`, `unik0=true`, `oLen=...`) that need to be fresh on each call.
 
 ### Step 1: Context Analysis
 
@@ -145,7 +154,7 @@ Every opcode handler follows a **decision tree model** with the following steps.
 - `array`: `const val=valIdx;` for loop variable (inside loop)
 - `array`: `let containsCount=0;` for contains validation
 - `object`: `const propVal=ob+idx+pp+counter` for property value extraction
-- `object`: `const oLen=oVar.length` where `oVar` is `Object.keys(inVar)` for property count
+- `object`: `const oLen=Object.keys(inVar).length` (or `const oVar=Object.keys(inVar),oLen=oVar.length` when `hasDynamicProps` is true) for property count
 
 **Impact**:
 
@@ -532,7 +541,7 @@ const internalHandler = (dnaOpt: [...], _inVarName: string, _outVarName: string,
 
   // If complex, return steps; otherwise return string
   if (needsSteps) {
-    steps.push([STEP.CONST, "helperFunction"]);
+    steps.push([STEP.OUT_CONST, "helperFunction"]);
     steps.push([STEP.BODY, "complex code"]);
     return steps;
   }
@@ -547,7 +556,7 @@ export const publicHandler = (dnaOpt: [...], _inVarName: string, _outVarName: st
 **Characteristics**:
 
 - Uses `_errMode(isCond, condition, error)` for constraint generation
-- Can add helper constants via `[STEP.CONST, "fnName=code"]`
+- Can add helper constants via `[STEP.OUT_CONST, "fnName=code"]`
 - Can add pre-body statements (e.g., `strCnt=fCount(v);`)
 - Delegates to `simpleNodeToJs` for simple cases
 - Returns steps for complex cases (e.g., deep equality)

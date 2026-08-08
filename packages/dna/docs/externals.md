@@ -502,13 +502,19 @@ const validate = validatorBuilder(dna, {
 // The generated function receives: { ...getRegisteredExternals(), ...userExternals }
 ```
 
+> **Note**: `validatorBuilder`/`parserBuilder` are low-level APIs that recompile the function on every call (no caching). For most use cases, prefer `schema.validate()`/`schema.safeParse()` which compile once and cache the result. Use `validatorBuilder`/`parserBuilder` only when you need different externals per compilation or need `requiredExternals` inspection.
+
 ### Via the schema instance (safeParse / validate)
 
 ```typescript
-// Externals can be passed per-call via the ctx argument
-schema.safeParse(value, { myHelper: fn });
-schema.validate(value, { myHelper: fn });
+// Externals are passed via the ctx argument for the initial compilation.
+// The compiled function is cached on the schema instance — subsequent calls
+// reuse the cached function and IGNORE the ctx argument.
+schema.safeParse(value, { myHelper: fn });  // first call: compiles with externals, caches result
+schema.safeParse(value, { myHelper: otherFn });  // second call: uses cached function, ctx is IGNORED
 ```
+
+> **Important**: The `ctx` parameter is used at **compile time** to create the cached validator/parser. It is NOT a per-call override mechanism. The first call to `safeParse`/`validate` with externals compiles and caches the function; all subsequent calls reuse the cached function regardless of what `ctx` is passed. To use different externals, either create separate schema instances or use the low-level `validatorBuilder`/`parserBuilder` API which recompiles on every call.
 
 ### Registering externals globally
 
@@ -535,10 +541,10 @@ console.log(validate.requiredExternals);
 ```
 1. REGISTRATION (module load, builder emit, or user code)
    ┌──────────────────────────────────────────────┐
-   │ registerExternal("dna", dnaNamespace)         │  ← eager (index.ts)
-   │ registerExternal("jwtFn", decodeProtectedHdr) │  ← jwt handler
-   │ registerExternal("Date", Date)                │  ← instanceOf
-   │ registerExternal("myHelper", myHelper)        │  ← user code
+   │ registerExternal("dna", dnaNamespace)        │  ← eager (index.ts)
+   │ registerExternal("jwtFn", decodeProtectedHdr)│  ← jwt handler
+   │ registerExternal("Date", Date)               │  ← instanceOf
+   │ registerExternal("myHelper", myHelper)       │  ← user code
    └──────────────────────────────────────────────┘
                          │
 2. BUILDER (user declares externals on transform/refine/catch)
@@ -559,39 +565,39 @@ console.log(validate.requiredExternals);
                          │
 4. CODE GENERATION (assembling the function source)
    ┌──────────────────────────────────────────────┐
-   │ toJSArgFn[0] = "{myHelper,jwtFn,dna,Date}"  │  ← destructured param
+   │ toJSArgFn[0] = "{myHelper,jwtFn,dna,Date}"   │  ← destructured param
    │ toJSArgFn[1] = "return function(input){...}" │  ← function body
    └──────────────────────────────────────────────┘
                          │
 5. COMPILE-TIME INJECTION (validatorBuilder / parserBuilder)
-   ┌──────────────────────────────────────────────┐
+   ┌───────────────────────────────────────────────┐
    │ const externals = {                           │
    │   ...getRegisteredExternals(),  ← built-ins   │
    │   ...userExternals             ← overrides    │
-   │ };                                           │
+   │ };                                            │
    │ const fn = new Function(...code)(externals);  │
-   │                                              │
+   │                                               │
    │ // new Function("{myHelper,...}", "return...")│
    │ //   → factory function                       │
    │ // factory({ myHelper: fn, jwtFn: fn, ... })  │
    │ //   → returns the actual validator/parser    │
-   └──────────────────────────────────────────────┘
+   └───────────────────────────────────────────────┘
                          │
 6. RUNTIME (generated function executes)
-   ┌──────────────────────────────────────────────┐
+   ┌───────────────────────────────────────────────┐
    │ // The factory received externals and closed  │
    │ // over them. The returned function uses them │
    │ // as normal local variables.                 │
-   │                                              │
-   │ function(input) {                            │
+   │                                               │
+   │ function(input) {                             │
    │   // myHelper is the user's function          │
-   │   // jwtFn is jose.decodeProtectedHeader     │
+   │   // jwtFn is jose.decodeProtectedHeader      │
    │   // dna is the builder namespace             │
    │   // Date is the Date constructor             │
    │   input = myHelper(input);                    │
-   │   // ...                                       │
+   │   // ...                                      │
    │ }                                             │
-   └──────────────────────────────────────────────┘
+   └───────────────────────────────────────────────┘
 ```
 
 ---

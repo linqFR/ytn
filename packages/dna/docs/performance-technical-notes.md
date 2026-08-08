@@ -1,11 +1,10 @@
 # Performance Technical Notes
 
-> **⚠️ HISTORICAL DOCUMENT — Patterns described below may not match the current codebase.**
-> The instanceof, loop, and IIFE patterns documented here were written for an earlier version of the codegen.
-> The actual implementation now uses `STEP.OUT_CONST` / `STEP.OUT_ARG` for constructor hoisting (not `preBody`),
-> `for(let i=...length;i--;)` loops (not external initialization), and standard IIFE return-function patterns.
-> Benchmark numbers are from the original development period and may not reflect current performance.
-> This document is kept for architectural context. For accurate implementation details, see `technical.md`.
+> **Purpose**: This document is a performance guide for AI agents working on DNA code generation.
+> It documents the most performant patterns for inlining functions and loop optimizations,
+> determined through benchmark testing. These are recommendations — the actual codebase may
+> use different patterns in specific cases. For current implementation details, refer to
+> `technical.md` and `externals.md`, or inspect the code in `src/toJs/`.
 
 ## Instanceof Validation Performance
 
@@ -46,11 +45,12 @@ The **generated code pattern (IIFE)** is the slowest:
 The DNA handler uses the **simple closure pattern**:
 
 ```typescript
-const preBody = "const C=getConstructor('" + constructorName + "');if(!C)return false;";
-const test = _inVarName + " instanceof C";
+steps.push([STEP.OUT_CONST, className + "=" + constructorName]);
+steps.push([STEP.OUT_ARG, constructorName]);
+const test = _inVarName + " instanceof " + className;
 ```
 
-This captures `C` in the preBody (executed before the test), so `getConstructor` is called only once per validation. This is the optimal pattern as shown in the benchmarks.
+This captures the constructor in the outer closure via externals injection (STEP.OUT_CONST/STEP.OUT_ARG), avoiding repeated lookups during validation. The constructor is registered via `registerExternal` during schema building and injected at compile time.
 
 ## Function Overhead Performance
 
@@ -176,6 +176,5 @@ The constructor is captured in the closure during validator creation, avoiding r
 2. **Generated code (IIFE)** adds overhead due to additional wrapper functions
 3. **V8 optimizations** can make function calls faster than direct operations
 4. **Instanceof overhead** is inherent to the operation, not the pattern used
-5. **DNA handler uses generated code pattern** for consistency with the system, despite being less performant
-6. **Loop optimization**: Use `let i = n; for (; i--)` for hot loops (~16% faster than incremental)
-7. **IIFE with closure capture**: Pattern `const fn = function(x) { const _x = x; return function(v) { ... }; }(x)` is optimal for DNA validators - captures context with minimal overhead (~0.5ms difference from direct function)
+5. **Loop optimization**: Use `let i = n; for (; i--)` for hot loops (~16% faster than incremental)
+6. **IIFE with closure capture**: Pattern `const fn = function(x) { const _x = x; return function(v) { ... }; }(x)` is optimal for DNA validators - captures context with minimal overhead (~0.5ms difference from direct function)

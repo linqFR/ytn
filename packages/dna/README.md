@@ -231,6 +231,33 @@ Limitations:
 - Async `transform` / `pipe` / `codec` roundtrip parity is verified with `safeParseAsync` / `parseAsync`.
 - `safeParse`/`validate` parity for the rebuilt schema still depends on the `toJs` codegen supporting the same opcodes.
 
+### Typing `fromDna` — Type parameter
+
+A `tsDnaSeq` is a flat array of opcodes with no compile-time type information. By default, `fromDna` returns `DnaSomeType<any, any>` — a fully functional schema (`safeParse`, `validate`, `toDna` all work) but with `_output` typed as `any`.
+
+Pass an explicit type argument to get full type safety, including `dna.infer` resolution and schema-specific methods:
+
+```typescript
+// Default: works but _output is any
+const rebuilt = fromDna(bytecode);
+type Out = dna.infer<typeof rebuilt>;           // any
+rebuilt.safeParse(input);                        // ✓
+
+// Typed: full inference
+const rebuiltStr = fromDna<dna.DnaString>(bytecode);
+type OutStr = dna.infer<typeof rebuiltStr>;     // string
+
+const objSchema = dna.object({ name: dna.string(), age: dna.number() });
+const rebuiltObj = fromDna<typeof objSchema>(objSchema.toDna());
+type OutObj = dna.infer<typeof rebuiltObj>;     // { name: string, age: number }
+
+const fnSchema = dna.function().input([dna.string()]).output(dna.number());
+const rebuiltFn = fromDna<ReturnType<typeof dna.function>>(fnSchema.toDna());
+const impl = rebuiltFn.implement((s: string) => s.length);  // ✓ typed
+```
+
+**Available type arguments**: Any class extending `DnaTypeWithWrappers` (`dna.DnaString`, `dna.DnaNumber`, `dna.DnaObject<...>`, `dna.DnaArray<...>`, `dna.DnaFunction<...>`, etc.). For complex generics, prefer `typeof originalSchema` or `ReturnType<typeof dna.<factory>>`.
+
 ## Comparison with Zod
 
 @ytn/dna covers ~95% of the Zod v4 API with full parity — all primitives, string formats,
@@ -289,4 +316,8 @@ linqFR
 
 ## Technical Documentation
 
-For detailed information about DNA opcodes, architecture, and implementation details, see [docs/technical.md](docs/technical.md).
+- [Type Inventory](docs/type-inventory.md) — Complete catalog of all DNA schema types, factory functions, and opcodes
+- [Technical Reference](docs/technical.md) — DNA opcodes, architecture, and implementation details
+- [Opcode Patterns](docs/opcode-patterns.md) — DNA opcode patterns and usage
+- [Zod Comparison](docs/zod-comparison.md) — Side-by-side comparison with Zod v4
+- [Externals](docs/externals.md) — Externals mechanism for transforms and refines

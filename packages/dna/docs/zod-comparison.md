@@ -16,12 +16,14 @@
 | Not supported | 3 | ❌ |
 | DNA advantages (not in Zod) | 7 | 🟢 |
 
-**Bottom line**: @ytn/dna covers the vast majority of the Zod v4 API with full parity,
+**Bottom line**:
+- @ytn/dna covers the vast majority of the Zod v4 API with full parity,
 including `z.codec()`, `z.int32()`, `z.xor()`, `z.e164()`, `z.hostname()`, `z.json()`,
 `z.partialRecord()`, `z.looseRecord()`, `.brand(dir)`, `.safeExtend()`, `.spa()`,
 `.nonempty()`, `.unwrap()` on arrays, `encode/decode/safeEncode/safeDecode`, and
-`z.toJSONSchema()` top-level. The 11 missing features are introspection getters
-(`.options`, `.discriminator`), and error formatting functions (`z.flattenError()` etc.). DNA adds 15 features Zod doesn't
+`z.toJSONSchema()` top-level.
+- The missing features are error formatting functions
+(`z.flattenError()`, `z.formatError()`, `z.treeifyError()`). DNA adds features Zod doesn't
 have: compiled standalone functions, DNA bytecode serialization, boolean validation,
 property-level checks, and more.
 
@@ -31,9 +33,9 @@ property-level checks, and more.
 
 | # | Zod v4 Feature | Notes | Workaround |
 |---|---|---|---|
-| 1 | `z.refine()` (top-level) | Only available as method | Use `schema.refine()` |
-| 2 | `z.flattenError()` / `z.formatError()` / `z.treeifyError()` | No error formatting functions (Zod v4 has these as top-level functions, not methods) | Access `.issues` directly |
-| 3 | `z.check()` (top-level) | Only `describe()` and `meta()` are top-level | Use `schema.check()` |
+| 1 | `z.flattenError()` | No error formatting function (Zod v4 top-level) | Access `.issues` directly |
+| 2 | `z.formatError()` | Deprecated in Zod v4, use `z.treeifyError()` | Access `.issues` directly |
+| 3 | `z.treeifyError()` | No error formatting function (Zod v4 top-level) | Access `.issues` directly |
 
 > **Note**: `z.object().deepPartial()` was a Zod v3 API that was deprecated and removed in Zod v4.
 > It does not exist in Zod v4 and is therefore not listed as a missing feature.
@@ -49,10 +51,6 @@ property-level checks, and more.
 ---
 
 ## 🟢 DNA Advantages (7 features not in Zod)
-
-> **Note**: Many features previously listed here (codec, spa, int32, xor, e164, hostname,
-> json, partialRecord, looseRecord, brand with direction, safeExtend, array.unwrap,
-> nonempty on Map, encode/decode/safeEncode/safeDecode, toJSONSchema top-level, .apply(),
 
 | # | Feature | Notes |
 |---|---|---|
@@ -190,8 +188,8 @@ property-level checks, and more.
 | `.superRefine()` | `.superRefine()` | ✅ |
 | `.check()` | `.check()` | ✅ |
 | `.with()` | `.with()` | ✅ (alias for `.check()`) |
-| `z.refine()` (top-level) | — | ❌ Method only |
-| `z.check()` (top-level) | — | ⚠️ `describe()` and `meta()` only |
+| `z.refine()` (top-level) | `dna.refine()` | ✅ |
+| `z.check()` (top-level) | `dna.check()` | ✅ |
 | `z.describe()` | `dna.describe()` | ✅ |
 | `z.meta()` | `dna.meta()` | ✅ |
 
