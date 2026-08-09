@@ -3,7 +3,7 @@ import { pico } from "../pico-zod/index.js";
 pico.define(
   "help",
   (msg: string = "Show help information", key: string = "help") => {
-    const obj = {} as any;
+    const obj = {} as Record<string, unknown>;
     // We use pico.literal directly because it's already "bridged"
     // by the Proxy in pico-zod/index.ts
     obj[key] = pico.literal(true).desc(msg);

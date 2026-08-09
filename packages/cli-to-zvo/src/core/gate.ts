@@ -54,14 +54,17 @@ export function compileZvoGate(processed: IProcessedContract): tsGate {
 
     // In case of overlap, use a Zod Union within the signature branch for disambiguation.
     // TODO: extract z.union to a separate result variable for better readability
+    // CAST: z.union result input is unknown; .pipe() expects looseObject output shape — double-cast bypasses input type mismatch
     return z
       .looseObject({ discriminant: z.literal(sig) }).meta({ overlap: true , signature: sig })
-      .pipe(z.union(targetNames.map((n) => forge(targets, sig, n, true)) as any));
+      .pipe(z.union(targetNames.map((n) => forge(targets, sig, n, true)) as [z.ZodType, ...z.ZodType[]]) as unknown as never);
   });
 
   // The final result is a native Discriminated Union for maximum parsing speed.
+  // CAST: z.discriminatedUnion requires $ZodTypeDiscriminable tuple; forge returns z.ZodType which satisfies the runtime contract but not the discriminable type constraint; $ZodTypeDiscriminable is not publicly exported so we cast through never
+  // CAST: discriminated union return type doesn't match tsGate exactly
   return z.discriminatedUnion(
     "discriminant",
-    branches as any,
+    branches as unknown as never,
   ) as unknown as tsGate;
 }

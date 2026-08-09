@@ -168,13 +168,17 @@ export function bridgeZod<T extends object, E extends object>(
       // --- ALIASES ---
       if (p === "desc") {
         return (msg: string) =>
-          wrapper((methods as any).meta({ description: msg }));
+          // CAST: methods is a Zod schema when desc is invoked (sealZod passes the schema as both engine and methods)
+          wrapper((methods as unknown as z.ZodType).meta({ description: msg }));
       }
       if (p === "toJSON") {
-        return () =>
-          typeof (methods as any).toJSONSchema === "function"
-            ? (methods as any).toJSONSchema()
+        return () => {
+          // CAST: methods is a Zod schema when toJSON is invoked (sealZod passes the schema as both engine and methods)
+          const m = methods as unknown as z.ZodType;
+          return typeof m.toJSONSchema === "function"
+            ? m.toJSONSchema()
             : methods;
+        };
       }
 
       // Security Bypass: explicitly allow Standard Schema markers to bypass pattern-matching restrictions.
@@ -207,7 +211,8 @@ export function bridgeZod<T extends object, E extends object>(
         : p in methods
         ? methods
         : t;
-      const val = (target as any)[p];
+      // CAST: target is a union of generic types E, T, and Record; indexing with string|symbol requires a unified record type
+      const val = (target as Record<string | symbol, unknown>)[p];
 
       if (typeof val === "function") {
         /**

@@ -136,7 +136,7 @@ export function rehydrateContract(
       preSchema[fieldName] =
         fieldDef instanceof z.ZodType
           ? fieldDef
-          : picoTypeToZod(fieldDef as any);
+          : picoTypeToZod(fieldDef);
     }
 
     fullTargets[name] = {

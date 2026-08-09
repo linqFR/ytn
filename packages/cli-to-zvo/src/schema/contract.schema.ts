@@ -266,7 +266,7 @@ export const ContractSchema = baseContractSchema.transform((data, ctx) => {
   /** Utility to transform internal Set-based tracking into Arrays for the final contract. */
   const _possibleValuesToArray = () =>
     Object.fromEntries(
-      (Object.entries(possibleValues) as any).map(([k, targets]: any) => [
+      Object.entries(possibleValues).map(([k, targets]) => [
         k,
         setOp.recordSetToRecordArray(targets),
       ]),

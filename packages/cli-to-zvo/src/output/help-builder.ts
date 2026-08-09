@@ -27,7 +27,7 @@ export function buildHelp(
   options?: OHelpOptions,
 ): OHelpData {
   const target = targetName
-    ? (processed.targets as any)[targetName as tsTargetName]
+    ? processed.targets[targetName as tsTargetName]
     : undefined;
 
   const cliName = options?.cmd || processed.name;
