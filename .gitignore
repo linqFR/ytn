@@ -33,7 +33,11 @@ coverage/
 .gemini/
 .antigravity/
 .agents/
+.devin/
 # AGENTS.md
 
 # Local-only packages
 packages/wf-router/
+
+# Inter-session mailboxes (local only, not shared on GitHub)
+**/mailbox/
