@@ -67,6 +67,7 @@ export const deepMerge = (target: any, ...sources: any[]): any => {
  * @returns {T} A perfect deep copy of the object.
  */
 export const deepClone = <T>(obj: T): T => {
-  if (obj === undefined) return undefined as any;
+  // CAST: obj is undefined, so T must include undefined
+  if (obj === undefined) return undefined as unknown as T;
   return structuredClone(obj);
 };

@@ -105,7 +105,7 @@ export function ensureDir(dirPath: string) {
   if (!fs.existsSync(dirPath)) {
     return catchSyncFn(fs.mkdirSync)(dirPath, { recursive: true });
   }
-  return safeResultErr<boolean>(false) as any;
+  return safeResultErr(false);
 }
 
 /**

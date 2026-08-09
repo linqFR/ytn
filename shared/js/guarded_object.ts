@@ -1,12 +1,18 @@
 import { isObject } from "./object-utils.js";
 
 /**
- * @type {Object} tsGuardedObjectExtensions
- * @property {() => void} _lock - Locks the object to prevent mutations.
- * @property {() => void} _unlock - Unlocks the object to allow mutations.
- * @property {() => boolean} _isLocked - Returns true if the object is currently locked.
- * @property {() => any} _unwrap - Returns the original raw object (breaks protection).
+ * @type tsGuardedObject
+ * @description Public contract of a guarded/protected object proxy created by `protectObject`.
+ * Exposes the control interface (`_lock`, `_unlock`, `_isLocked`, `_unwrap`) alongside the
+ * original object's shape via intersection `T & tsGuardedObject<T>`.
+ * @template T - The original object type (defaults to `unknown`).
  */
+export type tsGuardedObject<T = unknown> = {
+  _lock: () => void;
+  _unlock: () => void;
+  _isLocked: () => boolean;
+  _unwrap: () => T;
+};
 
 /**
  * @function createGuardedObject
@@ -16,18 +22,13 @@ import { isObject } from "./object-utils.js";
  * @param {T} target - The object to protect.
  * @param {boolean} [locked=true] - Initial lock state.
  * @param {boolean} [throwErrors=true] - Whether to throw TypeError on forbidden mutations.
- * @returns {T & tsGuardedObjectExtensions} The protected proxy.
+ * @returns {T & tsGuardedObject<T>} The protected proxy.
  */
 const createGuardedObject = <T extends object>(
   target: T,
   locked: boolean = true,
   throwErrors: boolean = true,
-): T & {
-  _lock: () => void;
-  _unlock: () => void;
-  _isLocked: () => boolean;
-  _unwrap: () => T;
-} => {
+): T & tsGuardedObject<T> => {
   let _locked = locked;
   const _throwErrors = throwErrors;
 
@@ -123,14 +124,14 @@ const createGuardedObject = <T extends object>(
  * @function isProtected
  * @description Checks if an object is already a guarded proxy created by this utility.
  *
- * @param {any} item - The value to inspect.
+ * @param {unknown} item - The value to inspect.
  * @returns {boolean} True if the item is a protected proxy.
  */
-export const isProtected = (item: any): boolean => {
+export const isProtected = (item: unknown): item is tsGuardedObject => {
   return (
     isObject(item) &&
-    "_unwrap" in (item as any) &&
-    typeof (item as any)._unwrap === "function"
+    "_unwrap" in item &&
+    typeof item._unwrap === "function"
   );
 };
 
@@ -145,7 +146,8 @@ export const isProtected = (item: any): boolean => {
  */
 export const protectObject = <T>(item: T): T => {
   if (isProtected(item)) return item;
-  return isObject(item) ? (createGuardedObject(item as object) as any) : item;
+  // CAST: Proxy preserves T's shape at runtime but TS cannot verify structural compatibility with generic T
+  return isObject(item) ? (createGuardedObject(item as object) as unknown as T) : item;
 };
 
 /**
@@ -158,7 +160,7 @@ export const protectObject = <T>(item: T): T => {
  */
 export const unProtectObject = <T>(item: T): any => {
   if (isProtected(item)) {
-    return (item as any)._unwrap();
+    return item._unwrap();
   }
   return item;
 };
