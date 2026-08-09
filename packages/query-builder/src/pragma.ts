@@ -133,7 +133,7 @@ export class PragmaBuilder {
    * @description Compiles the pragma statements into a single SQL string.
    * @returns {string} Combined PRAGMA statements.
    */
-  public build(): string {
+  public toSQL(): string {
     return this.#statements.join("\n");
   }
 }

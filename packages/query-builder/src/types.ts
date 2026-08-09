@@ -8,24 +8,59 @@ export interface IForeignKeyDefinition {
   /** Target column name in the foreign table. */
   col: string;
   /** Referential integrity action on row deletion. */
-  onDelete?: "CASCADE" | "SET NULL" | "RESTRICT";
+  onDelete?: "CASCADE" | "SET NULL" | "SET DEFAULT" | "RESTRICT" | "NO ACTION";
   /** Referential integrity action on row update. */
-  onUpdate?: "CASCADE" | "SET NULL" | "RESTRICT";
+  onUpdate?: "CASCADE" | "SET NULL" | "SET DEFAULT" | "RESTRICT" | "NO ACTION";
 }
 
 /**
- * @interface IDDLOptions
+ * @interface IUniqueConstraint
+ * @description Defines a composite UNIQUE constraint at the table level.
+ */
+export interface IUniqueConstraint {
+  /** Columns that together must be unique. */
+  columns: string[];
+  /** Optional constraint name (SQLite ignores names but they're useful for documentation). */
+  name?: string;
+}
+
+/**
+ * @interface qbTableOptions
  * @description Configuration options for Data Definition Language (DDL) generation.
  */
-export interface IDDLOptions {
+export interface qbTableOptions {
   /** Override for the primary key (string or composite array). */
   primaryKey?: string | string[];
   /** Map of columns to their foreign key definitions. */
   foreignKeys?: Record<string, string | IForeignKeyDefinition>;
   /** Map of columns to their default SQL values. */
   defaults?: Record<string, string>;
-  /** List of columns that must have a UNIQUE constraint. */
+  /** List of columns that must have a UNIQUE constraint (single-column). */
   unique?: string[];
+  /** Composite UNIQUE constraints (multi-column). */
+  uniqueConstraints?: IUniqueConstraint[];
+  /** Table-level CHECK constraints (e.g. `["age >= 18", "status IN ('active', 'inactive')"]`). */
+  checks?: string[];
+}
+
+/**
+ * @interface IOnConflictConfig
+ * @description Internal configuration for ON CONFLICT clauses, set by the
+ * `OnConflictBuilder` sub-builder returned by `.onConflict()`.
+ */
+export interface IOnConflictConfig {
+  /** Conflict target columns (empty array = no target, bare ON CONFLICT). */
+  target: string[];
+  /** Optional partial-index WHERE predicate on the conflict target. */
+  targetWhere?: string;
+  /** Conflict action: DO NOTHING or DO UPDATE. */
+  action: "NOTHING" | "UPDATE";
+  /** Columns to update with `excluded.col` (auto-generated). Used when action is UPDATE. */
+  updateFields?: string[];
+  /** Manual SET expressions: `{ col: "expr" }` → `col = expr`. Overrides updateFields when present. */
+  updateRaw?: Record<string, string>;
+  /** Optional WHERE predicate on the DO UPDATE SET clause. */
+  updateWhere?: string;
 }
 
 /**
@@ -35,6 +70,8 @@ export interface IDDLOptions {
 export type tsQueryMode =
   | "SELECT"
   | "INSERT"
+  | "INSERT_MULTI"
+  | "INSERT_DEFAULT"
   | "UPDATE"
   | "DELETE"
   | "UPSERT"
@@ -48,8 +85,8 @@ export type tsQueryMode =
 export interface IJoinDefinition {
   /** Type of join (e.g., 'INNER', 'LEFT', 'RIGHT'). */
   type: string;
-  /** Table name or compiled subquery. */
-  target: string | any;
+  /** Table name or compiled subquery string. */
+  target: string;
   /** The ON join condition. */
   on: string;
 }
@@ -88,7 +125,7 @@ export interface IWhereInDefinition {
   /** The database column name. */
   col: string;
   /** List of literal values or a subquery Builder. */
-  target: string[] | any;
+  target: string[] | import("./builder.js").Builder;
 }
 
 /**
@@ -113,4 +150,101 @@ export interface IWindowDefinition {
   partitionBy?: string[];
   /** Optional ordering within the window. */
   orderBy?: IOrderByDefinition[];
+}
+
+/**
+ * @type tsSqliteType
+ * @description SQLite column types supported by the DDL generator.
+ */
+export type tsSqliteType = "TEXT" | "INTEGER" | "REAL" | "BOOLEAN" | "DATETIME" | "BLOB";
+
+
+/**
+ * @type qbTable
+ * @description Public alias for `qbColumn[]` — the column array passed to
+ * `QueryBuilder.createTable()`.
+*/
+export type qbTable = qbColumn[];
+
+/**
+ * @interface qbColumn
+ * @description Neutral column representation produced by schema introspectors
+ * (Zod or DNA). Consumed by the DDL engine to generate CREATE TABLE statements.
+ * This abstraction avoids duplicating SQL generation logic per schema library.
+ * Public column definition for the schema-agnostic DDL path
+ * (`QueryBuilder.createTable()`). Maps internally to `qbColumn`.
+ * Use this when you don't have a Zod or DNA schema and want to define
+ * a table directly with column shapes.
+ *
+ * @example
+ * ```ts
+ * import { QueryBuilder, type qbColumn } from "@ytrynot/qb";
+ *
+ * const columns: qbColumn[] = [
+ *   { name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, meta: { pk: true } },
+ *   { name: "email", sqliteType: "TEXT", optional: false, hasDefault: false, meta: { unique: true } },
+ * ];
+ * const ddl = QueryBuilder.createTable("users", columns);
+ * ```
+ */
+export interface qbColumn {
+  /** Column name. */
+  name: string;
+  /** SQLite type mapped from the source schema type. */
+  sqliteType: tsSqliteType;
+  /** Whether the column is optional (NOT NULL omitted). */
+  optional: boolean;
+  /** Whether the column has a default value (DEFAULT clause emitted). */
+  hasDefault: boolean;
+  /** Default value (SQL literal) when `hasDefault` is true. */
+  defaultValue?: unknown;
+  /** Whether the column is an auto-increment primary key. */
+  pkauto?: boolean;
+  /** Whether the column is marked as UNIQUE. */
+  unique?: boolean;
+  /** Foreign key reference, if any. */
+  fk?: string | IForeignKeyDefinition;
+  /** Column-level CHECK constraint (e.g. `"age >= 0"`). */
+  check?: string;
+  /** Raw metadata bag from the source schema (for advanced overrides). */
+  meta: Record<string, unknown>;
+}
+
+/**
+ * @interface ISchemaIntrospector
+ * @description Contract for schema introspectors. Each adapter (Zod, DNA)
+ * implements this to produce a neutral qbColumn[] from its native schema.
+ */
+export interface ISchemaIntrospector<S = unknown> {
+  /** Extract the column shapes from a schema. Returns null if not an object schema. */
+  getColumns(schema: S): qbColumn[] | null;
+  /** Detect the primary key column name from a schema. Returns null if none. */
+  getPrimaryKey(schema: S): string | null;
+}
+
+/**
+ * @interface TableDef
+ * @description Return type of `QueryBuilder.defTable()`.
+ * Contains pre-built generic SQL statements (DDL + DML) and a `req` getter
+ * that returns a fresh Builder pre-configured with the table name and uniqueKeys.
+ */
+export interface TableDef {
+  /** DDL: CREATE TABLE IF NOT EXISTS statement. */
+  createTable: string;
+  /** DML: SELECT * FROM <table>. */
+  getAll: string;
+  /** DML: SELECT * FROM <table> WHERE <pk> = @<pk>. */
+  getById: string;
+  /** DML: INSERT INTO <table> (...) VALUES (...). */
+  insert: string;
+  /** DML: UPDATE <table> SET ... WHERE <pk> = @<pk>. */
+  update: string;
+  /** DML: DELETE FROM <table> WHERE <pk> = @<pk>. */
+  delete: string;
+  /** DML: INSERT ... ON CONFLICT(<uniqueKeys>) DO UPDATE SET .... */
+  upsert: string;
+  /** Returns a fresh Builder pre-configured with the table name and uniqueKeys for custom queries. */
+  readonly req: import("./builder.js").Builder;
+  /** Alias for `req`. */
+  readonly q: import("./builder.js").Builder;
 }

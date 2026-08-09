@@ -11,7 +11,7 @@ describe("📦 QB Bundle Smoke Test (dist/index.js)", () => {
       email: z.string().optional()
     });
 
-    const ddl = QueryBuilder.createTableFromZod("users", UserSchema);
+    const ddl = QueryBuilder.reqCreateTable("users", UserSchema);
     
     expect(ddl).toContain("CREATE TABLE IF NOT EXISTS users");
     expect(ddl).toContain("id INTEGER");

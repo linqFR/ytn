@@ -1,15 +1,40 @@
 {
   "name": "@ytrynot/qb",
-  "version": "2.0.3",
-  "private": true,
-  "description": "SQLite Query Builder",
+  "version": "0.1.0",
+  "description": "Fluent SQLite Query Builder with Zod integration",
   "author": "linqFR",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/linqFR/ytn.git",
+    "directory": "packages/query-builder"
+  },
+  "bugs": {
+    "url": "https://github.com/linqFR/ytn/issues"
+  },
+  "homepage": "https://github.com/linqFR/ytn/tree/main/packages/query-builder#readme",
   "keywords": [
-    "Zod",
-    "SQLite"
+    "sqlite",
+    "query-builder",
+    "zod",
+    "sql",
+    "typescript",
+    "dml",
+    "fluent"
   ],
   "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -29,11 +54,23 @@
     }
   },
   "peerDependencies": {
+    "@ytrynot/dna": "^0.4.0",
     "zod": "^4.4.3"
   },
+  "peerDependenciesMeta": {
+    "@ytrynot/dna": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.1.1",
+    "@ytrynot/dna": "*",
     "@ytrynot/shared": "*",
+    "better-sqlite3": "^13.0.3",
     "tsup": "^8.5.1",
     "tsx": "^4.23.11",
     "zod": "^4.4.3"

@@ -10,6 +10,8 @@ Advanced Zod V4 inspection, unwrapping, and bidirectional codec layer. This pack
 - [Advanced Introspection](#advanced-introspection)
   - [getZodMetaDeep](#getzodmetadeep)
   - [getZodShapeDeep](#getzodshapedeep)
+  - [getZodDefaultValue](#getzoddefaultvalue)
+  - [getZodNumberFormat](#getzodnumberformat)
 - [Codecs (Bidirectional)](#codecs-bidirectional)
 - [Predefined Schemas (predefs)](#predefined-schemas-predefs)
 
@@ -48,6 +50,40 @@ Recursively merges all metadata defined via `.meta()` across the entire schema c
 ### `getZodShapeDeep`
 
 Iteratively finds the first `ZodObject` shape in a schema chain, resolving through `ZodLazy` or `ZodPipe` if necessary.
+
+### `getZodDefaultValue`
+
+Extracts the default value from a `ZodDefault` schema (Zod v4). Uses `instanceof z.ZodDefault` for identification and `._zod.def.defaultValue` for data access. Returns `undefined` if the schema is not a `ZodDefault`.
+
+```typescript
+import { getZodDefaultValue } from "@ytrynot/shared/zod/zod-reflection.js";
+import { z } from "zod";
+
+const schema = z.string().default("hello");
+getZodDefaultValue(schema); // "hello"
+getZodDefaultValue(z.string()); // undefined
+```
+
+A `getZodDefaultValueDeep` variant is also available, which resolves through transparent wrappers (Lazy, Pipe) to find a `ZodDefault` in the schema chain.
+
+### `getZodNumberFormat`
+
+Returns the Zod v4 number format string (`"int32"`, `"uint32"`, `"safeint"`, `"float32"`, `"float64"`) if the schema is an integer/float format. Uses `instanceof` guards exclusively — no duck-typing. Handles both V4 paths:
+
+- **`z.int()` / `z.int32()` / `z.uint32()`** (top-level functions) — creates a `ZodNumberFormat` instance; format is read from `._zod.def.format`.
+- **`z.number().int()` / `.safe()`** (legacy methods on `ZodNumber`) — adds a `$ZodCheckNumberFormat` check to the `._zod.def.checks` array; detected via `instanceof $ZodCheckNumberFormat`.
+
+Returns `undefined` for plain `ZodNumber` without int format or any other type.
+
+```typescript
+import { getZodNumberFormat } from "@ytrynot/shared/zod/zod-reflection.js";
+import { z } from "zod";
+
+getZodNumberFormat(z.int());              // "safeint"
+getZodNumberFormat(z.number().int());     // "safeint"
+getZodNumberFormat(z.int32());            // "int32"
+getZodNumberFormat(z.number());           // undefined
+```
 
 ---
 

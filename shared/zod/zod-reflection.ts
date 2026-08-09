@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { $ZodCheckNumberFormat } from "zod/v4/core";
 import type * as z4 from "zod/v4/core";
 
 /**
@@ -168,6 +169,42 @@ export const isZodDefault = (schema: any): boolean => {
 };
 
 /**
+ * @function getZodDefaultValue
+ * @description Extracts the default value from a ZodDefault schema.
+ *
+ * @param {any} schema - The schema to extract from.
+ * @returns {any | undefined} The default value, or undefined if not a ZodDefault.
+ */
+export const getZodDefaultValue = (schema: any): any | undefined => {
+  if (schema instanceof z.ZodDefault) {
+    return schema._zod?.def?.defaultValue;
+  }
+  return undefined;
+};
+
+/**
+ * @function getZodDefaultValueDeep
+ * @description Deep version that resolves through transparent wrappers (Lazy, Pipe)
+ * to find a ZodDefault and extract its value.
+ *
+ * @param {any} schema - The schema to extract from.
+ * @param {"in" | "out"} [side="in"] - Side to follow for Pipelines.
+ * @returns {any | undefined} The default value, or undefined if not found.
+ */
+export const getZodDefaultValueDeep = (
+  schema: any,
+  side: "in" | "out" = "in",
+): any | undefined => {
+  let result: any | undefined = undefined;
+  walkthroughZodDeep(schema, side, (s) => {
+    if (s instanceof z.ZodDefault && result === undefined) {
+      result = s._zod?.def?.defaultValue;
+    }
+  });
+  return result;
+};
+
+/**
  * @function isZodDefaultDeep
  * @description Deep check to see if a schema has a default value,
  * resolving through transparent wrappers (Lazy, Pipe) but NOT unwrapping the default itself.
@@ -180,6 +217,31 @@ export const isZodDefaultDeep = (
   schema: any,
   side: "in" | "out" = "in",
 ): boolean => findInSchemaDeep(schema, isZodDefault, side);
+
+/**
+ * @function isZodNullable
+ * @description Checks if a schema is officially marked as Nullable (V4).
+ *
+ * @param {any} schema - The schema to test.
+ * @returns {boolean} True if the schema represents a nullable value.
+ */
+export const isZodNullable = (schema: any): boolean => {
+  return schema instanceof z.ZodNullable;
+};
+
+/**
+ * @function isZodNullableDeep
+ * @description Deep check to see if a schema is eventually marked as Nullable,
+ * resolving through transparent wrappers (Lazy, Pipe) but NOT unwrapping the nullability.
+ *
+ * @param {any} schema - The schema to test.
+ * @param {"in" | "out"} [side="in"] - Side to follow for Pipelines.
+ * @returns {boolean} True if the schema represents a nullable value.
+ */
+export const isZodNullableDeep = (
+  schema: any,
+  side: "in" | "out" = "in",
+): boolean => findInSchemaDeep(schema, isZodNullable, side);
 
 /**
  * @function isZodLiteral
@@ -395,4 +457,30 @@ export function getZodInternals(schema: z.ZodType): z4.$ZodTypeInternals {
  */
 export function getZodDef(schema: z.ZodType): z4.$ZodTypeDef {
   return getZodInternals(schema).def;
+}
+
+/**
+ * @function getZodNumberFormat
+ * @description Returns the number format string ("int32", "uint32", "safeint", "float32", "float64")
+ * if the schema is a ZodNumberFormat (produced by z.int(), z.int32(), etc.) OR a ZodNumber with a
+ * number_format check (produced by the legacy z.number().int() / .safe() methods).
+ * Returns `undefined` for plain ZodNumber without int format or any other type.
+ *
+ * @param {z.ZodType} schema - The Zod schema to inspect.
+ * @returns {string | undefined} The format string, or undefined.
+ */
+export function getZodNumberFormat(schema: z.ZodType): string | undefined {
+  // z.int() / z.int32() / z.uint32() create a ZodNumberFormat with def.format
+  if (schema instanceof z.ZodNumberFormat) {
+    return schema._zod.def.format;
+  }
+  // z.number().int() / .safe() (legacy methods) add a $ZodCheckNumberFormat to the checks array
+  const def = getZodDef(schema);
+  const checks = def?.checks ?? [];
+  for (const check of checks) {
+    if (check instanceof $ZodCheckNumberFormat) {
+      return check._zod.def.format;
+    }
+  }
+  return undefined;
 }

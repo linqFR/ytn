@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 // @ts-ignore
 import { QueryBuilder } from '../dist/index.js';
+// @ts-ignore
+
 
 describe('Compiled JS Verification (dist)', () => {
     /**
@@ -15,7 +17,7 @@ describe('Compiled JS Verification (dist)', () => {
         .optional()
         .transform(v => v);
 
-        const ddl = QueryBuilder.createTableFromZod('dist_table', Schema);
+        const ddl = QueryBuilder.reqCreateTable('dist_table', Schema);
         expect(ddl).toContain('PRIMARY KEY');
         expect(ddl).toContain('UNIQUE');
     });
@@ -29,7 +31,7 @@ describe('Compiled JS Verification (dist)', () => {
             username: z.string()
         });
 
-        const crud = QueryBuilder.generateCRUD('users', UserSchema);
+        const crud = QueryBuilder.defTable('users', UserSchema);
         const expectedPK = 'WHERE uuid = @uuid';
         expect(crud.getById).toContain(expectedPK);
     });

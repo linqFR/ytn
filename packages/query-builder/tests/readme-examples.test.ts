@@ -7,15 +7,16 @@ describe("README Examples Verification", () => {
         const sql = QueryBuilder.table("users")
             .select(["id", "name"])
             .where(["id"])
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("SELECT id, name FROM users WHERE id = @id");
     });
 
     it("Standard Table Joins", () => {
-        const sql = QueryBuilder.table("users", "u")
+        const sql = QueryBuilder.table("users")
+            .as("u")
             .select(["u.name", "p.title"])
             .joinInner("posts p", "u.id = p.user_id")
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("SELECT u.name, p.title FROM users u INNER JOIN posts p ON u.id = p.user_id");
     });
 
@@ -25,10 +26,11 @@ describe("README Examples Verification", () => {
             .orderBy("created_at", "DESC")
             .limit(1);
 
-        const sql = QueryBuilder.table("tools", "t")
+        const sql = QueryBuilder.table("tools")
+            .as("t")
             .select(["t.name", "latest.version"])
             .joinLeft(latestVersion, "latest", "t.uuid = latest.tool_uuid")
-            .build();
+            .toSQL();
         
         expect(sql).toContain("LEFT JOIN (SELECT tool_uuid, version FROM tool_versions ORDER BY created_at DESC LIMIT 1) latest ON t.uuid = latest.tool_uuid");
     });
@@ -36,7 +38,7 @@ describe("README Examples Verification", () => {
     it("Inserting Data", () => {
         const sql = QueryBuilder.table("logs")
             .insert(["level", "message", "timestamp"])
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("INSERT INTO logs (level, message, timestamp) VALUES (@level, @message, @timestamp)");
     });
 
@@ -45,7 +47,7 @@ describe("README Examples Verification", () => {
             .update(["name"])
             .where(["uuid"])
             .whereIn("status", ["draft", "pending"])
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("UPDATE tools SET name = @name WHERE uuid = @uuid AND status IN ('draft', 'pending')");
     });
 
@@ -53,7 +55,7 @@ describe("README Examples Verification", () => {
         const sql = QueryBuilder.table("logs")
             .delete()
             .where([{ col: "created_at", param: "threshold" }])
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("DELETE FROM logs WHERE created_at = @threshold");
     });
 
@@ -61,7 +63,7 @@ describe("README Examples Verification", () => {
         const sql = QueryBuilder.table("users")
             .insert(["name"])
             .returning(["id", "created_at"])
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("INSERT INTO users (name) VALUES (@name) RETURNING id, created_at");
     });
 
@@ -71,7 +73,7 @@ describe("README Examples Verification", () => {
             .journalMode("WAL")
             .synchronous("NORMAL")
             .cacheSize(-32000)
-            .build();
+            .toSQL();
         expect(sql).toContain("PRAGMA journal_mode = WAL;");
         expect(sql).toContain("PRAGMA foreign_keys = ON;");
     });
@@ -81,38 +83,42 @@ describe("README Examples Verification", () => {
             .select()
             .orderBy("created_at", "DESC")
             .limit(10)
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("SELECT * FROM events ORDER BY created_at DESC LIMIT 10");
     });
 
     it("Text Search", () => {
         const sql = QueryBuilder.table("docs")
             .search(["title", "content"], ["type"])
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("SELECT * FROM docs WHERE (title LIKE @search_term OR content LIKE @search_term) AND type = @type");
     });
 
     it("Existence Predicates (EXISTS)", () => {
-        const hasOrders = QueryBuilder.table("orders", "o")
+        const hasOrders = QueryBuilder.table("orders")
+            .as("o")
             .whereColumn("o.user_id", "u.id")
             .asExists();
 
-        const sql = QueryBuilder.table("users", "u")
+        const sql = QueryBuilder.table("users")
+            .as("u")
             .select(["name"])
             .whereRaw(hasOrders)
-            .build();
+            .toSQL();
         expect(sql).toContain("WHERE EXISTS (SELECT * FROM orders o WHERE o.user_id = u.id)");
     });
 
     it("Declarative CASE Statements", () => {
         const hasPublishedPrompts = "EXISTS (SELECT * FROM prompts p WHERE p.tool_uuid = t.uuid AND p.status = 'published')";
-        const sql = QueryBuilder.table("tools", "t")
+        const sql = QueryBuilder.table("tools")
+            .as("t")
             .select(["name"])
             .selectCase(
                 "status",
                 [
                     {
-                        when: QueryBuilder.table("prompt_tools", "pt")
+                        when: QueryBuilder.table("prompt_tools")
+                            .as("pt")
                             .whereColumn("pt.tool_uuid", "t.uuid")
                             .asNotExists(),
                         then: "'unused'",
@@ -124,27 +130,29 @@ describe("README Examples Verification", () => {
                 ],
                 "'linked'",
             )
-            .build();
+            .toSQL();
         expect(sql).toContain("CASE WHEN NOT EXISTS");
         expect(sql).toContain("ELSE 'linked' END as status");
     });
 
     it("Fine-Grained Filtering (Correlated Subquery)", () => {
-        const recentVersion = QueryBuilder.table("tool_versions", "tv")
+        const recentVersion = QueryBuilder.table("tool_versions")
+            .as("tv")
             .whereColumn("tv.tool_uuid", "t.uuid")
             .whereLiteral("tv.version", "'1.0.0'")
             .limit(1);
 
-        const sql = QueryBuilder.table("tools", "t")
+        const sql = QueryBuilder.table("tools")
+            .as("t")
             .whereIn("uuid", recentVersion)
-            .build();
+            .toSQL();
         expect(sql).toContain("WHERE uuid IN (SELECT * FROM tool_versions tv WHERE tv.tool_uuid = t.uuid AND tv.version = '1.0.0' LIMIT 1)");
     });
 
     it("WHERE IN (Values)", () => {
         const sqlValues = QueryBuilder.table("tools")
             .whereIn("uuid", ["value1", "value2"])
-            .build();
+            .toSQL();
         expect(sqlValues.trim()).toBe("SELECT * FROM tools WHERE uuid IN ('value1', 'value2')");
     });
 
@@ -156,7 +164,7 @@ describe("README Examples Verification", () => {
             .orderBy("type", "ASC")
             .limit(10)
             .offset(20)
-            .build();
+            .toSQL();
         expect(sql.trim()).toBe("SELECT type, COUNT(*) as cnt FROM events GROUP BY type ORDER BY type ASC LIMIT 10 OFFSET 20");
     });
 
@@ -168,7 +176,7 @@ describe("README Examples Verification", () => {
             created_at: z.date().optional(),
         });
 
-        const ddl = QueryBuilder.createTableFromZod("users", UserSchema);
+        const ddl = QueryBuilder.reqCreateTable("users", UserSchema);
         expect(ddl).toContain("id TEXT PRIMARY KEY");
         expect(ddl).toContain("email TEXT UNIQUE NOT NULL");
     });
@@ -181,7 +189,7 @@ describe("README Examples Verification", () => {
             }),
         });
 
-        const ddl = QueryBuilder.createTableFromZod("posts", PostSchema);
+        const ddl = QueryBuilder.reqCreateTable("posts", PostSchema);
         expect(ddl).toContain("id INTEGER PRIMARY KEY AUTOINCREMENT");
         expect(ddl).toContain("FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE");
     });

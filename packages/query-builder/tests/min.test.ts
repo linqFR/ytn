@@ -13,7 +13,7 @@ describe('Minified Bundle Verification', () => {
             name: z.string().min(1)
         });
 
-        const ddl = QueryBuilder.createTableFromZod('min_test', userSchema);
+        const ddl = QueryBuilder.reqCreateTable('min_test', userSchema);
         expect(ddl).toContain('PRIMARY KEY');
         expect(ddl).toContain('min_test');
     });
@@ -22,7 +22,7 @@ describe('Minified Bundle Verification', () => {
      * Case 2: Query Construction (Minified).
      */
     it('Query Construction (Minified)', () => {
-        const sql = QueryBuilder.table('items').select(['id', 'title']).where(['active']).build();
+        const sql = QueryBuilder.table('items').select(['id', 'title']).where(['active']).toSQL();
         const expected = 'SELECT id, title FROM items WHERE active = @active';
         expect(sql.trim()).toBe(expected.trim());
     });

@@ -9,7 +9,7 @@ describe('Advanced Query Verification', () => {
         const sql = QueryBuilder.table('users')
             .insert(['name', 'email'])
             .returning(['id', 'created_at'])
-            .build();
+            .toSQL();
         
         const expected = "INSERT INTO users (name, email) VALUES (@name, @email) RETURNING id, created_at";
         expect(sql.trim()).toBe(expected.trim());
@@ -25,7 +25,7 @@ describe('Advanced Query Verification', () => {
             .whereIn('category', ['news', 'tech'])
             .whereRaw('published_at < CURRENT_TIMESTAMP')
             .returning(['id'])
-            .build();
+            .toSQL();
         
         // Order of clauses in where: search -> where -> whereColumn -> whereLiteral -> whereRaw -> whereIn
         const expected = "UPDATE posts SET status = @status WHERE user_id = @user_id AND published_at < CURRENT_TIMESTAMP AND category IN ('news', 'tech') RETURNING id";
@@ -39,7 +39,7 @@ describe('Advanced Query Verification', () => {
         const sql = QueryBuilder.table('logs')
             .delete()
             .whereColumn('severity', 'threshold')
-            .build();
+            .toSQL();
         
         const expected = "DELETE FROM logs WHERE severity = threshold";
         expect(sql.trim()).toBe(expected.trim());
@@ -49,10 +49,10 @@ describe('Advanced Query Verification', () => {
      * Case 4: UPSERT with RETURNING.
      */
     it('UPSERT with RETURNING', () => {
-        const sql = QueryBuilder.table('counters')
-            .upsert(['name', 'value'], ['name'])
+        const sql = QueryBuilder.table('counters', ['name'])
+            .upsert(['name', 'value'])
             .returning(['value'])
-            .build();
+            .toSQL();
         
         const expected = "INSERT INTO counters (name, value) VALUES (@name, @value) ON CONFLICT(name) DO UPDATE SET value = excluded.value RETURNING value";
         expect(sql.trim()).toBe(expected.trim());
