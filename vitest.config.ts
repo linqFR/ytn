@@ -5,6 +5,11 @@ import { fileURLToPath } from "node:url";
 const rootDir = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@ytrynot/dna/core": resolve(rootDir, "packages/dna/src/core.ts"),
+    },
+  },
   test: {
     // This allows vitest to find tests in all workspaces
     globals: true,

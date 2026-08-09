@@ -172,6 +172,33 @@ Reminder: Use Zod V4 exclusively.
 - **Versioning**: We use **Changesets**. If you make changes that require a version bump, run `npx.cmd changeset` to create a markdown file in the `.changeset` directory.
 - **PR Title Format**: `[<project_name>] <Title>` (e.g., `[@ytrynot/qb] Fix recursive unwrapping of ZodOptional`).
 
+### Publishing Procedure (Automated via OIDC Trusted Publishing)
+
+Publishing to npm is **fully automated** via GitHub Actions OIDC trusted publishing. No npm token, no 2FA, no manual `npm publish` is required.
+
+**Public packages** (published to npm): `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`.
+**Private packages** (never published, listed in `.changeset/config.json` `ignore`): `@ytrynot/wf`, `@ytrynot/czvo`, `@ytrynot/shared`.
+
+**Workflow**: `.github/workflows/publish.yml` — triggered on push to `main` when `.changeset/**` or public package `package.json` files change.
+
+**Git commits are owner-only**: Commits require an SSH signing key passphrase that only the repo owner (`linqFR`) possesses. Agents **cannot commit** — they must stage changes (`git add`) and ask the owner to commit and push.
+
+**Step-by-step procedure for agents**:
+
+1. **Create a changeset**: After making changes that warrant a version bump, run `npx.cmd changeset`. Select the package(s) affected and choose `patch` / `minor` / `major`. This creates a `.changeset/<random-name>.md` file.
+2. **Stage everything**: `git add` the changeset file(s) alongside the code changes.
+3. **Ask the owner to commit and push**: The agent cannot commit (SSH passphrase). Remind the owner: *"Please commit and push — the publish workflow will trigger automatically."*
+4. **Version Packages PR**: The workflow opens a "Version Packages" PR that bumps versions and updates `CHANGELOG.md` files.
+5. **Remind the owner to merge the PR**: The agent cannot merge. Remind the owner: *"Please merge the 'Version Packages' PR on GitHub — this will trigger the publish to npm."*
+6. **Publish**: Merging the PR triggers the workflow again — it runs `changeset publish`, which publishes updated packages to npm via OIDC and pushes a git tag (`@ytrynot/<pkg>@<version>`).
+7. **GitHub Release**: The existing `release.yml` workflow (triggered by the tag) creates a GitHub Release with auto-generated notes.
+
+**Important rules**:
+- **Never run `npm publish`, `npm run release`, or `changeset publish` locally**. Publishing is CI-only via OIDC. The `npm run release` script in `package.json` is kept only for the CI workflow — agents must never invoke it.
+- **Never run `npx.cmd changeset version` locally**. Version bumping is handled by the CI workflow (the "Version Packages" PR). Running it locally would desync local `package.json` versions from the registry.
+- **Always create a changeset** for changes to public packages (`@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`). Changes to private packages (`@ytrynot/czvo`, `@ytrynot/wf`, `@ytrynot/shared`) do NOT need changesets (they are in the `ignore` list).
+- **Changeset file format**: frontmatter with package names and bump type (`patch`/`minor`/`major`), followed by a markdown description of the change.
+
 ---
 
 ## Specifics about mode packages and modules used
@@ -273,57 +300,6 @@ When dealing with TypeScript errors (especially in the DNA / Zod v4 type space):
 
 ---
 
-## Build System Migration (tsup → tsdown)
+## Build System
 
-All public packages have been migrated from `tsup` to `tsdown`.
-
-### Rationale
-
-`tsup` is no longer actively maintained. `tsdown` (powered by `rolldown` and `rolldown-plugin-dts`) is the recommended successor and provides faster Rust-based bundling.
-
-### Migrated packages
-
-- `@ytrynot/dna`
-- `@ytrynot/schvalid`
-- `@ytrynot/qb`
-- `@ytrynot/czvo`
-- `@ytrynot/wf`
-
-Each package uses a `tsdown.config.ts` that extends the shared `tsdown.config.base.ts` in the repository root.
-
-### Known tooling workaround
-
-`rolldown-plugin-dts` versions prior to `0.25.1` drop the `type` modifier on type-only imports/exports when bundling declaration files. This causes `MISSING_EXPORT` errors for symbols imported from `@ytrynot/shared`, such as `$Awaitable` and `tsWFTools`.
-
-To prevent this, `package.json` pins `rolldown-plugin-dts` through an `overrides` field:
-
-```json
-"overrides": {
-  "rolldown-plugin-dts": "^0.25.1"
-}
-```
-
-This override is currently required for a clean build of `@ytrynot/czvo` and `@ytrynot/wf`.
-
-### Package-specific dts notes
-
-- `@ytrynot/dna`, `@ytrynot/schvalid`, and `@ytrynot/qb` build with the default `tsdown` dts configuration.
-- `@ytrynot/czvo` uses `dts: { resolver: "tsc", eager: true }` to resolve complex shared types.
-- `@ytrynot/wf` uses `dts: { eager: true }`.
-
-### Conditions for removing the `overrides`
-
-The `overrides` block may be removed when **all** of the following are true:
-
-1. `tsdown` releases a version that bundles or depends on `rolldown-plugin-dts >= 0.25.1`.
-2. Running `npm install` without the override still resolves `rolldown-plugin-dts` to `>= 0.25.1`.
-3. `npm.cmd run build -w @ytrynot/czvo` and `npm.cmd run build -w @ytrynot/wf` succeed with the default dependency tree.
-4. `npm.cmd run test -w @ytrynot/czvo` and `npm.cmd run test -w @ytrynot/wf` still pass after the override is removed.
-
-### Test status after migration
-
-- `@ytrynot/dna` — passing
-- `@ytrynot/schvalid` — passing
-- `@ytrynot/qb` — passing
-- `@ytrynot/wf` — passing
-- `@ytrynot/czvo` — functional tests passing; 3 performance threshold tests are slightly flaky because they assert sub-millisecond timings. These are not build failures.
+All packages use **`tsup`** for bundling. Each package has its own `tsup.config.ts`.
