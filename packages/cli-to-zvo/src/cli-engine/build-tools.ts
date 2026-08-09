@@ -162,7 +162,7 @@ export const contractCliToParseArgsParser = (
           params: { rest: extraPos },
           path: ["positionals"],
           continue: true,
-        } as any);
+        });
       }
 
       // 2. Flags mapping and Unrecognized reporting
@@ -172,7 +172,8 @@ export const contractCliToParseArgsParser = (
       for (const k in dataValues) {
         const paName = flagLookup[k as tsParseArgString];
         if (paName) {
-          res[paName] = dataValues[k as tsParseArgString] as any;
+          // CAST: flagSchemas use generic z.ZodType so output is unknown; actual runtime values match tsParsedCLI value type
+          res[paName] = dataValues[k as tsParseArgString] as string | boolean | string[] | undefined;
         } else {
           unrecognized.push(k);
         }
@@ -186,7 +187,7 @@ export const contractCliToParseArgsParser = (
           params: { keys: unrecognized },
           path: ["values"],
           continue: true,
-        } as any);
+        });
       }
 
       // 3. Calculation of Routing Discriminant (Target Logic)
@@ -197,7 +198,7 @@ export const contractCliToParseArgsParser = (
           discriminantKeys,
         },
         targets,
-      } as any);
+      });
 
       return res;
     }) as tsParseArgsResultParser;

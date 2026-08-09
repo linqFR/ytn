@@ -23,13 +23,16 @@ import { computeBitmask, resolveFromTree } from "./tree-processing.js";
  * 5. Returns a unique string signature for the matching target.
  *
  * @param {tsParsedCLI} res - The object containing parsed CLI arguments.
- * @param {IProcessedContract} contract - The pre-compiled contract metadata.
- * @returns {string} The canonical signature string used for routing at the Zod layer.
+ * @param {{ routing: Pick<IProcessedContract["routing"], "def" | "tree" | "discriminantKeys">; targets: IProcessedContract["targets"] }} contract - The pre-compiled contract metadata.
+ * @returns {string | undefined} The canonical signature string used for routing at the Zod layer.
  */
 export function computeRoutingDiscriminant(
   res: tsParsedCLI,
-  contract: IProcessedContract,
-): string {
+  contract: {
+    routing: Pick<IProcessedContract["routing"], "def" | "tree" | "discriminantKeys">;
+    targets: IProcessedContract["targets"];
+  },
+): string | undefined {
   const { routing, targets } = contract;
 
   // 1. Compute the bitmask for the current input
@@ -87,5 +90,5 @@ export function computeRoutingDiscriminant(
 
   // 5. If no match, return undefined to trigger Zod validation error
   // console.log(`[RUNTIME] No match found internally for mask ${mask}, candidates: ${candidates.join(",")}`);
-  return undefined as any;
+  return undefined;
 }
