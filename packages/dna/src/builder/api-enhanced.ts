@@ -6,8 +6,8 @@ import * as dna from "./api-primitives.js";
 import type { DnaFunctionArgs, DnaFunctionInput, tsDnaTupleSchemaArray } from "../types/api-builder.types.js";
 import type { $Input, $Output } from "../types/helpers.types.js";
 import type { IDnaCollector, tsStoreMark, tsStorePosition } from "./collector.types.js";
-import { BaseCore, initDna, MapSetCore } from "./dna-core.js";
-import { cloner, DnaType, DnaTypeWithWrappers } from "./dna-interfaces.js";
+import { BaseCore, initDna, MapSetCore } from "@ytrynot/dna/core";
+import { cloner, DnaType, DnaTypeWithWrappers } from "@ytrynot/dna/core";
 
 // Map implementation
 export class DnaMap<K extends DnaType<any, any>, V extends DnaType<any, any>> extends DnaTypeWithWrappers<

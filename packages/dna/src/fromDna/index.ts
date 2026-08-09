@@ -1,7 +1,7 @@
-import { initDna } from '../builder/dna-core.js';
-import * as c from '../builder/dna-interfaces.js';
+import { initDna } from '@ytrynot/dna/core';
+import * as c from '@ytrynot/dna/core';
 import { DnaMap, DnaSet } from '../builder/api-enhanced.js';
-import { getRegisteredExternals } from '../toJs/registry.js';
+import { getRegisteredExternals } from '@ytrynot/dna/core';
 import type { tsDnaMeta } from '../shared/meta-context.type.js';
 import type { tsDna, tsDnaId, tsDnaSeq } from '../types/core.types.js';
 import type { tsPrimitiveClass, tsPrimitiveLiteral } from '../shared/base.types.js';

@@ -1,7 +1,7 @@
 # @ytrynot/dna vs Zod v4 — Feature Comparison
 
 > Generated from source code analysis of `@ytrynot/dna` (api-primitives.ts, api-enhanced.ts,
-> dna-namespace.ts, dna-interfaces.ts) and the Zod v4 public API (zod.dev).
+> dna-namespace.ts, dna-interfaces.ts, core.ts, introspect.ts) and the Zod v4 public API (zod.dev).
 >
 > Last updated: 2026-08-07.
 

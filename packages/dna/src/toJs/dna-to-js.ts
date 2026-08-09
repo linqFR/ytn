@@ -4,7 +4,7 @@ import type { tsJSParentCtx, tsLaberlId, tsStackFrame } from "../types/dna-js.ty
 import type { tsDnaExternals, tsDnaParserFn, tsDnaValidatorFn } from "../shared/runtime.types.js";
 import * as basicHandlers from "./dna-js-json.js";
 import * as builderHandlers from "./dna-js-builder.js";
-import { getRegisteredExternals } from "./registry.js";
+import { getRegisteredExternals } from "@ytrynot/dna/core";
 import { fastMergeArrays, PARSE_RETURN } from "./utils.js";
 
 type tsMapperIndex = Record<string, any>;

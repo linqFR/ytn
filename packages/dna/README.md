@@ -6,6 +6,10 @@
 
 # @ytrynot/dna
 
+> **Looking for testers!** This package is actively seeking early users and feedback. If you try it out, please share your experience — issues, suggestions, or ideas are all welcome.
+>
+> npm: https://www.npmjs.com/package/@ytrynot/dna · GitHub: https://github.com/linqFR/ytn/tree/main/packages/dna
+
 Zod-like schema API with serializable DNA bytecode and standalone compiled validators.
 
 **Motivation**: Zod is powerful but makes it difficult to serialize schemas and to build optimal and autonomous JS functions. Hence the creation of this package.
@@ -14,6 +18,7 @@ Zod-like schema API with serializable DNA bytecode and standalone compiled valid
 
 - [Overview](#overview)
 - [Installation](#installation)
+- [Package Exports](#package-exports)
 - [Usage](#usage)
   - [Using the DNA Builder API](#using-the-dna-builder-api)
   - [Validating and Parsing with Schema Methods](#validating-and-parsing-with-schema-methods)
@@ -65,6 +70,19 @@ For detailed information about DNA opcodes, architecture, and implementation det
 ```bash
 npm install @ytrynot/dna
 ```
+
+## Package Exports
+
+`@ytrynot/dna` ships multiple entry points. All non-core entry points import runtime classes from `@ytrynot/dna/core`, ensuring a single class identity for `instanceof` checks and a shared registry Map across bundles (mirrors the `zod/v4/core` pattern).
+
+| Entry point | Import | Description |
+|-------------|--------|-------------|
+| `@ytrynot/dna` | `import { dna } from "@ytrynot/dna"` | Main API: builder factory, types, `registerConstructor` |
+| `@ytrynot/dna/core` | `import { DnaType } from "@ytrynot/dna/core"` | Runtime classes (`DnaType`, `DnaObject`, ...), `initDna`, `toJS`, `DnaError`, registry |
+| `@ytrynot/dna/toJs` | `import { toJS } from "@ytrynot/dna/toJs"` | Low-level compiler (`toJS`, `validator`, `parser`) |
+| `@ytrynot/dna/introspect` | `import * as introspect from "@ytrynot/dna/introspect"` | Schema introspection utilities (`isOptional`, `isObject`, `unwrap`, ...) |
+
+**When to use `@ytrynot/dna/core`**: when you need `instanceof DnaType` / `instanceof DnaObject` to work across bundles, or direct access to `initDna`, `BaseCore`, `DnaError`, or the registry. The main `@ytrynot/dna` entry point re-exports everything for everyday usage — you only need `core` for cross-bundle class identity or low-level internals.
 
 ## Usage
 

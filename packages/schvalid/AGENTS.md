@@ -5,6 +5,8 @@
 
 > [!WARNING]
 > **CRITICAL DEPENDENCY**: This package depends on `@ytrynot/dna` for DNA bytecode types and the `toJS` compiler. The DNA to JavaScript compilation logic lives in `@ytrynot/dna/src/toJs/`. Changes to DNA opcodes or toJS in @ytrynot/dna can break schvalid. Always test both packages together.
+>
+> **Entry points**: `@ytrynot/dna` now ships a `@ytrynot/dna/core` subpath that centralizes all runtime classes (`DnaType`, `DnaObject`, ...), `initDna`, `toJS`, `DnaError`, and the constructor registry into a single bundle (`dist/core.js`). All other DNA entry points import from `@ytrynot/dna/core` to ensure `instanceof` works across bundles and the registry Map is a singleton. See `packages/dna/AGENTS.md` → "Core Entry Point Pattern" for details.
 
 ---
 

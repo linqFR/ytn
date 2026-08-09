@@ -18,7 +18,9 @@ This package provides the DNA bytecode runtime engine. It is NOT the JSON Schema
 
 ### Core Modules
 
-- **`src/builder/api-primitives.ts`** + **`src/builder/api-enhanced.ts`**: DNA schema factory with Zod-like fluent API (`dna.string()`, `dna.object()`, etc.), re-exported via `src/dna-namespace.ts`
+- **`src/core.ts`**: Single source of truth for runtime classes and registry. Re-exports all DNA schema classes (`DnaType`, `DnaObject`, ...), `initDna`, `BaseCore`, `toJS`, `DnaError`, `DnaIssueCodes`, and the constructor registry from `./builder/dna-interfaces.js` and `./toJs/registry.js`. All other entry points (`index`, `introspect`, `toJs`) import from `@ytrynot/dna/core` to ensure a single class identity (`instanceof` works across bundles) and a shared registry Map. Mirrors the `zod/v4/core` pattern.
+- **`src/introspect.ts`**: Schema introspection utilities (`isOptional`, `isNullable`, `isObject`, `unwrap`, `unwrapDeep`, `defaultValue`, `getClassName`). Imports runtime classes from `@ytrynot/dna/core`. Exported as `@ytrynot/dna/introspect`.
+- **`src/builder/api-primitives.ts`** + **`src/builder/api-enhanced.ts`**: DNA schema factory with Zod-like fluent API (`dna.string()`, `dna.object()`, etc.), re-exported via `src/dna-namespace.ts`. Import `initDna`, `DnaType`, etc. from `@ytrynot/dna/core`.
 - **`src/fromDna/index.ts`**: DNA → fluent-schema reconstruction (`fromDna`). Rebuilds a builder schema from a DNA bytecode sequence produced by the builder.
 - **`src/toJs/dna-to-js.ts`**: Main compiler entry point, orchestrates DNA → JavaScript conversion
 - **`src/toJs/dna-js-json.ts`**: Opcode-to-JavaScript mapper for JSON Schema-derived opcodes (`object`, `array`, `string`, `number`, `anyOf`, `oneOf`, `discriminator`, etc.)
@@ -26,6 +28,19 @@ This package provides the DNA bytecode runtime engine. It is NOT the JSON Schema
 - **`src/toJs/utils.ts`**: Code generation helpers, inline function registry, and shared validators
 - **`src/types/`**: DNA bytecode type definitions and inference types
 - **`src/shared/`**: Shared utilities (stack steps, constants)
+
+### Core Entry Point Pattern (`@ytrynot/dna/core`)
+
+The package uses a multi-entry-point architecture inspired by `zod/v4/core`:
+
+- **`dist/core.js`** (220 KB): contains all runtime code — schema classes, `initDna`, `toJS`, `DnaError`, registry. Loaded once.
+- **`dist/index.js`** (21 KB): public API, imports classes from `dist/core.js` via `@ytrynot/dna/core` (marked `external` in tsup).
+- **`dist/introspect.js`** (1.4 KB): introspection utilities, imports `DnaType`/`DnaObject` from `dist/core.js`.
+- **`dist/toJs.js`** (126 B): re-exports `toJS`/`validator`/`parser` from `dist/core.js`.
+
+**Build configuration**: `packages/dna/tsup.config.ts` passes `external: ["@ytrynot/dna/core"]` to `buildConfig` so tsup does not bundle core into the other entry points. `packages/dna/tsconfig.json` maps `@ytrynot/dna/core` → `./src/core.ts` via `paths` for DTS generation. `vitest.config.ts` (root) maps `@ytrynot/dna/core` → `packages/dna/src/core.ts` for test resolution.
+
+**Critical invariant**: any new runtime module imported by multiple entry points MUST be re-exported from `src/core.ts` and imported via `@ytrynot/dna/core` — never via relative paths. Otherwise the module is duplicated across bundles, breaking `instanceof` and registry singleton.
 
 ### Documentation
 

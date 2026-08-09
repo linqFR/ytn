@@ -12,7 +12,7 @@ import type {
 } from "../types/index.js";
 import { simpleNodeToJs, _err, _errMode, ERR_UNDEF, isAsyncFnStr, withAwait, externalsOutArgs, fastMergeArrays } from "./utils.js";
 import { FN_cidrV6, FN_toBigInt, FN_toDate } from "./inline-func.js";
-import { registerExternal } from "./registry.js";
+import { registerExternal } from "@ytrynot/dna/core";
 import * as jose from "jose";
 
 

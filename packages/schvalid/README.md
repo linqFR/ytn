@@ -6,6 +6,10 @@
 
 # @ytrynot/schvalid
 
+> **Looking for testers!** This package is actively seeking early users and feedback. If you try it out, please share your experience — issues, suggestions, or ideas are all welcome.
+>
+> npm: https://www.npmjs.com/package/@ytrynot/schvalid · GitHub: https://github.com/linqFR/ytn/tree/main/packages/schvalid
+
 JSON Schema 2020-12 validation with compiled standalone JS functions.
 
 > **Important**: This package only supports and validates JSON Schema 2020-12 with internal references. External `$ref` (HTTP URIs, URNs, or external files) are not supported.

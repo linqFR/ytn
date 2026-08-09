@@ -3,7 +3,7 @@
  * Allows dna.tsDnaString, dna.infer<typeof schema> to work
  */
 
-import type { DnaType } from "./builder/dna-interfaces.js";
+import type { DnaType } from "@ytrynot/dna/core";
 import type { $Input, $InputHead, $Output } from "./types/helpers.types.js";
 
 
@@ -100,7 +100,7 @@ export type {
   DnaSomeType,
   DnaJson,
   tsJsonValue,
-} from "./builder/dna-interfaces.js";
+} from "@ytrynot/dna/core";
 
 // Utility exports
 export * as util from "./builder/util.js"
@@ -123,5 +123,5 @@ export type inputHead<S> = $InputHead<S>;
 export {
   registerExternal as registerConstructor,
   getExternal as getConstructor,
-} from "./toJs/registry.js";
+} from "@ytrynot/dna/core";
 

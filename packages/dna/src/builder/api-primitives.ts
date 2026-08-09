@@ -1,11 +1,11 @@
 // ============================================
 // Helper wrapper for meta parameter
 
-import { DnaIssueCodes } from "../shared/error-codes.js";
+import { DnaIssueCodes } from "@ytrynot/dna/core";
 import type { tsDecodeFn, tsEncodeFn, tsTransformFn } from "../shared/handlers-builder.types.js";
 import type { tsDnaRefineCtx, tsDnaInnerMeta, tsDnaMeta } from "../shared/meta-context.type.js";
 import type { tsDnaExternalsDecl } from "../shared/runtime.types.js";
-import { initDna } from "./dna-core.js";
+import { initDna } from "@ytrynot/dna/core";
 
 import type {
   tsDnaDescribeCheck,
@@ -21,7 +21,7 @@ import type {
   tsDnaDiscriminatedUnionObjects,
 } from "../types/api-builder.types.js";
 import type { $ToEnum, $Input, $Output, $ArrayItem, $TemplateLiteral, $DnaObjectOutput, $DnaObjectInput } from "../types/helpers.types.js";
-import type { DnaSomeType } from "./dna-interfaces.js";
+import type { DnaSomeType } from "@ytrynot/dna/core";
 
 import {
   DnaBigInt,
@@ -97,7 +97,7 @@ import {
   type DnaJson,
   DnaNonOptional,
   type DnaJsonRaw
-} from "./dna-interfaces.js";
+} from "@ytrynot/dna/core";
 import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
 
 // DNA compatibility: error codes (from DNA error-types.ts)

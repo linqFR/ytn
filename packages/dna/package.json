@@ -65,6 +65,14 @@
       "import": "./dist/index.min.js",
       "types": "./dist/index.d.ts"
     },
+    "./introspect": {
+      "import": "./dist/introspect.js",
+      "types": "./dist/introspect.d.ts"
+    },
+    "./core": {
+      "import": "./dist/core.js",
+      "types": "./dist/core.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "devDependencies": {
