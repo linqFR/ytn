@@ -157,7 +157,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
           throw new Error(`fromDna: wrp type not implemented: ${wrptype}`);
       }
       if (meta) {
-        const cleanMeta = { ...meta as any };
+        const cleanMeta = { ...meta };
         // passDefault is a runtime marker emitted by DnaOptional._emitSelf; it
         // should not be persisted as schema meta because it pollutes object propMeta.
         delete cleanMeta.passDefault;

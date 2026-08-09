@@ -71,6 +71,12 @@ import { cacheKey } from "./util.js";
 // DNA Collector
 // ===========================================
 
+/**
+ * Collector that accumulates DNA bytecode nodes during schema emission.
+ * Each schema node is stored once (deduplicated by a stable cache key) and
+ * assigned a numeric index. Forward references for circular schemas are
+ * tracked via `refList` and `pendingRefs`.
+ */
 export class DnaCollector implements IDnaCollector {
   dnaList: tsDna[] = [];
   dnaCache = new Map<string, number>();
@@ -93,12 +99,29 @@ export class DnaCollector implements IDnaCollector {
   //   });
   // }
 
+  /**
+   * Stores an arbitrary object (typically a params array) and returns a
+   * numeric mark that can later be used to retrieve or update it.
+   *
+   * @param objToStore - The object to store (usually a DNA params array).
+   * @returns A numeric store mark used as a handle.
+   */
   setStore(objToStore: any): tsStoreMark {
     const storeSize = this.storeId++;
     this.store.set(storeSize, objToStore);
     return storeSize;
   }
 
+  /**
+   * Updates a previously stored object at the given store mark, either by
+   * overwriting it entirely or by writing a DNA index at a specific position
+   * (scalar index or `[row, col]` pair).
+   *
+   * @param storeMark - The store handle returned by {@link setStore}.
+   * @param targetIdx - The DNA index to write.
+   * @param position - A scalar index, a `[row, col]` pair, or `undefined` to
+   *   replace the whole stored value.
+   */
   updateStore(storeMark: tsStoreMark, targetIdx: tsDnaId, position?: tsStorePosition): void {
     if (typeof position === "number") {
       this.store.get(storeMark)[position] = targetIdx;
@@ -109,6 +132,19 @@ export class DnaCollector implements IDnaCollector {
     }
   }
 
+  /**
+   * Stores a DNA node, deduplicating by a cache key derived from the node
+   * and an optional discriminant. When a `storeMark`/`storePosition` is
+   * provided, the resulting DNA index is also written back into the parent
+   * store so the parent's params array references this node.
+   *
+   * @param dna - The DNA tuple to store.
+   * @param storeMark - Optional parent store handle for back-writing.
+   * @param storePosition - Optional position within the parent store.
+   * @param discriminant - Extra value folded into the cache key to prevent
+   *   false deduplication of structurally identical nodes.
+   * @returns The numeric DNA index assigned to this node.
+   */
   storeDNA(dna: tsDna, storeMark?: tsStoreMark, storePosition?: tsStorePosition, discriminant: any = {}): tsDnaId {
     const key = cacheKey([dna, discriminant]);
     if (this.dnaCache.has(key)) {
@@ -127,6 +163,12 @@ export class DnaCollector implements IDnaCollector {
     return idx;
   }
 
+  /**
+   * Returns the complete DNA sequence: a flat array of all stored DNA nodes
+   * followed by the `refList` (array of node IDs used as forward references).
+   *
+   * @returns The full {@link tsDnaSeq}.
+   */
   getDnaSeq(): tsDnaSeq {
     return [...this.dnaList, [...this.refList]];
   }
@@ -165,6 +207,15 @@ function metaNormalize(meta?: string | tsDnaInnerMeta, target?: string): tsDnaIn
 const SymSetHead = Symbol("setHead");
 const SymForceCoerce = Symbol("forceCoerce");
 
+/**
+ * Structural interface shared by all DNA schema instances. Defines the
+ * minimum public contract: type metadata, parsing/validation entry points,
+ * DNA emission, and metadata access. Every concrete schema class
+ * (`DnaString`, `DnaObject`, ...) implements this interface.
+ *
+ * @typeParam T - The output type produced by a successful parse.
+ * @typeParam I - The input type accepted by the schema (before coercion).
+ */
 export interface DnaSomeType<T = unknown, I = unknown> {
   readonly _output: T;
   readonly _input: I;
@@ -198,6 +249,17 @@ function isDnaObject(schema: DnaSomeType): schema is DnaObject {
   return schema instanceof DnaObject;
 }
 
+/**
+ * Clones a schema, preserves its head reference, then applies a mutation
+ * function to the clone. Returns the mutated clone, leaving the original
+ * schema untouched. Used internally by every fluent builder method to
+ * maintain immutability.
+ *
+ * @typeParam T - The concrete schema type.
+ * @param schema - The source schema to clone.
+ * @param fn - A callback that mutates the clone in place.
+ * @returns The mutated clone with the original head reference preserved.
+ */
 export function cloner<T extends DnaType<any, any>>(schema: T, fn: (cl: T) => void): T {
   const clHeaded = schema.clone();
   // Preserve head reference (all schemas in a chain point to the same head)
@@ -213,6 +275,14 @@ export function cloner<T extends DnaType<any, any>>(schema: T, fn: (cl: T) => vo
 type $ReadonlyReturnType<S extends { _output: any; _input: any }> =
   Omit<S, "_output" | "_input" | "readonly"> & { readonly _output: $ReadonlyValue<S["_output"]>; readonly _input: $ReadonlyValue<S["_input"]>; };
 
+/**
+ * Base class for all DNA schema types. Provides the core validation, parsing,
+ * DNA emission, composition, and metadata APIs inherited by every concrete
+ * schema class (`DnaString`, `DnaObject`, `DnaArray`, ...).
+ *
+ * @typeParam T - The output type produced by a successful parse.
+ * @typeParam I - The input type accepted by the schema (before coercion).
+ */
 export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
   // expected typescript type input
   readonly declare _input: I;
@@ -290,6 +360,15 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
 
 
 
+  /**
+   * Getter/setter for the schema's inner metadata. When called with no
+   * arguments, returns the current metadata object. When called with a
+   * string or metadata object, returns a **cloned** schema with the
+   * metadata applied (the original is not mutated).
+   *
+   * @param value - A string (treated as an error message) or a metadata object.
+   * @returns The current metadata (getter) or a cloned schema (setter).
+   */
   meta(): tsDnaInnerMeta;
   meta(value: string | tsDnaMeta): this;
   meta(value?: string | tsDnaMeta): this | tsDnaInnerMeta {
@@ -297,6 +376,12 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return cloner(this, (cl: this) => cl._core.rawMeta(value));
   }
 
+  /**
+   * Returns a deep clone of this schema, including its core state and head
+   * reference. Bound methods are re-bound to the clone so `this` is correct.
+   *
+   * @returns A new schema instance with the same state as `this`.
+   */
   clone() {
     const clone = new (this.constructor as new () => this)();
     clone._core = this._core.clone();
@@ -439,7 +524,23 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return dnaId;
   }
 
+  /**
+   * Emits the full DNA bytecode sequence for this schema (root call).
+   * Creates a fresh {@link DnaCollector}, emits all nodes, and returns the
+   * complete `tsDnaSeq`. The result is cached on the schema's core.
+   *
+   * @returns The complete DNA bytecode sequence.
+   */
   toDna(): tsDnaSeq;
+  /**
+   * Emits this schema's DNA node into an existing collector (recursive call).
+   * Used by parent schemas (object, array, union, ...) to emit their children.
+   *
+   * @param collector - The active DNA collector.
+   * @param storeMark - Optional parent store handle for back-writing the index.
+   * @param storePosition - Optional position within the parent store.
+   * @returns The numeric DNA index assigned to this node.
+   */
   toDna(collector: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId;
   toDna(collector?: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId | tsDnaSeq {
     if (collector instanceof DnaCollector) {
@@ -456,12 +557,30 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return this._core.fullDna;
   }
 
+  /**
+   * Pipes the output of this schema into another schema, creating a
+   * {@link DnaPipe} that validates in sequence: `this` first, then `target`.
+   *
+   * @typeParam U - The target schema type.
+   * @param target - The schema to pipe into.
+   * @returns A `DnaPipe` schema representing the composition.
+   */
   pipe<U extends DnaType<any, any>>(target: U) {
     const pipeSeq = initDna(DnaPipe<this, U>, { steps: [this, target] });
     pipeSeq[SymSetHead](this._head);
     return pipeSeq;
   }
 
+  /**
+   * Transforms the validated output of this schema by applying `fn`, producing
+   * a new type `R`. Returns a {@link DnaPipe} that validates with `this` then
+   * applies the transform. Supports async functions (use `parseAsync`).
+   *
+   * @typeParam R - The transform's return type.
+   * @param fn - The transform function (sync or async).
+   * @param externals - Optional externals declaration for captured variables.
+   * @returns A `DnaPipe` schema ending in a `DnaTransform`.
+   */
   transform<R>(fn: (arg: $Output<this>, ctx: tsDnaRefineCtx<$Output<this>>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<this, DnaTransform<$Output<this>, R>>;
   transform<R>(fn: (arg: $Output<this>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<this, DnaTransform<$Output<this>, R>>;
   transform<R>(fn: (ctx: tsDnaRefineCtx<$Output<this>>) => $MaybeAsync<R>, externals?: tsDnaExternalsDecl): DnaPipe<this, DnaTransform<$Output<this>, R>>;
@@ -474,6 +593,17 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return pipeSeq;
   }
 
+  /**
+   * Adds a refinement check to this schema. If `fn` returns a falsy value,
+   * a validation issue is added with the provided error message/path.
+   * Returns a **cloned** schema with the refiner appended.
+   *
+   * @typeParam R - The return type of the refiner (truthy/falsy check).
+   * @param fn - The refinement function (sync or async).
+   * @param options - A string (error message) or an options object with
+   *   `error` and `path` fields.
+   * @returns A cloned schema with the refiner added.
+   */
   refine<R>(fn: (value: $Output<this>, ctx?: tsDnaRefineCtx<$Output<this>>) => $MaybeAsync<R>, options?: string | tsRefineOptions<DnaType<any, any>>): this {
     const errorMessage = typeof options === "string"
       ? options
@@ -489,11 +619,31 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return cloner(this, cl => { cl._core.refinerList.push(["func", body, 2]); });
   }
 
+  /**
+   * Adds a low-level refinement that receives the value and a context object
+   * for manually adding issues via `ctx.addIssue()`. Unlike `.refine()`, the
+   * function's return value is ignored — issues are added explicitly.
+   *
+   * @param fn - The super-refine function (sync or async).
+   * @returns A cloned schema with the super-refiner added.
+   */
   // Additional validation
   superRefine(fn: (value: $Output<this>, ctx: tsDnaRefineCtx<$Output<this>>) => $MaybeAsync<void>): this | never {
     return cloner(this, cl => { cl._core.refinerList.push(["func", fn.toString().trim(), fn.length]); });
   }
 
+  /**
+   * Adds one or more checks to this schema. Checks can be:
+   * - A `tsDnaCheck` tuple (validation rule),
+   * - A {@link DnaCheckProperty} (property-level validation),
+   * - A bare function (treated as a refiner),
+   * - A `describe` or `meta` check object.
+   *
+   * Returns a **cloned** schema with the checks appended to its refiner list.
+   *
+   * @param checks - The checks to add.
+   * @returns A cloned schema with the checks added.
+   */
   check(...checks: (tsDnaCheck | DnaCheckProperty<string | number, DnaType<any, any>> | (() => $MaybeAsync<unknown>) | ((ctx: tsDnaBaseCtx<$Input<this>>) => $MaybeAsync<unknown>))[]): this {
     return cloner(this, cl => {
       for (const check of checks) {
@@ -509,6 +659,13 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     });
   }
 
+  /**
+   * Alias for {@link check} that accepts a single check. Useful for fluent
+   * chaining: `schema.with(myCheck).with(myOtherCheck)`.
+   *
+   * @param check - A `tsDnaCheck` tuple or a refiner function.
+   * @returns A cloned schema with the check added.
+   */
   // Utility methods
   with(check: tsDnaCheck | ((ctx: tsDnaBaseCtx<$Input<this>>) => $MaybeAsync<unknown>)): this {
     return this.check(check);
@@ -522,6 +679,15 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
   //   return this as IDnaSchemaBase<R>;
   // }
 
+  /**
+   * Adds a nominal brand to the schema's type for compile-time discrimination.
+   * This is purely a TypeScript-level operation with no runtime effect.
+   *
+   * @typeParam T - The brand key (defaults to a unique symbol).
+   * @typeParam Dir - The branding direction: `"in"`, `"out"`, or `"inout"`.
+   * @param value - The brand value.
+   * @returns `this` if no brand value is given, otherwise a branded type.
+   */
   brand<T extends PropertyKey = PropertyKey, Dir extends "in" | "out" | "inout" = "out">(value?: T): PropertyKey extends T ? this : $DnaBranded<this, T, Dir> {
     // .brand() adds a brand to the type for type-level discrimination
     // This is purely for TypeScript typing, no runtime effect
@@ -529,7 +695,24 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return this as PropertyKey extends T ? this : $DnaBranded<this, T, Dir>;
   }
 
+  /**
+   * Wraps this schema in a {@link DnaCatch} that provides a fallback value (or
+   * recovery function) when parsing fails. Unlike `.default()` (which only
+   * handles `undefined`), `.catch()` handles **all** parsing errors.
+   *
+   * @typeParam R - The catch value type.
+   * @param catchValue - A static fallback value.
+   * @returns A `DnaCatch` wrapper schema.
+   */
   catch<R>(catchValue: R): DnaCatch<this>;
+  /**
+   * Wraps this schema in a {@link DnaCatch} with a recovery function.
+   *
+   * @typeParam R - The recovery function's return type.
+   * @param catchfn - A function receiving the parse context and returning a fallback.
+   * @param externals - Optional externals for captured variables.
+   * @returns A `DnaCatch` wrapper schema.
+   */
   catch<R>(catchfn: (ctx: tsDnaBaseCtx<unknown>) => R, externals?: tsDnaExternalsDecl): DnaCatch<this>;
   catch<R>(arg0: R | ((ctx: tsDnaBaseCtx<unknown>) => R), externals?: tsDnaExternalsDecl): DnaCatch<this> {
     // .catch() provides a default value when parsing fails
@@ -539,6 +722,12 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return wrapper;
   }
 
+  /**
+   * Converts this schema to a JSON Schema (Draft 2020-12) object by first
+   * emitting DNA bytecode and then mapping it to JSON Schema.
+   *
+   * @returns A JSON Schema object with the `$schema` dialect set.
+   */
   // Properties
   toJSONSchema(): Record<string, unknown> {
     // Convert DNA bytecode to JSON Schema
@@ -554,17 +743,40 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return { ...schema, $schema: dialect };
   }
 
+  /**
+   * Wraps this schema in a {@link DnaArray} so each element is validated
+   * against `this`.
+   *
+   * @returns A `DnaArray` schema with `this` as its item schema.
+   */
   // Composition methods
   array(): DnaArray<this> {
     const arraySchema = initDna(DnaArray<this>, { min: null, max: null, length: null, itemSchema: this })[SymSetHead](this._head);
     return arraySchema;
   }
 
+  /**
+   * Creates a union (`anyOf`) of this schema and `other`. The resulting
+   * schema accepts values valid against either branch.
+   *
+   * @typeParam Other - The other schema type.
+   * @param other - The schema to union with.
+   * @returns A `DnaUnion` schema.
+   */
   or<Other extends DnaType<any, any>>(other: Other) {
     const union = initDna(DnaUnion<[this, Other]>, { schemas: [this, other] })[SymSetHead](this._head);
     return union;
   }
 
+  /**
+   * Creates an intersection (`allOf`) of this schema and `other`. The
+   * resulting schema requires values valid against **both** branches.
+   *
+   * @typeParam OU - The other schema's output type.
+   * @typeParam OI - The other schema's input type.
+   * @param other - The schema to intersect with.
+   * @returns A `DnaIntersection` schema.
+   */
   and<OU, OI = I>(other: DnaType<OU, OI>) {
     // and() creates an intersection
     // For DNA, we use allOf (intersection) with a store pattern like UnionImpl
@@ -573,6 +785,14 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
 
   }
 
+  /**
+   * Creates an exclusive union (`oneOf`) of this schema and `other`. The
+   * resulting schema requires a value valid against **exactly one** branch.
+   *
+   * @typeParam U - The other schema's output type.
+   * @param other - The schema to XOR with.
+   * @returns A `DnaXorUnion` schema.
+   */
   xor<U>(other: DnaType<U>) {
     // xor() creates an exclusive union (exactly one must match)
     // For DNA, we use oneOf opcode
@@ -580,21 +800,66 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return xorSchema;
   }
 
+  /**
+   * Sets a human-readable description on the schema's metadata.
+   *
+   * @param description - The description string.
+   * @returns A cloned schema with the description set.
+   */
   describe(description: string) { return cloner(this, cl => cl._core.meta.description = description); }
+  /**
+   * Marks the schema's output as readonly at the type level. Returns a
+   * cloned schema with `readonly: true` in its metadata.
+   *
+   * @returns A cloned schema with a readonly output type.
+   */
   readonly(): $ReadonlyReturnType<this> {
     const r = cloner(this as unknown as DnaType<any, any>, cl => cl._core.meta.readonly = true);
     return r as unknown as $ReadonlyReturnType<this>;
   }
 
+  /**
+   * Registers a side-effecting callback that receives a clone of this schema.
+   * Useful for applying external configuration without breaking the fluent chain.
+   *
+   * @param fn - A callback receiving the cloned schema.
+   * @returns The cloned schema after `fn` has been applied.
+   */
   register(fn: (schema: this) => void) { return cloner(this, cl => fn(cl)); }
 
+  /**
+   * Overwrites the schema's type by applying `fn` to `this` directly (no clone).
+   * The return type is whatever `fn` produces.
+   *
+   * @typeParam U - The return type of `fn`.
+   * @param fn - A function receiving the schema and returning a value.
+   * @returns The value returned by `fn`.
+   */
   overwrite<U>(fn: (schema: this) => U): U { return fn(this); }
 
+  /**
+   * Applies a function to this schema with additional arguments. A general-
+   * purpose escape hatch for custom schema processing.
+   *
+   * @typeParam R - The return type of `fn`.
+   * @typeParam A - The tuple of extra argument types.
+   * @param fn - A function receiving the schema and extra args.
+   * @param args - Extra arguments to spread into `fn`.
+   * @returns The value returned by `fn`.
+   */
   apply<R, A extends unknown[] = []>(fn: (schema: this, ...args: A[]) => R, args: A[] = []): R {
     return fn(this, ...args);
   }
 
 
+  /**
+   * Compiles (and caches) a synchronous boolean validator function for this
+   * schema. Subclasses (e.g. `DnaCodec`) may override this to provide their
+   * own caching strategy.
+   *
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns A compiled validator function.
+   */
   _validate(ctx?: tsDnaExternals): tsDnaValidatorFn {
     if (this._core.seed.cachedValidator) return this._core.seed.cachedValidator;
     this._core.seed.cachedValidator = validatorBuilder(this.toDna(), ctx);
@@ -602,6 +867,15 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return this._core.seed.cachedValidator;
   }
 
+  /**
+   * Synchronously validates `value` against this schema, returning `true` or
+   * `false` (fail-fast, no error collection). Throws if the schema contains
+   * async refinements/transforms — use {@link validateAsync} in that case.
+   *
+   * @param value - The value to validate.
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns `true` if valid, `false` otherwise.
+   */
   validate(value: unknown, ctx?: tsDnaExternals): boolean {
     // Invoke the validator returned by `_validate` (which subclasses like DnaCodec
     // override with their own cache) rather than reading `#state.cachedValidator`
@@ -613,6 +887,14 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return fn(value);
   }
 
+  /**
+   * Asynchronously validates `value` against this schema. If `value` is a
+   * Promise, it is awaited first. Works uniformly for sync and async schemas.
+   *
+   * @param value - The value to validate (or a Promise resolving to it).
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns `true` if valid, `false` otherwise.
+   */
   async validateAsync(value: unknown, ctx?: tsDnaExternals): Promise<boolean> {
     if (value instanceof Promise) value = await value;
     // Awaiting a plain (non-async) compiled function's return value is a
@@ -621,6 +903,14 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return await this._validate(ctx)(value);
   }
 
+  /**
+   * Compiles (and caches) a parser function for this schema. The parser
+   * returns a structured result with either `{ success, data }` or
+   * `{ success, errors }`. Subclasses may override for custom caching.
+   *
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns A compiled parser function.
+   */
   _safeParse(ctx?: tsDnaExternals): tsDnaParserFn {
     if (this._core.seed.cachedParser) return this._core.seed.cachedParser;
     this._core.seed.cachedParser = parserBuilder(this.toDna(), ctx);
@@ -628,6 +918,16 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return this._core.seed.cachedParser;
   }
 
+  /**
+   * Synchronously parses `value` against this schema, returning a structured
+   * result: `{ success: true, data }` on success or `{ success: false, errors }`
+   * on failure. Throws if the schema contains async refinements/transforms —
+   * use {@link safeParseAsync} in that case.
+   *
+   * @param value - The value to parse.
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns A parser result object.
+   */
   safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult {
     // Invoke the parser from `_safeParse` (subclass-overridable, e.g. DnaCodec) for
     // the same reason as `validate` above.
@@ -638,6 +938,16 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return fn(value);
   }
 
+  /**
+   * Synchronously parses `value` and returns the validated/transformed data.
+   * Throws a {@link DnaError} if validation fails. Throws if the schema
+   * contains async refinements/transforms — use {@link parseAsync} instead.
+   *
+   * @param value - The value to parse.
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns The parsed and validated data.
+   * @throws {DnaError} When validation fails.
+   */
   // Additional parsing methods
   parse(value: unknown, ctx?: tsDnaExternals): T | never {
     const res = this.safeParse(value, ctx);
@@ -645,12 +955,29 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     throw new DnaError(res.errors);
   }
 
+  /**
+   * Asynchronously parses `value` and returns the validated/transformed data.
+   * Throws a {@link DnaError} if validation fails.
+   *
+   * @param value - The value to parse (or a Promise resolving to it).
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns The parsed and validated data.
+   * @throws {DnaError} When validation fails.
+   */
   async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> {
     const res = await this.safeParseAsync(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
   }
 
+  /**
+   * Asynchronously parses `value`, returning a structured result. If `value`
+   * is a Promise, it is awaited first. Works uniformly for sync and async schemas.
+   *
+   * @param value - The value to parse (or a Promise resolving to it).
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns A parser result object.
+   */
   async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
     if (value instanceof Promise) value = await value;
     // Awaiting a plain (non-async) compiled function's return value is a
@@ -659,26 +986,48 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return await this._safeParse(ctx)(value);
   }
 
+  /**
+   * Shorthand alias for {@link safeParseAsync}.
+   *
+   * @param value - The value to parse.
+   * @param ctx - Optional externals map for transform/refine functions.
+   * @returns A promise resolving to a parser result object.
+   */
   spa(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
     return this.safeParseAsync(value, ctx);
   }
 
+  /** Alias for {@link safeParse} (codec decode direction). */
   safeDecode(value: unknown, ctx: tsDnaExternals): tsDnaParserResult { return this.safeParse(value, ctx); }
+  /** Alias for {@link spa} (async codec decode direction). */
   safeDecodeAsync(value: unknown, ctx: tsDnaExternals): Promise<tsDnaParserResult> { return this.spa(value, ctx); }
+  /** Alias for {@link parse} (codec decode direction). */
   decode(value: unknown, ctx: tsDnaExternals): T { return this.parse(value, ctx); }
+  /** Alias for {@link parseAsync} (async codec decode direction). */
   decodeAsync(value: unknown, ctx: tsDnaExternals): Promise<T> { return Promise.resolve(this.parseAsync(value, ctx)); }
 
+  /** Alias for {@link safeParse} (codec encode direction). Overridden by {@link DnaCodec}. */
   safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult { return this.safeParse(value, ctx); }
+  /** Alias for {@link spa} (async codec encode direction). */
   safeEncodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> { return Promise.resolve(this.safeEncode(value, ctx)); }
+  /** Alias for {@link parse} (codec encode direction). */
   encode(value: unknown, ctx?: tsDnaExternals): T {
     const res = this.safeEncode(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
   }
+  /** Alias for {@link parseAsync} (async codec encode direction). */
   encodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> { return Promise.resolve(this.encode(value, ctx)); }
 
 
   // Information methods
+  /**
+   * Returns `true` if this schema accepts absent/undefined values (i.e. it
+   * is wrapped in `optional`, `nullish`, `catch`, `default`, or `prefault`).
+   * A `nonoptional` wrapper anywhere in the chain cancels optionality.
+   *
+   * @returns `true` if the schema is optional.
+   */
   isOptional(): boolean {
     let s: DnaSomeType = this instanceof DnaLazy ? this.innerType : this;
     while (s instanceof _DnaWrapper) {
@@ -689,6 +1038,12 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return false;
   }
 
+  /**
+   * Returns `true` if this schema accepts `null` (i.e. it is wrapped in
+   * `nullable` or `nullish`).
+   *
+   * @returns `true` if the schema is nullable.
+   */
   isNullable(): boolean {
     let s: DnaSomeType = this instanceof DnaLazy ? this.innerType : this;
     while (s instanceof _DnaWrapper) {
@@ -698,6 +1053,12 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     return false;
   }
 
+  /**
+   * Returns `true` if this schema accepts both `null` and `undefined`
+   * (i.e. it is wrapped in `nullish`).
+   *
+   * @returns `true` if the schema is nullish.
+   */
   isNullish(): boolean {
     let s: DnaSomeType = this instanceof DnaLazy ? this.innerType : this;
     while (s instanceof _DnaWrapper) {
@@ -709,62 +1070,127 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
 }
 
 // export class DnatypeWithWrappers<T, I = T, StateDef extends tsStateDef = tsStateDef> extends DnaType<T, I, StateDef> {
+/**
+ * Extension of {@link DnaType} that adds wrapper-creation methods
+ * (`optional`, `nullable`, `default`, ...). All concrete schema classes
+ * inherit from this so every schema can be wrapped.
+ *
+ * @typeParam T - The output type.
+ * @typeParam I - The input type (defaults to `T`).
+ */
 export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
+  /**
+   * Unwraps a wrapper schema to its inner schema. Throws if this schema is
+   * not a wrapper (no `optional`/`nullable`/`default`/... has been applied).
+   *
+   * @returns The inner schema.
+   * @throws {Error} When called on a non-wrapper schema.
+   */
   unwrap(): DnaSomeType {
     throw new Error("unwrap() can only be called when a wrapper (optional, nullable, nullish, default, prefault) has been applied");
   }
+  /**
+   * Wraps this schema in a {@link DnaOptional}, allowing `undefined` values.
+   *
+   * @returns A `DnaOptional` wrapper.
+   */
   optional<This extends DnaSomeType>(this: This): DnaOptional<This> {
     return initDna(DnaOptional<This>, { inner: this })[SymSetHead](this._head);
   }
+  /**
+   * Wraps this schema in a {@link DnaNonOptional}, forcing the key to be
+   * required even if an inner `optional` wrapper exists.
+   *
+   * @returns A `DnaNonOptional` wrapper.
+   */
   nonoptional<This extends DnaSomeType>(this: This): DnaNonOptional<This> {
     return initDna(DnaNonOptional<This>, { inner: this })[SymSetHead](this._head);
   }
+  /**
+   * Wraps this schema in a {@link DnaNullable}, allowing `null` values.
+   *
+   * @returns A `DnaNullable` wrapper.
+   */
   nullable<This extends DnaSomeType>(this: This): DnaNullable<This> {
     return initDna(DnaNullable<This>, { inner: this })[SymSetHead](this._head);
   }
+  /**
+   * Wraps this schema in a {@link DnaNullish}, allowing both `null` and
+   * `undefined` values.
+   *
+   * @returns A `DnaNullish` wrapper.
+   */
   nullish<This extends DnaSomeType>(this: This): DnaNullish<This> {
     return initDna(DnaNullish<This>, { inner: this })[SymSetHead](this._head);
   }
+  /**
+   * Wraps this schema in a {@link DnaDefault} that substitutes `value` when
+   * the parsed output is `undefined`.
+   *
+   * @param value - The default value to use when output is `undefined`.
+   * @returns A `DnaDefault` wrapper.
+   */
   default<This extends DnaSomeType>(this: This, value: This["_output"]): DnaDefault<This> {
     return initDna(DnaDefault<This>, { inner: this, value })[SymSetHead](this._head);
   }
+  /**
+   * Wraps this schema in a {@link DnaPrefault} that substitutes `value` when
+   * the **input** is `undefined` (before validation runs).
+   *
+   * @param value - The prefault value to use when input is `undefined`.
+   * @returns A `DnaPrefault` wrapper.
+   */
   prefault<This extends DnaSomeType>(this: This, value: This["_input"]): DnaPrefault<This> {
     return initDna(DnaPrefault<This>, { inner: this, value })[SymSetHead](this._head);
   }
+  /**
+   * Wraps this schema in a {@link DnaExactOptional}, making an object key
+   * optional at the type level without adding `undefined` to the value type.
+   *
+   * @returns A `DnaExactOptional` wrapper.
+   */
   exactOptional<This extends DnaSomeType>(this: This): DnaExactOptional<This> {
     return initDna(DnaExactOptional<This>, { inner: this })[SymSetHead](this._head);
   }
 }
 
+/** Schema accepting any value (`any`). Mirrors Zod's `z.any()`. */
 export class DnaAny extends DnaTypeWithWrappers<any, any> {
   override _core = new BaseCore("any", { templateRegex: "" });
 }
 
+/** Schema accepting any value (`unknown`). Mirrors Zod's `z.unknown()`. */
 export class DnaUnknown extends DnaTypeWithWrappers<unknown, unknown> {
   override _core = new BaseCore("unknown", { templateRegex: "" });
 }
 
+/** Schema that never matches any value. Mirrors Zod's `z.never()`. */
 export class DnaNever extends DnaTypeWithWrappers<never, unknown> {
   override _core = new BaseCore("never", { rawDna: ["F"], templateRegex: "" });
 }
 
+/** Schema accepting only `null`. Mirrors Zod's `z.null()`. */
 export class DnaNull extends DnaTypeWithWrappers<null, null> {
   override _core = new BaseCore("null", { rawDna: ["n0"] });
 }
 
+/** Schema accepting only `undefined`. Mirrors Zod's `z.undefined()`. */
 export class DnaUndefined extends DnaTypeWithWrappers<undefined, undefined> {
   override _core = new BaseCore("undefined", { rawDna: ["undefined"] });
 }
 
 
+/** Schema accepting only `symbol` values. Mirrors Zod's `z.symbol()`. */
 export class DnaSymbol extends DnaTypeWithWrappers<symbol, symbol> {
   override _core = new BaseCore("symbol", { rawDna: ["symbol"] });
 }
 
+/** Schema accepting only `void` (treated as `undefined` at runtime). Mirrors Zod's `z.void()`. */
 export class DnaVoid extends DnaTypeWithWrappers<void, void> {
   override _core = new BaseCore("void", { rawDna: ["undefined"] });
 }
 
+/** Schema accepting only `NaN`. Mirrors Zod's `z.nan()`. */
 export class DnaNaN extends DnaTypeWithWrappers<typeof NaN, typeof NaN> {
   override _core = new BaseCore("nan", { rawDna: ["nan"] });
 }
@@ -794,6 +1220,12 @@ class DnaCombinator<T, I = T, S extends readonly DnaSomeType[] = readonly DnaSom
   }
 }
 
+/**
+ * Union schema (`anyOf`): accepts values valid against any of its member
+ * schemas. Mirrors Zod's `z.union([...])`.
+ *
+ * @typeParam S - A readonly tuple of member schema types.
+ */
 export class DnaUnion<S extends tsDnaTupleSchemaRO> extends DnaCombinator<$Output<S[number]>, $Output<S[number]>, S> {
   override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("anyOf")
     .preSeed({ combinatorType: "anyOf" });
@@ -802,6 +1234,15 @@ export class DnaUnion<S extends tsDnaTupleSchemaRO> extends DnaCombinator<$Outpu
   get options(): S { return this._core.seed.schemas as unknown as S; }
 }
 
+/**
+ * Intersection schema (`allOf`): requires values valid against **both**
+ * member schemas. When both members are objects, their shapes are merged.
+ * Mirrors Zod's `z.intersection(left, right)`.
+ *
+ * @typeParam T - The left schema's output type.
+ * @typeParam U - The right schema's output type.
+ * @typeParam I - The combined input type (defaults to `T & U`).
+ */
 export class DnaIntersection<T, U, I = T & U> extends DnaCombinator<T & U, I, [DnaType<T, I>, DnaType<U, I>]> {
   override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("allOf")
     .preSeed({ combinatorType: "allOf" });
@@ -827,12 +1268,27 @@ export class DnaIntersection<T, U, I = T & U> extends DnaCombinator<T & U, I, [D
   }
 }
 
+/**
+ * Exclusive union schema (`oneOf`): accepts values valid against **exactly
+ * one** of its member schemas. Mirrors Zod's `z.xor(left, right)`.
+ *
+ * @typeParam T - The left schema's output type.
+ * @typeParam U - The right schema's output type.
+ */
 export class DnaXorUnion<T = unknown, U = unknown> extends DnaCombinator<$Xor<T, U>> {
   override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("oneOf")
     .preSeed({ combinatorType: "oneOf" });
 }
 
 
+/**
+ * Transform schema node: represents a single transformation function applied
+ * to validated data. Usually created via `.transform()` and wrapped in a
+ * {@link DnaPipe}.
+ *
+ * @typeParam T - The input type to the transform.
+ * @typeParam R - The transform's return type.
+ */
 export class DnaTransform<T, R> extends DnaTypeWithWrappers<R, T> {
   override _core = new BaseCore<{ fnStr: string, arity: number }>("transform");
 
@@ -845,6 +1301,16 @@ export class DnaTransform<T, R> extends DnaTypeWithWrappers<R, T> {
 
 /* Wrappers bubble up their meta, so they dont need one  */
 // export class WrapperImpl<T, I = T, Inner extends DnaType<T, I> = DnaType<T, I>, StateDef = tsStateDef> extends DnatypeWithWrappers<T, I, tsStateWrp<T, I, Inner> & StateDef> {
+/**
+ * Internal base class for all wrapper schemas (`optional`, `nullable`,
+ * `default`, `prefault`, `catch`, `nullish`, `nonoptional`, `exactOptional`).
+ * Wraps an inner schema and adds absent-value tolerance, fallback values,
+ * or error recovery. Not exported directly — use the concrete subclasses.
+ *
+ * @typeParam Inner - The inner schema type being wrapped.
+ * @typeParam Out - The wrapper's output type.
+ * @typeParam In - The wrapper's input type.
+ */
 class _DnaWrapper<
   Inner extends DnaSomeType,
   Out = $Output<Inner>,
@@ -889,7 +1355,10 @@ class _DnaWrapper<
   }
 
 
-  /** @deprecated Use unwrap() instead */
+  /**
+   * @deprecated Use {@link unwrap} instead.
+   * @returns The inner schema.
+   */
   removeDefault(): Inner { return this.unwrap(); }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
@@ -932,6 +1401,7 @@ class _DnaWrapper<
   }
 }
 
+/** Optional wrapper: allows `undefined` values. Created via `.optional()`. */
 // Optional wrapper - allows undefined
 export class DnaOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | undefined;
@@ -939,11 +1409,19 @@ export class DnaOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWr
   override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" }).rawMeta({optional:true});
 }
 
+/**
+ * ExactOptional wrapper: makes an object key optional at the type level
+ * without adding `undefined` to the value type. Created via `.exactOptional()`.
+ */
 // ExactOptional wrapper - type-level marker: makes an object key optional without adding `undefined` to the value type.
 export class DnaExactOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   override _core = new BaseCore<{ wrapperType: "exactOptional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "exactOptional", phase: "pre" }).rawMeta({ exactOptional: true });
 }
 
+/**
+ * NonOptional wrapper: forces a schema to be required in object keys,
+ * cancelling any inner `optional`/`nullish` wrapper. Created via `.nonoptional()`.
+ */
 // NonOptional wrapper - marks schema as required in object keys (preserves wrapper chain type)
 export class DnaNonOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $RemoveUndefined<$Output<Inner>>;
@@ -951,6 +1429,7 @@ export class DnaNonOptional<Inner extends DnaSomeType = DnaSomeType> extends _Dn
   override _core = new BaseCore<{ wrapperType: "nonoptional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nonoptional", phase: "pre" }).rawMeta({ nonoptional: true });
 }
 
+/** Nullable wrapper: allows `null` values. Created via `.nullable()`. */
 // Nullable wrapper - allows null
 export class DnaNullable<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | null;
@@ -958,6 +1437,7 @@ export class DnaNullable<Inner extends DnaSomeType = DnaSomeType> extends _DnaWr
   override _core = new BaseCore<{ wrapperType: "nullable", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullable", phase: "pre" }).rawMeta({ nullable: true });
 }
 
+/** Nullish wrapper: allows both `null` and `undefined` values. Created via `.nullish()`. */
 // Nullish wrapper - allows undefined and null
 export class DnaNullish<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | null | undefined;
@@ -965,6 +1445,7 @@ export class DnaNullish<Inner extends DnaSomeType = DnaSomeType> extends _DnaWra
   override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" }).rawMeta({ nullish: true, optional:true, nullable:true });
 }
 
+/** Default wrapper: substitutes a default value when the output is `undefined`. Created via `.default(value)`. */
 // Default wrapper - provides default value for output
 export class DnaDefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   override _core = Object.defineProperty(
@@ -974,6 +1455,7 @@ export class DnaDefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWra
   );
 }
 
+/** Prefault wrapper: substitutes a default value when the **input** is `undefined` (before validation). Created via `.prefault(value)`. */
 // Prefault wrapper - provides default value for input
 export class DnaPrefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   override _core = Object.defineProperty(
@@ -983,6 +1465,7 @@ export class DnaPrefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWr
   );
 }
 
+/** Catch wrapper: provides a fallback value (or recovery function) on **any** parsing error. Created via `.catch(value)`. */
 // Catch wrapper - provides fallback value on error
 export class DnaCatch<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   override _core = Object.defineProperty(
@@ -1092,6 +1575,11 @@ const strCoreFactory = (format: string = "", coerce: boolean = false) => {
   });
 }
 
+/**
+ * String schema with constraints (min/max length, pattern, format, mutations).
+ * Mirrors Zod's `z.string()`. Supports a rich fluent API for string-specific
+ * validation and transformation.
+ */
 // String implementation
 // export class DnaString extends DnatypeWithWrappers<string, string, tsStateString> {
 export class DnaString extends DnaTypeWithWrappers<string, string> {
@@ -1139,25 +1627,61 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
     };
   }
 
+  /**
+   * Sets the minimum string length. Returns a cloned schema.
+   *
+   * @param length - The minimum number of characters.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the min constraint.
+   */
   min(length: number, meta?: string | tsDnaMeta) {
     return cloner(this, cl => { cl._core.seed.min = length; cl._core.innerMeta("min", meta); cl.#addSeq(["s", "min", length, metaNormalize(meta, "min")]); });
   }
 
+  /**
+   * Sets the maximum string length. Returns a cloned schema.
+   *
+   * @param length - The maximum number of characters.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the max constraint.
+   */
   max(length: number, meta?: string | tsDnaMeta) {
     return cloner(this, cl => { cl._core.seed.max = length; cl._core.innerMeta("max", meta); cl.#addSeq(["s", "max", length, metaNormalize(meta, "max")]); });
   }
 
+  /**
+   * Sets both min and max string length to the same value (exact length).
+   *
+   * @param length - The exact number of characters.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the length constraint.
+   */
   length(length: number, meta?: string | tsDnaMeta) {
     return cloner(this, cl => { cl._core.seed.min = length; cl._core.seed.max = length; if (meta) cl._core.innerMeta(["min", "max"], meta); });
   }
 
+  /**
+   * Alias for {@link length} — sets an exact string length.
+   *
+   * @param length - The exact number of characters.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the eq constraint.
+   */
   eq(length: number, meta?: string | tsDnaMeta) {
     return cloner(this, cl => { cl._core.seed.min = length; cl._core.seed.max = length; cl._core.innerMeta("eq", meta); });
   }
 
+  /**
+   * Sets a regex pattern the string must match.
+   *
+   * @param regex - The regular expression to match.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the pattern constraint.
+   */
   pattern(regex: RegExp, meta?: string | tsDnaMeta) {
     return cloner(this, cl => { cl._core.seed.pattern = regex; cl._core.innerMeta("pattern", meta); cl.#addSeq(["s", "pattern", regex, metaNormalize(meta, "pattern")]); });
   }
+  /** Alias for {@link pattern}. */
   regex = this.pattern;
 
   /** @internal Used by fromDna reconstruction and deprecated string constraint methods. Not part of the public API. */
@@ -1247,24 +1771,63 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
   /** @deprecated Use dna.mac() instead */
   mac(meta?: string | tsDnaMeta) { return this._format("mac", meta); }
 
+  /** Trims whitespace from both ends of the string (mutation). Returns a cloned schema. */
   trim() { return cloner(this, cl => cl.#addSeq(["mutate", ["trim"]])); }
+  /** Converts the string to lower case (mutation). Returns a cloned schema. */
   toLowerCase() { return cloner(this, cl => cl.#addSeq(["mutate", ["toLowerCase"]])); }
+  /** Converts the string to upper case (mutation). Returns a cloned schema. */
   toUpperCase() { return cloner(this, cl => cl.#addSeq(["mutate", ["toUpperCase"]])); }
+  /** Normalizes the string using Unicode normalization (mutation). Returns a cloned schema. */
   normalize() { return cloner(this, cl => cl.#addSeq(["mutate", ["normalize"]])); }
+  /**
+   * Checks that the string is all upper case.
+   *
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the uppercase check.
+   */
   uppercase(meta?: string | tsDnaMeta) { return cloner(this, cl => cl.#addSeq(["check", ["uppercase"], metaNormalize(meta)])); }
+  /**
+   * Checks that the string is all lower case.
+   *
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the lowercase check.
+   */
   lowercase(meta?: string | tsDnaMeta) { return cloner(this, cl => cl.#addSeq(["check", ["lowercase"], metaNormalize(meta)])); }
+  /**
+   * Checks that the string starts with `start`.
+   *
+   * @param start - The expected prefix.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the startsWith check.
+   */
   startsWith(start: string, meta?: string | tsDnaMeta) {
     return cloner(this, cl => {
       cl._core.seed.startsWith = start;
       cl.#addSeq(["check", ["startsWith", stringify(start)], metaNormalize(meta)]);
     });
   }
+  /**
+   * Checks that the string ends with `end`.
+   *
+   * @param end - The expected suffix.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the endsWith check.
+   */
   endsWith(end: string, meta?: string | tsDnaMeta) {
     return cloner(this, cl => {
       cl._core.seed.endsWith = end;
       cl.#addSeq(["check", ["endsWith", stringify(end)], metaNormalize(meta)]);
     });
   }
+  /**
+   * Checks that the string includes `inc` as a substring. An optional
+   * `position` narrows the match to `str.includes(inc, position)`.
+   *
+   * @param inc - The substring that must be present.
+   * @param params - A string (error message) or an object with optional
+   *   `position` and error metadata.
+   * @returns A cloned schema with the includes check.
+   */
   includes(inc: string, params?: string | (tsDnaMeta & { position?: number; })) {
     // Zod's 2nd arg is a message string OR `{ position?, error? }`. A `position`
     // narrows the match to `str.includes(inc, position)` (substring at index >= position).
@@ -1324,66 +1887,87 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
   }
 }
 
+/** String schema with the `email` format. Created via `dna.email()`. */
 export class DnaEmail extends DnaString {
   override _core = strCoreFactory("email");
 }
+/** String schema with the `httpUrl` format. Created via `dna.httpUrl()`. */
 export class DnaHttpUrl extends DnaString {
   override _core = strCoreFactory("httpUrl");
 }
+/** String schema with the `hostname` format. Created via `dna.hostname()`. */
 export class DnaHostname extends DnaString {
   override _core = strCoreFactory("hostname");
 }
+/** String schema with the `uuid` format. Created via `dna.uuid()`. */
 export class DnaUUID extends DnaString {
   override _core = strCoreFactory("uuid");
 }
+/** String schema with the `guid` format. Created via `dna.guid()`. */
 export class DnaGuid extends DnaString {
   override _core = strCoreFactory("guid");
 }
+/** String schema with the `e164` (phone number) format. Created via `dna.e164()`. */
 export class DnaE164 extends DnaString {
   override _core = strCoreFactory("e164");
 }
+/** String schema with the `emoji` format. Created via `dna.emoji()`. */
 export class DnaEmoji extends DnaString {
   override _core = strCoreFactory("emoji");
 }
+/** String schema with the `base64` format. Created via `dna.base64()`. */
 export class DnaBase64 extends DnaString {
   override _core = strCoreFactory("base64");
 }
+/** String schema with the `base64url` format. Created via `dna.base64url()`. */
 export class DnaBase64Url extends DnaString {
   override _core = strCoreFactory("base64url");
 }
+/** String schema with the `hex` format. Created via `dna.hex()`. */
 export class DnaHex extends DnaString {
   override _core = strCoreFactory("hex");
 }
+/** String schema with the `nanoid` format. Created via `dna.nanoid()`. */
 export class DnaNanoId extends DnaString {
   override _core = strCoreFactory("nanoid");
 }
+/** String schema with the `cuid` format. Created via `dna.cuid()`. */
 export class DnaCuid extends DnaString {
   override _core = strCoreFactory("cuid");
 }
+/** String schema with the `cuid2` format. Created via `dna.cuid2()`. */
 export class DnaCuid2 extends DnaString {
   override _core = strCoreFactory("cuid2");
 }
+/** String schema with the `ulid` format. Created via `dna.ulid()`. */
 export class DnaUlid extends DnaString {
   override _core = strCoreFactory("ulid");
 }
+/** String schema with the `xid` format. Created via `dna.xid()`. */
 export class DnaXid extends DnaString {
   override _core = strCoreFactory("xid");
 }
+/** String schema with the `ksuid` format. Created via `dna.ksuid()`. */
 export class DnaKsuid extends DnaString {
   override _core = strCoreFactory("ksuid");
 }
+/** String schema with the `ipv4` format. Created via `dna.ipv4()`. */
 export class DnaIpv4 extends DnaString {
   override _core = strCoreFactory("ipv4");
 }
+/** String schema with the `ipv6` format. Created via `dna.ipv6()`. */
 export class DnaIpv6 extends DnaString {
   override _core = strCoreFactory("ipv6");
 }
+/** String schema with the `mac` address format. Created via `dna.mac()`. */
 export class DnaMac extends DnaString {
   override _core = strCoreFactory("mac");
 }
+/** String schema with the `cidrv4` format. Created via `dna.cidrv4()`. */
 export class DnaCidrv4 extends DnaString {
   override _core = strCoreFactory("cidrv4");
 }
+/** String schema with the `cidrv6` format. Created via `dna.cidrv6()`. */
 export class DnaCidrv6 extends DnaTypeWithWrappers<string, string> {
   override _core = new BaseCore("cidrv6", { coerceCode: "toString" });
 
@@ -1392,6 +1976,7 @@ export class DnaCidrv6 extends DnaTypeWithWrappers<string, string> {
     return coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition);
   }
 }
+/** JWT string schema with optional algorithm constraint. Created via `dna.jwt()`. */
 export class DnaJwt extends DnaTypeWithWrappers<string, string> {
   override _core = new BaseCore<{ alg: string | null }>("jwt", { coerceCode: "toString", seed: { alg: null } });
 
@@ -1400,11 +1985,19 @@ export class DnaJwt extends DnaTypeWithWrappers<string, string> {
     return coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, this._core.seed.alg);
   }
 }
+/** Hash string schema (generic, no specific format). Created via `dna.hash()`. */
 export class DnaHash extends DnaString {
   override _core = strCoreFactory();
 }
 
 
+/**
+ * Enhanced template literal schema that enables transformation and mutation.
+ * Built from a sequence of literal parts and schema placeholders. The parser
+ * reconstructs the string by matching each part against its regex or schema.
+ *
+ * @typeParam Parts - The tuple of template literal parts.
+ */
 // Enhanced Template literal implementation that enables tranformation and mutation
 // export class DnaTmplLiteralMutate extends DnatypeWithWrappers<string, string, tsStateTemplateLiteralMutate> {
 export class DnaTmplLiteralMutate<Parts> extends DnaTypeWithWrappers<Parts, Parts> {
@@ -1420,6 +2013,11 @@ export class DnaTmplLiteralMutate<Parts> extends DnaTypeWithWrappers<Parts, Part
   //   return this.initCore<string, string, tsStateTemplateLiteralMutate>("string", { parts, canMutate: true });
   // }
 
+  /**
+   * Returns the array of template literal parts (literals and schema placeholders).
+   *
+   * @returns The parts array.
+   */
   getParts() {
     return this._core.seed.parts;
   }
@@ -1474,6 +2072,13 @@ export class DnaTmplLiteralMutate<Parts> extends DnaTypeWithWrappers<Parts, Part
   }
 }
 
+/**
+ * Template literal schema for Zod compatibility (`z.templateLiteral()`).
+ * Unlike {@link DnaTmplLiteralMutate}, this variant does not mutate the
+ * parsed value — it validates only.
+ *
+ * @typeParam Parts - The tuple of template literal parts.
+ */
 // Template literal implementation - for Zod Compatibility
 export class DnaTemplateLiteral<Parts> extends DnaTmplLiteralMutate<Parts> {
   // declare _output: Parts;
@@ -1486,6 +2091,14 @@ export class DnaTemplateLiteral<Parts> extends DnaTmplLiteralMutate<Parts> {
 }
 
 
+/**
+ * Pipe schema: chains multiple schemas so validation runs in sequence. The
+ * output of each step becomes the input of the next. Created via `.pipe()`
+ * or `.transform()`.
+ *
+ * @typeParam S - The source (first step) schema type.
+ * @typeParam T - The target (last step) schema type.
+ */
 // Seq implementation - sequence of DNA operations
 export class DnaPipe<out S, out T> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<T>;
@@ -1508,6 +2121,10 @@ export class DnaPipe<out S, out T> extends DnaTypeWithWrappers<any, any> {
 }
 
 
+/**
+ * StringBool schema (Zod V4 `z.stringbool()` compatibility): parses a
+ * boolean from a string using configurable truthy/falsy keyword sets.
+ */
 // StringBool implementation - Zod V4 stringbool compatibility
 export class DnaStringBool extends DnaTypeWithWrappers<boolean, boolean> {
   override _core = new BaseCore<{ truthy: string[]; falsy: string[]; case: "sensitive" | "insensitive" }>("sb", {
@@ -1537,13 +2154,27 @@ export class DnaStringBool extends DnaTypeWithWrappers<boolean, boolean> {
   }
 }
 
+/** ISO 8601 date-time string schema. Created via `dna.iso.datetime()`. */
 export class DnaIsoDatetime extends DnaString { override _core = strCoreFactory("date-time") }
+/** ISO 8601 date string schema. Created via `dna.iso.date()`. */
 export class DnaIsoDate extends DnaString { override _core = strCoreFactory("date"); }
+/** ISO 8601 time string schema. Created via `dna.iso.time()`. */
 export class DnaIsoTime extends DnaString { override _core = strCoreFactory("time"); }
+/** ISO 8601 duration string schema. Created via `dna.iso.duration()`. */
 export class DnaIsoDuration extends DnaString { override _core = strCoreFactory("duration"); }
 
+/**
+ * Static factory for ISO 8601 date/time schemas. Accessed via `dna.iso.*`.
+ */
 // ISO implementation - static methods
 export class Iso {
+  /**
+   * Creates an ISO 8601 date-time schema with optional `local`, `offset`,
+   * and `precision` constraints.
+   *
+   * @param options - Optional constraints.
+   * @returns A `DnaIsoDatetime` schema.
+   */
   static datetime(options?: { local?: boolean; offset?: boolean; precision?: number; error?: string; message?: string }) {
     let format = "date-time";
     if (options?.local) format += "-local";
@@ -1552,21 +2183,43 @@ export class Iso {
     return initDna(DnaIsoDatetime, { format }, { message: options?.message, error: options?.error });
   }
 
+  /**
+   * Creates an ISO 8601 date schema (YYYY-MM-DD).
+   *
+   * @param options - Optional error message.
+   * @returns A `DnaIsoDate` schema.
+   */
   static date(options?: { error?: string }) {
     return initDna(DnaIsoDate, undefined, { error: options?.error });
   }
 
+  /**
+   * Creates an ISO 8601 time schema with optional `precision`.
+   *
+   * @param options - Optional precision and error message.
+   * @returns A `DnaIsoTime` schema.
+   */
   static time(options?: { precision?: number | "minute"; message?: string; error?: string }) {
     let format = "time";
     if (options?.precision !== undefined) format += "-precision-" + options.precision;
     return initDna(DnaIsoTime, { format }, { message: options?.message, error: options?.error });
   }
 
+  /**
+   * Creates an ISO 8601 duration schema.
+   *
+   * @param meta - Optional error message or metadata.
+   * @returns A `DnaIsoDuration` schema.
+   */
   static duration(meta?: string | tsDnaMeta) {
     return initDna(DnaIsoDuration, undefined, typeof meta === "string" ? { error: meta } : meta);
   }
 }
 
+/**
+ * Date schema: validates `Date` instances with optional min/max bounds.
+ * Mirrors Zod's `z.date()`.
+ */
 // Date implementation
 export class DnaDate extends DnaTypeWithWrappers<Date, Date> {
   override _core = new BaseCore<{ min: Date | null, max: Date | null }>("date", { seed: { min: null, max: null } });
@@ -1576,8 +2229,29 @@ export class DnaDate extends DnaTypeWithWrappers<Date, Date> {
   //   // `_emitSelf`. No cached `_dna`, so cloning can never desync the bounds.
   //   return this.initCore<Date, Date, tsStateDate>("date", { min: null, max: null }, "toDate");
   // }
+  /**
+   * Sets the minimum date (inclusive).
+   *
+   * @param date - The minimum date.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the min constraint.
+   */
   min(date: Date, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.min = date; cl._core.innerMeta("min", meta); }); }
+  /**
+   * Sets the maximum date (inclusive).
+   *
+   * @param date - The maximum date.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the max constraint.
+   */
   max(date: Date, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.max = date; cl._core.innerMeta("max", meta); }); }
+  /**
+   * Sets an exact date (min and max to the same value).
+   *
+   * @param date - The exact date.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the eq constraint.
+   */
   eq(date: Date, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.min = date; cl._core.seed.max = date; cl._core.innerMeta("eq", meta); }); }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
@@ -1587,6 +2261,10 @@ export class DnaDate extends DnaTypeWithWrappers<Date, Date> {
 }
 
 
+/**
+ * URL string schema: validates strings parseable by `new URL()`. Supports
+ * optional protocol and hostname regex constraints. Mirrors Zod's `z.url()`.
+ */
 // URL implementation
 export class DnaUrl extends DnaTypeWithWrappers<string, string> {
   override _core = new BaseCore<{ normalize: boolean, protocol: RegExp | null, hostname: RegExp | null }>("url", { coerceCode: "toString", seed: { protocol: null, hostname: null, normalize: false } });
@@ -1605,7 +2283,19 @@ export class DnaUrl extends DnaTypeWithWrappers<string, string> {
   //   return inst;
   // }
 
+  /**
+   * Sets a protocol regex constraint (e.g. `/^https?:$/`).
+   *
+   * @param protocol - The protocol regex to match.
+   * @returns A cloned schema with the protocol constraint.
+   */
   protocol(protocol: RegExp) { return cloner(this, cl => cl._core.seed.protocol = protocol); }
+  /**
+   * Sets a hostname regex constraint.
+   *
+   * @param hostname - The hostname regex to match.
+   * @returns A cloned schema with the hostname constraint.
+   */
   hostname(hostname: RegExp) { return cloner(this, cl => cl._core.seed.hostname = hostname); }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
@@ -1618,6 +2308,7 @@ export class DnaUrl extends DnaTypeWithWrappers<string, string> {
 }
 
 
+/** Boolean schema: validates `boolean` values. Mirrors Zod's `z.boolean()`. */
 // Boolean implementation
 export class DnaBoolean extends DnaTypeWithWrappers<boolean, boolean> {
   override _core = new BaseCore("b", { coerceCode: "toBoolean", rawDna: ["b"] });
@@ -1653,6 +2344,13 @@ const numCoreFactory = <N extends number | bigint>(type: tsDnaOpcode, coerceCode
 // Number implementation (base export class, does not implement public interface)
 // export class NumberImpl<T extends number | bigint, I = unknown> extends DnatypeWithWrappers<T, I, tsStateNumber<T>> implements schNumberMethods<T> {
 // export class NumberImpl<T extends number | bigint, I = unknown> extends DnatypeWithWrappers<T, I, tsStateNumber<T>>{
+/**
+ * Base number schema implementation with min/max/gt/lt/multipleOf constraints.
+ * Extended by {@link DnaNumber}, {@link DnaBigInt}, {@link DnaInt}, and {@link DnaInt32}.
+ *
+ * @typeParam T - The numeric type (`number` or `bigint`).
+ * @typeParam I - The input type (defaults to `unknown`).
+ */
 export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeWithWrappers<T, I> {
   override _core = numCoreFactory<T>("n", "toNumber");
   override get type() { return "number"; }
@@ -1661,13 +2359,69 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
   //   return this.initCore<T, I, tsStateNumber<T>>(type, { min: null, max: null, exclMin: false, exclMax: false, multOf: null }, coerceCode);
   // }
 
+  /**
+   * Sets the minimum value (inclusive).
+   *
+   * @param value - The minimum value.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the min constraint.
+   */
   min(value: T, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.min = value; cl._core.innerMeta("min", meta); }); }
+  /**
+   * Sets the maximum value (inclusive).
+   *
+   * @param value - The maximum value.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the max constraint.
+   */
   max(value: T, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.max = value; cl._core.innerMeta("max", meta); }); }
+  /**
+   * Sets a strictly-greater-than constraint (exclusive minimum).
+   *
+   * @param value - The exclusive lower bound.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the gt constraint.
+   */
   gt(value: T, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.min = value; cl._core.seed.exclMin = true; cl._core.innerMeta("gt", meta); }); }
+  /**
+   * Sets a greater-than-or-equal constraint (inclusive minimum). Alias for {@link min}.
+   *
+   * @param value - The inclusive lower bound.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the gte constraint.
+   */
   gte(value: T, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.min = value; cl._core.seed.exclMin = false; cl._core.innerMeta("gte", meta); }); }
+  /**
+   * Sets a strictly-less-than constraint (exclusive maximum).
+   *
+   * @param value - The exclusive upper bound.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the lt constraint.
+   */
   lt(value: T, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.max = value; cl._core.seed.exclMax = true; cl._core.innerMeta("lt", meta); }); }
+  /**
+   * Sets a less-than-or-equal constraint (inclusive maximum). Alias for {@link max}.
+   *
+   * @param value - The inclusive upper bound.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the lte constraint.
+   */
   lte(value: T, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.max = value; cl._core.seed.exclMax = false; cl._core.innerMeta("lte", meta); }); }
+  /**
+   * Sets an exact value (min and max to the same value).
+   *
+   * @param value - The exact value.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the eq constraint.
+   */
   eq(value: T, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.max = value; cl._core.seed.min = value; cl._core.seed.exclMax = false; cl._core.innerMeta("eq", meta); }); }
+  /**
+   * Sets a multipleOf constraint.
+   *
+   * @param value - The divisor.
+   * @param meta - Optional metadata.
+   * @returns A cloned schema with the multipleOf constraint.
+   */
   multipleOf(value: T, meta?: tsDnaMeta) { return cloner(this, cl => { cl._core.seed.multOf = value; cl._core.innerMeta("multipleOf", meta); }); }
 
   /** @deprecated Use multipleOf() instead */
@@ -1684,6 +2438,12 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
     return impl;
   }
 
+  /**
+   * Converts this number schema to an integer schema (`DnaInt`), carrying
+   * over existing constraints.
+   *
+   * @returns A `DnaInt` schema with the current constraints.
+   */
   int() {
     // if (this._core.seed.min !== null) {
     //   if (this._core.seed.exclMin) stateimpl.gt(this._core.seed.min as number);
@@ -1698,6 +2458,11 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
     return impl;
   }
 
+  /**
+   * Constrains the number to be strictly positive (> 0).
+   *
+   * @returns A cloned schema with the positive constraint.
+   */
   positive() {
     return cloner(this, cl => {
       const min: any = cl._core.seed.min;
@@ -1707,6 +2472,11 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
       }
     });
   }
+  /**
+   * Constrains the number to be non-negative (>= 0).
+   *
+   * @returns A cloned schema with the nonnegative constraint.
+   */
   nonnegative() {
     return cloner(this, cl => {
       const min: any = cl._core.seed.min;
@@ -1716,6 +2486,11 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
       }
     });
   }
+  /**
+   * Constrains the number to be strictly negative (< 0).
+   *
+   * @returns A cloned schema with the negative constraint.
+   */
   negative() {
     return cloner(this, cl => {
       const max: any = cl._core.seed.max;
@@ -1725,6 +2500,11 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
       }
     });
   }
+  /**
+   * Constrains the number to be non-positive (<= 0).
+   *
+   * @returns A cloned schema with the nonpositive constraint.
+   */
   nonpositive() {
     return cloner(this, cl => {
       const max: any = cl._core.seed.max;
@@ -1743,8 +2523,10 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
   }
 }
 
+/** Number schema for `number` values. Mirrors Zod's `z.number()`. */
 export class DnaNumber extends NumberImpl<number> { }
 
+/** BigInt schema for `bigint` values. Mirrors Zod's `z.bigint()`. */
 export class DnaBigInt extends NumberImpl<bigint> {
   override _core = numCoreFactory<bigint>("bi", "toBigInt");
   override get type() { return "bigint"; }
@@ -1763,6 +2545,7 @@ export class DnaBigInt extends NumberImpl<bigint> {
   }
 }
 
+/** Integer schema: validates `number` values that are integers. Mirrors Zod's `z.int()`. */
 export class DnaInt extends NumberImpl<number> {
   override _core = numCoreFactory<number>("i", "toInt");
   override get type() { return "int"; }
@@ -1770,6 +2553,7 @@ export class DnaInt extends NumberImpl<number> {
   override get templateRegex(): string { return this._core.seed.min === null && this._core.seed.max === null && this._core.seed.multOf === null ? "-?\\d+" : "\x00"; }
 }
 
+/** Int32 schema: validates integers within the signed 32-bit range [-2^31, 2^31-1]. */
 export class DnaInt32 extends NumberImpl<number> {
   override _core = numCoreFactory<number>("i", "toInt", false, INT32Bounds);
   override get type() { return "int32"; }
@@ -1792,15 +2576,27 @@ export class DnaInt32 extends NumberImpl<number> {
 }
 
 
+/** Coercing string schema: converts input to string before validation. Created via `dna.coerce.string()`. */
 export class DnaCoerceString extends DnaString { override _core = strCoreFactory("", true); }
+/** Coercing number schema: converts input to number before validation. Created via `dna.coerce.number()`. */
 export class DnaCoerceNumber extends DnaNumber { override _core = numCoreFactory<number>("n", "toNumber", true); }
+/** Coercing integer schema: converts input to integer before validation. Created via `dna.coerce.int()`. */
 export class DnaCoerceInt extends DnaInt { override _core = numCoreFactory<number>("i", "toInt", true); }
+/** Coercing int32 schema: converts input to int32 before validation. Created via `dna.coerce.int32()`. */
 export class DnaCoerceInt32 extends DnaInt32 { override _core = numCoreFactory<number>("i", "toInt", true, INT32Bounds); }
+/** Coercing bigint schema: converts input to bigint before validation. Created via `dna.coerce.bigint()`. */
 export class DnaCoerceBigInt extends DnaBigInt { override _core = numCoreFactory<bigint>("bi", "toBigInt", true); }
 
+/** Coercing boolean schema: converts input to boolean before validation. Created via `dna.coerce.boolean()`. */
 export class DnaCoerceBoolean extends DnaBoolean { override _core = new BaseCore("b", { coerce: true, coerceCode: "toBoolean", rawDna: ["b"] }); }
+/** Coercing date schema: converts input to Date before validation. Created via `dna.coerce.date()`. */
 export class DnaCoerceDate extends DnaDate { override _core = new BaseCore<{ min: Date | null, max: Date | null }>("date", { coerce: true, coerceCode: "toDate", seed: { min: null, max: null } }); }
 
+/**
+ * Static factory for coercing schemas. Accessed via `dna.coerce.*`.
+ * Coercion is a serialization layer driven by the `_coerce` flag on the base
+ * schema — no wrapper instance is needed.
+ */
 // Coerce implementation - static methods
 export class Coerce {
   // Coercion is now a serialization layer driven by the `_coerce` flag on the
@@ -1829,9 +2625,21 @@ export class DnaEnum<T extends tsDnaEnumLike> extends DnaTypeWithWrappers<
 
   get enum() { return this._core.seed.enumObj; }
 
+  /**
+   * Returns a new enum schema containing only the specified values.
+   *
+   * @param values - The values to keep.
+   * @returns A cloned enum schema with only the extracted values.
+   */
   extract(values: tsDnaEnumValueType[]) {
     return cloner(this, cl => cl._core.seed.enumObj = Object.fromEntries(Object.entries(cl._core.seed.enumObj).filter(([k, v]) => values.includes(v))) as T);
   }
+  /**
+   * Returns a new enum schema excluding the specified values.
+   *
+   * @param values - The values to exclude.
+   * @returns A cloned enum schema without the excluded values.
+   */
   exclude(values: tsDnaEnumValueType[]) {
     return cloner(this, cl => cl._core.seed.enumObj = Object.fromEntries(Object.entries(cl._core.seed.enumObj).filter(([k, v]) => !values.includes(v))) as T);
   }
@@ -1850,6 +2658,12 @@ export class DnaEnum<T extends tsDnaEnumLike> extends DnaTypeWithWrappers<
   }
 }
 
+/**
+ * Array schema: validates arrays where each element matches the item schema.
+ * Supports min/max/length constraints. Mirrors Zod's `z.array(item)`.
+ *
+ * @typeParam S - The item schema type.
+ */
 // Array implementation
 export class DnaArray<S extends DnaSomeType = DnaSomeType> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<S>[];
@@ -1861,9 +2675,35 @@ export class DnaArray<S extends DnaSomeType = DnaSomeType> extends DnaTypeWithWr
     return this._core.seed.itemSchema as W;
   }
 
+  /**
+   * Sets the minimum number of elements.
+   *
+   * @param n - The minimum element count.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the min constraint.
+   */
   min(n: number, meta?: string | tsDnaMeta) { return cloner(this, cl => { cl._core.seed.min = n; cl._core.innerMeta("min", meta); }); }
+  /**
+   * Sets the maximum number of elements.
+   *
+   * @param n - The maximum element count.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the max constraint.
+   */
   max(n: number, meta?: string | tsDnaMeta) { return cloner(this, cl => { cl._core.seed.max = n; cl._core.innerMeta("max", meta); }); }
+  /**
+   * Sets an exact element count (min and max to the same value).
+   *
+   * @param n - The exact element count.
+   * @param meta - Optional error message or metadata.
+   * @returns A cloned schema with the length constraint.
+   */
   length(n: number, meta?: string | tsDnaMeta) { return cloner(this, cl => { cl._core.seed.length = n; cl._core.innerMeta("length", meta); }); }
+  /**
+   * Requires the array to be non-empty (min = 1).
+   *
+   * @returns A cloned schema with the nonempty constraint.
+   */
   nonempty() { return cloner(this, cl => cl._core.seed.min = 1); }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
@@ -1893,6 +2733,15 @@ function nonPromiseIssue(value: unknown): tsParserError {
 function syncPromiseIssue(value: unknown): tsParserError {
   return { message: "Promise cannot be resolved synchronously. Use safeParseAsync or parseAsync.", path: "#", input: value };
 }
+/**
+ * Promise schema: validates `Promise` values by awaiting them and validating
+ * the resolved value against the inner schema. Sync `parse`/`safeParse` reject
+ * with a dedicated error — use `parseAsync`/`safeParseAsync` instead.
+ * Mirrors Zod's `z.promise(inner)`.
+ *
+ * @typeParam T - The resolved value's output type.
+ * @typeParam I - The resolved value's input type.
+ */
 // TODO: comment about depreciation of dna.promise
 export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
   override _core = new BaseCore<{ inner: DnaSomeType<T, I> }>("promise");
@@ -1949,6 +2798,13 @@ export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
   }
 }
 
+/**
+ * Tuple schema (Zod's `z.tuple(items, rest?)`): validates fixed-length arrays
+ * with one schema per position, plus an optional rest schema for extra items.
+ *
+ * @typeParam S - A readonly tuple of position schema types.
+ * @typeParam R - The rest schema type (or `never` if no rest).
+ */
 // Tuple implementation (Zod's z.tuple(items, rest?)): one schema per position,
 // plus an optional rest schema for any extra items.
 export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> | never = never> extends DnaTypeWithWrappers<any, any> {
@@ -1968,6 +2824,7 @@ export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> 
   max(n: number, meta?: string) { return cloner(this, cl => { cl._core.seed.max = n; cl._core.innerMeta("max", meta); }); }
   /** Validates that the tuple has exactly `n` items. */
   length(n: number, meta?: string) { return cloner(this, cl => { cl._core.seed.length = n; cl._core.innerMeta("length", meta); }); }
+  /** Requires the tuple to have at least 1 item. */
   nonempty() { return this.min(1); }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
@@ -1995,6 +2852,13 @@ export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> 
   }
 }
 
+/**
+ * Object schema: validates plain objects with named properties. Supports
+ * strict/loose/standard modes, partial/required, pick/omit, extend, and
+ * catchall. Mirrors Zod's `z.object(shape)`.
+ *
+ * @typeParam T - The shape type (a record of property name to schema).
+ */
 // Object implementation
 export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, DnaSomeType>> extends DnaTypeWithWrappers<any, any> {
   /** No `out` variance on `T`: the deferred pattern (parent `any, any` + `declare` fields) breaks circular type inference on its own. Adding `out T` triggers a variance check that fails because `$ReadonlyValue` (conditional type) wrapping `$DnaObjectOutput<T>` (mapped type) is not provably covariant. */
@@ -2118,19 +2982,53 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     return dnaId;
   }
 
+  /**
+   * Switches the object to strict mode: unknown properties cause validation
+   * errors (equivalent to `additionalProperties: false`).
+   *
+   * @returns A cloned schema in strict mode.
+   */
   strict() { return cloner(this, cl => cl._core.seed.objType = "strict"); }
+  /**
+   * Switches the object to loose mode: unknown properties pass through
+   * unchanged (equivalent to `additionalProperties: true`).
+   *
+   * @returns A cloned schema in loose mode.
+   */
   loose() { return cloner(this, cl => cl._core.seed.objType = "loose"); }
   /** @deprecated Use loose() instead */
   passthrough() { return this.loose(); }
 
+  /**
+   * Switches the object to standard (Zod-like) mode: unknown properties are
+   * stripped from the output. This is the default mode.
+   *
+   * @returns A cloned schema in standard mode.
+   */
   standard() { return cloner(this, cl => cl._core.seed.objType = "standard"); }
   /** @deprecated Use standard() instead */
   strip() { return this.standard(); }
 
+  /**
+   * Sets a catchall schema for unknown properties (validated against the
+   * given schema). Mutates `this` in place.
+   *
+   * @param addPropSchema - The schema for additional properties.
+   * @returns `this` (mutated).
+   */
   catchall(addPropSchema: DnaSomeType) { this._core.seed.addPropSchema = addPropSchema; return this }
   /** Alias of catchall() for compatibility @see catchall() */
   catchAll(addPropSchema: DnaSomeType) { return this.catchall(addPropSchema); }
 
+  /**
+   * Makes some or all properties optional. When called with no arguments,
+   * all properties become optional. When called with a `keys` object, only
+   * the specified keys are made optional.
+   *
+   * @typeParam K - The keys to make optional (defaults to all keys).
+   * @param keys - A record mapping key names to booleans (`true` = make optional).
+   * @returns A new `DnaObject` with the specified keys optional.
+   */
   partial<const K extends keyof T = keyof T>(keys?: Record<K, boolean>): DnaObject<$DnaPartialShape<T, K>> {
     const ks = keys as Record<string, boolean> | undefined;
     return cloner(this, cl => {
@@ -2148,6 +3046,14 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     }) as unknown as DnaObject<$DnaPartialShape<T, K>>;
   }
 
+  /**
+   * Makes some or all properties required (cancels `optional` wrappers).
+   * When called with no arguments, all properties become required. When
+   * called with a `keys` object, only the specified keys are made required.
+   *
+   * @param keys - A record mapping key names to booleans (`true` = make required).
+   * @returns A new `DnaObject` with the specified keys required.
+   */
   required(keys?: Record<string, boolean>): DnaObject<T> {
     return cloner(this, cl => {
       if (keys) cl._core.seed.requiredKeys = Object.keys(cl._core.seed.propertySchemas ?? {}).filter(k => keys[k]);
@@ -2163,14 +3069,34 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     return this._core.seed.objType;
   }
 
+  /**
+   * Returns the property keys of this object schema.
+   *
+   * @returns An array of property key strings.
+   */
   keyOf(): PropertyKey[] {
     return Object.keys(this._core.seed.propertySchemas ?? {});
   }
 
+  /**
+   * Applies a function to this object schema and returns the result. A
+   * general-purpose escape hatch for custom processing.
+   *
+   * @typeParam R - The return type of `fn`.
+   * @param fn - A function receiving this schema.
+   * @returns The value returned by `fn`.
+   */
   apply<R>(fn: (schema: this) => R): R {
     return fn(this);
   }
 
+  /**
+   * Returns a new object schema with the specified keys omitted.
+   *
+   * @typeParam K - The keys to omit.
+   * @param keys - A record mapping key names to booleans (`true` = omit).
+   * @returns A new `DnaObject` without the omitted keys.
+   */
   omit<K extends keyof T>(keys: Record<K, boolean>): DnaObject<Omit<T, K>> {
     const newPropertySchemas: Record<string, DnaSomeType> = {};
     for (const [key, schema] of Object.entries(this._core.seed.propertySchemas ?? {})) {
@@ -2182,6 +3108,13 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     return newObject;
   }
 
+  /**
+   * Returns a new object schema with only the specified keys picked.
+   *
+   * @typeParam K - The keys to pick.
+   * @param keys - A record mapping key names to booleans (`true` = pick).
+   * @returns A new `DnaObject` with only the picked keys.
+   */
   pick<K extends keyof T>(keys: Record<K, boolean>): DnaObject<Pick<T, K>> {
     const newPropertySchemas: Record<string, DnaSomeType> = {};
     for (const [key, schema] of Object.entries(this._core.seed.propertySchemas ?? {})) {
@@ -2209,6 +3142,15 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     return newObject;
   }
 
+  /**
+   * Returns a new object schema with additional properties merged in. Throws
+   * if the schema has refinements and a key would be overwritten (use
+   * {@link safeExtend} in that case).
+   *
+   * @typeParam U - The shape of the new properties.
+   * @param shape - A record of property name to schema to add.
+   * @returns A new `DnaObject` with the combined shape `T & U`.
+   */
   extend<U extends Record<string, DnaSomeType>>(shape: U): DnaObject<T & U> {
     if (shape === null || typeof shape !== "object" || Array.isArray(shape)) {
       throw new Error("Invalid input to extend: expected a plain object");
@@ -2224,6 +3166,15 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     return this._applyExtend(shape);
   }
 
+  /**
+   * Like {@link extend} but allows overwriting keys even when the schema has
+   * refinements. The type parameter enforces that existing keys can only be
+   * replaced with compatible schemas.
+   *
+   * @typeParam U - The shape of the new/overwritten properties.
+   * @param shape - A record of property name to schema.
+   * @returns A new `DnaObject` with the combined shape `T & U`.
+   */
   safeExtend<U extends Record<string, DnaSomeType>>(
     shape: U & $SafeExtendShape<T, U> & Partial<Record<keyof T, DnaSomeType>>
   ): DnaObject<T & U> {
@@ -2310,6 +3261,15 @@ function finiteValueSet(s: DnaSomeType): tsPrimitiveLiteral[] | undefined {
   return undefined;
 }
 
+/**
+ * Discriminated union schema: a union of object schemas that share a common
+ * discriminator property. The parser dispatches to the correct branch based
+ * on the discriminator value, making it more efficient than a plain union.
+ * Mirrors Zod's `z.discriminatedUnion(key, options)`.
+ *
+ * @typeParam K - The discriminator property name.
+ * @typeParam S - A tuple of object schema types, each having the discriminator key.
+ */
 // Discriminated union implementation (discriminator opcode)
 export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminatedUnionObjects<K>> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<S[number]>;
@@ -2364,6 +3324,14 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
 }
 
 
+/**
+ * Record schema: validates plain objects whose keys match `keySchema` and
+ * whose values match `valueSchema`. Supports `standard`, `partial`, and
+ * `loose` modes. Mirrors Zod's `z.record(keySchema, valueSchema)`.
+ *
+ * @typeParam K - The key schema type.
+ * @typeParam V - The value schema type.
+ */
 // Record implementation
 export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: Record<$Output<K> & PropertyKey, $Output<V>>;
@@ -2465,6 +3433,14 @@ export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>>
 }
 
 
+/**
+ * Codec schema: bidirectional encode/decode. The decode direction (input →
+ * output) reuses the base validator/parser cache, while the encode direction
+ * (output → input) has its own cache. Created via `dna.codec()`.
+ *
+ * @typeParam I - The input (decode) type.
+ * @typeParam O - The output (encode) type.
+ */
 // Codec implementation - bidirectional encode/decode
 // Decode direction reuses the BASE `#state` validator/parser cache (DnaCodec
 // overrides `toDna()` to return the decode twin, so the base `_validate`/`_safeParse`
@@ -2491,6 +3467,14 @@ export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
 
 
 
+/**
+ * Lazy schema: defers schema construction until validation time via a getter
+ * function. Used for recursive/circular schemas. Mirrors Zod's `z.lazy(getter)`.
+ *
+ * @typeParam Out - The output type.
+ * @typeParam In - The input type.
+ * @typeParam Inner - The inner schema type returned by the getter.
+ */
 export class DnaLazy<Out = any, In = any, Inner extends DnaType<Out, In> = DnaType<Out, In>> extends DnaTypeWithWrappers<Out, In> {
   readonly declare Inner: Inner;
   override _core = new BaseCore<{ getter: () => Inner }>("lazy");
@@ -2512,6 +3496,15 @@ export class DnaLazy<Out = any, In = any, Inner extends DnaType<Out, In> = DnaTy
 }
 
 
+/**
+ * Function schema: validates function arguments against an input tuple
+ * schema and the return value against an output schema. Supports
+ * `.implement()` and `.implementAsync()` for creating validated wrappers.
+ * Mirrors Zod's `z.function()`.
+ *
+ * @typeParam I - The input tuple type (arguments).
+ * @typeParam O - The output schema type (return value).
+ */
 export class DnaFunction<I extends DnaFunctionInput = never, O extends DnaType<any> = DnaType<unknown>> extends DnaTypeWithWrappers<
   tsFunctionType<I, O>,
   tsFunctionType<I, O>
@@ -2521,20 +3514,43 @@ export class DnaFunction<I extends DnaFunctionInput = never, O extends DnaType<a
   #outputJS?: tsToJSResult;
 
 
+  /**
+   * Sets the input (arguments) schema for this function schema.
+   *
+   * @typeParam NewI - The new input tuple schema type.
+   * @param input - A `DnaTuple` schema or a raw tuple schema array.
+   * @returns A new `DnaFunction` with the updated input schema.
+   */
   input<const NewI extends DnaTuple<any, any>>(input: NewI): DnaFunction<NewI, O>;
+  /**
+   * Sets the input (arguments) schema with a rest schema for variadic args.
+   *
+   * @typeParam NewI - The new input tuple schema array type.
+   * @typeParam NewR - The rest schema type.
+   * @param input - A tuple schema array.
+   * @param rest - An optional rest schema for extra arguments.
+   * @returns A new `DnaFunction` with the updated input schema.
+   */
   input<const NewI extends tsDnaTupleSchemaArray, const NewR extends DnaType<any, any> | never = never>(input: NewI, rest?: NewR): DnaFunction<DnaTuple<NewI, NewR>, O>;
   input(input: DnaFunctionInput, rest?: DnaType): DnaFunction<any, O> {
     let actualInput: DnaFunctionInput | DnaType<any, any> = input;
     if (rest !== undefined) {
-      actualInput = initDna(DnaTuple, { items: input as any, rest });
+      actualInput = initDna(DnaTuple, { items: input, rest });
     } else if (!(input instanceof DnaType)) {
-      actualInput = initDna(DnaTuple, { items: input as any });
+      actualInput = initDna(DnaTuple, { items: input });
     }
     const newSchema = initDna(DnaFunction, { input: actualInput, output: this._core.seed.output }, this._core.meta) as unknown as DnaFunction<any, O>;
     newSchema._core.rawDna = this._core.rawDna;
     return newSchema;
   }
 
+  /**
+   * Sets the output (return value) schema for this function schema.
+   *
+   * @typeParam NewO - The new output schema type.
+   * @param output - The output schema.
+   * @returns A new `DnaFunction` with the updated output schema.
+   */
   output<NewO extends DnaType<any>>(output: NewO): DnaFunction<I, NewO> {
     const newSchema = initDna(DnaFunction<I, NewO>, { input: this._core.seed.input, output }, this._core.meta);
     newSchema._core.rawDna = this._core.rawDna;
@@ -2652,10 +3668,24 @@ export class DnaFunction<I extends DnaFunctionInput = never, O extends DnaType<a
 }
 
 
+/**
+ * Custom validation schema: validates values using a user-provided boolean
+ * function. Mirrors Zod's `z.custom(fn)`.
+ *
+ * @typeParam TSType - The TypeScript type of valid values.
+ * @typeParam I - The input type.
+ */
 export class DnaCustom<TSType extends any = any, I = any> extends DnaTypeWithWrappers<TSType, I> {
   override _core = new BaseCore<{ fn: (v?: TSType) => boolean }>("custom", { templateRegex: "" });
 }
 
+/**
+ * Instance-of schema: validates values using `instanceof` against a
+ * constructor. Mirrors Zod's `z.instanceof(Constructor)`.
+ *
+ * @typeParam T - The constructor type.
+ * @typeParam O - The instance type (defaults to `InstanceType<T>`).
+ */
 export class DnaInstanceOf<T extends abstract new (...args: any[]) => any, O = InstanceType<T>> extends DnaTypeWithWrappers<O, O> {
   override _core = new BaseCore<{ constructor: T }>("instanceOf");
 
@@ -2667,6 +3697,10 @@ export class DnaInstanceOf<T extends abstract new (...args: any[]) => any, O = I
   }
 }
 
+/**
+ * File schema: validates `File` instances with optional min/max size and
+ * MIME type constraints. Mirrors Zod's `z.file()`.
+ */
 export class DnaFile extends DnaTypeWithWrappers<File, File> {
   override _core = new BaseCore<{ constructor: new (...args: any[]) => File, min?: number, max?: number, mime?: string | string[] }>("instanceOf", {
     seed: { constructor: File }
@@ -2679,14 +3713,40 @@ export class DnaFile extends DnaTypeWithWrappers<File, File> {
     return coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition);
   }
 
+  /**
+   * Sets the minimum file size in bytes.
+   *
+   * @param bytes - The minimum size in bytes.
+   * @returns A cloned schema with the min size constraint.
+   */
   min(bytes: number): this { return cloner(this, cl => { cl._core.seed.min = bytes; cl._core.innerMeta("min", bytes); }); }
+  /**
+   * Sets the maximum file size in bytes.
+   *
+   * @param bytes - The maximum size in bytes.
+   * @returns A cloned schema with the max size constraint.
+   */
   max(bytes: number): this { return cloner(this, cl => { cl._core.seed.max = bytes; cl._core.innerMeta("max", bytes); }); }
+  /**
+   * Sets the allowed MIME type(s).
+   *
+   * @param mimeType - A single MIME type string or an array of allowed types.
+   * @returns A cloned schema with the MIME type constraint.
+   */
   mime(mimeType: string | string[]): this { return cloner(this, cl => { cl._core.seed.mime = mimeType; cl._core.innerMeta("mime", mimeType); }); }
 }
 
 // ============================================
 // Property Check Schema for type-safe property validation (Zod V4 compatibility)
 // ============================================
+/**
+ * Property check schema for type-safe property validation (Zod V4
+ * compatibility). Used in `.check()` to validate a specific property of an
+ * object against a sub-schema.
+ *
+ * @typeParam K - The property key (string or number).
+ * @typeParam S - The property's schema type.
+ */
 // export class DnaProperty<K extends string | number, S extends DnaType<any, any, any>> implements tsDnaPropertyCheck<K, S> {
 export class DnaCheckProperty<K extends string | number, S extends DnaType<any, any> = DnaType<any, any>> {
   protected _core = new BaseCore<{ property: K, schema: S }>("property");

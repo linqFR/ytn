@@ -102,7 +102,7 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 			break;
 		}
 		case "optional": {
-			const passDefault = (dnaOpt[1] as any)?.passDefault;
+			const passDefault = dnaOpt[1]?.passDefault;
 			if (!passDefault) {
 				const out = isCond ? "true" : "undefined";
 				const assign = _outVarName ? _outVarName + "=" + out + ";" : "";
@@ -117,7 +117,7 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 			break;
 		}
 		case "nullish": {
-			const passDefault = (dnaOpt[1] as any)?.passDefault;
+			const passDefault = dnaOpt[1]?.passDefault;
 			if (!passDefault) {
 				const out = isCond ? "true" : _inVarName;
 				const assign = _outVarName ? _outVarName + "=" + out + ";" : "";
