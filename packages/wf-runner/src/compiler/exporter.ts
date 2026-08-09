@@ -25,7 +25,8 @@ export type IExportedWorkflow = {
  */
 export function serializeToExportedObject(wf: tsWFSpec): IExportedWorkflow {
   return {
-    steps: wfCodec.encode(wf as any),
+    // CAST: tsWFStep<any,any,string>['on'] is { [x: string]: keyof any } but schWFDef infers Record<string, string>
+    steps: wfCodec.encode(wf as unknown as Parameters<typeof wfCodec.encode>[0]),
     metadata: {
       hasCycles: false,
       stepCount: Object.keys(wf).length,

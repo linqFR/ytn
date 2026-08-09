@@ -33,4 +33,4 @@ export const uDefineWF = <const T extends Record<string, any>>(config: {
   [K in keyof T]: T[K] & {
     on?: Record<string, keyof T>;
   };
-}): T => config as any;
+}): T => config as T;

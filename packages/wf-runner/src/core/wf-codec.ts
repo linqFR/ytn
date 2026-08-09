@@ -52,7 +52,8 @@ export const strZFnCodec = z.codec(
       return fnCodec.decode(fn);
     },
     encode: (fn) => {
-      return vmCodec.encode(fn as any);
+      // CAST: strZFnCodec encodes type as Function but vmCodec.encode expects tsWFStep gate type
+      return vmCodec.encode(fn as unknown as Parameters<typeof vmCodec.encode>[0]);
     },
   },
 );

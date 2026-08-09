@@ -127,7 +127,7 @@ export function uDefineNode<
         description: node.desc,
         input: node.input.toJSONSchema(),
         outputs: Object.fromEntries(
-          Object.entries(outputSchemas).map(([k, v]) => [k, (v as any).toJSONSchema()]),
+          Object.entries(outputSchemas).map(([k, v]) => [k, v.toJSONSchema()]),
         ),
       };
     },

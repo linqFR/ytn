@@ -47,5 +47,6 @@ export const schWFGateFn = z.custom<tsWFStep<any, any>['gate']>(
  * @description Factory to encapsulate a function within the functional wfGateContract.
  */
 export const gate = <F extends tsWFStep<any, any>["gate"]>(fn: F) =>
-  wfGateFnFactory.implement(fn as any);
+  // CAST: Zod function factory infers tools as optional (| undefined) but tsWFStep gate type requires tools
+  wfGateFnFactory.implement(fn as unknown as Parameters<typeof wfGateFnFactory.implement>[0]);
 
