@@ -10,6 +10,7 @@
   "ignore": [
     "@ytrynot/wf",
     "@ytrynot/czvo",
+    "@ytrynot/cdna",
     "@ytrynot/shared"
   ]
 }

@@ -31,10 +31,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Setup Node.js 24
+      - name: Setup Node.js 25
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: "25"
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
