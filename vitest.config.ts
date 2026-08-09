@@ -26,5 +26,12 @@ export default defineConfig({
       "**/_archive/**",
       "**/_archives/**",
     ],
+    // Typecheck is experimental in Vitest 4. Enabled via CLI flag `--typecheck`.
+    // Uses tsc (typescript already installed). See AGENTS.md "Testing Guidelines".
+    typecheck: {
+      enabled: false,
+      checker: "tsc",
+      ignoreSourceErrors: true,
+    },
   },
 });

@@ -36,6 +36,7 @@ This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It con
 - **`@ytrynot/qb`** (`packages/query-builder`): A fluent SQLite query builder with Zod integration.
 - **`@ytrynot/czvo`** (`packages/cli-to-zvo`): A CLI contract definition and routing engine.
 - **`@ytrynot/wf`** (`packages/wf-runner`): A high-performance workflow router.
+- **`@ytrynot/cdna`** (`packages/cli-to-dna`): A CLI tool compiling JSON Schema into standalone JS validators using DNA bytecodes (private).
 
 ### Monorepo Structure
 
@@ -52,8 +53,8 @@ This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It con
 
 ## Environment & Tech Stack
 
-- **Runtime**: Node.js (>=24.0.0)
-- **Language**: TypeScript 6.0 (ES2025)
+- **Runtime**: Node.js (>=25.0.0)
+- **Language**: TypeScript 6.0.3 (esnext)
 - **Module System**: Pure ESM (`"type": "module"`)
 - **Package Manager**: `npm` with workspaces
 - **TypeScript Configuration** in order to comply with `Zod V4`:
@@ -164,6 +165,7 @@ Reminder: Use Zod V4 exclusively.
 - **Rule**: All new features or bug fixes MUST include corresponding tests. The entire suite must pass before finalizing.
 - **Type Testing**: For complex DSLs and type-modifiers, ALWAYS include type-regression tests using **`expectTypeOf`** or **`assertType`**.
 - **Typecheck Command**: To validate type assertions during tests, use **`npm.cmd test -- --typecheck`**.
+- **Typecheck Config**: The `test.typecheck` block in `vitest.config.ts` uses `checker: "tsc"` with `ignoreSourceErrors: true` (so only test-file type errors are reported, not unrelated source errors). It is disabled by default (`enabled: false`) and activated only via the `--typecheck` CLI flag.
 
 ---
 
@@ -177,7 +179,7 @@ Reminder: Use Zod V4 exclusively.
 Publishing to npm is **fully automated** via GitHub Actions OIDC trusted publishing. No npm token, no 2FA, no manual `npm publish` is required.
 
 **Public packages** (published to npm): `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`.
-**Private packages** (never published, listed in `.changeset/config.json` `ignore`): `@ytrynot/wf`, `@ytrynot/czvo`, `@ytrynot/shared`.
+**Private packages** (never published, listed in `.changeset/config.json` `ignore`): `@ytrynot/wf`, `@ytrynot/czvo`, `@ytrynot/cdna`, `@ytrynot/shared`.
 
 **Workflow**: `.github/workflows/publish.yml` — triggered on push to `main` when `.changeset/**` or public package `package.json` files change.
 

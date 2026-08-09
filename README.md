@@ -68,7 +68,7 @@ const result = parse({ name: "John", age: 30 });
 ## Tech Stack
 
 - **Runtime**: Node.js (>=25.0.0)
-- **Language**: TypeScript (ES2022)
+- **Language**: TypeScript 6.0.3 (esnext)
 - **Module System**: Pure ESM (`type: module`)
 
 ## Getting Started
