@@ -1,4 +1,4 @@
-[![CI](https://github.com/linqFR/ytrynot/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytrynot/actions/workflows/ci.yml)
+[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@ytrynot/schvalid.svg)](https://www.npmjs.com/package/@ytrynot/schvalid)
 [![Bundle size](https://packagephobia.com/badge?p=@ytrynot/schvalid)](https://packagephobia.com/result?p=@ytrynot/schvalid)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)

@@ -1,3 +1,9 @@
+[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@ytrynot/qb.svg)](https://www.npmjs.com/package/@ytrynot/qb)
+[![Bundle size](https://packagephobia.com/badge?p=@ytrynot/qb)](https://packagephobia.com/result?p=@ytrynot/qb)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # Fluent Query Builder Documentation
 
 > **Looking for testers!** This package is actively seeking early users and feedback. If you try it out, please share your experience — issues, suggestions, or ideas are all welcome.

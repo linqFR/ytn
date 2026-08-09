@@ -6,8 +6,7 @@ Each package is designed to be **lightweight**, **type-safe**, and **independent
 
 |                                 Package |     Name     | Purpose                   | Example                                                      |
 | --------------------------------------: | :----------: | :------------------------ | :----------------------------------------------------------- |
-| **[@ytrynot/qb](./packages/query-builder)** | QueryBuilder | **SQLite Query Builder**  | `QB.table("users").select(["id"]).where(["active"]).build()` |
-|  **[@ytrynot/czvo](./packages/cli-to-zvo)** |  Cli-to-Zvo  | **CLI Contract & Parser** | `const result = execute(contract, args);`                    |
+| **[@ytrynot/qb](./packages/query-builder)** | QueryBuilder | **SQLite Query Builder**  | `QB.table("users").select(["id"]).where(["active"]).toSQL()` |
 | **[@ytrynot/dna](./packages/dna)** | DNA | **Schema Builder** | `const schema = dna.string().min(5); const dna = schema.toDna();` |
 | **[@ytrynot/schvalid](./packages/schvalid)** | Schvalid | **JSON Schema Processing** | `const dna = jschemaToDna(schema); const validate = validator(dna);` |
 
@@ -27,45 +26,7 @@ const sql = QB.table("users", "u")
   .select(["u.id", "u.name"])
   .where(["u.active"])
   .orderBy("u.created_at", "DESC")
-  .build();
-```
-
-#### [@ytrynot/czvo](./packages/cli-to-zvo/README.md)
-
-Define your contract once, get automated parsing and routing for free.
-
-```typescript
-import { createContract, pico } from "@ytrynot/czvo/editor.js"
-import { execute } from "@ytrynot/czvo";
-
-// 1. Define the Contract
-const contract = createContract({
-  name: "ytrynot-cli",
-  description: "Deployment Tool",
-  cli: {
-    positionals: ["env"],
-    flags: {
-      verbose: { short: "v", type: "boolean", desc: "Enable logging" },
-    },
-  },
-  targets: {
-    deploy: {
-      env: pico.string(), // pico
-      verbose: "boolean", // DSL
-    },
-  },
-});
-
-// 2. One-line Parsing & Zod-Validation
-const result = execute(contract, process.argv.slice(2));
-
-if (result.success) {
-  const { route, data } = result.data;
-  if (route === "deploy") {
-    console.log(`Deploying to ${data.env}...`);
-    if (data.verbose) console.log("Verbose mode ON");
-  }
-}
+  .toSQL();
 ```
 
 #### [@ytrynot/dna](./packages/dna/README.md)
@@ -118,7 +79,6 @@ const result = parse({ name: "John", age: 30 });
 
 ```bash
 npm install @ytrynot/qb
-npm install @ytrynot/czvo
 npm install @ytrynot/dna
 npm install @ytrynot/schvalid
 ```
@@ -127,8 +87,8 @@ npm install @ytrynot/schvalid
 
 ```bash
 # Clone the repository
-git clone git@github.com:linqFR/ytrynot.git
-cd ytrynot
+git clone git@github.com:linqFR/ytn.git
+cd ytn
 
 # Install all dependencies and setup workspaces
 npm install
@@ -154,10 +114,6 @@ To work on a specific package, use the `--workspace` flag:
 # Example for Query Builder
 npm run build -w @ytrynot/qb
 npm test -w @ytrynot/qb
-
-# Example for CLI Contract & Parser
-npm run build -w @ytrynot/czvo
-npm test -w @ytrynot/czvo
 
 # Example for DNA
 npm run build -w @ytrynot/dna
