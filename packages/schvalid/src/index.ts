@@ -49,6 +49,7 @@ type tsCompileOptions = {
  */
 const combineFast = <I = unknown, O = any>(validate: tsDnaValidatorFn, parse: tsDnaParserFn<I, O>): tsDnaParserFn<I, O> =>
 	(value: I) => validate(value)
+		// CAST: fast path returns value directly (no copy), so O (parser's output type) cannot be inferred from I
 		? { success: true, data: value as unknown as O }
 		: parse(value);
 

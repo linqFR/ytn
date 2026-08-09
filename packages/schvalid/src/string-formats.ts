@@ -1,3 +1,16 @@
+/**
+ * Registry of standard JSON Schema string `format` validators, keyed by format name.
+ *
+ * Each entry is a regular expression matching the corresponding format per its
+ * RFC/standard: `date`, `time`, `date-time`, `duration`, `uri`,
+ * `uri-reference`, `uri-template`, `email`, `hostname`, `idn-hostname`,
+ * `ipv4`, `ipv6`, `uuid`, `json-pointer`,
+ * `json-pointer-uri-fragment`, `relative-json-pointer`, `regex`, `iri`, and
+ * `iri-reference`.
+ *
+ * Used by the converter when `formatAssertion` is enabled to emit format
+ * validation bytecode.
+ */
 export const JSONFORMAT: Record<string, RegExp> = {
 	// RFC 3339 date-time formats
 	date: /^\d\d\d\d-[0-1]\d-[0-3]\d$/,

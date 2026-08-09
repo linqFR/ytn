@@ -4,7 +4,17 @@ import { resolveUri } from "./dna-helpers.js";
 import { fastMergeArrays } from "./utils.js";
 import type { tsDnaSeq } from "@ytrynot/dna/toJs";
 
+/**
+ * Error thrown when a JSON Schema feature is outside the supported scope.
+ *
+ * DNA-SChema only supports JSON Schema draft 2020-12 with internal references
+ * (internal `$ref`, `$defs`, `$id`). External references, remote schemas, and
+ * unsupported draft versions trigger this error.
+ */
 export class OutOfScopeError extends Error {
+  /**
+   * @param feature - Human-readable description of the unsupported feature that triggered the error.
+   */
   constructor(feature: string) {
     super(`Out of scope: ${feature}. DNA-SChema only supports draft 2020-12 with internal references (internal $ref, $def, $id).`);
     this.name = "OutOfScopeError";
@@ -17,6 +27,19 @@ type tsStoreId = tsDnaId;
 type tsStore = Map<tsStoreId, any>;
 
 
+/**
+ * Resolves a JSON Pointer (`#/path/to/node`) against a schema root object.
+ *
+ * Implements RFC 6901 JSON Pointer resolution restricted to internal fragments
+ * (pointers starting with `#`). Performs `~0`/`~1` escape decoding on each
+ * segment.
+ *
+ * @param pointer - The JSON Pointer string to resolve (must start with `#`, or be empty for the root).
+ * @param root - The root schema object to resolve the pointer against.
+ * @returns A tuple `[target, pointer]` where `target` is the resolved node and
+ *   `pointer` is the original pointer string, or `undefined` if the pointer is
+ *   not an internal fragment or a segment cannot be resolved.
+ */
 export function resolvePointer(pointer: string, root: any): any | undefined {
   if (!pointer) return [root, pointer];
   if (!pointer.startsWith("#")) return undefined;
@@ -65,6 +88,28 @@ const META_SET = new Set(META_KEYS);
 const isTrueSchema = (node: true | {}) => (node === true) || (node && Object.keys(node).length === 0 && node.constructor === Object);
 
 
+/**
+ * Converts a JSON Schema 2020-12 document into DNA bytecode.
+ *
+ * This is the primary entry point of the schvalid package. It performs a
+ * stack-based traversal of the schema, resolving internal `$ref`, `$defs`,
+ * `$anchor`, and `$dynamicAnchor` references, and emits a compact DNA
+ * sequence (`tsDnaSeq`) that can be compiled by `@ytrynot/dna`'s `validator`
+ * or `parser`.
+ *
+ * Only JSON Schema draft 2020-12 is supported. External references (HTTP/URN
+ * `$ref`, remote files) are out of scope and will throw `OutOfScopeError`.
+ *
+ * @param root - The JSON Schema root node (an object or boolean).
+ * @param rootPath - The base URI/path for the root schema (defaults to `"#"`).
+ * @param options - Optional compilation flags.
+ *   - `formatAssertion` — enable `format` keyword validation (default: `false`, per Draft 2020-12).
+ *   - `strict` — enable strict JSON Schema validation (default: `true`).
+ *   - `validateSchema` — validate the schema against 2020-12 meta-rules (default: `true`).
+ * @returns The generated DNA bytecode sequence (`tsDnaSeq`).
+ * @throws {Error} if `root` is not an object or boolean, or is `null`.
+ * @throws {OutOfScopeError} if the schema declares an unsupported `$schema` version.
+ */
 export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssertion?: boolean; strict?: boolean; validateSchema?: boolean }): tsDnaSeq {
   if (root === null || (typeof root !== "object" && typeof root !== "boolean") || Array.isArray(root)) {
     throw new Error("Invalid schema: root must be an object or boolean");
