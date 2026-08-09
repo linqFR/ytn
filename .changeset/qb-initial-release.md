@@ -1,5 +1,5 @@
 ---
-"@ytrynot/qb": minor
+"@ytrynot/qb": patch
 ---
 
 Initial public release — fluent SQLite query builder with Zod v4 and DNA schema introspection
