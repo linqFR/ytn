@@ -1,4 +1,9 @@
-# @ytrynot
+# @ytrynot (whY Try Not)
+
+
+## Why
+
+AI agents carry their workflows in context memory, eating tokens and attention. @ytrynot means  to build and provide portable, js-compilable tools that agents can use and build themselves — offloading logic from their context to dedicated skills, so workflows run as tools rather than living in the agent's head.
 
 ## Packages
 
