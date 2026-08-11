@@ -1572,7 +1572,7 @@ const strCoreFactory = (format: string = "", coerce: boolean = false) => {
       min: null,
       max: null,
       pattern: null,
-      format: format ?? null,
+      format: format || null,
       startsWith: undefined,
       endsWith: undefined,
       includes: undefined,
