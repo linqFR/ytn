@@ -285,10 +285,11 @@ Underscore prefix (e.g., `"_o"`, `"_s"`, `"_n"`) indicates unconstrained types. 
 - `["discriminator", propertyName, [keys], [refs]]` - Optimized polymorphic validation
 
   - `propertyName`: Discriminator property name (string)
-  - `keys`: Array of discriminator values
-  - `refs`: Array of DNA index references corresponding to keys
+  - `keys`: Array of discriminator values — one entry per branch. Each entry is either a **primitive** (for a single `const` / `literal` value, e.g. `"build"`) or an **array of primitives** (for `enum` / multi-value `literal([...])`, e.g. `["a", "b"]`). The two emission paths (builder and schvalid) agree on this format: singletons are flattened to their raw value (not wrapped in an array), matching schvalid's `const` handling.
+  - `refs`: Array of DNA index references — `refs[0]` is the pre-validation object (checks `type: "object"` + discriminator key presence), `refs[1..N]` are the branch sub-schemas.
   - Uses `switch` statement for efficient dispatching
-  - Discriminator property removed from sub-schemas during generation
+  - Discriminator property removed from sub-schemas during generation (replaced by `DnaAny` / `true` so `additionalProperties: false` still allows it)
+  - **Branch property ordering**: within each branch `o` opcode, properties are emitted in a fixed order: **discriminator key first, then required (non-optional) keys, then optional keys**. Both emission paths (builder and schvalid) follow this order, ensuring identical DNA bytecode for equivalent schemas.
 
 - `["not", ref]` - Negation of validator
 
@@ -350,6 +351,265 @@ If you want to allow both `undefined` and `null`, use `dna.nullish(...)` (option
   - `targetIdx`: Numeric reference to another DNA index
   - `{meta}`: Metadata object
   - Used for circular references and schema reuse
+
+## JSON Schema → DNA Builder Chaining — Equivalence & Parity
+
+This section maps **frequent, emblematic JSON Schema patterns** to their equivalent **DNA builder method chaining** (`dna.object({...}).strict()`, `dna.string().min(3).optional().default("x")`, `dna.discriminatedUnion("k", [...])`, …) and documents the **behavioral parity** between the two paths:
+
+- **Path A (JSON Schema)**: `jschemaToDna(schema)` → `validator(dna)` / `parser(dna)` from `@ytrynot/schvalid`.
+- **Path B (builder)**: `dna.xxx().yyy()` → `.validate()` / `.safeParse()` from `@ytrynot/dna`.
+
+Equivalence means **identical `validate` results AND identical `safeParse` results** (both `success` flag and `data` shape) on the same inputs. Parity pitfalls are noted where the two paths diverge — these are **not bugs** but semantic differences between JSON Schema (annotation-only `default`, `prefixItems` not required, `additionalProperties` defaults to allowed) and the DNA builder (applied `default`, tuple requires all positions, `standard` object strips unknown keys via `keepOnly`).
+
+> The parity observations below were verified by execution (comparing both paths on a battery of valid + invalid + edge-case inputs). Regenerate via `sandbox/parity-examples.ts`.
+
+### Object patterns
+
+#### Simple object — `properties` + `required`
+
+```json
+{ "type": "object", "properties": { "name": { "type": "string" }, "age": { "type": "integer" } }, "required": ["name"] }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.object({ name: dna.string(), age: dna.int().optional() })
+```
+
+**Parity:** ✓ identical `validate` and `safeParse` on all tested inputs. `required` maps to keys present without `.optional()`; absent-from-`required` maps to `.optional()`. Both paths reject missing required keys, wrong types, and non-objects.
+
+#### Strict object — `additionalProperties: false`
+
+```json
+{ "type": "object", "properties": { "id": { "type": "string" } }, "required": ["id"], "additionalProperties": false }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.strictObject({ id: dna.string() })
+```
+
+**Parity:** ✓ identical. Both reject extra keys. `.strict()` (or `dna.strictObject(...)`) sets `objType: "strict"`, which the codegen translates into the `passed0` hashmap check that rejects any unaccounted-for key.
+
+#### Standard object — no `additionalProperties` keyword ⚠️
+
+```json
+{ "type": "object", "properties": { "id": { "type": "string" } }, "required": ["id"] }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.object({ id: dna.string() })   // objType: "standard" (default)
+```
+
+**Parity pitfall — `keepOnly` strips unknown keys on the builder side.** When `additionalProperties` is **not declared** in JSON Schema, the spec default is "extra keys allowed" — the schvalid parser **keeps** them in the output (`{id:"abc", extra:"ok"}` → parsed as-is). The builder's `standard` mode uses the `keepOnly` mechanism (see [Object Output: `keepOnly` vs JSON-Schema modes](#object-output-keeponly-vs-json-schema-modes)) which **strips** undeclared keys from the parsed output (`{id:"abc", extra:"ok"}` → `{id:"abc"}`). `validate` agrees (both pass), but `safeParse().data` **differs**.
+
+**To get parity:** use `dna.looseObject({ id: dna.string() })` (or `.loose()`) — `objType: "loose"` preserves unknown keys via `Object.assign` pre-copy, matching the JSON Schema default. Conversely, if you want the builder's stripping behavior on the JSON Schema side, declare `"additionalProperties": false` explicitly.
+
+#### Dictionary — `additionalProperties` (value schema)
+
+```json
+{ "type": "object", "additionalProperties": { "type": "number" } }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.record(dna.string(), dna.number())
+```
+
+**Parity:** ✓ identical `validate` and `safeParse`. JSON Schema has no dedicated "record" type — the dictionary pattern is `additionalProperties` (value schema) with an implicit string-key constraint. The builder's `dna.record(keySchema, valueSchema)` emits the `rcd` opcode (a variant of `o` that rejects non-plain prototypes like `Date`/`Map`), but the validation/parsing behavior on plain-object inputs matches. Note: `dna.record` rejects `new Date()` / `new Map()` instances (plain-object prototype check), while the JSON Schema `o` opcode accepts them — a divergence only on non-plain-object inputs.
+
+### Array patterns
+
+#### Array of items — `items` + `minItems`
+
+```json
+{ "type": "array", "items": { "type": "string" }, "minItems": 1 }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.array(dna.string()).min(1)
+```
+
+**Parity:** ✓ identical. `.min(n)` maps to `minItems`; `.max(n)` maps to `maxItems`; `.length(n)` sets both.
+
+#### Tuple — `prefixItems` + `items` ⚠️
+
+```json
+{ "type": "array", "prefixItems": [{ "type": "string" }, { "type": "integer" }], "items": { "type": "boolean" } }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.tuple([dna.string(), dna.int()], dna.boolean())
+```
+
+**Parity pitfall — tuple requires all prefix positions.** JSON Schema `prefixItems` is **not** a `required` constraint by default: an array shorter than the prefix (e.g. `[]`) **passes** validation (each prefix position is only checked if the item exists). The builder's `dna.tuple([...], rest)` **requires** all prefix positions to be present — `[]` **fails** validation. This is a deliberate semantic choice (tuples are fixed-arity in the builder's model), but it diverges from JSON Schema `prefixItems` semantics.
+
+**To get parity:** there is no direct builder chaining that reproduces the "prefix optional" semantics. Use `dna.array(dna.union([dna.string(), dna.int(), dna.boolean()]))` if all positions share a common type, or accept the divergence. On the JSON Schema side, adding `"minItems": 2` makes the two paths agree (both reject short arrays).
+
+#### `contains` — no direct builder equivalent ⚠️
+
+```json
+{ "type": "array", "items": { "type": "integer" }, "contains": { "type": "integer", "minimum": 10 }, "minContains": 1 }
+```
+
+**Builder chaining:** none. `DnaArray` does not expose a `.contains()` method. The `contains`/`minContains`/`maxContains` keywords have no builder API equivalent.
+
+**Parity gap:** this is a JSON-Schema-only feature. To validate "array must contain at least one item matching schema X", use `.refine()` on the builder side:
+
+```typescript
+dna.array(dna.int()).refine(arr => arr.some(n => n >= 10), { error: "must contain an item >= 10" })
+```
+
+This reproduces the validation behavior but not the exact error structure (a single custom error vs. the schvalid `contains`-specific error path).
+
+### Combinator patterns
+
+#### `anyOf` — `dna.union`
+
+```json
+{ "anyOf": [{ "type": "string" }, { "type": "integer" }] }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.union([dna.string(), dna.int()])
+```
+
+**Parity:** ✓ identical. `anyOf` maps directly to `dna.union` — at least one branch must pass. `validate` returns `true` if any branch passes; `safeParse` returns the first matching branch's data.
+
+#### `oneOf` with `discriminator` — `dna.discriminatedUnion` ⚠️
+
+```json
+{
+  "type": "object",
+  "discriminator": { "propertyName": "kind" },
+  "required": ["kind"],
+  "oneOf": [
+    { "type": "object", "properties": { "kind": { "const": "cat" }, "meow": { "type": "string" } }, "required": ["kind", "meow"], "additionalProperties": false },
+    { "type": "object", "properties": { "kind": { "const": "dog" }, "bark": { "type": "string" } }, "required": ["kind", "bark"], "additionalProperties": false }
+  ]
+}
+```
+
+**Builder chaining:**
+
+```typescript
+dna.discriminatedUnion("kind", [
+  dna.strictObject({ kind: dna.literal("cat"), meow: dna.string() }),
+  dna.strictObject({ kind: dna.literal("dog"), bark: dna.string() }),
+])
+```
+
+**Parity pitfall — null/non-object input handling.** Both paths agree on valid discriminator values and wrong-type branches, but the builder's `discriminatedUnion` **throws** on `null` input (cannot read the discriminator property) instead of returning `{success: false}`. The schvalid path handles `null` gracefully (returns `{success: false, errors: [...]}`). This is a robustness gap in the builder's discriminated-union dispatch — it assumes the input is an object before reading the discriminator key.
+
+**Detection difference:** `jschemaToDna` only emits the `discriminator` opcode when strict conditions hold (`type: "object"`, `discriminator.propertyName` is a string, every branch has a `const` for the discriminator, and the discriminator property is in `required`). The builder's `dna.discriminatedUnion` always emits the discriminated-union opcode regardless of whether branches use `literal` for the discriminator — the contract is enforced by TypeScript types (`tsDnaDiscriminatedUnionObjects<K>`), not by runtime detection.
+
+**DNA bytecode parity — `discriminKeys` format.** Both paths now emit `discriminKeys` in the same format: a **primitive** (raw value) for single-value discriminators (`const: "build"` / `dna.literal("build")` → `"build"`), and an **array** for multi-value discriminators (`enum: ["a","b"]` / `dna.literal(["a","b"])` → `["a","b"]`). The builder's `finiteValueSet()` always returns an array; singletons are flattened at emission time (`values.length === 1 ? values[0] : values`) to match schvalid's `const` format.
+
+**DNA bytecode parity — branch property ordering.** Both paths emit branch `o` properties in a fixed order: **discriminator key first, then required (non-optional) keys, then optional keys**. This ensures the generated `switch`/`case` dispatch and the per-branch property checks run in the same order regardless of the emission path. The builder reorders the shape via `cloner` (discriminator → required → optional); schvalid reorders via object spread (`{ [discriminator]: true, ...requiredKeys, ...optionalKeys }`).
+
+**Remaining structural diffs (no functional impact).** The generated `validate`/`parse` functions are functionally identical, but the DNA bytecode still differs in three cosmetic aspects:
+1. **Constraint order inside `o`**: builder emits `properties` → `required` → `additionalProperties`; schvalid emits `required` → `properties` → `additionalProperties`. Both produce the same runtime checks.
+2. **Property tuple format**: builder emits 3-element tuples `["key", idx, {}]` (always includes the meta object); schvalid emits 2-element tuples `["key", idx]` (no meta). The `toJs` handler accepts both.
+3. **DNA index assignment**: children are pushed onto the collector stack in different orders, so the numeric indices may be permuted (e.g. builder assigns `cmd=3, out=4`; schvalid assigns `cmd=4, out=3`). The references are consistent within each DNA sequence — only the absolute indices differ.
+
+#### `allOf` — `dna.intersection`
+
+```json
+{ "allOf": [
+  { "type": "object", "properties": { "a": { "type": "string" } }, "required": ["a"] },
+  { "type": "object", "properties": { "b": { "type": "integer" } }, "required": ["b"] }
+] }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.intersection(
+  dna.object({ a: dna.string() }),
+  dna.object({ b: dna.int() })
+)
+```
+
+**Parity:** ✓ identical. `allOf` maps to `dna.intersection` — all sub-schemas must pass. The parsed output is the intersection of all branches' contributions.
+
+#### Multi-`type` — `dna.union`
+
+```json
+{ "type": ["string", "number"] }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.union([dna.string(), dna.number()])
+```
+
+**Parity:** ✓ identical. JSON Schema `type: ["string", "number"]` is semantically an `anyOf` over primitive types; the builder expresses it as `dna.union`. The schvalid converter emits a `["type", typeArray]` opcode that dispatches to the matching primitive checks; the builder emits a `union` opcode. Both produce the same validate/parse results.
+
+### Wrapper patterns
+
+#### `default` — applied vs annotation-only ⚠️
+
+```json
+{ "type": "object", "properties": { "name": { "type": "string" }, "count": { "type": "integer", "default": 0 } }, "required": ["name"] }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.object({ name: dna.string(), count: dna.int().default(0) })
+```
+
+**Parity pitfall — `default` application.** JSON Schema `default` is **annotation-only** by default (Draft 2020-12): the schvalid parser does **not** inject the default value into the output — `{name: "A"}` parses to `{name: "A"}` (no `count` key). The builder's `.default(0)` is **applied** during parsing — `{name: "A"}` parses to `{name: "A", count: 0}`. `validate` agrees (both pass), but `safeParse().data` **differs**.
+
+**To get parity:** there is no schvalid option to apply `default` during parsing (it would violate the Draft 2020-12 annotation-only contract). On the builder side, if you want annotation-only behavior, do not call `.default()` — use `.optional()` instead and handle the missing value downstream. The two paths are **not** parity-equivalent for `default`; this is a fundamental design difference.
+
+#### `nullable` — `anyOf: [T, null]`
+
+```json
+{ "anyOf": [{ "type": "string" }, { "type": "null" }] }
+```
+
+**Builder chaining:**
+
+```typescript
+dna.string().nullable()
+```
+
+**Parity:** ✓ identical. Both accept `null` and the string value; both reject other types. `.nullable()` wraps the inner schema in a `nullable` wrapper that short-circuits on `null` input.
+
+#### `optional` — `undefined` acceptance
+
+```typescript
+dna.string().optional()
+```
+
+**JSON Schema equivalent:** there is no direct JSON Schema keyword for "accept `undefined`" — `required` controls which keys are required, and a key absent from `required` is optional (accepts missing/`undefined`). For a standalone optional schema, JSON Schema has no equivalent; the builder's `.optional()` is a wrapper that accepts `undefined` and is primarily meaningful in object property context.
+
+**Parity:** in object property context, both paths agree — a key absent from `required` (JSON Schema) or wrapped with `.optional()` (builder) accepts `undefined`/missing. The builder's parser uses `keepOnly` which **does not copy** `undefined`-valued optional properties into the output (they don't appear as own keys), while schvalid's parser preserves them — a minor `safeParse().data` shape difference on objects with explicitly-`undefined` optional properties.
+
+### Patterns with no builder equivalent
+
+| JSON Schema keyword | Status | Note |
+|---|---|---|
+| `if`/`then`/`else` | no direct equivalent | Use `.refine()` with conditional logic, or `dna.union` of the two branches. No builder chaining reproduces the conditional applicator semantics exactly. |
+| `not` | no direct equivalent | Use `.refine(v => !inner.validate(v))`. No `.not()` method on the builder. |
+| `contains`/`minContains`/`maxContains` | no direct equivalent | Use `.refine(arr => arr.some(...))` on `dna.array()`. |
+| `dependentRequired`/`dependentSchemas` | no direct equivalent | Use `.refine()` with conditional logic. |
+| `unevaluatedProperties`/`unevaluatedItems` | no direct equivalent | Builder's `strict`/`loose`/`standard` object modes cover the common cases; `unevaluated*` with `allOf`/`oneOf` has no builder chaining. |
+| `propertyNames` | partial | `dna.record(keySchema, ...)` validates keys via the key schema; standalone `propertyNames` on a non-record object has no builder equivalent. |
+| `patternProperties` | no direct equivalent | Use `.refine()` or restructure as a `dna.record` with a `templateLiteral` key pattern. |
 
 ## Architecture
 
