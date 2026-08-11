@@ -2948,22 +2948,22 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
       }
       if (properties.length) constraints.push(["properties", properties]);
       if (defaultProperties.length) constraints.push(["defaultProperties", defaultProperties]);
-
-      // `requiredKeys` is either explicit (set by `.partial()` / `.required()`) or
-      // `undefined` and must be derived from the property schemas. Derivation is
-      // deferred until emit because getter properties (recursive lazy refs) could
-      // not be resolved at init time.
-      const propertySchemas = this._core.seed.propertySchemas || {};
-      const explicitRequired = this._core.seed.requiredKeys;
-      const requiredKeys = explicitRequired === undefined
-        ? Object.keys(propertySchemas).filter(k => isRequiredKey(propertySchemas[k]))
-        : explicitRequired.filter(k => {
-          const s = propertySchemas[k];
-          return !(s instanceof DnaLazy) || isRequiredKey(s.innerType);
-        });
-      if (requiredKeys.length) constraints.push(["required", requiredKeys]);
       keepKeys = [...properties, ...defaultProperties].map(c => c[0]);
     }
+
+    // `requiredKeys` is either explicit (set by `.partial()` / `.required()`) or
+    // `undefined` and must be derived from the property schemas. Derivation is
+    // deferred until emit because getter properties (recursive lazy refs) could
+    // not be resolved at init time.
+    const propertySchemas = this._core.seed.propertySchemas || {};
+    const explicitRequired = this._core.seed.requiredKeys;
+    const requiredKeys = explicitRequired === undefined
+      ? Object.keys(propertySchemas).filter(k => isRequiredKey(propertySchemas[k]))
+      : explicitRequired.filter(k => {
+        const s = propertySchemas[k];
+        return !(s instanceof DnaLazy) || isRequiredKey(s.innerType);
+      });
+    if (requiredKeys.length) constraints.push(["required", requiredKeys]);
     if (this._core.seed.objType === 'strict') {
       constraints.push(["additionalProperties", false]);
     } else if (this._core.seed.objType === 'loose') {
@@ -3064,11 +3064,11 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     return cloner(this, cl => {
       if (keys) cl._core.seed.requiredKeys = Object.keys(cl._core.seed.propertySchemas ?? {}).filter(k => keys[k]);
       else cl._core.seed.requiredKeys = Object.keys(cl._core.seed.propertySchemas ?? {});
-    }) as unknown as DnaObject<T>;
+    }) as DnaObject<T>;
   }
 
   get shape(): T {
-    return this._core.seed.propertySchemas as unknown as T;
+    return this._core.seed.propertySchemas as T;
   }
 
   get _objType(): tsDnaObjectType {
@@ -3319,10 +3319,20 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
     const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, discriminStoreId);
     this._core.setDnaId(coll, dnaId);
 
-    const prevalidation = initDna(DnaObject, { objType: 'standard', requiredKeys: discRequired });
+    const prevalidation = initDna(DnaObject, { objType: 'object', requiredKeys: discRequired });
     prevalidation.toDna(coll, discriminStoreId, 0);
     for (let i = 0; i < nbItems; i++) {
-      schemas[i].toDna(coll, discriminStoreId, 1 + i);
+      const schema = schemas[i];
+      if (!(schema instanceof DnaObject)) {
+        throw new Error(`Discriminated union branch at index ${i} must be a DnaObject`);
+      }
+      const discSchema = schema.shape[discriminator];
+      const isOptional = !isRequiredKey(discSchema);
+      const stripped = schema.extend({ [discriminator]: isOptional ? initDna(DnaAny).optional() : initDna(DnaAny) });
+      if (schema._core.seed.addPropSchema !== undefined) {
+        stripped._core.seed.addPropSchema = schema._core.seed.addPropSchema;
+      }
+      stripped.toDna(coll, discriminStoreId, 1 + i);
     }
 
     return dnaId;
