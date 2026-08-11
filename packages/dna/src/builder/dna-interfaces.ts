@@ -3110,8 +3110,8 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
         newPropertySchemas[key] = schema;
       }
     }
-    const newObject = initDna(DnaObject<Omit<T, K>>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
-    return newObject;
+    // CAST: cloner preserves the DnaObject class but TS can't prove the omitted shape type Omit<T, K>
+    return cloner(this, cl => { cl._core.seed.propertySchemas = newPropertySchemas; }) as DnaObject<Omit<T, K>>;
   }
 
   /**
@@ -3128,8 +3128,8 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
         newPropertySchemas[key] = schema;
       }
     }
-    const newObject = initDna(DnaObject<Pick<T, K>>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
-    return newObject;
+    // CAST: cloner preserves the DnaObject class but TS can't prove the picked shape type Pick<T, K>
+    return cloner(this, cl => { cl._core.seed.propertySchemas = newPropertySchemas; }) as DnaObject<Pick<T, K>>;
   }
 
   /**
@@ -3144,8 +3144,8 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     for (const [key, schema] of Object.entries(shape)) {
       newPropertySchemas[key] = schema;
     }
-    const newObject = initDna(DnaObject<T & U>, { propertySchemas: newPropertySchemas, objType: this._core.seed.objType }, this._core.meta);
-    return newObject;
+    // CAST: cloner preserves the DnaObject class but TS can't prove the extended shape type T & U
+    return cloner(this, cl => { cl._core.seed.propertySchemas = newPropertySchemas; }) as unknown as DnaObject<T & U>;
   }
 
   /**
@@ -3329,9 +3329,6 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
       const discSchema = schema.shape[discriminator];
       const isOptional = !isRequiredKey(discSchema);
       const stripped = schema.extend({ [discriminator]: isOptional ? initDna(DnaAny).optional() : initDna(DnaAny) });
-      if (schema._core.seed.addPropSchema !== undefined) {
-        stripped._core.seed.addPropSchema = schema._core.seed.addPropSchema;
-      }
       stripped.toDna(coll, discriminStoreId, 1 + i);
     }
 
