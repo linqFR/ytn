@@ -15,7 +15,9 @@
     "test": "vitest run",
     "check": "npx.cmd tsc --noEmit",
     "change": "changeset",
-    "version": "changeset version"
+    "version": "changeset version",
+    "release": "changeset publish",
+    "tag": "changeset git-tag"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.0",
