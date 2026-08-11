@@ -681,12 +681,17 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
           // The discriminator property itself is already validated by the switch
           // inside the `discriminator` opcode.  Remove it from the branch so we
           // do not re-validate it for every schema variant.
+          // Reorder: discriminator key first, then required (non-optional) keys,
+          // then optional keys — matching the builder's emission order.
           const { [discriminator]: _, ...rest } = sch.properties;
-          _sch.properties = rest;
-
-          // Still register the discriminator key as a known property, otherwise
-          // `additionalProperties: false` on the branch would wrongly reject it.
-          _sch.properties[discriminator] = true;
+          const branchRequired = Array.isArray(sch.required) ? sch.required : [];
+          const requiredKeys: Record<string, unknown> = {};
+          const optionalKeys: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(rest)) {
+            if (branchRequired.includes(k)) requiredKeys[k] = v;
+            else optionalKeys[k] = v;
+          }
+          _sch.properties = { [discriminator]: true, ...requiredKeys, ...optionalKeys };
 
           // Inherit `additionalProperties` from the root schema so that constraints
           // like `additionalProperties: false` are respected by every variant.
