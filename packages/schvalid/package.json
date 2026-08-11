@@ -59,11 +59,11 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@ytrynot/dna": "*"
+    "@ytrynot/dna": "^0.5.1"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
-    "@ytrynot/shared": "^0.5.1",
+    "@ytrynot/shared": "*",
     "ajv": "^8.20.0",
     "tsup": "^8.5.1",
     "zod": "^4.4.3"
