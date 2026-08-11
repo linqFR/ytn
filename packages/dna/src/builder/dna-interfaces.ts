@@ -861,10 +861,13 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @returns A compiled validator function.
    */
   _validate(ctx?: tsDnaExternals): tsDnaValidatorFn {
-    if (this._core.seed.cachedValidator) return this._core.seed.cachedValidator;
-    this._core.seed.cachedValidator = validatorBuilder(this.toDna(), ctx);
-
-    return this._core.seed.cachedValidator;
+    if (!this._core.seed.cachedValidatorMap) this._core.seed.cachedValidatorMap = new WeakMap();
+    const key = ctx ?? this;
+    const cached = this._core.seed.cachedValidatorMap.get(key);
+    if (cached) return cached;
+    const fn = validatorBuilder(this.toDna(), ctx);
+    this._core.seed.cachedValidatorMap.set(key, fn);
+    return fn;
   }
 
   /**
@@ -912,10 +915,13 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @returns A compiled parser function.
    */
   _safeParse(ctx?: tsDnaExternals): tsDnaParserFn {
-    if (this._core.seed.cachedParser) return this._core.seed.cachedParser;
-    this._core.seed.cachedParser = parserBuilder(this.toDna(), ctx);
-
-    return this._core.seed.cachedParser;
+    if (!this._core.seed.cachedParserMap) this._core.seed.cachedParserMap = new WeakMap();
+    const key = ctx ?? this;
+    const cached = this._core.seed.cachedParserMap.get(key);
+    if (cached) return cached;
+    const fn = parserBuilder(this.toDna(), ctx);
+    this._core.seed.cachedParserMap.set(key, fn);
+    return fn;
   }
 
   /**
@@ -3446,7 +3452,7 @@ export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>>
 // overrides `toDna()` to return the decode twin, so the base `_validate`/`_safeParse`
 // build the right thing). Only the ENCODE direction needs its own cache here.
 export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
-  override _core = new BaseCore<{ decodeTwin: DnaType<O>, encodeTwin: DnaType<I>, cachedEncodeParser?: tsDnaParserFn }>("codec");
+  override _core = new BaseCore<{ decodeTwin: DnaType<O>, encodeTwin: DnaType<I>, cachedEncodeParserMap?: WeakMap<object, tsDnaParserFn> }>("codec");
   // Emit the decode twin as this codec's own node via `_emitSelf` (NOT a `toDna`
   // override) so the base refiner layer (`_emitRefiners`) still wraps any
   // `.refine()`/`.check()` added on the codec around it. A `toDna` override returned
@@ -3459,9 +3465,13 @@ export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
   // `this.toDna()` and caches in `#state`.
 
   override safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult {
-    if (this._core.seed.cachedEncodeParser) return this._core.seed.cachedEncodeParser(value);
-    this._core.seed.cachedEncodeParser = parserBuilder(this._core.seed.encodeTwin.toDna(), ctx);
-    return this._core.seed.cachedEncodeParser(value);
+    if (!this._core.seed.cachedEncodeParserMap) this._core.seed.cachedEncodeParserMap = new WeakMap();
+    const key = ctx ?? this;
+    const cached = this._core.seed.cachedEncodeParserMap.get(key);
+    if (cached) return cached(value);
+    const fn = parserBuilder(this._core.seed.encodeTwin.toDna(), ctx);
+    this._core.seed.cachedEncodeParserMap.set(key, fn);
+    return fn(value);
   }
 }
 

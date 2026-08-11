@@ -9,7 +9,7 @@
 import type { tsDna, tsDnaNoMeta, tsDnaSeq } from "../types/core.types.js";
 import type { tsCheckOpt } from "../shared/handlers-builder.types.js";
 import type { tsDnaInnerMeta } from "../shared/meta-context.type.js";
-import type { tsDnaParserFn, tsDnaValidatorFn } from "../shared/runtime.types.js"
+import type { tsDnaParserFn, tsDnaValidatorFn, tsDnaExternals } from "../shared/runtime.types.js"
 import type { tsDnaEnumInput, tsDnaEnumValues, DnaFunctionInput, tsDnaTupleSchemaBase, tsDnaTupleSchemaRO } from "../types/api-builder.types.js";
 import type { $CatchValue, $Output } from "../types/helpers.types.js";
 
@@ -51,8 +51,8 @@ export type tsStateFull<T extends tsStateDef = tsStateDef> = {
   seed: T;
   head?: unknown;
   fullDna?: tsDnaSeq;
-  cachedParser?: tsDnaParserFn;
-  cachedValidator?: tsDnaValidatorFn;
+  cachedParserMap?: WeakMap<object, tsDnaParserFn>;
+  cachedValidatorMap?: WeakMap<object, tsDnaValidatorFn>;
 };
 
 

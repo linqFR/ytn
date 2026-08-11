@@ -85,11 +85,11 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
 
   get mapper() { return this.#mapper; }
 
-  get cachedParser(): tsDnaParserFn | undefined { return this.#state.cachedParser; }
-  set cachedParser(value: tsDnaParserFn | undefined) { this.#state.cachedParser = value; }
+  get cachedParserMap(): WeakMap<object, tsDnaParserFn> | undefined { return this.#state.cachedParserMap; }
+  set cachedParserMap(value: WeakMap<object, tsDnaParserFn> | undefined) { this.#state.cachedParserMap = value; }
 
-  get cachedValidator(): tsDnaValidatorFn | undefined { return this.#state.cachedValidator; }
-  set cachedValidator(value: tsDnaValidatorFn | undefined) { this.#state.cachedValidator = value; }
+  get cachedValidatorMap(): WeakMap<object, tsDnaValidatorFn> | undefined { return this.#state.cachedValidatorMap; }
+  set cachedValidatorMap(value: WeakMap<object, tsDnaValidatorFn> | undefined) { this.#state.cachedValidatorMap = value; }
 
   // Template regex
   get templateRegex(): string { return this.#state.templateRegex; }
@@ -170,8 +170,8 @@ export class BaseCore<State extends tsStateDef = tsStateDef> {
     // core.#state.head = this.#state.head;
     // core.#state.rawDna = this.#state.rawDna;
     // core.#state.fullDna = this.#state.fullDna;
-    // core.#state.cachedParser = this.#state.cachedParser;
-    // core.#state.cachedValidator = this.#state.cachedValidator;
+    // core.#state.cachedParserMap = this.#state.cachedParserMap;
+    // core.#state.cachedValidatorMap = this.#state.cachedValidatorMap;
     return core;
   }
 }
