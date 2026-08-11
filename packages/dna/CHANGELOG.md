@@ -1,5 +1,21 @@
 # @ytrynot/dna
 
+## 0.5.1
+
+### Patch Changes
+
+- Fix discriminated union parity and object helper cloning
+  
+  - `extend`, `pick`, `omit` now use `cloner()` instead of `initDna` to
+    preserve the full seed (catchall, requiredKeys, declared, etc.)
+  - `discriminKeys` singletons are flattened to raw values (`"build"`
+    instead of `["build"]`) to match schvalid's `const` format
+  - `fromDna` clones each branch before reinjecting the discriminator
+    to avoid mutating shared cached instances when branches share the
+    same DNA index
+  - Removed unused `tsDnaDiscriminatedBranch` type that caused
+    assignability errors with private fields
+
 ## 0.5.0
 
 ### Minor Changes

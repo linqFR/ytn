@@ -1,4 +1,4 @@
-import type { DnaOptional, DnaType, DnaSomeType } from "../builder/dna-interfaces.js";
+import type { DnaOptional, DnaType, DnaSomeType } from "@ytrynot/dna/core";
 import type { tsDnaBaseCtx } from "../shared/meta-context.type.js";
 import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
 

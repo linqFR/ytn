@@ -1,5 +1,5 @@
 
-import type { DnaType } from "../builder/dna-interfaces.js";
+import type { DnaType } from "@ytrynot/dna/core";
 
 // Primitive types excluding DNA schemas (all DNA schemas extend IDnaSchemaBase)
 // Base primitives without containers (to avoid circular reference)

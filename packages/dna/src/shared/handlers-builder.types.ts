@@ -1,4 +1,4 @@
-import type { DnaType } from "../builder/dna-interfaces.js";
+import type { DnaType } from "@ytrynot/dna/core";
 import type { IRefinerErrorOpt, IRefinerPayload } from "./error.types.js";
 import type { tsDnaBaseCtx, tsDnaRefineCtx } from "./meta-context.type.js";
 import type { $MaybeAsync } from "../types/helpers.types.js";

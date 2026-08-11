@@ -308,9 +308,44 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
     }
 
     case 'discriminator': {
+      const discriminatorName = params as string;
+      const discriminKeys = node[2] as (tsPrimitiveLiteral | tsPrimitiveLiteral[])[];
       const discriminDef = node[3] as number[];
-      const schemas = discriminDef.slice(1).map(build) as unknown as c.DnaObject[];
-      return initDna(c.DnaDiscriminatedUnion, { discriminator: params as string, schemas }, meta);
+      const schemas = discriminDef.slice(1).map((refId, i) => {
+        const built = build(refId) as unknown as c.DnaObject;
+        // Clone the branch: multiple branches may share the same DNA index
+        // (identical except for the discriminant), so without cloning we'd
+        // mutate the same cached instance repeatedly.
+        const branch = c.cloner(built, () => {}) as unknown as c.DnaObject;
+        // Reconstruct the discriminator schema from discriminKeys.
+        // discriminKeys[i] is either a primitive (single const) or an array (enum/multi-literal).
+        const rawKey = discriminKeys[i];
+        const values: tsPrimitiveLiteral[] = Array.isArray(rawKey) ? rawKey : [rawKey];
+        const hasUndefined = values.includes(undefined as any);
+        const hasNull = values.includes(null as any);
+        const rest = values.filter(v => v !== undefined && v !== null);
+        let discSchema: c.DnaTypeWithWrappers<any, any>;
+        if (rest.length === 1) {
+          discSchema = initDna(c.DnaLiteral, { value: rest[0] });
+        } else if (rest.length > 1) {
+          const enumObj: Record<string, tsPrimitiveLiteral> = {};
+          for (const v of rest) enumObj[String(v)] = v;
+          discSchema = initDna(c.DnaEnum, { enumObj });
+        } else {
+          // Only null and/or undefined — use DnaNull / DnaUndefined
+          if (hasNull && !hasUndefined) discSchema = initDna(c.DnaNull);
+          else if (hasUndefined && !hasNull) discSchema = initDna(c.DnaUndefined);
+          else discSchema = initDna(c.DnaNull).nullable();
+        }
+        if (hasNull && rest.length > 0) discSchema = discSchema.nullable();
+        if (hasUndefined && rest.length > 0) discSchema = discSchema.optional();
+        // Reinject the discriminator into the branch shape
+        const originalShape = branch._core.seed.propertySchemas ?? {};
+        const newShape = { ...originalShape, [discriminatorName]: discSchema };
+        branch._core.seed.propertySchemas = newShape;
+        return branch;
+      });
+      return initDna(c.DnaDiscriminatedUnion, { discriminator: discriminatorName, schemas }, meta);
     }
 
     case 'chkSeq': {

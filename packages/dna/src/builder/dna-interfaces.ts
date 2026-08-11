@@ -3294,7 +3294,7 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
     const nbItems = schemas.length;
 
     const discriminDef = new Array<tsDnaId | undefined>(1 + nbItems);
-    const discriminKeys = new Array<tsPrimitiveLiteral[]>(nbItems);
+    const discriminKeys = new Array<tsPrimitiveLiteral | tsPrimitiveLiteral[]>(nbItems);
     const discriminStoreId = coll.setStore(discriminDef);
     let discRequired: string[] = [discriminator];
 
@@ -3311,7 +3311,10 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
       if (!values || values.length === 0) {
         throw new Error(`Discriminator value in branch at index ${i} must be a finite primitive (literal, enum, null, undefined, or optional/nullable of one of these)`);
       }
-      discriminKeys[i] = values;
+      // Schvalid parity: `const` → primitive, `enum`/multi-literal → array.
+      // finiteValueSet always returns an array; flatten singletons to match
+      // schvalid's `const` format (raw value, not wrapped).
+      discriminKeys[i] = values.length === 1 ? values[0] : values;
       if (values.includes(undefined)) discRequired = [];
     }
 
@@ -3328,7 +3331,22 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
       }
       const discSchema = schema.shape[discriminator];
       const isOptional = !isRequiredKey(discSchema);
-      const stripped = schema.extend({ [discriminator]: isOptional ? initDna(DnaAny).optional() : initDna(DnaAny) });
+      // Reorder the branch shape: discriminator key first, then required
+      // (non-optional) keys, then optional keys. This matches schvalid's
+      // emission order and produces identical DNA bytecode on both paths.
+      const discReplacement = isOptional ? initDna(DnaAny).optional() : initDna(DnaAny);
+      const originalShape = schema._core.seed.propertySchemas ?? {};
+      const newShape: Record<string, DnaSomeType> = { [discriminator]: discReplacement };
+      for (const [key, s] of Object.entries(originalShape)) {
+        if (key === discriminator) continue;
+        if (isRequiredKey(s)) newShape[key] = s;
+      }
+      for (const [key, s] of Object.entries(originalShape)) {
+        if (key === discriminator) continue;
+        if (!isRequiredKey(s)) newShape[key] = s;
+      }
+      // CAST: cloner preserves the DnaObject class but TS can't prove the reordered shape type
+      const stripped = cloner(schema, cl => { cl._core.seed.propertySchemas = newShape; }) as DnaObject<any>;
       stripped.toDna(coll, discriminStoreId, 1 + i);
     }
 

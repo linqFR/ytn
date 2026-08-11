@@ -1,6 +1,6 @@
 {
   "name": "@ytrynot/dna",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Schema validation that compiles to standalone JS function. Zod-like API, serializable, portable, using DNA bytecodes",
   "author": "linqFR",
   "license": "MIT",

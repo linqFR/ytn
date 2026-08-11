@@ -4,7 +4,7 @@ import type {
   DnaObject,
   DnaType,
   DnaTuple,
-} from "../builder/dna-interfaces.js";
+} from "@ytrynot/dna/core";
 import type { $Output } from "./helpers.types.js";
 
 import type { tsDnaMeta } from "../shared/meta-context.type.js";
@@ -51,13 +51,9 @@ export type tsDnaEnumLike = Record<string, tsDnaEnumValueType>;
 // ============================================
 export type tsDnaDiscriminant = DnaSomeType;
 
-export interface tsDnaDiscriminatedBranch<Disc extends string> {
-  shape: { [K in Disc]: tsDnaDiscriminant } | undefined;
-}
-
 export type tsDnaDiscriminatedUnionObjects<
   Disc extends string,
-  Ob extends DnaObject<any> & tsDnaDiscriminatedBranch<Disc> = DnaObject<any> & tsDnaDiscriminatedBranch<Disc>
+  Ob extends DnaObject<any> = DnaObject<any>
 > = [Ob, ...Ob[]];
 
 // ============================================
