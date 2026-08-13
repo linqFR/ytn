@@ -14,7 +14,7 @@ Complete catalog of all DNA schema types, their factory functions, output types,
 | [StringBool](#stringbool) | stringbool | 1 |
 | [Literal & Enum](#literal--enum) | literal, enum | 2 |
 | [Template Literals](#template-literals) | templateLiteral, templateLiteralMutate | 2 |
-| [Combinators](#combinators) | union, intersection, xor, discriminatedUnion | 4 |
+| [Combinators](#combinators) | union, intersection, xor, discriminatedUnion, cliUnion | 5 |
 | [Wrapper Types](#wrapper-types) | optional, exactOptional, nonoptional, nullable, nullish, default, prefault, catch | 8 |
 | [Container Types](#container-types) | object, strictObject, looseObject, array, tuple, record, partialRecord, looseRecord, map, set | 10 |
 | [Function Type](#function-type) | function | 1 |
@@ -162,6 +162,7 @@ Both share the `"template"` opcode. The 4th tuple element (`canMutate` boolean a
 | `dna.intersection(s1, s2)` | `DnaIntersection<T, U>` | `T & U` | `"allOf"` | — |
 | `dna.xor([s1, s2])` | `DnaXorUnion<T, U>` | XOR of `T` and `U` | `"oneOf"` | — |
 | `dna.discriminatedUnion(key, schemas)` | `DnaDiscriminatedUnion<K, S>` | union of branch outputs | `"discriminator"` | `.options`, `.discriminator` |
+| `dna.cliUnion(schemas, config?)` | `DnaCliUnion<S>` | union of branch outputs | `"cli"` | `.options`, `.discriminators`, `.positionals` |
 
 ---
 
@@ -274,7 +275,7 @@ All classes extending `DnaTypeWithWrappers` can be used as the type argument to 
 - **StringBool**: `dna.DnaStringBool`
 - **Literal/Enum**: `dna.DnaLiteral<T>`, `dna.DnaEnum<T>`
 - **Template**: `dna.DnaTemplateLiteral<Parts>`, `dna.DnaTmplLiteralMutate<Parts>`
-- **Combinators**: `dna.DnaUnion<S>`, `dna.DnaIntersection<T, U>`, `dna.DnaXorUnion<T, U>`, `dna.DnaDiscriminatedUnion<K, S>`
+- **Combinators**: `dna.DnaUnion<S>`, `dna.DnaIntersection<T, U>`, `dna.DnaXorUnion<T, U>`, `dna.DnaDiscriminatedUnion<K, S>`, `dna.DnaCliUnion<S>`
 - **Wrappers**: `dna.DnaOptional<Inner>`, `dna.DnaExactOptional<Inner>`, `dna.DnaNonOptional<Inner>`, `dna.DnaNullable<Inner>`, `dna.DnaNullish<Inner>`, `dna.DnaDefault<Inner>`, `dna.DnaPrefault<Inner>`, `dna.DnaCatch<Inner>`
 - **Containers**: `dna.DnaObject<T>`, `dna.DnaArray<S>`, `dna.DnaTuple<S, R>`, `dna.DnaRecord<K, V>`, `dna.DnaMap<K, V>`, `dna.DnaSet<T>`
 - **Function**: `dna.DnaFunction<I, O>`

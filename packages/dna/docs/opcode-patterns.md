@@ -957,6 +957,58 @@ _err(ctx: tsJSParentCtx, _inVarName: string, path: string, msg: string, isLitera
 
 ---
 
+## `cli` opcode handler — Maranget decision tree (StepsArray variant)
+
+The `cli` opcode handler (`dna-js-json.ts > cli()`) is a **StepsArray pattern** variant that builds a decision tree at codegen time. Unlike typical StepsArray handlers that emit a flat sequence of steps, `cli()` recursively builds a nested `switch`/`if` tree from a clause matrix.
+
+### Input
+
+```typescript
+dnaOpt: [string[], (tsPrimitiveLiteral | tsPrimitiveLiteral[])[][], number[], tsDnaInnerMeta]
+// [discriminators, discriminKeys, branchDef, meta]
+```
+
+### Algorithm
+
+1. **Clause matrix construction**: builds `IRow[]` from `discriminKeys` — each row is one branch, each cell is the finite value set for one key.
+2. **Column selection** (q-heuristic): at each tree node, chooses the column with the fewest distinct values that still splits the remaining rows.
+3. **Specialization**: groups rows by value on the chosen column. A row with multiple values (e.g. `mode ∈ {dev, staging}`) appears in multiple groups.
+4. **Tree emission**:
+   - Required key → `switch(value) { case v: subtree; break; ... default: fail }`
+   - Optional key → labelled sub-block with `if(key === undefined) { subtree; break }` then dispatch on values, fall-through to fail
+   - Leaf (no column splits) → emit branch validation step `[indices[branchIdx], ...]`
+   - Fail → `_err(...)` (parser mode) or `outerBreak_` (validator mode)
+5. **Recursion**: `emitTree(group.rows, remainingCols - col)` for each group.
+
+### Step emission
+
+The handler pushes `tsStackFrame[]` steps in order:
+- `[indices[0], ...]` — prevalidation step (checks object type + required keys)
+- `[STEP.BODY, block + ":{"]` — open labelled block
+- Tree steps (recursive `emitTree` pushes BODY steps and child dispatch steps interleaved)
+- `[STEP.BODY, "}"]` — close block
+
+### Context propagation
+
+- `childCtx` is derived from `parentCtx` with `outerblock: block` and `typeChecked: "object"`.
+- Each branch validation step receives `{ ...childCtx }` (shallow copy) to avoid mutation across siblings.
+- `failCase` is inherited from `parentCtx.failCase` (validator mode) or uses `_err` (parser mode).
+
+### Why not SimpleNodeToJs
+
+The `cli` handler cannot use `SimpleNodeToJs` because:
+- It dispatches to multiple child schemas (one per branch), not a single validation.
+- The decision tree structure is data-dependent (computed from `discriminKeys`), not fixed.
+- It interleaves `STEP.BODY` fragments with child dispatch steps recursively.
+
+### See also
+
+- [CLI Union](cli-union.md) — full documentation, API reference, and usage examples
+- [Maranget decision tree codegen (`cli` opcode)](technical.md#maranget-decision-tree-codegen-cli-opcode) in `technical.md`
+- `sandbox/cli-branches-union-dna-format.md` — full design doc with codegen rules and benchmarks
+
+---
+
 ## Choosing the Right Pattern
 
 When adding a new opcode handler, choose the pattern based on the requirements:

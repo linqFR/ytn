@@ -1,5 +1,48 @@
 # @ytrynot/dna
 
+## 0.6.0
+
+### Minor Changes
+
+- Add `dna.cliUnion()` — multi-key CLI routing union with Maranget decision tree.
+  
+  - New `DnaCliUnion` class with auto-detection of discriminators (`finiteValueSet`) and positionals (non-boolean required keys, sorted by `1/distinctValues`).
+  - New `cli` opcode handler in `dna-js-json.ts` — builds a Maranget decision tree (nested `switch`/`if`) at codegen time from a clause matrix (branches × discriminator keys). O(log N) routing vs O(N) if-chain.
+  - `toParseArgsConfig()` method — generates a `node:util.parseArgs` config from the schema (option types, short aliases, multiple flags, positional detection).
+  - Explicit `discriminators` and `positionals` config overrides via `ICliUnionConfig`.
+  - Branch mutations (`.extend()`, `.default()`, `.transform()`, `.prefault()`, `.catch()`) preserved after routing.
+  - Wrappers on `cliUnion` itself (`.optional()`, `.nullable()`, `.nullish()`, `.default()`, `.transform()`, `.catch()`).
+  - `testedProp` optimization: `discriminator` and `cli` handlers propagate routing keys into branches via `parentCtx.testedProp` (key → pre-bound variable name); handler `o` skips redundant `hasOwn`, uses the pre-bound variable instead of re-reading `v[key]`, and `literal`/`enum` skip const check on tested keys. Removes the `DnaDiscriminatedUnion` cloner that replaced routing keys with `DnaAny` — branches are emitted as-is, preserving transforms/pipes on routing keys.
+  - 91 tests in `cli-union.test.ts` (routing, auto-detection, overrides, optional discriminators, branch mutations, edge cases, portability, behavioral override tests).
+  - 29 tests in `tested-keys.test.ts` (DU/cli hasOwn + const check counts, parser runtime, transform on routing key, optional absent, pre-bound variable usage, getter-called-once).
+  - Full documentation in `docs/cli-union.md` (architecture, usage, API reference, object modes, limitations, warnings).
+
+### Patch Changes
+
+- Fix discriminator and cli handlers: crash on null/undefined input, getter-throws on prevalidation, transform overwrite, and dead code.
+  
+  - Open `discB0`/`cliB0` block before prevalidation and pass `failCase: "break <block>;"` so that prevalidation failure (null/non-object input, missing required key) exits the block directly instead of falling through to `v["cmd"]` which would crash on null.
+  - Pass `""` as outVarName for the prevalidation step in `discriminator` and `cli` handlers. The prevalidation only checks type + required keys, it does not produce output (data is overwritten by the branch). Passing the real outVarName triggered `parserOutInit`'s `Object.assign(Object.create(null), v)` which fires all own getters on the input — crashing if a non-declared key has a throwing getter. With `""` the prevalidation skips `parserOutInit` (`hasOut=false`). Aligns DNA with Zod v4 which does not crash on DU with getter-throws inputs.
+  - Remove the post-switch `data[discriminator]=discValVar` overwrite that was needed when the cloner replaced the discriminator key with `DnaAny`. Now that branches are emitted as-is, the branch's own object handler writes the discriminator key (potentially with transforms applied). The overwrite would discard transforms and add an unwanted `cmd: undefined` for optional absent discriminators.
+  - Remove dead `data=undefined` in the `default:` case of the switch (unreachable — the return statement checks `errors.length`, not `data`).
+  - An explicit guard `if(errors.length)break <block>;` is also needed after prevalidation in parser mode because the handler `o` type check uses `breakBase` (unconditional `break oB`) in parser mode — the `!mustMatchType` branch does not push an error (JSON Schema vacuous success), so a conditional failCase alone would not fire. Attempting to change L708 to use `parentCtx.failCase` in parser mode was tested and reverted: it breaks schvalid where the type check assigns `data=v` without pushing an error on non-objects.
+  - Document the asymmetry at L708 (`isCond ? failCase : breakBase`) with cross-references to `_assignOrCondEnv` L113-117 and the discriminator/cli guards.
+  - Remove stale TODO comment on `oneOf` error reassignment.
+- Remove the unused `not?: string` field from `tsJSParentCtx`.
+  
+  - The field was commented out in `dna-js.types.ts` but still referenced as dead code: two `not: undefined` assignments in `dna-js-builder.ts` (`wrp` handler) and a stale `parentCtx.not ?? ""` snippet in `docs/technical.md`.
+  - No handler ever reads `parentCtx.not`; the JSON-Schema `not` opcode handler (`dna-js-json.ts`) builds a fresh `childCtx` and never accesses this field.
+  - Remove the obsolete JSDoc block, the two dead `not: undefined` assignments, and fix the documentation snippet.
+- Add `testedProp` optimization to eliminate redundant validation on routing keys in discriminatedUnion/cliUnion branches.
+  
+  - Add `testedProp: Record<string, string>` field to `tsJSParentCtx`, propagated by `discriminator` and `cli` handlers toward their branches. Maps each routing key to the JavaScript variable name that holds the already-read value (e.g. `{ cmd: "discVal0" }`).
+  - Handler `o` skips the redundant `hasOwn` check for keys in `testedProp` AND uses the pre-bound variable instead of re-reading `v[k]` — eliminating one property access per routing key per parse.
+  - Handler `o` shrinks `testedProp` to `{ [k]: varName }` (or `undefined`) per property so `literal`/`enumType` handlers can skip their const check.
+  - `discriminator` handler passes `{ [key]: discValVar }` — the branch uses `discVal0` instead of re-reading `v["cmd"]`.
+  - `cli` handler pre-declares `const cliV<idx>_<col> = v[key], ...` for all routing keys and passes the map to branches. The decision tree also uses these variables instead of re-reading `v[key]`.
+  - Remove the `DnaDiscriminatedUnion._emitSelf` cloner that replaced the routing key with `DnaAny`. Branches are now emitted as-is (like `DnaCliUnion`), preserving transforms/pipes on routing keys.
+  - Add 29 non-regression tests covering DU, CLI, pipe/transform on routing key, nullable vs optional discriminator, unevaluatedProperties interaction, parser codegen (hasOwn + const check counts), parser runtime, transform on routing key in parser output, optional absent discriminator in parser output, pre-bound variable usage (DU + CLI), and getter-called-once verification.
+
 ## 0.5.1
 
 ### Patch Changes

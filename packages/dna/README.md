@@ -25,6 +25,7 @@ Zod-like schema API with serializable DNA bytecode and standalone compiled valid
   - [Compiling DNA to JavaScript Validators (Advanced)](#compiling-dna-to-javascript-validators-advanced)
   - [Using the Low-Level toJS Compiler](#using-the-low-level-tojs-compiler)
   - [Round-trip DNA Reconstruction](#round-trip-dna-reconstruction)
+- [CLI Union](#cli-union)
 - [Externals Mechanism](#externals-mechanism)
 - [Development](#development)
 - [Technical Documentation](#technical-documentation)
@@ -291,6 +292,38 @@ export. Key differences:
 
 Full feature-by-feature comparison: [docs/zod-comparison.md](docs/zod-comparison.md).
 
+## CLI Union
+
+`dna.cliUnion()` is a multi-key routing union designed for CLI schemas. It unions multiple object schemas (branches) that share discriminator keys, and compiles them into a Maranget decision tree for efficient dispatch — the tree is O(log N) vs O(N) for a flat if-chain, generated at codegen time from a clause matrix (branches × discriminator keys).
+
+Unlike `discriminatedUnion` (single-key, OpenAPI-compatible), `cliUnion` is CLI-specific:
+
+- **Multi-key routing**: dispatches on N discriminator keys, not just 1.
+- **Auto-detection**: infers discriminators and positionals from branch shapes.
+- **`toParseArgsConfig()`**: generates a `node:util.parseArgs` config from the schema (option types, shorts, multiple flags).
+- **Branch mutations**: `.extend()`, `.default()`, `.transform()` are preserved after routing, allowing metadata injection (e.g. `branchId`).
+- **Portable codegen**: generated parser/validator functions are self-contained (zero externals when no transforms).
+
+```typescript
+const cli = dna.cliUnion([
+  dna.object({ cmd: dna.literal("build"), mode: dna.literal("dev") })
+    .extend({ branchId: dna.string().optional().default("build-dev") }),
+  dna.object({ cmd: dna.literal("build"), mode: dna.literal("prod") })
+    .extend({ branchId: dna.string().optional().default("build-prod") }),
+  dna.object({ cmd: dna.literal("deploy") })
+    .extend({ branchId: dna.string().optional().default("deploy") }),
+]);
+
+cli.safeParse({ cmd: "build", mode: "dev" });
+// { success: true, data: { cmd: "build", mode: "dev", branchId: "build-dev" } }
+
+// Generate parseArgs config
+const config = cli.toParseArgsConfig();
+// { allowPositionals: true, strict: false, options: { ... } }
+```
+
+For the full documentation — architecture, API reference, discriminator rules, codegen details — see [docs/cli-union.md](docs/cli-union.md).
+
 ## Externals Mechanism
 
 DNA compiles schemas into standalone JavaScript functions. Any value referenced inside `.transform()`, `.refine()`, `.catch()`, or `dna.jwt()` that is not a parameter or a global must be declared as an **external** so it can be injected at compile time.
@@ -337,5 +370,6 @@ linqFR
 - [Type Inventory](docs/type-inventory.md) — Complete catalog of all DNA schema types, factory functions, and opcodes
 - [Technical Reference](docs/technical.md) — DNA opcodes, architecture, and implementation details
 - [Opcode Patterns](docs/opcode-patterns.md) — DNA opcode patterns and usage
+- [CLI Union](docs/cli-union.md) — Multi-key CLI routing union with Maranget decision tree
 - [Zod Comparison](docs/zod-comparison.md) — Side-by-side comparison with Zod v4
 - [Externals](docs/externals.md) — Externals mechanism for transforms and refines

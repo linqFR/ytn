@@ -3324,30 +3324,439 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
 
     const prevalidation = initDna(DnaObject, { objType: 'object', requiredKeys: discRequired });
     prevalidation.toDna(coll, discriminStoreId, 0);
+    // Emit each branch as-is — the routing switch selects the branch, then the
+    // branch validates ALL properties (including the discriminator) and applies
+    // its mutations (.default, .transform, .pipe, etc.). Keeping original
+    // schemas preserves transforms on the routing key (testedProp skips the
+    // redundant hasOwn/const-check at codegen level and pre-binds the routing
+    // value so the branch doesn't re-read v[key]).
+    for (let i = 0; i < nbItems; i++) {
+      schemas[i].toDna(coll, discriminStoreId, 1 + i);
+    }
+
+    return dnaId;
+  }
+}
+
+
+/**
+ * CLI multi-key routing union: a union of object schemas that share multiple
+ * discriminator keys. The parser dispatches to the correct branch based on
+ * the values of all discriminator keys, using a Maranget decision tree.
+ *
+ * Unlike `DnaDiscriminatedUnion` (single-key, OpenAPI-compatible), this class
+ * is CLI-specific: it auto-detects discriminators, infers positionals vs flags,
+ * and emits the `"cli"` opcode. The codegen generates a switch/if decision tree.
+ *
+ * ## Upstream pipeline (handled by `@ytrynot/cli`, NOT by this class)
+ *
+ * `DnaCliUnion` receives an already-flattened plain object and does only
+ * routing + branch validation + branch mutation. The upstream steps that
+ * produce this flat object are the responsibility of `@ytrynot/cli`:
+ *
+ * 1. **`util.parseArgs`** — minimal lexical tokenizer. Produces:
+ *    ```ts
+ *    {
+ *      values: { [flagName: string]: string | boolean },  // looseObject, keys optional
+ *      positionals: string[]                               // array, accessed by index
+ *    }
+ *    ```
+ *    - `values`: flag names → `string` or `boolean`. A flag absent from the
+ *      command line is **missing** from `values` (not `undefined`, not `false`).
+ *      `parseArgs` can inject a `default` per option, but does no type coercion.
+ *    - `positionals`: always `string[]`. A positional at an index beyond the
+ *      array length is `undefined` (out-of-bounds access). Extra positionals
+ *      are kept. No coercion — numbers, enums, literals are all strings here.
+ *
+ * 2. **Pre-routing transform** (owned by `@ytrynot/cli`) — flattens
+ *    `{ values, positionals }` into a single plain object where each positional
+ *    index is mapped to its declared name and each flag name is mapped to its
+ *    target key. This mirrors what czvo does in its pre-routing `.transform()`
+ *    (see `cli-engine/build-tools.ts`).
+ *
+ *    The resulting flat object is a **looseObject**:
+ *    - **Positionals** and **flags declared in the branch schema** are
+ *      **required** by default. A positional or flag declared with
+ *      `.optional()` is an optional key (absent = no routing value).
+ *      Example: `git commit [message]` — `message` is an optional positional.
+ *    - **Undeclared flags** are tolerated (loose mode), matching `parseArgs`
+ *      non-strict behavior.
+ *
+ * `DnaCliUnion` starts at step 3 below.
+ *
+ * ## Routing keys (discriminators)
+ *
+ * A key can be a routing key if it is either:
+ * - **required** in all branches — routes on a finite value (string, boolean,
+ *   etc.). A required key is never `undefined`, so `undefined` is never a
+ *   routing value for a required key.
+ * - **optional** — routes on `undefined` (the absence selects a branch) and/or
+ *   on a finite value (the presence selects a branch). Example: `git commit`
+ *   vs `git commit "msg"` where the presence/absence of the `message`
+ *   positional determines the branch.
+ *
+ * This mirrors Zod's support for optional/undefined discriminators
+ * (`z.literal("info").optional()` routes on both `"info"` and absence).
+ *
+ * If a flag needs a default before routing, the default must be injected by
+ * `parseArgs` (`options[name].default`) or by a pre-routing transform owned by
+ * `@ytrynot/cli`. DNA's own `.default(...)` on a routing key is applied
+ * **inside the branch** (after routing), not before — it cannot help route an
+ * absent key. Its role on a routing key is to give the branch a name: when the
+ * key is present and matches, the branch validates it; when the key is absent
+ * and the branch is reached via another routing key, `.default()` injects the
+ * branch's canonical value into the parsed output.
+ *
+ * ## Branch mutations (CZVO parity)
+ *
+ * Each branch is a full DNA schema and supports all DNA mutations:
+ * `.default()`, `.extend()`, `.transform()`, `.prefault()`, etc. This allows
+ * injecting branch-specific metadata (e.g. `branchId`) into the parsed output
+ * even when the input does not contain it — the same pattern czvo uses in
+ * `forge()` (`targets[name].zod.extend({ discriminant }).transform(...)`).
+ *
+ * The builder must accept `DnaPipe` branches (e.g. `dna.object({...}).transform(...)`)
+ * by unwrapping to the underlying `DnaObject` for discriminator/positional
+ * detection, then emitting the full pipe (object + transform) as the branch DNA.
+ *
+ * ## parseArgs config generation
+ *
+ * `toParseArgsConfig()` derives a `node:util.parseArgs` config from the schema:
+ * - Positionals from `this.positionals` (ordered).
+ * - Flags from all non-positional keys across branches.
+ * - Option types (`"string"` / `"boolean"`) inferred from the leaf schema.
+ * - `multiple` detected from `DnaArray` wrappers.
+ * - Short aliases auto-generated from the first letter, skip if taken.
+ * - Explicit `shorts` mapping overrides auto-generation.
+ * - Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers.
+ *
+ * @typeParam S - A tuple of object schema types (the branches).
+ */
+// CLI multi-key routing union implementation (cli opcode)
+export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]> extends DnaTypeWithWrappers<any, any> {
+  declare readonly _output: $Output<S[number]>;
+  declare readonly _input: $Input<S[number]>;
+  override _core = new BaseCore<{
+    schemas: DnaSomeType[],
+    discriminators: string[],
+    positionals: string[],
+  }>("cli");
+  override get type() { return "cliUnion"; }
+
+  /** Returns the branch schemas (Zod v4 parity: `.options`). */
+  get options(): S {
+    // CAST: S extends readonly DnaSomeType[] but _core.seed.schemas is DnaSomeType[]
+    return this._core.seed.schemas as unknown as S;
+  }
+  /** Returns the discriminator keys (auto-detected or explicit). */
+  get discriminators(): string[] { return this._core.seed.discriminators; }
+  /** Returns the positional keys (auto-detected or explicit). */
+  get positionals(): string[] { return this._core.seed.positionals; }
+
+  /**
+   * Returns the flag keys (non-positional keys declared in any branch).
+   * These are the keys that `@ytrynot/cli` maps to `parseArgs` options.
+   */
+  get flags(): string[] {
+    const posSet = new Set(this.positionals);
+    const flagSet = new Set<string>();
+    for (const branch of this._core.seed.schemas) {
+      const obj = DnaCliUnion.unwrapToDnaObject(branch);
+      for (const key of Object.keys(obj.shape)) {
+        if (!posSet.has(key)) flagSet.add(key);
+      }
+    }
+    return [...flagSet];
+  }
+
+  /**
+   * Unwraps a property schema to its leaf type, stripping wrappers
+   * (optional, nullable, default, prefault, etc.) and pipe steps.
+   */
+  private static unwrapToLeaf(s: DnaSomeType): DnaSomeType {
+    let leaf: DnaSomeType = s instanceof DnaLazy ? s.innerType : s;
+    // Strip wrappers (optional, nullable, default, prefault, catch, ...)
+    while (leaf instanceof _DnaWrapper) leaf = leaf.unwrap();
+    // Strip pipe — take the first step
+    if (leaf instanceof DnaPipe) {
+      leaf = leaf._core.seed.steps[0];
+      while (leaf instanceof _DnaWrapper) leaf = leaf.unwrap();
+    }
+    return leaf;
+  }
+
+  /**
+   * Derives the `parseArgs` option type from a leaf schema.
+   * - `DnaBoolean` or `DnaLiteral(true|false)` → `"boolean"`
+   * - `DnaArray` → unwrap item, recurse for type, mark `multiple`
+   * - everything else → `"string"`
+   */
+  private static deriveOptionType(leaf: DnaSomeType): { type: "string" | "boolean"; multiple: boolean } {
+    if (leaf instanceof DnaArray) {
+      const itemLeaf = DnaCliUnion.unwrapToLeaf(leaf._core.seed.itemSchema);
+      const inner = DnaCliUnion.deriveOptionType(itemLeaf);
+      return { type: inner.type, multiple: true };
+    }
+    if (leaf instanceof DnaBoolean) return { type: "boolean", multiple: false };
+    if (leaf instanceof DnaLiteral) {
+      if (typeof leaf._core.seed.value === "boolean") return { type: "boolean", multiple: false };
+    }
+    return { type: "string", multiple: false };
+  }
+
+  /**
+   * Builds a `node:util.parseArgs` config from the cliUnion schema.
+   *
+   * - Positionals are derived from `this.positionals` (ordered).
+   * - Flags are derived from all non-positional keys across branches.
+   * - Option types (`"string"` / `"boolean"`) are inferred from the leaf schema.
+   * - `multiple` is detected from `DnaArray` wrappers.
+   * - Short aliases are auto-generated from the first letter of each flag,
+   *   skipping if the letter is already taken. An explicit `shorts` mapping
+   *   overrides the auto-generation.
+   * - Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers
+   *   in the branch schemas. `parseArgs` is a pure lexical tokenizer.
+   *
+   * @param opts - Optional configuration.
+   * @param opts.shorts - Explicit short alias mapping (e.g. `{ verbose: "v" }`).
+   * @param opts.strict - Whether `parseArgs` should run in strict mode (default: `false`).
+   * @returns A `ParseArgsConfig`-compatible object for `node:util.parseArgs`.
+   */
+  toParseArgsConfig(opts?: {
+    shorts?: Record<string, string>;
+    strict?: boolean;
+  }): {
+    allowPositionals: true;
+    strict: boolean;
+    options: Record<string, {
+      type: "string" | "boolean";
+      multiple: boolean;
+      short?: string;
+    }>;
+  } {
+    const explicitShorts = opts?.shorts ?? {};
+    const strict = opts?.strict ?? false;
+    const positionalSet = new Set(this.positionals);
+    const flags = this.flags;
+
+    // Collect option metadata from all branches
+    const optionMeta: Record<string, {
+      type: "string" | "boolean";
+      multiple: boolean;
+    }> = {};
+
+    for (const branch of this._core.seed.schemas) {
+      const obj = DnaCliUnion.unwrapToDnaObject(branch);
+      for (const key of Object.keys(obj.shape)) {
+        if (positionalSet.has(key)) continue;
+        if (optionMeta[key]) continue; // first branch wins
+
+        const propSchema = obj.shape[key];
+        const leaf = DnaCliUnion.unwrapToLeaf(propSchema);
+        const { type, multiple } = DnaCliUnion.deriveOptionType(leaf);
+
+        optionMeta[key] = { type, multiple };
+      }
+    }
+
+    // Auto-generate shorts: first letter, skip if taken
+    const usedShorts = new Set<string>();
+    const options: Record<string, {
+      type: "string" | "boolean";
+      multiple: boolean;
+      short?: string;
+    }> = {};
+
+    for (const key of flags) {
+      const meta = optionMeta[key];
+      if (!meta) continue;
+
+      let short: string | undefined;
+      if (explicitShorts[key]) {
+        short = explicitShorts[key];
+        usedShorts.add(short);
+      } else {
+        const candidate = key[0];
+        if (candidate && !usedShorts.has(candidate)) {
+          short = candidate;
+          usedShorts.add(candidate);
+        }
+      }
+
+      options[key] = {
+        type: meta.type,
+        multiple: meta.multiple,
+        ...(short && { short }),
+      };
+    }
+
+    return {
+      allowPositionals: true,
+      strict,
+      options,
+    };
+  }
+
+  /**
+   * Unwraps a branch schema (which may be a `DnaPipe`, `_DnaWrapper`, or
+   * `DnaLazy`) down to its underlying `DnaObject`. This is needed because
+   * branches can carry mutations (`.transform()`, `.default()`, `.optional()`,
+   * etc.) that wrap the object — the builder must read the object's `shape`
+   * for discriminator/positional detection while emitting the full wrapper
+   * chain as the branch DNA.
+   */
+  static unwrapToDnaObject(schema: DnaSomeType): DnaObject<any> {
+    let s: DnaSomeType = schema instanceof DnaLazy ? schema.innerType : schema;
+    while (s instanceof _DnaWrapper) s = s.unwrap();
+    if (s instanceof DnaPipe) {
+      s = s._core.seed.steps[0];
+      while (s instanceof _DnaWrapper) s = s.unwrap();
+    }
+    if (!(s instanceof DnaObject)) {
+      throw new Error(
+        `cliUnion branch must be (or unwrap to) a DnaObject, got ${s.constructor.name}`
+      );
+    }
+    return s;
+  }
+
+  /**
+   * Auto-detects discriminator keys: keys where `finiteValueSet` is non-undefined
+   * for ALL branches. Accepts both required and optional keys (an optional key
+   * with a finite literal/enum value routes on both the value and `undefined`).
+   */
+  static detectDiscriminators(schemas: readonly DnaSomeType[]): string[] {
+    if (schemas.length === 0) return [];
+    const first = DnaCliUnion.unwrapToDnaObject(schemas[0]);
+    const candidateKeys = Object.keys(first.shape);
+    return candidateKeys.filter(key =>
+      schemas.every(branch => {
+        const obj = DnaCliUnion.unwrapToDnaObject(branch);
+        const prop = obj.shape[key];
+        return prop && finiteValueSet(prop) !== undefined;
+      })
+    );
+  }
+
+  /**
+   * Auto-detects positional keys using a POSIX-inspired heuristic:
+   * - boolean keys → always flags
+   * - optional keys → flags (positionals are required by nature)
+   * - required + non-boolean keys → positional candidates, scored by 1/distinctValues
+   * - sorted: highest score first (fewest values = most likely subcommand), then declaration order
+   */
+  static detectPositionals(
+    schemas: readonly DnaSomeType[],
+    discriminators: string[]
+  ): string[] {
+    const candidates: Array<{ key: string; score: number; order: number }> = [];
+
+    for (let i = 0; i < discriminators.length; i++) {
+      const key = discriminators[i];
+
+      const isBoolean = schemas.every(branch => {
+        const obj = DnaCliUnion.unwrapToDnaObject(branch);
+        const prop = obj.shape[key];
+        const values = finiteValueSet(prop);
+        return values?.every(v => typeof v === 'boolean');
+      });
+      if (isBoolean) continue;
+
+      const isRequired = schemas.every(branch => {
+        const obj = DnaCliUnion.unwrapToDnaObject(branch);
+        return isRequiredKey(obj.shape[key]);
+      });
+      if (!isRequired) continue;
+
+      const allValues = new Set<unknown>();
+      for (const branch of schemas) {
+        const obj = DnaCliUnion.unwrapToDnaObject(branch);
+        const values = finiteValueSet(obj.shape[key]);
+        if (values) for (const v of values) allValues.add(v);
+      }
+
+      candidates.push({ key, score: 1 / allValues.size, order: i });
+    }
+
+    return candidates
+      .sort((a, b) => b.score - a.score || a.order - b.order)
+      .map(c => c.key);
+  }
+
+  protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
+    const schemas = this._core.seed.schemas;
+    const discriminators = this._core.seed.discriminators;
+    const nbItems = schemas.length;
+    const nbKeys = discriminators.length;
+
+    const branchDef = new Array<tsDnaId | undefined>(1 + nbItems);
+    const discriminKeys = new Array<(tsPrimitiveLiteral | tsPrimitiveLiteral[])[]>(nbItems);
+    const branchStoreId = coll.setStore(branchDef);
+
+    // Collect required keys for prevalidation: a key is required in prevalidation
+    // only if it is required in ALL branches. Keys optional in any branch are
+    // tested by the routing tree (if(key === undefined) first).
+    const prevalidationRequired = new Set<string>();
+    const optionalInBranch = new Set<string>();
+
     for (let i = 0; i < nbItems; i++) {
       const schema = schemas[i];
-      if (!(schema instanceof DnaObject)) {
-        throw new Error(`Discriminated union branch at index ${i} must be a DnaObject`);
+      // Unwrap DnaPipe/wrappers to access the underlying DnaObject's shape.
+      // The full schema (including transforms/defaults) is emitted as the branch.
+      const obj = DnaCliUnion.unwrapToDnaObject(schema);
+      const shape = obj.shape;
+      discriminKeys[i] = new Array<tsPrimitiveLiteral | tsPrimitiveLiteral[]>(nbKeys);
+
+      for (let j = 0; j < nbKeys; j++) {
+        const key = discriminators[j];
+        const propSchema = shape[key];
+        if (!propSchema) {
+          throw new Error(
+            `cliUnion: branch ${i} does not declare discriminator key "${key}". ` +
+            `All branches must declare all discriminator keys (required or optional).`
+          );
+        }
+        const values = finiteValueSet(propSchema);
+        if (!values || values.length === 0) {
+          throw new Error(
+            `cliUnion: discriminator "${key}" in branch ${i} must be a finite primitive ` +
+            `(literal, enum, null, undefined, or optional/nullable of one of these)`
+          );
+        }
+        // Flatten singletons to match schvalid's const format
+        discriminKeys[i][j] = values.length === 1 ? values[0] : values;
+
+        // Track keys that are optional in any branch
+        if (!isRequiredKey(propSchema)) {
+          optionalInBranch.add(key);
+        }
       }
-      const discSchema = schema.shape[discriminator];
-      const isOptional = !isRequiredKey(discSchema);
-      // Reorder the branch shape: discriminator key first, then required
-      // (non-optional) keys, then optional keys. This matches schvalid's
-      // emission order and produces identical DNA bytecode on both paths.
-      const discReplacement = isOptional ? initDna(DnaAny).optional() : initDna(DnaAny);
-      const originalShape = schema._core.seed.propertySchemas ?? {};
-      const newShape: Record<string, DnaSomeType> = { [discriminator]: discReplacement };
-      for (const [key, s] of Object.entries(originalShape)) {
-        if (key === discriminator) continue;
-        if (isRequiredKey(s)) newShape[key] = s;
+    }
+
+    // A key is required in prevalidation only if it's required in ALL branches
+    for (let j = 0; j < nbKeys; j++) {
+      if (!optionalInBranch.has(discriminators[j])) {
+        prevalidationRequired.add(discriminators[j]);
       }
-      for (const [key, s] of Object.entries(originalShape)) {
-        if (key === discriminator) continue;
-        if (!isRequiredKey(s)) newShape[key] = s;
-      }
-      // CAST: cloner preserves the DnaObject class but TS can't prove the reordered shape type
-      const stripped = cloner(schema, cl => { cl._core.seed.propertySchemas = newShape; }) as DnaObject<any>;
-      stripped.toDna(coll, discriminStoreId, 1 + i);
+    }
+
+    this._core.rawDna = ["cli", discriminators, discriminKeys, branchDef];
+    const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, branchStoreId);
+    this._core.setDnaId(coll, dnaId);
+
+    // Emit prevalidation: object with required keys check
+    const prevalidation = initDna(DnaObject, {
+      objType: 'object',
+      requiredKeys: [...prevalidationRequired],
+    });
+    prevalidation.toDna(coll, branchStoreId, 0);
+
+    // Emit each branch as-is — the routing tree selects the branch, then the
+    // branch validates ALL properties (including discriminators) and applies
+    // its mutations (.default, .transform, .extend, etc.). Keeping original
+    // schemas preserves distinct propSig in the collector → no false dedup.
+    for (let i = 0; i < nbItems; i++) {
+      schemas[i].toDna(coll, branchStoreId, 1 + i);
     }
 
     return dnaId;

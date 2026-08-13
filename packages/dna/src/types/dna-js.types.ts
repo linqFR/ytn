@@ -27,19 +27,102 @@ export type tsJSFuncReturnLong = [string, string];
  * @description Parent context for DNA→JS code generation
  */
 export type tsJSParentCtx = {
+	/**
+	 * Validator mode (`true`, fail-fast boolean) vs parser mode (`false`,
+	 * error-collecting with output construction). Threaded unchanged through
+	 * almost every handler; drives which of the two code shapes
+	 * `simpleNodeToJs` (`utils.ts`) emits for every scalar check — see
+	 * `docs/technical.md` §"Validation Modes" and §2 ("Fast-fail primitive").
+	 */
 	isCond: boolean,
+
+	/**
+	 * Name of the closest enclosing labelled block (`oB3`, `discB0`, `anyB2`,
+	 * ...) that a bare `break` currently targets. Handlers that don't need a
+	 * *fresh* label of their own (their failure path is already correctly
+	 * captured by the parent's) reuse it via the `parentCtx.outerblock ||
+	 * <newBlock>` pattern instead of introducing a new one — see
+	 * `dna-js-json.ts` lines 273, 314, 869, 1020, 1136, 1145 for examples.
+	 * Only informational for handlers that always create their own block.
+	 */
 	outerblock:string
+
+	/**
+	 * The exact code snippet to emit on failure at the current point —
+	 * `"return false;"` at the top level of a validator, `"break
+	 * <block>;"`/`"if(errors.length)break <block>;"` when nested inside a
+	 * labelled block that must short-circuit without terminating the whole
+	 * function. Every `simpleNodeToJs`-based leaf check (`docs/technical.md`
+	 * §2) appends this verbatim on the negative branch of its `if(!(test))`.
+	 */
 	failCase:string,
 
+	/**
+	 * Last `typeof`/type-family already asserted by an ancestor on the SAME
+	 * value (`"string"`, `"number"`, `"object"`, `"array"`, ...), so a
+	 * descendant scalar check can skip re-testing it. See §5
+	 * ("Type-check hoisting") in `docs/technical.md` for the full mechanism
+	 * and the `state.kind` vs `.type` caveat.
+	 */
 	typeChecked?: string,
-	
+
+	/**
+	 * Code fragment(s) (e.g. `"++allCnt0"`) that an enclosing combinator
+	 * (`anyOf`/`allOf`/`discriminator` prevalidation/...) reads back to tally
+	 * how many of its members succeeded. A descendant leaf that succeeds
+	 * appends `parentCtx.counter + ";"` to its passing branch instead of (or
+	 * in addition to) assigning `outVar=true` — see `dna-js-json.ts` lines
+	 * 70, 232, 294, 303, 325, 1415. `string[]` supports nested combinators
+	 * that must increment more than one ancestor's counter at once.
+	 */
 	counter?: string | string[],
-	
-	not?: string,
-	
+
+	/**
+	 * Name of the local `unEvalObj`/`unEvalArr` set object (e.g. `evalPSet2`)
+	 * that JSON Schema in-place applicators (`properties`, `additionalProperties`,
+	 * `patternProperties`, `items`, `contains`, branches of `discriminator`/
+	 * `cli`/`allOf`/`oneOf`/`if-then-else`, ...) write into to mark a
+	 * property/item as evaluated. An enclosing `unevaluatedProperties`/
+	 * `unevaluatedItems` (`_unEvalEnv`, `dna-js-json.ts` ~line 142) reads the
+	 * accumulated set afterwards to reject anything not marked. `undefined`
+	 * when no `unevaluatedProperties`/`unevaluatedItems` is active in scope —
+	 * downstream handlers must guard on this (`evalParent.length`) rather
+	 * than assume the set always exists.
+	 */
 	unEvalObj?: string,
+	/** Array counterpart of {@link unEvalObj}, for `unevaluatedItems`. */
 	unEvalArr?: string,
-}; 
+
+	/**
+	 * Routing keys already verified by the enclosing `discriminator`/`cli`
+	 * router's `switch`, mapped to the JavaScript variable name that holds the
+	 * already-read value (e.g. `{ cmd: "discVal0" }`). Handler `o` skips the
+	 * redundant `hasOwn` presence check for these keys AND uses the pre-bound
+	 * variable instead of re-reading `v[k]` — eliminating one property access
+	 * per routing key per parse. It also shrinks this map to `{ [k]: varName }`
+	 * (or `undefined`) per property in the `childrenCtx` it passes to that
+	 * property's own sub-schema — so the `literal`/`enumType` handler can skip
+	 * its own (also redundant) const check. See `dna-js-json.ts` (`literal`,
+	 * `enumType`) for why a single `testedProp && testedProp[...]` check is
+	 * sufficient there: the `switch`'s `case` control flow, not the leaf's own
+	 * `===` test, is what proves membership.
+	 *
+	 * Propagation boundary: only meaningful along a **linear** chain from the
+	 * object property down to the literal/enum leaf that consumes it — e.g.
+	 * `wrp` (optional/nullable/default/prefault) and `pipe` steps, which
+	 * always represent the *same* value along one deterministic path, may
+	 * forward `parentCtx` (and thus this field) unchanged. It must NOT be
+	 * forwarded across a **branching** applicator (`allOf`/`oneOf`, several
+	 * simultaneous or alternative sub-schemas that the router's `switch` does
+	 * not necessarily validate as a whole) — currently moot because
+	 * `finiteValueSet` rejects any `allOf`/`oneOf`-shaped routing key before
+	 * construction, but keep this invariant if that restriction is ever
+	 * relaxed. `enumTypeDeep` deliberately never reads this field: a
+	 * `switch`/`case` compares by `===`, so a deep-equal discriminator value
+	 * can never legitimately reach it.
+	 */
+	testedProp?: Record<string, string>,
+};
 
 
 

@@ -89,6 +89,7 @@ export type {
   DnaTuple,
   DnaObject,
   DnaDiscriminatedUnion,
+  DnaCliUnion,
   DnaRecord,
   DnaCodec,
   DnaLazy,

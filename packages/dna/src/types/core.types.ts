@@ -51,6 +51,7 @@ export type tsDnaOpcode =
   | "oneOf"
   | "allOf"
   | "discriminator" // discriminated union
+  | "cli"           // CLI multi-key routing union
 
   // Conditions
   | "not" // schema composition

@@ -1,5 +1,6 @@
 import { STEP } from "../shared/const-steps.js";
 import type { tsDnaInnerMeta } from "../shared/meta-context.type.js";
+import type { tsPrimitiveLiteral } from "../shared/base.types.js";
 import { getStringFormatPattern } from "../shared/string-format.js";
 import type {
 	tsArrayDNA,
@@ -109,6 +110,17 @@ const _assignOrCondEnv = (parentCtx: tsJSParentCtx, inVar: string, outVar: strin
 		if (tail) steps.push([STEP.BODY, tail]);
 
 	} else {
+		// Parser mode type check. Two cases:
+		//   - mustMatchType=true: pushes typeErrMsg (error) before breaking.
+		//     errors.length > 0 after this, so a conditional failCase would work.
+		//   - mustMatchType=false: JSON Schema "vacuous success" — assigns
+		//     outVar=inVar WITHOUT pushing an error, then breaks. This is the
+		//     reason the handler `o` uses `breakBase` (unconditional break oB)
+		//     in parser mode instead of the parent's failCase: the failCase is
+		//     typically `if(errors.length)break parentBlock;`, which would NOT
+		//     fire here because errors.length === 0. Using breakBase ensures
+		//     the block is exited regardless. Callers that need to propagate
+		//     to an outer block must add an explicit guard after this handler.
 		const typeCheck = beenTested ? ""
 			: "if(" + typeNegTest + "){"
 			+ (mustMatchType ? typeErrMsg : (hasOut ? outVar + "=" + inVar : inVar))
@@ -608,7 +620,17 @@ export const literal = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: str
 	let enumLen = enumList.length;
 	const checks = new Array(enumLen);
 	if (enumLen) for (; enumLen--;) { const v = enumList[enumLen]; checks[enumLen] = _inVarName + "===" + tojsStr(v) }
-	const test = "(" + checks.join(")||(") + ")";
+	// `testedProp` (shrunk to `{ [k]: varName }` by the handler `o`, see its
+	// property loop) means this property IS the routing key of an enclosing
+	// `discriminator`/`cli` union. A single non-empty check is enough here —
+	// no need to filter by which specific value matched: the generated
+	// `switch`'s `case` control flow is what proves `_inVarName` already
+	// equals one of THIS branch's values. Reaching this code at all is only
+	// possible via that `case`, so re-testing the same equality here can never
+	// reject/accept anything the `switch` didn't already decide — even when
+	// the property's own literal set is a superset of the branch's `case`
+	// values (CLI multi-value leaves, e.g. `case "build": case "rebuild":`).
+	const test = parentCtx.testedProp ? "" : "(" + checks.join(")||(") + ")";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/const", "Const value is expected:" + tojsStr(enumList)) + ERR_UNDEF;
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
@@ -624,7 +646,11 @@ export const enumType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: st
 	const enumList = dnaOpt[0];
 	const checks: string[] = new Array(enumList.length);
 	for (let i = enumList.length; i--;) checks[i] = _inVarName + "===" + tojsStr(enumList[i]);
-	const test = checks.length === 0 ? "false" : "(" + checks.join("||") + ")";
+	// See `literal` above: a single `testedProp` check is enough — the
+	// enclosing `discriminator`/`cli` `switch`'s `case` control flow already
+	// proves membership for this branch, so re-checking specific values here
+	// is redundant by construction, not just skippable for performance.
+	const test = parentCtx.testedProp ? "" : (checks.length === 0 ? "false" : "(" + checks.join("||") + ")");
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/enum", "Value must be one of: " + tojsStr(enumList)) + ERR_UNDEF;
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
@@ -633,6 +659,14 @@ export const enumType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: st
  * `enumTypeDeep` — enum containing at least one object/array value.
  * Uses `dEq(inVar, <literal>)` (deep-equal) for non-primitive entries and
  * `===` for primitive ones. Emits the `FN_dEq` shared function.
+ *
+ * Deliberately does NOT check `parentCtx.testedProp` (unlike `literal`/
+ * `enumType` above): a `discriminator`/`cli` routing key can never reach this
+ * opcode. Routing requires a `switch`/`case` dispatch, which compares by
+ * `===` — it cannot express deep equality. `finiteValueSet` (builder path)
+ * and the "must be a finite primitive" check both reject non-primitive
+ * discriminator values before construction ever gets here. Adding the same
+ * skip here would be dead code guarding an unreachable case, not a safety net.
  */
 export const enumTypeDeep = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const enumList = dnaOpt[0];
@@ -682,6 +716,21 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 
 	const block = "oB" + idx;
 	const breakBase = "break " + block + ";";
+	// In cond mode, the type check always pushes an error before breaking, so
+	// the parent's failCase (e.g. "return false;") is safe to use.
+	// In parser mode, the type check has two branches (see _assignOrCondEnv,
+	// L113-117):
+	//   - mustMatchType=true: pushes typeErrMsg, then breaks → errors.length > 0
+	//   - mustMatchType=false: assigns outVar=inVar WITHOUT pushing an error,
+	//     then breaks (JSON Schema "vacuous success" on non-objects for
+	//     undeclared schemas). errors.length === 0 here.
+	// A conditional failCase like "if(errors.length)break parentBlock;" would
+	// NOT fire in the !mustMatchType case, and execution would fall through to
+	// Object.keys(v) on a non-object → crash. Therefore parser mode must use
+	// the unconditional `breakBase` (break oB), which exits the block
+	// regardless of errors.length. Callers that need to propagate the failure
+	// to an outer block must add an explicit guard after this handler returns
+	// (e.g. `if(errors.length)break discB0;` in the discriminator handler).
 	const break_ = isCond ? (parentCtx.failCase || breakBase) : breakBase;
 	const _break_ = ";" + break_;
 	const innerIfErrFail_ = "if(errors.length)" + break_;
@@ -872,15 +921,18 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		const deps = depReqMap.get(k) || [];
 		const depSchSub = depSchMap.get(k);
 
+		const isTestedKey = parentCtx.testedProp ? (k in parentCtx.testedProp) : false;
+		const testedVar = parentCtx.testedProp?.[k];
+
 		const propVal = propDnaIdx !== undefined ? "ob" + idx + "pp" + propValCounter.n++ : "";
-		const objKey = inVar + "[" + _name + "]";
+		const objKey = testedVar !== undefined ? testedVar : (inVar + "[" + _name + "]");
 		const evalMark = propDnaIdx !== undefined && evalParent.length ? evalParent + "[" + _name + "]=" + _name + ";" : "";
 		const passMark = propDnaIdx !== undefined && passedIdx ? passedIdx + "[" + _name + "]=" + _name + ";" : "";
 
 		if (effectiveIsCond) {
 			// Validator mode: fail-fast, no output allocation.
-			if (isReq) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + _name + "))" + (isCond ? break_ : ("{" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + _break_ + "}"))]);
-			else if (!isDefault) innerSteps.push([STEP.BODY, "if(Object.hasOwn(" + inVar + "," + _name + ")){"]);
+			if (isReq && !isTestedKey) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + _name + "))" + (isCond ? break_ : ("{" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + _break_ + "}"))]);
+			else if (!isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "if(Object.hasOwn(" + inVar + "," + _name + ")){"]);
 			for (const r of deps) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + "))" + (isCond ? break_ : ("{" + _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k + "/" + r, "Dependent required property missing: " + r) + _break_ + "}"))]);
 			if (depSchSub === false) innerSteps.push([STEP.BODY, isCond ? break_ : "{" + _err(parentCtx, inVar, pathVar + "/object/dependentSchemas/" + k, "Dependent schema forbidden for property: " + k) + _break_ + "}"]);
 			else if (typeof depSchSub === "number") {
@@ -890,16 +942,16 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			if (propDnaIdx !== undefined) {
 				innerSteps.push(
 					[STEP.BODY, "let " + propVal + "=" + objKey + ";"],
-					[propDnaIdx, propVal, "", pathVar + "/object/properties/" + k, { ...childrenCtx }],
+					[propDnaIdx, propVal, "", pathVar + "/object/properties/" + k, { ...childrenCtx, testedProp: testedVar ? { [k]: testedVar } : undefined }],
 				);
 				const marks = evalMark + passMark;
 				if (marks) innerSteps.push([STEP.BODY, marks]);
 			}
-			if (!isReq && !isDefault) innerSteps.push([STEP.BODY, "}"]);
+			if (!isReq && !isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "}"]);
 		} else {
 			// Parser mode: push errors and allocate output.
-			if (isReq) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + _name + ")){" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + ";" + break_ + "}"]);
-			else if (!isDefault) innerSteps.push([STEP.BODY, "if(Object.hasOwn(" + inVar + "," + _name + ")){"]);
+			if (isReq && !isTestedKey) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + _name + ")){" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + ";" + break_ + "}"]);
+			else if (!isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "if(Object.hasOwn(" + inVar + "," + _name + ")){"]);
 			for (const r of deps) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + ")){" + _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k + "/" + r, "Dependent required property missing: " + r) + ";" + break_ + "}"]);
 			if (depSchSub === false) {
 				innerSteps.push([STEP.BODY, _err(parentCtx, inVar, pathVar + "/object/dependentSchemas/" + k, "Dependent schema forbidden for property: " + k) + ";" + break_]);
@@ -911,12 +963,12 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 				const outDest = outReal + "[" + _name + "]";
 				innerSteps.push(
 					[STEP.BODY, "let " + propVal + "=" + objKey + ";"],
-					[propDnaIdx, propVal, outDest, pathVar + "/object/properties/" + k, { ...childrenCtx }],
+					[propDnaIdx, propVal, outDest, pathVar + "/object/properties/" + k, { ...childrenCtx, testedProp: testedVar ? { [k]: testedVar } : undefined }],
 				);
 				const marks = evalMark + passMark;
 				if (marks) innerSteps.push([STEP.BODY, marks]);
 			}
-			if (!isReq && !isDefault) innerSteps.push([STEP.BODY, "}"]);
+			if (!isReq && !isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "}"]);
 		}
 	}
 
@@ -1857,7 +1909,7 @@ export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 					+ count + "++;"
 					+ (captureBlock ? captureBlock : "")
 					+ "if(" + count + ">1){errMsg();" + innerFail_ + "}"
-					+ "}else{errors.length=" + errLen + ";}" // TODO: if no error, what is the purpose to reassign 0 errors?
+					+ "}else{errors.length=" + errLen + ";}"
 				]
 			);
 		}
@@ -1886,7 +1938,7 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta],
 	const declareLet: string[] = [];
 	const initEvals: string[] = [];
 	const propagateEvals: string[] = [];
-	const childCtx: tsJSParentCtx = { isCond, outerblock: block, typeChecked: "object", failCase: outerBreak_ };
+	const childCtx: tsJSParentCtx = { isCond, outerblock: block, typeChecked: "object", failCase: outerBreak_, testedProp: { [discriminatorName]: discValVar } };
 
 	if (parentCtx.unEvalArr) {
 		const evalSet = "discEvalArr" + idx;
@@ -1906,10 +1958,29 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta],
 	const outerCounter = parentCtx.counter ?? "";
 
 	const steps: tsStackFrame[] = [];
+	// Open discB0 BEFORE the prevalidation and pass failCase:"break discB0;"
+	// so that leaf checks (literal/string/...) in the prevalidation break out
+	// of discB0 directly. The type check in handler `o` uses `breakBase`
+	// (unconditional `break oB1`) in parser mode — see the comment at L708
+	// and _assignOrCondEnv L113-117 for why: the !mustMatchType branch does
+	// not push an error, so a conditional failCase would not fire. The
+	// explicit guard below catches the case where the type check broke out
+	// of oB1 (with or without errors) and ensures we skip the switch.
+	// Same pattern as the `cli` handler (lines ~2048-2054).
 	steps.push(
-		[indices[0], _inVarName, _outVarName, pathVar + "/discriminator", parentCtx],
-		[STEP.BODY, block + ":{const " + discValVar + "=" + _inVarName + "[" + discriminator + "];"],
+		[STEP.BODY, block + ":{"],
+		// Pass "" as outVarName for the prevalidation: it only checks type +
+		// required keys, it does not produce output (data is overwritten by
+		// the branch). Passing the real outVarName triggers parserOutInit's
+		// Object.assign(Object.create(null), v) which fires all own getters
+		// on the input — crashing if a non-declared key has a throwing getter.
+		// With "" the prevalidation skips parserOutInit (hasOut=false) and
+		// the type-check's !mustMatchType branch emits `inVar` instead of
+		// `outVar=inVar`, which is harmless (the value is never read).
+		[indices[0], _inVarName, "", pathVar + "/discriminator", { ...parentCtx, failCase: "break " + block + ";" }],
 	);
+	if (!isCond) steps.push([STEP.BODY, "if(errors.length)break " + block + ";"]);
+	steps.push([STEP.BODY, "const " + discValVar + "=" + _inVarName + "[" + discriminator + "];"]);
 
 	// Initialize eval sets
 	if (initEvals.length) steps.push([STEP.BODY, initEvals.join("")]);
@@ -1933,13 +2004,245 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta],
 	if (isCond) {
 		steps.push([STEP.BODY, "default:" + outerBreak_ + "}"]);
 	} else {
+		// The post-switch `data[discriminator]=discValVar` overwrite was needed
+		// when the cloner replaced the discriminator key with DnaAny (the branch
+		// didn't write the key itself). Now that branches are emitted as-is, the
+		// branch's own object handler writes the discriminator key (possibly with
+		// transforms applied). The overwrite would discard any transform and add
+		// an unwanted `cmd: undefined` for optional absent discriminators.
 		steps.push(
 			[STEP.BODY, "default:"
-				+ _err(parentCtx, _inVarName, pathVar + "/discriminator/" + discriminatorName, "Discriminator value not recognized") + ";"
-				+ _outVarName + "=undefined;}if(!errors.length)" + _outVarName + "[" + discriminator + "]=" + discValVar + ";"
+				+ _err(parentCtx, _inVarName, pathVar + "/discriminator/" + discriminatorName, "Discriminator value not recognized") + ";}"
 			]);
 	}
 	steps.push([STEP.BODY, (outerCounter ? outerCounter + ";" : "") + propagateEvals.join("") + "}"]);
+
+	return steps;
+};
+
+/**
+ * CLI multi-key routing union codegen — Maranget decision tree.
+ * DNA format: ["cli", discriminators, discriminKeys, branchDef, meta]
+ *   - discriminators: string[] — the routing key names
+ *   - discriminKeys: (primitive | primitive[])[] per branch — finite values per key per branch
+ *   - branchDef: number[] — [prevalidationId, branch0Id, branch1Id, ...]
+ *
+ * Builds a nested switch/if decision tree from the clause matrix using the
+ * q-heuristic (choose the column with fewest distinct values that still splits).
+ * This produces O(log N) depth instead of O(N) sequential tests.
+ *
+ * Codegen rules (see sandbox/cli-branches-union-dna-format.md):
+ *   1. Required key → switch on the value
+ *   2. Optional key → if (key === undefined) first, then switch/if on remaining values
+ *   3. Singleton leaf → if (key === value)
+ *   4. Multi-value leaf → switch with explicit return per case (no fallthrough)
+ *   5. Leaf node → validate branch N
+ *   6. Fail node → error or break
+ */
+export const cli = (
+	dnaOpt: [string[], (tsPrimitiveLiteral | tsPrimitiveLiteral[])[][], number[], tsDnaInnerMeta],
+	_inVarName: string,
+	_outVarName: string,
+	pathVar: string,
+	labelId: tsLaberlId,
+	parentCtx: tsJSParentCtx
+): tsJSFn => {
+	const isCond = parentCtx.isCond;
+	const [discriminators, discriminKeys, indices] = dnaOpt;
+
+	const idx = labelId();
+	const block = "cliB" + idx;
+	const outerBreak_ = parentCtx.failCase;
+
+	const childCtx: tsJSParentCtx = { isCond, outerblock: block, typeChecked: "object", failCase: outerBreak_ };
+
+	const steps: tsStackFrame[] = [];
+
+	// Open cli block FIRST, then run prevalidation inside it.
+	// This ensures prevalidation's break exits the cli block and skips the tree.
+	steps.push([STEP.BODY, block + ":{"]);
+	// Pass "" as outVarName for the prevalidation — same rationale as the
+	// `discriminator` handler: the prevalidation only checks type + required
+	// keys, it does not produce output. Passing the real outVarName triggers
+	// parserOutInit's Object.assign which fires all getters on the input.
+	steps.push(
+		[indices[0], _inVarName, "", pathVar + "/cli", { ...parentCtx, failCase: "break " + block + ";" }]
+	);
+	// In parser mode, the prevalidation's type check uses `breakBase`
+	// (unconditional `break oB1`) — see handler `o` L708 and _assignOrCondEnv
+	// L113-117 for why: the !mustMatchType branch does not push an error, so
+	// a conditional failCase would not fire. This guard catches the case
+	// where the type check broke out of oB1 (with or without errors) and
+	// ensures we skip the decision tree. Same pattern as the `discriminator`
+	// handler (lines ~1969).
+	if (!isCond) steps.push([STEP.BODY, "if(errors.length)break " + block + ";"]);
+
+	// Pre-declare routing key variables: one read per key, reused by both
+	// the decision tree (switch/if) and the branch (via testedProp). This
+	// eliminates the redundant re-read of v[key] in the branch's handler `o`.
+	const cliValNames = discriminators.map((_, j) => "cliV" + idx + "_" + j);
+	if (cliValNames.length) {
+		const decls = cliValNames.map((name, j) => name + "=" + _inVarName + "[" + tojsStr(discriminators[j]) + "]").join(",");
+		steps.push([STEP.BODY, "const " + decls + ";"]);
+	}
+	// Build testedProp map: each routing key → its pre-declared variable
+	const testedPropMap: Record<string, string> = {};
+	for (let j = 0; j < discriminators.length; j++) testedPropMap[discriminators[j]] = cliValNames[j];
+	childCtx.testedProp = testedPropMap;
+
+	// --- Clause matrix construction ---
+	// Each row = one branch; each cell = normalized value array for one key
+	interface IRow { cells: tsPrimitiveLiteral[][]; branchIdx: number }
+	const allRows: IRow[] = [];
+	for (let i = 0; i < discriminKeys.length; i++) {
+		const cells: tsPrimitiveLiteral[][] = [];
+		for (let j = 0; j < discriminators.length; j++) {
+			const rawValues = discriminKeys[i][j];
+			cells.push(Array.isArray(rawValues) ? rawValues : [rawValues]);
+		}
+		allRows.push({ cells, branchIdx: i + 1 }); // +1 because indices[0] is prevalidation
+	}
+
+	// Determine which keys are optional (have undefined in any branch's values for that key)
+	const isOptionalKey: boolean[] = discriminators.map((_, j) =>
+		allRows.some(row => row.cells[j].includes(undefined))
+	);
+
+	// --- q-heuristic: choose column with fewest distinct values that still splits ---
+	// If no column splits (e.g. single row), still pick a column to test
+	// (verification) — the routing keys are replaced by any() in branches,
+	// so the tree is the only thing that checks discriminator values.
+	const chooseColumn = (rows: IRow[], remainingCols: Set<number>): number => {
+		let bestCol = -1;
+		let minDistinct = Infinity;
+		let bestNonSplit = -1;
+		for (const col of remainingCols) {
+			const vals = new Set<string>();
+			for (const row of rows) {
+				for (const v of row.cells[col]) {
+					vals.add(v === undefined ? "__undef__" : String(v));
+				}
+			}
+			if (vals.size >= 2) {
+				// Column splits — prefer it (q-heuristic: fewest distinct = most balanced)
+				if (vals.size < minDistinct) { minDistinct = vals.size; bestCol = col; }
+			} else {
+				// Column doesn't split but still needs testing (verification)
+				if (bestNonSplit === -1) bestNonSplit = col;
+			}
+		}
+		// Prefer splitting columns; fall back to non-splitting for verification
+		return bestCol !== -1 ? bestCol : bestNonSplit;
+	};
+
+	// --- Recursive tree emission ---
+	const emitFail = (keyName: string): string => {
+		if (isCond) return outerBreak_;
+		return _err(parentCtx, _inVarName, pathVar + "/cli", "No CLI branch matches (" + keyName + ")") + ";" + _outVarName + "=undefined;";
+	};
+
+	const emitTree = (rows: IRow[], remainingCols: Set<number>): void => {
+		// Base case 0: no rows → fail
+		if (rows.length === 0) {
+			steps.push([STEP.BODY, emitFail("no branches")]);
+			return;
+		}
+
+		// Choose column to split on
+		const col = chooseColumn(rows, remainingCols);
+		if (col === -1) {
+			// No column splits → either:
+			// - remainingCols is empty (all keys tested) → validate the branch
+			// - all remaining cols have 1 distinct value per branch but branches differ
+			//   → construction validation (rule 4) guarantees this can't happen with >1 row
+			// For a single row with unsplitable remaining cols, the values were already
+			// constrained by the parent switch/if cases, so we can validate directly.
+			const row = rows[0];
+			steps.push(
+				[indices[row.branchIdx], _inVarName, _outVarName, pathVar + "/cli/" + (row.branchIdx - 1), { ...childCtx }]
+			);
+			return;
+		}
+
+		const key = discriminators[col];
+		const keyStr = tojsStr(key);
+		const valName = cliValNames[col];
+		const isOptional = isOptionalKey[col];
+
+		// Group rows by value on this column (a row with multiple values appears in multiple groups)
+		const groups = new Map<string, { value: tsPrimitiveLiteral; rows: IRow[] }>();
+		for (const row of rows) {
+			for (const v of row.cells[col]) {
+				const vKey = v === undefined ? "__undef__" : String(v);
+				if (!groups.has(vKey)) groups.set(vKey, { value: v, rows: [] });
+				groups.get(vKey)!.rows.push(row);
+			}
+		}
+
+		const newRemaining = new Set(remainingCols);
+		newRemaining.delete(col);
+
+		if (isOptional) {
+			// Rule 2: if (key === undefined) first, then dispatch on remaining values.
+			// DNA fast-fail pattern: wrap in a block, if(undefined) handles the absent
+			// case, then switch/if handles present values. No else — fall through to
+			// fail at the end of the block.
+			const undefGroup = groups.get("__undef__");
+			const valueGroups = [...groups.values()].filter(g => g.value !== undefined);
+
+			// Open a sub-block for this optional key
+			const subBlock = "cliO" + labelId();
+			steps.push([STEP.BODY, subBlock + ":{"]);
+
+			// if (key === undefined) → subtree, then break out of sub-block
+			if (undefGroup) {
+				steps.push([STEP.BODY, "if(" + valName + "===undefined){"]);
+				emitTree(undefGroup.rows, newRemaining);
+				steps.push([STEP.BODY, "break " + subBlock + ";}"]);
+			}
+
+			// Remaining values: switch (rule 1/4) or if (rule 3, singleton)
+			if (valueGroups.length === 1) {
+				// Rule 3: singleton → if (key === value) { subtree; break }
+				const g = valueGroups[0];
+				steps.push([STEP.BODY, "if(" + valName + "===" + tojsStr(g.value) + "){"]);
+				emitTree(g.rows, newRemaining);
+				steps.push([STEP.BODY, "break " + subBlock + ";}"]);
+			} else if (valueGroups.length > 1) {
+				// Rule 1/4: switch with explicit case per value.
+				// Each case breaks the sub-block (not just the switch) so success
+				// exits the optional block and skips the fall-through fail.
+				// No default — no-match falls through the switch to the fail below.
+				steps.push([STEP.BODY, "switch(" + valName + "){"]);
+				for (const g of valueGroups) {
+					steps.push([STEP.BODY, "case " + tojsStr(g.value) + ":"]);
+					emitTree(g.rows, newRemaining);
+					steps.push([STEP.BODY, "break " + subBlock + ";"]);
+				}
+				steps.push([STEP.BODY, "}"]);
+			}
+
+			// Fall-through: no value matched (reached by falling through the switch
+			// or by not matching any if above) → fail, then close sub-block
+			steps.push([STEP.BODY, emitFail(key) + "}"]);
+		} else {
+			// Rule 1: switch on required key
+			steps.push([STEP.BODY, "switch(" + valName + "){"]);
+			for (const g of groups.values()) {
+				steps.push([STEP.BODY, "case " + tojsStr(g.value) + ":"]);
+				emitTree(g.rows, newRemaining);
+				steps.push([STEP.BODY, "break;"]);
+			}
+			steps.push([STEP.BODY, "default:" + emitFail(key) + "}"]);
+		}
+	};
+
+	// Build the tree from all rows and all columns
+	const allCols = new Set(discriminators.map((_, j) => j));
+	emitTree(allRows, allCols);
+
+	// Close block
+	steps.push([STEP.BODY, "}"]);
 
 	return steps;
 };

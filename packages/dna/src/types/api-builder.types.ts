@@ -57,6 +57,21 @@ export type tsDnaDiscriminatedUnionObjects<
 > = [Ob, ...Ob[]];
 
 // ============================================
+// CLI Union (multi-key routing)
+// ============================================
+
+export type tsDnaCliUnionObjects<
+  S extends DnaSomeType = DnaSomeType
+> = [S, ...S[]];
+
+export interface ICliUnionConfig {
+  /** Keys that are positionals, in order. If absent → auto-detection. */
+  positionals?: string[];
+  /** Override auto-detected discriminators. */
+  discriminators?: string[];
+}
+
+// ============================================
 // Tuple Types
 // ============================================
 

@@ -19,6 +19,8 @@ import type {
   DnaFunctionInput,
   DnaFunctionOptions,
   tsDnaDiscriminatedUnionObjects,
+  tsDnaCliUnionObjects,
+  ICliUnionConfig,
 } from "../types/api-builder.types.js";
 import type { $ToEnum, $Input, $Output, $ArrayItem, $TemplateLiteral, $DnaObjectOutput, $DnaObjectInput } from "../types/helpers.types.js";
 import type { DnaSomeType } from "@ytrynot/dna/core";
@@ -88,7 +90,7 @@ import {
   DnaNaN,
   DnaUnion,
   DnaXorUnion,
-  DnaIntersection, DnaDiscriminatedUnion,
+  DnaIntersection, DnaDiscriminatedUnion, DnaCliUnion,
   DnaObject,
   DnaArray,
   DnaCodec,
@@ -96,7 +98,7 @@ import {
   DnaFunction,
   type DnaJson,
   DnaNonOptional,
-  type DnaJsonRaw
+  type DnaJsonRaw,
 } from "@ytrynot/dna/core";
 import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
 
@@ -255,6 +257,20 @@ export const intersection = <S1 extends DnaType<any>, S2 extends DnaType<any>>(s
 
 export const discriminatedUnion = <K extends string, S extends tsDnaDiscriminatedUnionObjects<K>>(discriminator: K, schemas: S, meta?: string | tsDnaMeta) =>
   initDna(DnaDiscriminatedUnion<K, S>, { discriminator, schemas }, meta);
+
+export const cliUnion = <S extends tsDnaCliUnionObjects>(
+  schemas: S,
+  config?: ICliUnionConfig,
+  meta?: string | tsDnaMeta
+) => {
+  const discriminators = config?.discriminators ?? DnaCliUnion.detectDiscriminators(schemas);
+  const positionals = config?.positionals ?? DnaCliUnion.detectPositionals(schemas, discriminators);
+  return initDna(
+    DnaCliUnion<S>,
+    { schemas: [...schemas], discriminators, positionals },
+    meta
+  );
+};
 
 export const record = <K extends DnaType<any, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
   initDna(DnaRecord<K, V>, { keySchema, valueSchema, type: "standard" }, meta);

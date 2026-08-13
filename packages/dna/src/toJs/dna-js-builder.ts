@@ -153,7 +153,7 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 			}
 			if (isCond) {
 				steps.push([STEP.BODY, catchBlock + ":{"]);
-				const innerCtx = { ...parentCtx, typeChecked: undefined, counter: undefined, not: undefined, failCase: "break " + catchBlock + ";" };
+				const innerCtx = { ...parentCtx, typeChecked: undefined, counter: undefined, failCase: "break " + catchBlock + ";" };
 				steps.push([targetId, _inVarName, _outVarName, pathVar, innerCtx]);
 				steps.push([STEP.BODY, "}"]);
 				if (_outVarName) steps.push([STEP.BODY, "if(!" + _outVarName + "){" + _outVarName + "=" + catchValueCode + ";}"]);
@@ -175,7 +175,7 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 
 	if (!targetEmitted) {
 		const innerCtx = isCond
-			? { ...parentCtx, typeChecked: undefined, counter: undefined, not: undefined }
+			? { ...parentCtx, typeChecked: undefined, counter: undefined }
 			: { ...parentCtx, typeChecked: undefined };
 		steps.push([targetId, _inVarName, _outVarName, pathVar, innerCtx]);
 	}

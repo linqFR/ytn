@@ -288,8 +288,19 @@ Underscore prefix (e.g., `"_o"`, `"_s"`, `"_n"`) indicates unconstrained types. 
   - `keys`: Array of discriminator values — one entry per branch. Each entry is either a **primitive** (for a single `const` / `literal` value, e.g. `"build"`) or an **array of primitives** (for `enum` / multi-value `literal([...])`, e.g. `["a", "b"]`). The two emission paths (builder and schvalid) agree on this format: singletons are flattened to their raw value (not wrapped in an array), matching schvalid's `const` handling.
   - `refs`: Array of DNA index references — `refs[0]` is the pre-validation object (checks `type: "object"` + discriminator key presence), `refs[1..N]` are the branch sub-schemas.
   - Uses `switch` statement for efficient dispatching
-  - Discriminator property removed from sub-schemas during generation (replaced by `DnaAny` / `true` so `additionalProperties: false` still allows it)
-  - **Branch property ordering**: within each branch `o` opcode, properties are emitted in a fixed order: **discriminator key first, then required (non-optional) keys, then optional keys**. Both emission paths (builder and schvalid) follow this order, ensuring identical DNA bytecode for equivalent schemas.
+  - Branch sub-schemas are emitted **as-is** (not cloned): the discriminator property retains its original schema (literal/enum/pipe/...). Redundant `hasOwn` and const-check on the routing key are elided at codegen time via `parentCtx.testedProp` (see [§5bis](#5bis-discriminatorcli-routing-key-redundancy-elision-parentctxtestedprop)). This preserves transforms/pipes on the routing key (e.g. `pipe(literal("build"), transform(...))`) that the previous cloner (which replaced the key with `DnaAny`) silently dropped.
+
+- `["cli", [discriminators], [discriminKeys], [refs]]` - CLI multi-key routing union
+
+  - `discriminators`: Array of routing key names (string[]) — the keys used to dispatch input to the correct branch. Unlike `discriminator` (single-key), `cli` supports multiple keys.
+  - `discriminKeys`: 2D array — `discriminKeys[branchIndex][keyIndex]` contains the finite values accepted by that branch for the corresponding key. Each entry is either a **primitive** (singleton) or an **array of primitives** (multi-value), same format as `discriminator`'s `keys`.
+  - `refs`: Array of DNA index references — `refs[0]` is the pre-validation object (checks `type: "object"` + required key presence), `refs[1..N]` are the branch sub-schemas.
+  - **Codegen**: builds a Maranget decision tree (see [Maranget decision tree codegen](#maranget-decision-tree-codegen-cli-opcode) below) from the clause matrix. The tree is computed at codegen time, not stored in the DNA.
+  - Branch sub-schemas are emitted **as-is** (same as `discriminator`): routing keys retain their original schema. Redundant `hasOwn` and const-check on routing keys are elided via `parentCtx.testedProp` (see [§5bis](#5bis-discriminatorcli-routing-key-redundancy-elision-parentctxtestedprop)). Branch mutations (`.extend()`, `.transform()`, `.default()`) are preserved naturally.
+  - **No JSON Schema equivalent**: `cli` is a DNA-specific opcode with no OpenAPI/JSON Schema counterpart. It is emitted only by the builder's `dna.cliUnion()`.
+  - **Optional keys**: a key is optional if any branch has `undefined` in its `discriminKeys` for that key. The codegen emits `if (key === undefined)` first, then dispatches on remaining values (see codegen rule 2).
+  - **`toParseArgsConfig()`**: the `DnaCliUnion` class exposes a method that derives a `node:util.parseArgs` config from the schema. It infers option types (`"string"` / `"boolean"`) from leaf schemas, detects `multiple` from `DnaArray` wrappers, and auto-generates short aliases (first letter, skip if taken). Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers. See [CLI Union](cli-union.md) for full documentation.
+  - **`flags` getter**: returns non-positional keys across all branches. These are the keys that `@ytrynot/cli` maps to `parseArgs` options.
 
 - `["not", ref]` - Negation of validator
 
@@ -516,7 +527,7 @@ dna.discriminatedUnion("kind", [
 
 **DNA bytecode parity — `discriminKeys` format.** Both paths now emit `discriminKeys` in the same format: a **primitive** (raw value) for single-value discriminators (`const: "build"` / `dna.literal("build")` → `"build"`), and an **array** for multi-value discriminators (`enum: ["a","b"]` / `dna.literal(["a","b"])` → `["a","b"]`). The builder's `finiteValueSet()` always returns an array; singletons are flattened at emission time (`values.length === 1 ? values[0] : values`) to match schvalid's `const` format.
 
-**DNA bytecode parity — branch property ordering.** Both paths emit branch `o` properties in a fixed order: **discriminator key first, then required (non-optional) keys, then optional keys**. This ensures the generated `switch`/`case` dispatch and the per-branch property checks run in the same order regardless of the emission path. The builder reorders the shape via `cloner` (discriminator → required → optional); schvalid reorders via object spread (`{ [discriminator]: true, ...requiredKeys, ...optionalKeys }`).
+**DNA bytecode parity — branch emission.** Both paths now emit branch sub-schemas **as-is** (the builder no longer clones branches with the discriminator replaced by `DnaAny`). Redundant `hasOwn` and const-check on routing keys are elided at codegen time via `parentCtx.testedProp` (see [§5bis](#5bis-discriminatorcli-routing-key-redundancy-elision-parentctxtestedprop)), preserving transforms/pipes on the routing key. The builder emits properties in their declaration order; schvalid reorders via object spread (`{ [discriminator]: true, ...requiredKeys, ...optionalKeys }`).
 
 **Remaining structural diffs (no functional impact).** The generated `validate`/`parse` functions are functionally identical, but the DNA bytecode still differs in three cosmetic aspects:
 1. **Constraint order inside `o`**: builder emits `properties` → `required` → `additionalProperties`; schvalid emits `required` → `properties` → `additionalProperties`. Both produce the same runtime checks.
@@ -952,6 +963,112 @@ Every `buildNode` branch calls `initDna(Class, seed, meta)` with the normalized 
 - `dna.function()` serializes as `["function", [inputDnaId, outputDnaId]]` — the input tuple and output schema are full children in the DNA graph. `fromDna` reconstructs the `DnaFunction` with both child schemas. `.implement(fn, externals?)` / `.implementAsync(fn, externals?)` accept an optional externals map (merged with `getRegisteredExternals()`); the returned function exposes `requiredExternals: string[]`.
 - `toDna()` equality is a necessary but not sufficient condition for `safeParse` parity; the `toJs` codegen must also support the same opcodes.
 
+## Maranget decision tree codegen (`cli` opcode)
+
+The `cli` opcode (`dna-js-json.ts > cli()`) compiles a multi-key routing clause matrix into a nested `switch`/`if` decision tree. This is a **simplified adaptation** of Luc Maranget's algorithm (*"Compiling Pattern Matching to Good Decision Trees"*, ML'08, 2008), tailored for CLI-scale schemas (3–50 branches, 2–5 discriminator keys).
+
+### Algorithm
+
+```
+Input: clause matrix P (N branches × K keys)
+       P[i][j] = finite value set for branch i, key j
+
+emitTree(rows, remainingCols):
+  1. If rows is empty → emit fail
+  2. col = chooseColumn(rows, remainingCols)
+  3. If col == -1 (no column splits) → emit branch validation (leaf)
+  4. Group rows by value on column col
+     (a row with multiple values appears in multiple groups — specialization)
+  5. If key is optional:
+       emit if(key === undefined) { subtree } break
+       then switch/if on remaining values
+       fall-through → fail
+     If key is required:
+       emit switch(key) { case v: subtree; break; ... default: fail }
+  6. Recurse emitTree(group.rows, remainingCols - col) for each group
+```
+
+### Column selection heuristic (q-heuristic, simplified)
+
+At each tree node, the algorithm chooses the column to test:
+
+```
+chooseColumn(rows, remainingCols):
+  for each col in remainingCols:
+    count distinct values across all rows for that column
+    if distinct < 2 → skip (doesn't split)
+  return col with minimum distinct values
+```
+
+This is a **simplification of Maranget's usefulness heuristic**. Maranget original selects the column that maximizes branch elimination (usefulness). The codegen selects the column with the **fewest distinct values that still splits** — producing a smaller branching factor at each node.
+
+**Difference**: for N=3 (typical CLI), both heuristics produce the same tree. For N=50 (git/npm scale), Maranget's usefulness would produce a more balanced tree. The simplified heuristic may produce an unbalanced tree (e.g. a 49/1 split instead of 17/17/16).
+
+**Why the simplification is acceptable for CLI**:
+- CLI schemas rarely exceed 10–20 branches
+- The benchmark (`bench-ifchain-vs-maranget.ts`) shows the tree is 1.2x–2.3x faster than if-chain regardless of balance
+- The codegen runs once at schema definition time; only the generated code runs per-call
+
+### Codegen rules (leaf patterns)
+
+The tree leaves and internal nodes follow 6 rules validated by micro-benchmarks (see `sandbox/cli-branches-union-dna-format.md`):
+
+| Rule | Node type | Pattern | Benchmark finding |
+|---|---|---|---|
+| 1 | Required key | `switch(value)` | Tied with `if-else` (v2) |
+| 2 | Optional key | `if(key === undefined)` first, then dispatch | 20% faster than `case undefined` (v2) |
+| 3 | Singleton | `if(key === value)` | Tied with 1-case switch |
+| 4 | Multi-value | `switch` with explicit `return` per case | 12% faster than `if-or` for 4 values (v3) |
+| 5 | Leaf | `return _validate_branchN(input, ctx)` | Trivial |
+| 6 | Fail | `return _fail(input, ctx, reason)` | Trivial |
+
+**Rejected alternatives** (benchmark-validated):
+- `Set.has` / `Map.has` / `Array.includes`: 40–100% slower for 2–8 values
+- Numeric encoding (string→int + switch on int): 2x slower than string switch
+- `Object.hasOwn` for optional detection: 2x slower than `=== undefined`
+
+### Optional key handling (DNA fast-fail pattern)
+
+Optional keys (where any branch has `undefined` in its `discriminKeys` for that key) use a labelled sub-block with `break`:
+
+```javascript
+cliO0: {
+  if(input.verbose === undefined) {
+    // subtree for absent verbose
+    break cliO0;
+  }
+  if(input.verbose === true) {
+    // subtree for verbose=true
+    break cliO0;
+  }
+  // fall-through: no value matched → fail
+  _fail(input, ctx, "cli: no branch matches (verbose)");
+}
+```
+
+This follows the DNA fast-fail discipline: no `else` chains, each successful path `break`s out of the sub-block, and the fall-through is always the failure case.
+
+### What the codegen does NOT do
+
+- **No wildcard handling**: all cells in the clause matrix are finite value sets. There are no wildcards (`_`) because `cliUnion` requires all branches to declare all discriminator keys (Option A — see design doc).
+- **No overlap detection**: if two branches have overlapping `discriminKeys`, the tree generates two paths for the same input. The first match wins (determined by tree structure), but this is implicit. Overlap validation should be done at construction time (`cliUnion` factory), not in the codegen.
+- **No `fromDna` reconstruction**: the `cli` opcode is not yet handled by `fromDna`. The roundtrip `toDna → fromDna` will fail for `cliUnion` schemas.
+
+### Benchmark (architecture: if-chain vs Maranget tree)
+
+`sandbox/bench-ifchain-vs-maranget.ts`, Node v26.5.1, polymorphic, 7 runs, 1M iters:
+
+| N branches | if-chain (ns/op) | Maranget tree (ns/op) | Speedup |
+|---|---|---|---|
+| 3  | 9.78  | 9.23  | 1.06x (noise) |
+| 10 | 14.13 | 11.45 | 1.23x |
+| 25 | 21.36 | 13.67 | 1.56x |
+| 50 | 31.98 | 14.01 | 2.28x |
+
+The if-chain is O(N) (each branch adds a test); the tree is O(log N) (each level halves candidates). For N ≤ 3, no measurable difference. For N ≥ 10, the tree is clearly faster.
+
+**Caveat**: the benchmark generates functions via `new Function(...)` with hand-written strings, not via the real `cli.toJS()` codegen. The real generated code may differ slightly in structure (labels, closures, prevalidation step).
+
 ## Generated JS Code — Shape & Conventions
 
 This section describes what the **compiled JavaScript** produced by `toJS` in `src/toJs/dna-to-js.ts` looks like, the fast-fail discipline, and the labelled-block layout used by every composite validator.
@@ -1113,7 +1230,7 @@ const idx = labelId();
 const frame = _envFrame(parentCtx, "myB", idx);
 const { block, break_ } = frame;
 const counter_  = parentCtx.counter ?? "";
-const outAssign_ = _outVarName ? _outVarName + "=" + (parentCtx.not ?? "") + "true;" : "";
+const outAssign_ = _outVarName ? _outVarName + "=true;" : "";
 
 if (block) steps.push([STEP.BODY, block + ":{"]);
 // ...emit fail paths using `break_` (== `break <block>;` or `return false;`)
@@ -1149,6 +1266,71 @@ Each type opcode remembers the last `typeof` it produced so downstream opcodes *
 const test = parentCtx.typeChecked === "string" ? "" : "typeof " + inVar + '==="string"';
 parentCtx.typeChecked = "string";
 ```
+
+### 5bis. Discriminator/CLI routing-key redundancy elision (`parentCtx.testedProp`)
+
+`discriminatedUnion`/`cliUnion` dispatch via a `switch` (single key) or a Maranget
+decision tree (multi-key) — see [Maranget decision tree codegen](#maranget-decision-tree-codegen-cli-opcode).
+By the time a branch's own object body runs, the router has *already* proven,
+via that `switch`'s `case` control flow, that the routing key's value equals
+one of this branch's declared values. Without `testedProp`, the branch would
+redundantly re-verify the same fact twice: once via `Object.hasOwn` (handler
+`o`) and once via a `literal`/`enumType` equality check — both always `true`
+at that point, i.e. dead code that still costs a function call + branch on
+every `validate()`/`parse()`. The branch would also re-read `v[key]` for the
+output, a redundant property access when the router already has the value in
+a local variable.
+
+`parentCtx.testedProp?: Record<string, string>` (`dna-js.types.ts`) removes all three:
+
+1. **`discriminator` handler** (`dna-js-json.ts`) propagates `{ [key]: discValVar }`
+   (e.g. `{ cmd: "discVal0" }`) into each branch's `childCtx.testedProp`. The
+   `discValVar` is the `const` variable declared before the `switch`.
+2. **`cli` handler** pre-declares `const cliV<idx>_<col> = v[key], ...` for all
+   routing keys and propagates `{ [key]: "cliV<idx>_<col>" }` into each branch's
+   `childCtx.testedProp`. The decision tree also uses these variables instead of
+   re-reading `v[key]` at each level.
+3. **Handler `o`**, for each declared property `k`: skips the `hasOwn`
+   fast-fail when `k` is in `testedProp`, uses the pre-bound variable
+   (`let ob2pp0 = discVal0` instead of `let ob2pp0 = v["cmd"]`), and — critically
+   — **shrinks** `testedProp` to `{ [k]: varName }` (or explicit `undefined`,
+   never a stale spread) in the fresh `childrenCtx` it builds for *that* property
+   before invoking its sub-schema. Evaluated-property marking (`evalMark`/`unEvalObj`)
+   and the sub-schema invocation are never skipped — only the redundant tests
+   and the redundant property access are.
+4. **`literal`/`enumType`** (not `enumTypeDeep`, see below) check
+   `parentCtx.testedProp` and, if set, skip their own equality test entirely —
+   no need to inspect *which* value matched, since reaching this code at all
+   already proves it (the `switch`'s `case`, not this leaf, is the actual proof).
+
+**Performance benefit.** Each routing key is read from the input object exactly
+once (by the router). The branch reuses the pre-bound variable for output
+assignment, transforms, and pipe steps — eliminating one property access per
+routing key per `validate()`/`parse()`.
+
+**Propagation boundary — linear chains only.** `wrp` (optional/nullable/
+default/prefault) and `pipe` steps forward `parentCtx` (and thus `testedProp`)
+unchanged to their target, because they represent the *same* value along one
+deterministic path (this is what lets a piped routing key, e.g.
+`pipe(literal("build"), transform(...))`, keep its `transform` step
+executing normally — only the `literal` step's own check is skipped, and the
+transform applies on the pre-bound value).
+`allOf`/`oneOf` must **not** forward `testedProp` to their members: those are
+branching applicators (several simultaneous or alternative sub-schemas), and
+the router's `switch` does not necessarily validate all of them as a whole.
+This is currently moot — `finiteValueSet` rejects any `allOf`/`oneOf`-shaped
+routing key before a `discriminatedUnion`/`cliUnion` can even be constructed
+— but keep the invariant if that restriction is ever relaxed. `anyOf`
+coincidentally already doesn't leak `testedProp` (its `childrenCtx` is built
+from scratch, not spread from `parentCtx`), but that is an accident of
+unrelated code, not a deliberate guard.
+
+**Why `enumTypeDeep` never reads `testedProp`.** A `switch`/`case` compares by
+`===`; it cannot express deep equality (`FN_dEq`). A discriminator value that
+requires deep-equal comparison can therefore never be produced by a `switch`
+in the first place — `finiteValueSet` rejects it at construction, same as for
+`allOf`/`oneOf`. Adding the skip to `enumTypeDeep` would guard an unreachable
+branch, not close a real gap.
 
 ### `state.kind` vs `.type` getter: the hybrid label problem
 
