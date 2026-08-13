@@ -1,5 +1,25 @@
 # @ytrynot/schvalid
 
+## 0.3.4
+
+### Patch Changes
+
+- Fix innerCount overcount when discriminator consumes oneOf
+  
+  - In `jschemaToDna`, when `isDiscriminator` is true the discriminator
+    handler consumes `oneOf` itself and skips the `controlers` loop below.
+    `oneOf` was still being added to `controlers`, causing `innerCount` to
+    overcount by 1 and producing a self-referential `wrpDef` slot — which
+    led to infinite recursion (`RangeError`) in codegen when
+    `unevaluatedProperties` was present at the root level alongside a
+    discriminator.
+  - Skip `oneOf` in the `controlers` loop when `isDiscriminator` is true so
+    the count matches the actual emitted wrappers.
+  - Add regression tests covering `unevaluatedProperties: false` inside
+    discriminated union branches (validation + parse) and a root-level
+    `unevaluatedProperties` with discriminator (codegen no longer crashes,
+    and valid data passes while extras are rejected).
+
 ## 0.3.3
 
 ### Patch Changes

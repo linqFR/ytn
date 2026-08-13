@@ -157,4 +157,119 @@ describe("Discriminator", () => {
 			expect(validateStrict({ type: "feline", name: "Felix", meows: true, unknown: true })).toBe(false);
 		});
 	});
+
+	describe("unevaluatedProperties with discriminator", () => {
+		// unevaluatedProperties: false inside each branch — the only structurally
+		// correct way to combine discriminator + unevaluatedProperties per
+		// JSON Schema 2020-12 (confirmed by AJV 2020-12 parity testing).
+		const branchUnevalSchema = {
+			type: "object",
+			discriminator: { propertyName: "type" },
+			required: ["type", "name"],
+			oneOf: [
+				{
+					type: "object",
+					properties: {
+						type: { const: "cat" },
+						name: { type: "string" },
+						meows: { type: "boolean" }
+					},
+					unevaluatedProperties: false
+				},
+				{
+					type: "object",
+					properties: {
+						type: { const: "dog" },
+						name: { type: "string" },
+						barks: { type: "boolean" }
+					},
+					unevaluatedProperties: false
+				}
+			]
+		};
+
+		it("should compile discriminator + unevaluatedProperties in branches", () => {
+			const validate = schvalid("validation").compile(branchUnevalSchema);
+			expect(typeof validate).toBe("function");
+		});
+
+		it("should validate valid data with unevaluatedProperties: false in branches", () => {
+			const validate = schvalid("validation").compile(branchUnevalSchema);
+			expect(validate({ type: "cat", name: "Whiskers", meows: true })).toBe(true);
+			expect(validate({ type: "dog", name: "Rex", barks: true })).toBe(true);
+		});
+
+		it("should reject extra properties with unevaluatedProperties: false in branches", () => {
+			const validate = schvalid("validation").compile(branchUnevalSchema);
+			expect(validate({ type: "cat", name: "Whiskers", meows: true, extra: 1 })).toBe(false);
+			expect(validate({ type: "dog", name: "Rex", barks: true, extra: 1 })).toBe(false);
+		});
+
+		it("should reject invalid discriminator value", () => {
+			const validate = schvalid("validation").compile(branchUnevalSchema);
+			expect(validate({ type: "bird", name: "Tweety" })).toBe(false);
+		});
+
+		it("should parse valid data and preserve all properties", () => {
+			const parse = schvalid("parser").compile(branchUnevalSchema);
+			const result = parse({ type: "cat", name: "Whiskers", meows: true });
+			expect(result.success).toBe(true);
+			if (result.success) {
+				expect(result.data).toEqual({ type: "cat", name: "Whiskers", meows: true });
+			}
+		});
+
+		it("should fail parsing extra properties", () => {
+			const parse = schvalid("parser").compile(branchUnevalSchema);
+			const result = parse({ type: "cat", name: "Whiskers", meows: true, extra: 1 });
+			expect(result.success).toBe(false);
+		});
+
+		// Regression test for the innerCount overcount bug:
+		// unevaluatedProperties at root level with a discriminator used to
+		// produce a self-referential wrpDef → RangeError (infinite recursion
+		// in codegen). After the fix, it should compile without crashing.
+		// AJV 2020-12 rejects everything in this configuration (discriminator
+		// does not propagate eval-sets to a root-level unevaluatedProperties),
+		// so we only assert that codegen does not crash — not that validation
+		// passes.
+		it("should not crash when unevaluatedProperties is at root with discriminator", () => {
+			const rootUnevalSchema = {
+				type: "object",
+				discriminator: { propertyName: "type" },
+				required: ["type", "name"],
+				oneOf: [
+					{
+						type: "object",
+						properties: {
+							type: { const: "cat" },
+							name: { type: "string" },
+							meows: { type: "boolean" }
+						}
+					},
+					{
+						type: "object",
+						properties: {
+							type: { const: "dog" },
+							name: { type: "string" },
+							barks: { type: "boolean" }
+						}
+					}
+				],
+				unevaluatedProperties: false
+			};
+			// Regression: previously crashed with RangeError (self-referential
+			// wrpDef caused infinite recursion in codegen). After the innerCount
+			// fix, approach 1 not only compiles but works correctly — the
+			// discriminator propagates evaluated keys to the root-level
+			// unevaluatedProperties wrapper, so valid data passes and extras
+			// are rejected. This is actually stricter than AJV 2020-12, which
+			// rejects everything in this configuration.
+			const validate = schvalid("validation").compile(rootUnevalSchema);
+			expect(validate({ type: "cat", name: "Whiskers", meows: true })).toBe(true);
+			expect(validate({ type: "dog", name: "Rex", barks: true })).toBe(true);
+			expect(validate({ type: "cat", name: "Whiskers", meows: true, extra: 1 })).toBe(false);
+			expect(validate({ type: "bird", name: "Tweety" })).toBe(false);
+		});
+	});
 });

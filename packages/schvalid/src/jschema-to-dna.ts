@@ -445,6 +445,11 @@ export function jschemaToDna(root: any, rootPath = "#", options?: { formatAssert
 
       for (const itemOf of COMPOSITE_OF) {
         const itemOfContent = node[itemOf]
+        // When isDiscriminator is true, the discriminator handler consumes
+        // oneOf itself (and skips the controlers loop below), so oneOf must
+        // NOT be counted in controlers — otherwise innerCount overcounts by 1
+        // and wrpDef gets an extra self-referential slot.
+        if (isDiscriminator && itemOf === "oneOf") continue;
         if (itemOfContent && Array.isArray(itemOfContent) && itemOfContent.length > 0) controlers.add(itemOf);
       };
       if (typeof node.if !== "undefined"
