@@ -155,6 +155,40 @@ hybrid mode, and ~4x faster compilation (benchmark data in `tests/bench/`).
 
 ---
 
+## `__proto__` safety — prototype pollution protection
+
+| Aspect | AJV 8.x | schvalid |
+|---|---|---|
+| Output object construction | N/A (validation only, no output) | `Object.create(null)` (parser mode) |
+| `__proto__` in schema properties | **filtered out** — `allSchemaProperties()` uses `Object.keys(schemaMap).filter((p) => p !== "__proto__")` | **preserved** — `__proto__` is a valid property name, validated like any other |
+| `__proto__` in input (non-declared) | N/A (no output construction) | **harmless own property** — null-proto output has no setter |
+| `__proto__` in input (declared) | **not supported** — filtered from schema, so never validated | **preserved in output** — `Object.create(null)` used when `__proto__` is declared |
+| JSON Schema Test Suite (`properties.json`) | ✅ passes (validator-only, `__proto__` filtered) | ✅ passes (validator + parser) |
+| JSON Schema Test Suite (`required.json`) | ✅ passes (validator-only) | ✅ passes (validator + parser) |
+| Runtime overhead | `filter(p => p !== "__proto__")` at compile time | **zero** — codegen-time check only (`hasProtoDeclared` in DNA codegen) |
+
+**AJV 8.x** filters `__proto__` from schema properties via `allSchemaProperties()`:
+
+```javascript
+function allSchemaProperties(schemaMap) {
+  return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
+}
+```
+
+This means AJV **cannot validate `__proto__` as a declared property** — it's removed from the schema before code generation. AJV passes the JSON Schema Test Suite because the tests only check validator-mode booleans, and AJV's filtering happens to produce the correct validation results for the specific test cases. However, this is a **workaround**, not spec compliance: the JSON Schema spec treats `__proto__` as a valid property name.
+
+**schvalid** (via DNA codegen) takes a different approach: `__proto__` is a valid property name and is **preserved** in the schema. When `__proto__` is declared in `properties` or `required`, the DNA codegen uses `Object.create(null)` for the parser output object instead of `{}`, ensuring `data["__proto__"] = value` creates an own property instead of triggering the prototype setter. This is a **codegen-time check** (`hasProtoDeclared`) with zero runtime overhead.
+
+For non-declared `__proto__` in loose/additionalProperties mode, the null-prototype output (`Object.create(null)`) makes `__proto__` a harmless own property — no skip needed, unlike Zod/AJV which must filter/skip because they use `{}` or don't construct output.
+
+**References**:
+- AJV `__proto__` filter: `ajv/dist/2020.js` `allSchemaProperties()` function
+- JSON Schema Test Suite: draft2020-12/properties.json, required.json
+- DNA codegen: `packages/dna/src/toJs/dna-js-json.ts` — `hasProtoDeclared` check
+- Tests: `packages/schvalid/tests/schemas/proto-safety.test.ts` (8 tests), `packages/dna/tests/proto-safety.test.ts` (19 tests)
+
+---
+
 ## ✅ Supported with Parity (22 features)
 
 All core JSON Schema 2020-12 keywords are fully supported:
