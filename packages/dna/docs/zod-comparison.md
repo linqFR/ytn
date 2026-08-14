@@ -3,7 +3,7 @@
 > Generated from source code analysis of `@ytrynot/dna` (api-primitives.ts, api-enhanced.ts,
 > dna-namespace.ts, dna-interfaces.ts, core.ts, introspect.ts) and the Zod v4 public API (zod.dev).
 >
-> Last updated: 2026-08-07.
+> Last updated: 2026-08-13.
 
 ---
 
@@ -143,7 +143,7 @@ property-level checks, and more.
 
 | Zod v4 | DNA | Status |
 |---|---|---|
-| `.min()` / `.max()` / `.length()` | `.min()` / `.max()` / `.length()` | ✅ |
+| `.min()` / `.max()` / `.length()` | `.min()` / `.max()` / `.length()` | ⚠️ Different length semantics — see below |
 | `.regex()` / `.pattern()` | `.regex()` / `.pattern()` | ✅ |
 | `.trim()` | `.trim()` | ✅ |
 | `.toLowerCase()` / `.toUpperCase()` | `.toLowerCase()` / `.toUpperCase()` | ✅ |
@@ -154,6 +154,25 @@ property-level checks, and more.
 | `.nonempty()` | `.nonempty()` | ✅ |
 | — | `.eq()` | 🟢 Exact length match |
 | — | `.format()` | 🟢 Low-level format extensibility |
+
+#### String length: code points (DNA) vs UTF-16 code units (Zod)
+
+DNA counts **Unicode code points** for `.min()` / `.max()` / `.length()`; Zod v4 counts **UTF-16 code units** (`String.prototype.length`). This is a deliberate spec-compliance choice: RFC 8259 §7 defines a JSON string as a sequence of Unicode characters (an astral character like U+1D11E is one character, not two), and JSON Schema Validation §6.3.1/6.3.2 defines string length as "the number of its characters as defined by RFC 8259" — i.e. code points.
+
+| Input | Zod `.length` (UTF-16 units) | DNA `fCount` (code points) |
+|---|---|---|
+| `"abc"` | 3 | 3 |
+| `"é"` (U+00E9 precomposed) | 1 | 1 |
+| `"e\u0301"` (decomposed) | 2 | 2 |
+| `"😀"` (U+1F600) | 2 | 1 |
+| `"🇫🇷"` (regional indicator pair) | 4 | 2 |
+| `"👩‍🚀"` (ZWJ sequence) | 5 | 3 |
+
+This means `.max(5)` on `"🇫🇷"` passes in DNA (2 ≤ 5) but fails in Zod (4 > 5). Neither counts grapheme clusters — both operate at code-point / code-unit level, not `Intl.Segmenter` level.
+
+**Performance trade-off:** `fCount` is O(n) (iterates the string), `String.prototype.length` is O(1). DNA accepts this cost as the price of RFC/JSON Schema compliance — `@ytrynot/schvalid` targets JSON Schema 2020-12 conformance, where "length" means code points.
+
+**Tests:** `packages/dna/tests/utf16-length.test.ts` documents 29 divergence cases across BMP, astral plane, flag emojis, ZWJ sequences, lone surrogates, and mixed ASCII + astral strings.
 
 ### 6. Number Methods
 
@@ -422,3 +441,101 @@ Registers a schema by name for later reference. Distinct from Zod's `.apply()` (
 ### `dna.templateLiteralMutate()` / `dna.tlm()` — Mutating template literal
 
 Like `dna.templateLiteral()` but applies inner transformations (e.g. `.toUpperCase()`, `.trim()`) to the parsed output. The validate-only `dna.templateLiteral()` ignores inner transformations.
+
+---
+
+## Semantic Differences (object parsing)
+
+These are behavioral differences between DNA and Zod v4 on `safeParse().data` shape.
+They reflect different choices in how the parser materializes the output object.
+All differences below are confirmed empirically.
+
+### Object output: `undefined` handling
+
+All DNA object modes preserve explicitly-present `undefined` values, matching Zod v4.
+
+| Input | Zod v4 | DNA standard | DNA strict | DNA loose |
+|---|---|---|---|---|
+| `{ name: "x", age: 42, active: undefined }` | `{ name, age, active: undefined }` (3 keys) | `{ name, age, active: undefined }` (3 keys) | `{ name, age, active: undefined }` (3 keys) | `{ name, age, active: undefined }` (3 keys) |
+| `{ name: "x", age: 42 }` (active absent) | `{ name, age }` (2 keys) | `{ name, age }` (2 keys) | `{ name, age }` (2 keys) | `{ name, age }` (2 keys) |
+
+No divergence on `undefined` handling — both preserve present-`undefined` and keep absent keys absent. The divergence is in the **presence detection mechanism**: Zod uses `key in input` (traverses prototype chain), DNA uses `Object.hasOwn(v, key)` (own properties only). See [Presence detection: `in` vs `Object.hasOwn`](#presence-detection-in-vs-objecthasown) below.
+
+### Object output: prototype-chain properties
+
+| Mode | Input with inherited property | Zod v4 | DNA |
+|---|---|---|---|
+| `standard` / `z.object` | `Object.create({ inherited: "x" })` + own keys | strips inherited (not in output) | strips inherited (not in output) ✅ |
+| `strict` / `z.strictObject` | same | **REJECT** — "Unrecognized key: inherited" | **ACCEPT** (does not detect inherited) ❌ |
+| `loose` / `z.looseObject` | same | **preserves** inherited in output | **does not preserve** inherited ❌ |
+
+**Zod v4** uses `key in input` (traverses the prototype chain) for both presence and unknown-key detection. Inherited properties are treated as unknowns: rejected in strict, preserved in loose.
+
+**DNA** uses `Object.hasOwn` (own properties only) and `Object.keys` (own enumerable only). Inherited properties are invisible: not rejected in strict, not preserved in loose.
+
+**Practical impact**: an input built via `Object.create(proto)` with routing/extra keys on the prototype will be treated differently. DNA ignores prototype-level keys; Zod sees them.
+
+### `__proto__` safety — prototype pollution protection
+
+| Aspect | Zod v4 | DNA |
+|---|---|---|
+| Output object prototype | `{}` (Object.prototype) | `Object.create(null)` (loose/plainObject), `{}` (standard) |
+| `__proto__` non-declared (loose) | **skip** — `if (key === "__proto__") continue;` (PR #5898) | **harmless own property** — null-proto output has no setter |
+| `__proto__` non-declared (standard) | strips via `keepOnly` | strips via `keepOnly` |
+| `__proto__` declared in schema | **broken** — JIT fastpass throws `SyntaxError` (#4357, #4358); `zod-from-json-schema` #41 strips it from output | **preserved** — `Object.create(null)` used when `__proto__` is declared (Fix A) |
+| JSON Schema Test Suite (`properties.json`, `required.json`) | ❌ fails on declared `__proto__` | ✅ passes (validator + parser) |
+| Runtime overhead | `if(key==="__proto__")continue;` in every dynamic loop iteration | **zero** — codegen-time check only (`hasProtoDeclared`) |
+
+**Zod v4** uses `{}` for output objects, which inherits `Object.prototype`. The `__proto__` setter intercepts `data["__proto__"] = value` assignments — if the value is not an object, it's silently dropped; if it is an object, it pollutes the prototype chain. Zod's fix (PR #5898) is **defensive**: skip `__proto__` in catchall loops. But this also means `__proto__` cannot be a declared property — the JIT fastpass throws (issues #4357, #4358), and `zod-from-json-schema` #41 reports it's impossible to validate `__proto__` via Zod.
+
+**DNA** uses `Object.create(null)` for loose/plainObject outputs — a null-prototype object has no `__proto__` setter, so `outReal["__proto__"] = value` is always a plain own-property assignment. This is an **architectural** protection: no skip needed, no runtime overhead. When `__proto__` is a **declared** property (in `properties` or `required`), DNA switches the output to `Object.create(null)` via a codegen-time check (`hasProtoDeclared`), preserving the validated value in compliance with the JSON Schema Test Suite.
+
+**References**:
+- Zod PR #5898: https://github.com/colinhacks/zod/pull/5898
+- Zod Issue #4357: https://github.com/colinhacks/zod/issues/4357
+- Zod Issue #4358: https://github.com/colinhacks/zod/issues/4358
+- zod-from-json-schema #41: https://github.com/glideapps/zod-from-json-schema/issues/41
+- JSON Schema Test Suite: draft2020-12/properties.json, required.json
+
+**Tests**: `packages/dna/tests/proto-safety.test.ts` (19 tests)
+
+### Object output: `keepOnly` mechanism and single-allocation (performance)
+
+| | Zod v4 `z.object` | DNA `dna.object` (standard) | DNA `dna.looseObject` (loose) |
+|---|---|---|---|
+| Strategy | Single allocation, writes directly to output | Single allocation, writes only declared keys (fast path) | Pre-copies all input keys, then validates declared ones |
+| Extra keys in input | Stripped from output | Stripped from output | Preserved in output |
+| Perf vs Zod `z.object` (no extras) | baseline | **~1.3–1.5x faster** | **~3–4x slower** (copy overhead) |
+| Perf vs Zod `z.looseObject` (with extras) | N/A | **~3–4x faster** (extras stripped, no impact) | **comparable** (similar copy strategy) |
+
+**DNA standard objects** (the default `dna.object()`) use a fast path when no dynamic properties (`additionalProperties`, `patternProperties`, `unevaluatedProperties`) are declared: the parser writes only the declared keys directly to the output, skipping any unknown keys in the input. This is faster than Zod because there is no per-key "is this unknown?" check — unknown keys are simply never visited.
+
+**DNA loose objects** (`dna.looseObject()` or `.loose()`) preserve unknown keys in the output (matching the JSON Schema default where `additionalProperties` is allowed). This requires copying all input keys first, then validating the declared ones. The copy overhead makes loose mode ~3–4x slower than standard mode, but it is comparable to Zod's `z.looseObject()` performance.
+
+**Benchmark**: `packages/dna/sandbox/bench-keeponly-vs-zod.ts` — 1M iterations, Node.js 25, Zod 4.4.3.
+
+### Presence detection: `in` vs `Object.hasOwn`
+
+| | `in` (Zod) | `Object.hasOwn` (DNA) |
+|---|---|---|
+| Own property | `true` | `true` |
+| Inherited property (1 level) | `true` (traverses proto) | `false` |
+| `toString` (Object.prototype) | `true` | `false` |
+| `Object.create(null)` + prop | `true` | `true` |
+| UTF-16 keys (all Unicode planes) | ✅ works | ✅ works |
+| Perf — plain object + own key (common case) | baseline | **~20–30x slower** (Node 25) |
+| Perf — plain object + absent key (optional check) | baseline | **~1.5–2x faster** than `in` |
+| Perf — null-proto object + own key | baseline | **~1.2x slower** (comparable) |
+| Perf — inherited/proto key | baseline | **~1.3–1.6x faster** than `in` |
+
+**Zod v4** uses `key in input` for presence detection (`handlePropertyResult` line 715, JIT fastpath line 905). This traverses the prototype chain — intentional, to support objects with prototypes.
+
+**DNA** uses `Object.prototype.hasOwnProperty.call(v, key)` (hoisted as `_hop`) for presence detection (required keys, optional keys). This is own-properties-only — inherited keys are invisible.
+
+**Performance nuance**: `in` is ~20–30x faster than `Object.hasOwn` only in the **monomorphic fast path** — a plain object with `Object.prototype` where the key is an own property present. V8 can inline the hidden-class lookup. In all other scenarios (absent key, null-proto object, inherited key, proto-chain key), `in` must traverse the prototype chain and becomes **comparable to or slower than** `Object.hasOwn`, which has stable ~130ms/10M-ops cost regardless of scenario.
+
+**DNA optimization**: DNA hoists `Object.prototype.hasOwnProperty` into a `_hop` variable in the outer closure (`STEP.OUT_CONST`), giving ~17% speedup over `Object.hasOwn` with identical own-property semantics. This is faster than `Object.hasOwn` in all scenarios and avoids the prototype-chain traversal of `in`.
+
+**Note**: `in` works correctly with all Unicode planes (BMP, SMP, TIP, Plane 14, surrogate pairs, combining characters, solo surrogates). The claim that "`in` does not work with UTF-16" is false — confirmed empirically.
+
+**Decision**: DNA uses hoisted `Object.prototype.hasOwnProperty.call` (as `_hop`) globally. The ~20–30x speedup of `in` on the monomorphic fast path is real but confined to required-key checks on plain objects; optional-key checks (absent keys) are actually slower with `in`. Combined with the semantic risks (inherited properties satisfying `required`, `__proto__` always visible via `in`, prototype-pollution exposure), own-property semantics remain preferable for JSON Schema compliance and security. A codegen option `assumePlainObjects` could selectively use `in` for required-key checks in the future — see SWOT analysis in `mailbox-2026-08-14-session2.md` (session 5).

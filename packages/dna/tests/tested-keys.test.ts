@@ -22,8 +22,9 @@ import { toJS } from "../src/toJs/dna-to-js.js";
  */
 
 // Helper: count hasOwn occurrences for a given key in generated JS
+// Matches Object.hasOwn(v,key) and _hop.call(v,key) (hoisted form)
 function countHasOwn(js: string, key: string): number {
-	const matches = js.match(new RegExp(`Object\\.hasOwn\\(\\w+,${JSON.stringify(key)}\\)`, "g"));
+	const matches = js.match(new RegExp(`(?:Object\\.hasOwn|_hop\\.call)\\(\\w+,${JSON.stringify(key)}\\)`, "g"));
 	return matches ? matches.length : 0;
 }
 
@@ -268,7 +269,7 @@ describe("testedProp — nullable vs optional discriminator", () => {
 		]);
 		const validateCode = toJS(true, true)(schema.toDna()).code.join("\n");
 		// nullable is NOT absent-tolerant → required in prevalidation
-		expect(validateCode).toContain('Object.hasOwn');
+		expect(validateCode).toContain('_hop.call');
 		expect(countHasOwn(validateCode, "cmd")).toBeGreaterThanOrEqual(1);
 	});
 

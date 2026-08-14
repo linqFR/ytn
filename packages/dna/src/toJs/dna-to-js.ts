@@ -1,6 +1,6 @@
 import { STEP } from "../shared/const-steps.js";
 import type { tsDnaSeq } from "../types/core.types.js";
-import type { tsJSParentCtx, tsLaberlId, tsStackFrame } from "../types/dna-js.types.js";
+import type { tsJSParentCtx, tsLabelId, tsStackFrame } from "../types/dna-js.types.js";
 import type { tsDnaExternals, tsDnaParserFn, tsDnaValidatorFn } from "../shared/runtime.types.js";
 import * as basicHandlers from "./dna-js-json.js";
 import * as builderHandlers from "./dna-js-builder.js";
@@ -9,12 +9,22 @@ import { fastMergeArrays, PARSE_RETURN } from "./utils.js";
 
 type tsMapperIndex = Record<string, any>;
 
-export type tsToJSResult = { code: string[]; requiredExternals: string[]; };
+/**
+ * Parts for `new Function(...parts)`. Contains:
+ * - an optional destructured-context argument string (e.g. `"{ext0,ext1}"`) when externals are referenced
+ * - the function body string (e.g. `"return function(v){...};"`)
+ *
+ * When spread into `new Function(...parts)`, the first element (if present) becomes a
+ * destructured parameter and the last element is the function body.
+ */
+export type tsCompiledParts = string[];
+
+export type tsToJSResult = { code: tsCompiledParts; requiredExternals: string[]; };
 
 type namerFn = (idx: number | string) => string;
 const namer: namerFn = (idx: number | string) => "L" + idx.toString().padStart(4, "0");
 
-export function toJS(validateMode: boolean, enhancedMapper: false): (dna: tsDnaSeq) => string[];
+export function toJS(validateMode: boolean, enhancedMapper: false): (dna: tsDnaSeq) => tsCompiledParts;
 export function toJS(validateMode: boolean, enhancedMapper: true): (dna: tsDnaSeq) => tsToJSResult;
 export function toJS(validateMode: boolean = true, enhancedMapper: boolean = false) {
 
@@ -22,7 +32,7 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 	// Mapper for DNA builder (canonical + builder-specific opcodes)
 	const mapper: tsMapperIndex = enhancedMapper ? { ...basicHandlers, ...builderHandlers } : basicHandlers;
 
-	return (dna: tsDnaSeq): string[] | tsToJSResult => {
+	return (dna: tsDnaSeq): tsCompiledParts | tsToJSResult => {
 
 		if (dna.length < 2) throw new Error("Invalid DNA");
 
@@ -33,15 +43,15 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 		// const extHelpers = externals ? { ...jshelpers, ...externals } : jshelpers;
 		const refList = new Set<number>(dna.slice(-1)[0]);
 
-		//  TODO: change them for hashmaps
-		const outerCtxArg = new Set<string>();;
-		const outerCtxConst = new Set<string>();;
-		const constBody = new Set<string>();
-		const letBody = new Set<string>();
-		const initBody = new Set<string>();
+		const outerCtxArg: Record<string, boolean> = {};
+		const outerCtxConst: Record<string, boolean> = {};
+		const constBody: Record<string, boolean> = {};
+		const letBody: Record<string, boolean> = {};
+		const initBody: Record<string, boolean> = {};
 		let isAsync: boolean = false;
 
 		let target = "data";
+		// CAST: tsJSParentCtx has required fields (isCond, outerblock, failCase) but {} is a temporary init reassigned immediately below
 		let defaultCtx: tsJSParentCtx = {} as tsJSParentCtx;
 
 		if (validateMode) { // true = pure validation
@@ -50,12 +60,12 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 		} else {
 			defaultCtx = { isCond: false, failCase: "if(errors.length)return{success:false,errors};", outerblock: "" };
 			target = "data";
-			constBody.add("errors=[]");
+			constBody["errors=[]"] = true;
 		}
-		letBody.add(target);
+		letBody[target] = true;
 
 		let labelIdCounter = 0;
-		const labelId: tsLaberlId = (v = 1) => v === 0 ? labelIdCounter : labelIdCounter++;
+		const labelId: tsLabelId = (v = 1) => v === 0 ? labelIdCounter : labelIdCounter++;
 		let sBody = "";
 		let swap = "";
 		// let resBody = "";
@@ -116,6 +126,7 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 			const dnaId = frame[0];
 			const ctx = frame[1];
 			const outVar = frame[2] ?? "";
+			// CAST: {} fallback is never read (action steps continue before accessing isCond) but TS cannot prove it
 			const parentCtx = frame[4] ?? {} as tsJSParentCtx; // Additional metadata for special handling
 
 			switch (dnaId) {
@@ -123,10 +134,10 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 					sBody += ctx;
 					continue;
 				case STEP.CONST:
-					constBody.add(ctx as string);
+					constBody[ctx as string] = true;
 					continue;
 				case STEP.LET:
-					letBody.add(ctx as string);
+					letBody[ctx as string] = true;
 					continue;
 				case STEP.START_REF:
 					swap = sBody;
@@ -146,15 +157,15 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 					// The dummies are discarded after return — no propagation.
 					const fnName = namer(ctx as number | string);
 					const visit = fnName + ".visit";
-					outerCtxConst.add(fnName + "=" + params + "=>{"
+					outerCtxConst[fnName + "=" + params + "=>{"
 						// + visit + "??=new Map();"
 						+ "if(" + visit + ".has(v))return " + visit + ".get(v);" + visit + ".set(v,true);"
 						+ letD
 						+ sBody
 						+ visit + ".set(v,d);return " + returnD
 						+ "}"
-					)
-					initBody.add(visit + "=new Map();");
+					] = true;
+					initBody[visit + "=new Map();"] = true;
 					sBody = swap;
 					swap = "";
 					continue;
@@ -168,18 +179,18 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 					
 					const fnName = namer(outVar);
 					const visit = fnName + ".visit";
-					outerCtxConst.add(fnName + "=" + params + "=>{"
+					outerCtxConst[fnName + "=" + params + "=>{"
 						// + visit+"??=new Map();"
 						+ "if(" + visit + ".has(v))return " + visit + ".get(v);" + visit + ".set(v,true);"
 						+ letD
 						+ ctx + visit + ".set(v,d);return " + returnD
 						+ "}"
-					);
-					initBody.add(visit + "=new Map();");
+					] = true;
+					initBody[visit + "=new Map();"] = true;
 					continue;
 				}
-				case STEP.OUT_ARG: outerCtxArg.add(ctx as string); continue;
-				case STEP.OUT_CONST: outerCtxConst.add(ctx as string); continue;
+				case STEP.OUT_ARG: outerCtxArg[ctx as string] = true; continue;
+				case STEP.OUT_CONST: outerCtxConst[ctx as string] = true; continue;
 				case STEP.ASYNC: isAsync = true; continue;
 			}
 
@@ -200,9 +211,12 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 			if (i) while (i--) stack[j++] = steps[i];
 
 		}
-		const body = (constBody.size ? "const " + Array.from(constBody).join(',') + ";" : "")
-			+ (letBody.size ? "let " + Array.from(letBody).join(',') + ";" : "")
-			+ (initBody.size ? Array.from(initBody).join('') : "")
+		const _constBody = Object.keys(constBody);
+		const _letBody = Object.keys(letBody);
+		const _initBody = Object.keys(initBody);
+		const body = (_constBody.length ? "const " + _constBody.join(',') + ";" : "")
+			+ (_letBody.length ? "let " + _letBody.join(',') + ";" : "")
+			+ (_initBody.length ? _initBody.join('') : "")
 			+ sBody
 			+ (validateMode ? "return !!" + target + ";" : PARSE_RETURN);
 
@@ -217,14 +231,16 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 		// 	];
 		// }
 
+		const _outerCtxArg = Object.keys(outerCtxArg);
+		const _outerCtxConst = Object.keys(outerCtxConst);
 		const toJSArgFn = [];
-		if (outerCtxArg.size) toJSArgFn.push("{" + Array.from(outerCtxArg) + "}");
+		if (_outerCtxArg.length) toJSArgFn.push("{" + _outerCtxArg + "}");
 		toJSArgFn.push(
-			(outerCtxConst.size ? "const " + Array.from(outerCtxConst).join(",") + ";" : "")
+			(_outerCtxConst.length ? "const " + _outerCtxConst.join(",") + ";" : "")
 						+ "return " + (isAsync ? "async " : "") + "function(" + jsFnArgs.join(",") + "){" + body + "};"
 		)
 
-		return enhancedMapper ? { code: toJSArgFn, requiredExternals: Array.from(outerCtxArg) } : toJSArgFn;
+		return enhancedMapper ? { code: toJSArgFn, requiredExternals: _outerCtxArg } : toJSArgFn;
 	};
 };
 
@@ -238,20 +254,22 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 // };
 
 // schvalid-specific validator/parser (canonical DNA opcodes only)
-export const validator = (dna: tsDnaSeq /* , externals?: tsDnaExternals */): tsDnaValidatorFn => new Function(...toJS(true, false)(dna))() as tsDnaValidatorFn;
-export const parser = (dna: tsDnaSeq /* , externals?: tsDnaExternals */): tsDnaParserFn => new Function(...toJS(false, false)(dna))() as tsDnaParserFn;
+export const validator = (dna: tsDnaSeq /* , externals?: tsDnaExternals */): tsDnaValidatorFn => new Function(...toJS(true, false)(dna))();
+export const parser = (dna: tsDnaSeq /* , externals?: tsDnaExternals */): tsDnaParserFn => new Function(...toJS(false, false)(dna))();
 
 // Default validator/parser use builderMapper (for DNA builder API)
 export const validatorBuilder = (dna: tsDnaSeq, externals?: tsDnaExternals) => {
 	const { code, requiredExternals } = toJS(true, true)(dna);
 	const fn = new Function(...code)({ ...getRegisteredExternals(), ...externals });
 	fn.requiredExternals = requiredExternals;
+	// CAST: new Function returns any; document the concrete return type with the requiredExternals field
 	return fn as tsDnaValidatorFn & {requiredExternals:string[]};
 };
 export const parserBuilder = (dna: tsDnaSeq, externals?: tsDnaExternals) => {
 	const { code, requiredExternals } = toJS(false, true)(dna);
 	const fn = new Function(...code)({ ...getRegisteredExternals(), ...externals });
 	fn.requiredExternals = requiredExternals;
+	// CAST: new Function returns any; document the concrete return type with the requiredExternals field
 	return fn as tsDnaParserFn & {requiredExternals:string[]};
 };
 

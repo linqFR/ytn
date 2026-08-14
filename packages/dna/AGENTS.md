@@ -95,13 +95,25 @@ The compiler uses a step-based system (`tsStackFrame`):
 DNA `standard` objects (the Zod-like default, i.e. no `strict()` and no `loose()`) use the `keepOnly` mechanism when no `additionalProperties` schema is declared.
 
 1. The builder emits a `keepOnly` constraint listing every declared property name.
-2. The parser writes validated properties into a temporary `outReal` object.
-3. It then copies only the keys in `keepOnly` into the final `outVar`.
-4. Values equal to `undefined` are **not** copied, so omitted or explicitly `undefined` optional properties do **not** appear as own keys in the parsed output.
+2. **Single-allocation fast path** (static objects, no dynamic props): the parser writes validated properties directly into the final `outVar` (`data = {}`). No temporary object, no copy loop. Condition: `useSingleAlloc = keepOnly !== undefined && !isCond && !hasDynamicProps`.
+3. **Dynamic-prop path** (additionalProperties, patternProperties, etc.): the parser writes validated properties into a temporary `outReal` object, then copies only the keys in `keepOnly` into the final `outVar`.
+4. Explicitly-present `undefined` values **are** preserved (aligned with Zod v4). A key present in the input with value `undefined` remains present in the output with `undefined`. An absent key remains absent. Presence is determined by `Object.hasOwn(v, key)`, not by value.
 
-Objects in `strict`/`loose` mode or JSON-Schema-style objects (with `additionalProperties: true`/schema or `unevaluatedProperties`) do **not** use `keepOnly`; they rely on `Object.assign`/`Object.create(null)` pre-copying to preserve unknown/evaluated properties.
+Objects in `strict`/`loose` mode or JSON-Schema-style objects (with `additionalProperties: true`/schema or `unevaluatedProperties`) do **not** use `keepOnly`; they rely on `Object.assign`/`Object.create(null)` pre-copying to preserve unknown/evaluated properties. They also preserve explicitly-present `undefined`.
 
-This distinction is why the `f3` optional-undefined equivalence test works with `keepOnly` and why `Object.assign` must not be blindly replaced by a global `undefined`-filtering loop.
+This distinction is why `Object.assign` must not be blindly replaced by a global `undefined`-filtering loop.
+
+### `__proto__` Safety — Prototype Pollution Protection
+
+DNA protects against prototype pollution via `__proto__` keys in untrusted input (e.g. from `JSON.parse`). The protection is architectural, not defensive:
+
+1. **Non-declared `__proto__`** (loose/catchall/dynamic loops): loose and plainObject outputs use `Object.create(null)` — a null-prototype object has no `__proto__` setter, so `outReal["__proto__"] = value` creates a harmless own property instead of triggering the prototype setter. No skip is needed (unlike Zod PR #5898 and AJV which must skip `__proto__` because they use `{}`). Standard objects (with `keepOnly`) never copy `__proto__` because it's not in the declared keys.
+
+2. **Declared `__proto__`** (in `properties` or `required`): when `__proto__` is a declared property name, the parser uses `Object.create(null)` for the output object instead of `{}`. This ensures `data["__proto__"] = value` creates an own property instead of triggering the prototype setter. The validated value is **preserved** in the output, complying with the JSON Schema Test Suite (draft 2020-12 `properties.json` and `required.json`: "properties whose names are Javascript object property names").
+
+**Why `Object.create(null)` is the key mechanism**: a null-prototype object has no `__proto__` setter, so `obj["__proto__"] = value` is always a plain own-property assignment. DNA uses `Object.create(null)` for all loose/plainObject outputs and for any object where `__proto__` is declared. This is an architectural advantage over Zod/AJV — no runtime skip overhead in dynamic loops.
+
+**Tests**: `packages/dna/tests/proto-safety.test.ts` (19 tests) and `packages/schvalid/tests/schemas/proto-safety.test.ts` (8 tests) verify both facets empirically.
 
 ### Reference Handling
 

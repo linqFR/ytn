@@ -13,7 +13,7 @@ function isMeta(v: unknown): v is tsDnaMeta {
 
 function getMeta(node: tsDna): tsDnaMeta | undefined {
   const last = node[node.length - 1];
-  return isMeta(last) ? (last as tsDnaMeta) : undefined;
+  return isMeta(last) ? last : undefined;
 }
 
 function getParams(node: tsDna): unknown {
@@ -27,8 +27,10 @@ function reconstructFunc(fnStr: string, arity: number): (...args: unknown[]) => 
     arity === 1 ? ['ctx'] :
     arity === 2 ? ['value', 'ctx'] :
     Array.from({ length: arity }, (_, i) => `_${i}`);
+  // CAST: new Function returns Function, not a typed callable signature
   const fn = new Function(...args, '') as (...args: unknown[]) => unknown;
   Object.defineProperty(fn, 'toString', { value: () => fnStr, writable: true, configurable: true });
+  // CAST: fn returns unknown but refine callbacks are typed as (...args) => void
   return fn as unknown as (...args: unknown[]) => void;
 }
 
@@ -312,17 +314,19 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       const discriminKeys = node[2] as (tsPrimitiveLiteral | tsPrimitiveLiteral[])[];
       const discriminDef = node[3] as number[];
       const schemas = discriminDef.slice(1).map((refId, i) => {
+        // CAST: build() returns DnaTypeWithWrappers<any,any> but discriminator branches are DnaObject by DNA construction
         const built = build(refId) as unknown as c.DnaObject;
         // Clone the branch: multiple branches may share the same DNA index
         // (identical except for the discriminant), so without cloning we'd
         // mutate the same cached instance repeatedly.
+        // CAST: cloner returns a broad type but the clone of a DnaObject is a DnaObject
         const branch = c.cloner(built, () => {}) as unknown as c.DnaObject;
         // Reconstruct the discriminator schema from discriminKeys.
         // discriminKeys[i] is either a primitive (single const) or an array (enum/multi-literal).
         const rawKey = discriminKeys[i];
         const values: tsPrimitiveLiteral[] = Array.isArray(rawKey) ? rawKey : [rawKey];
-        const hasUndefined = values.includes(undefined as any);
-        const hasNull = values.includes(null as any);
+        const hasUndefined = values.includes(undefined);
+        const hasNull = values.includes(null);
         const rest = values.filter(v => v !== undefined && v !== null);
         let discSchema: c.DnaTypeWithWrappers<any, any>;
         if (rest.length === 1) {
@@ -604,5 +608,6 @@ export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, a
 
   const finalBuild = build(0);
   // S defaults to DnaSomeType<any, any>; callers can narrow via explicit type arg.
+  // CAST: DNA bytecode carries no compile-time type info, S is provided by the caller
   return finalBuild as unknown as S;
 }

@@ -10,7 +10,7 @@ import type {
 	tsJSStepAct,
 	tsJSStepOp,
 	tsJSStepString,
-	tsLaberlId,
+	tsLabelId,
 	tsNumberDNA,
 	tsObjectDNA,
 	tsOfList,
@@ -310,23 +310,23 @@ const _unEvalEnv = (parentCtx: tsJSParentCtx, opts: { kind: tsUnEvalKind; idx: n
 	return steps;
 };
 
-export const assign = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) => {
+export const assign = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx) => {
 	if (parentCtx.isCond) return (parentCtx.counter ? parentCtx.counter + ";" : "");
 	else return _outVarName + "=" + _inVarName + ";";
 }
 
 // `chkList`: canonical check-all (allOf-like) used by JSON Schema / schvalid.
-export const chkList = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const chkList = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const seq = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 	const idx = labelId();
 	const chkBlock = "chkB" + idx;
 	const steps: tsStackFrame[] = [];
 	const ctx = { ...parentCtx, counter: undefined, outerblock: parentCtx.outerblock || chkBlock };
-	const condCtx = { ...ctx, failCase: parentCtx.failCase || ("break " + chkBlock + ";") }; //FIXME: weird way to do it
-
+	
 	steps.push([STEP.BODY, chkBlock + ":{"]);
 	if (isCond) {
+		const condCtx = { ...ctx, failCase: parentCtx.failCase || ("break " + chkBlock + ";") };
 		for (let i = 0; i < seq.length; i++) {
 			const it = seq[i];
 			steps.push(
@@ -346,7 +346,7 @@ export const chkList = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, 
 	return steps;
 }
 
-export const ref = (dnaOpt: [number, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFuncReturn => {
+export const ref = (dnaOpt: [number, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFuncReturn => {
 	const opt = dnaOpt[0];
 	// Forward caller's eval-sets to the ref'd function when present (in-place
 	// applicator semantic — e.g. `$ref` sibling of `unevaluatedProperties`).
@@ -385,7 +385,7 @@ export const ref = (dnaOpt: [number, tsDnaInnerMeta], _inVarName: string, _outVa
 	return _outVarName + "=" + res + ";" + parentCtx.failCase;
 }
 
-export const type = (dnaOpt: [string[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const type = (dnaOpt: [string[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const indices = dnaOpt[0];
 	const tests: string[] = [];
 	for (let i = 0; i < indices.length; i++) {
@@ -408,7 +408,7 @@ export const type = (dnaOpt: [string[], tsDnaInnerMeta], _inVarName: string, _ou
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, errMsg, test, "", "", true);
 };
 
-const string = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, declared: boolean): tsJSFn => {
+const string = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx, declared: boolean): tsJSFn => {
 	const opt = dnaOpt[0], min = opt[0], max = opt[1], pattern = opt[2], format = opt[3];
 	const isCond = parentCtx.isCond;
 	const body: string[] = [];
@@ -460,12 +460,12 @@ const string = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pa
 	return steps;
 };
 
-export const s = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn =>
+export const s = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn =>
 	string(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, true);
-export const _s = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn =>
+export const _s = (dnaOpt: tsStringDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn =>
 	string(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, false);
 
-const number = (dnaOpt: tsNumberDNA, type = "n", _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, declared = true): tsJSStepString => {
+const number = (dnaOpt: tsNumberDNA, type = "n", _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx, declared = true): tsJSStepString => {
 	const opt = dnaOpt[0], min = opt[0], exclMin = opt[1], max = opt[2], exclMax = opt[3], multOf = opt[4];
 	const body: string[] = [];
 	const isCond = parentCtx.isCond;
@@ -520,16 +520,16 @@ const number = (dnaOpt: tsNumberDNA, type = "n", _inVarName: string, _outVarName
 
 };
 
-export const n = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString =>
+export const n = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString =>
 	number(dnaOpt, "n", _inVarName, _outVarName, pathVar, labelId, parentCtx, true);
-export const _n = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString =>
+export const _n = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString =>
 	number(dnaOpt, "n", _inVarName, _outVarName, pathVar, labelId, parentCtx, false);
-export const i = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString =>
+export const i = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString =>
 	number(dnaOpt, "i", _inVarName, _outVarName, pathVar, labelId, parentCtx, true);
-export const bi = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString =>
+export const bi = (dnaOpt: tsNumberDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString =>
 	number(dnaOpt, "bi", _inVarName, _outVarName, pathVar, labelId, parentCtx, true);
 
-export const boolean = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const boolean = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = parentCtx.typeChecked === "boolean" ? "" : "typeof " + _inVarName + '==="boolean"';
 	const testErr = _err(parentCtx, _inVarName, pathVar + "/boolean", "Boolean is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "boolean";
@@ -539,13 +539,13 @@ export const boolean = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarNam
 // `v !== v` is true ONLY when v is NaN (NaN is the only JS value not equal to
 // itself), so no upstream `typeof === "number"` is needed. This is the fastest
 // possible test (single inequality, no function call, no temp).
-export const nan = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const nan = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = _inVarName + "!==" + _inVarName;
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/nan", "NaN is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "nan";
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
-export const nullType = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const nullType = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = parentCtx.typeChecked === "null" ? "" : _inVarName + "===null";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/null", "Null is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "null";
@@ -556,7 +556,7 @@ export const n0 = nullType;
 // `undefined` opcode (Zod's `z.undefined()` and `z.void()`): only the value
 // `undefined` passes. Exported under its actual opcode name via `export {}`
 // since `undefined` is a JS global and unsafe as a local identifier.
-const undefinedType = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+const undefinedType = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = _inVarName + "===void 0";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/undefined", "Undefined is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "undefined";
@@ -564,7 +564,7 @@ const undefinedType = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName
 };
 export { undefinedType as undefined };
 
-export const trueSchema = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const trueSchema = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	// `trueSchema` has no lexical index/key context, so it cannot meaningfully
 	// emit `set.add(...)`. The convention is: the dispatching parent (e.g.
 	// `prefixItems` / items loop / `_unEvalEnv` schema branch) is responsible
@@ -572,7 +572,7 @@ export const trueSchema = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVar
 	const ctx = { isCond: parentCtx.isCond, failCase: parentCtx.failCase, counter: parentCtx.counter, outerblock: parentCtx.outerblock };
 	return simpleNodeToJs(ctx, _inVarName, _outVarName, "", "", "", "", true);
 };
-export const falseSchema = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const falseSchema = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	// `false` schema always rejects. Cannot go through `_assignOrCond` because
 	// that helper's success path emits the OK code (counter/outAssign) — we want
 	// the opposite.
@@ -588,7 +588,7 @@ export const falseSchema = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVa
 	return err + break_;
 };
 
-export const constType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const constType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const check = dnaOpt[0];
 	const checkStr = tojsStr(check);
 	const test = _inVarName + "===" + checkStr;
@@ -596,7 +596,7 @@ export const constType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: s
 	// parentCtx.typeChecked = "const";
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
-export const constTypeComplex = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const constTypeComplex = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const check = dnaOpt[0];
 	const steps: tsJSStepAct[] = [];
 	// For complex constants (objects/arrays), use deepEqual
@@ -614,7 +614,7 @@ export const constTypeComplex = (dnaOpt: tsConstDNA, _inVarName: string, _outVar
 	// parentCtx.typeChecked = "const";
 	return steps;
 };
-export const literal = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const literal = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const enumList = dnaOpt[0];
 	// Use a switch-like expression for strict type checking
 	let enumLen = enumList.length;
@@ -642,7 +642,7 @@ export const literal = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: str
  *
  * Empty enum (`enum: []`) matches nothing — emits literal `false`.
  */
-export const enumType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const enumType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const enumList = dnaOpt[0];
 	const checks: string[] = new Array(enumList.length);
 	for (let i = enumList.length; i--;) checks[i] = _inVarName + "===" + tojsStr(enumList[i]);
@@ -668,7 +668,7 @@ export const enumType = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: st
  * discriminator values before construction ever gets here. Adding the same
  * skip here would be dead code guarding an unreachable case, not a safety net.
  */
-export const enumTypeDeep = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const enumTypeDeep = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const enumList = dnaOpt[0];
 	const steps: tsJSStepAct[] = [];
 	const checks: string[] = new Array(enumList.length);
@@ -686,7 +686,7 @@ export const enumTypeDeep = (dnaOpt: tsConstDNA, _inVarName: string, _outVarName
 };
 
 
-export const unevaluatedProperties = (dnaOpt: [number, number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
+export const unevaluatedProperties = (dnaOpt: [number, number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
 	_unEvalEnv(parentCtx, {
 		kind: "properties",
 		idx: labelId(),
@@ -704,7 +704,7 @@ export const unevaluatedProperties = (dnaOpt: [number, number[], tsDnaInnerMeta]
  * documented divergence on `isCond + !declared` type-mismatch (envelope adopts
  * the array semantics: no `_outVar=true` on bad type; old object used to set it).
  */
-const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, obOpt: { declared: boolean; type: string }): tsJSFn => {
+const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx, obOpt: { declared: boolean; type: string }): tsJSFn => {
 	const isCond = parentCtx.isCond;
 
 	const { declared, type } = obOpt;
@@ -757,10 +757,13 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	 * List of declared property names that the parser must materialize in the
 	 * output. When set, the parser builds the output into a temporary `outReal`
 	 * object and then copies only these keys (skipping `undefined` values) into
-	 * the final `outVar`. This emulates Zod-style object behavior where
-	 * `undefined` optional properties are not present in the parsed output,
-	 * while still supporting JSON Schema `additionalProperties`/`unevaluatedProperties`
-	 * for objects without a keep list.
+	 * the final `outVar`. This is a DNA-specific choice: `undefined`-valued
+	 * optional properties are treated as equivalent to absent keys (stripped
+	 * from the output). This DIFFERS from Zod v4, which preserves
+	 * `key: undefined` when the key is present (see docs/zod-comparison.md
+	 * §"Object output: `undefined` handling"). The mechanism still supports
+	 * JSON Schema `additionalProperties`/`unevaluatedProperties` for objects
+	 * without a keep list.
 	 */
 	let keepOnly: string[] | undefined = undefined;
 	let keepSet = "";
@@ -866,7 +869,16 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 		else neededConstants.push(oVar + "=Object.keys(" + inVar + ")", oLen + "=" + oVar + ".length");
 	}
 	const outTemp = "outObT" + idx;
-	const outReal = (keepOnly !== undefined && !isCond) ? outTemp : outVar;
+	// Single-allocation fast path: when the object has a keepOnly list (standard
+	// mode, no additionalProperties/patternProperties/propertyNames) we can write
+	// validated properties directly into the final output object instead of
+	// routing them through a temporary `outObT{idx}` and copying them back via
+	// the keepOnly loop. This eliminates one object allocation and the copy loop
+	// (including its per-key Object.hasOwn + undefined checks) per parse call.
+	// Dynamic-prop objects still need the temp because the key loop accumulates
+	// extra/evaluated keys that the keepOnly loop then filters out.
+	const useSingleAlloc = keepOnly !== undefined && !isCond && !hasDynamicProps;
+	const outReal = useSingleAlloc ? outVar : ((keepOnly !== undefined && !isCond) ? outTemp : outVar);
 
 	const preDecls = neededConstants.length ? "const " + neededConstants.join(",") + ";" : "";
 	// const typePosTest = "typeof " + inVar + '==="object"&&' + inVar + "!==null&&!Array.isArray(" + inVar + ")";
@@ -931,9 +943,9 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 
 		if (effectiveIsCond) {
 			// Validator mode: fail-fast, no output allocation.
-			if (isReq && !isTestedKey) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + _name + "))" + (isCond ? break_ : ("{" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + _break_ + "}"))]);
-			else if (!isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "if(Object.hasOwn(" + inVar + "," + _name + ")){"]);
-			for (const r of deps) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + "))" + (isCond ? break_ : ("{" + _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k + "/" + r, "Dependent required property missing: " + r) + _break_ + "}"))]);
+			if (isReq && !isTestedKey) innerSteps.push([STEP.BODY, "if(!_hop.call(" + inVar + "," + _name + "))" + (isCond ? break_ : ("{" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + _break_ + "}"))]);
+			else if (!isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "if(_hop.call(" + inVar + "," + _name + ")){"]);
+			for (const r of deps) innerSteps.push([STEP.BODY, "if(!_hop.call(" + inVar + "," + JSON.stringify(r) + "))" + (isCond ? break_ : ("{" + _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k + "/" + r, "Dependent required property missing: " + r) + _break_ + "}"))]);
 			if (depSchSub === false) innerSteps.push([STEP.BODY, isCond ? break_ : "{" + _err(parentCtx, inVar, pathVar + "/object/dependentSchemas/" + k, "Dependent schema forbidden for property: " + k) + _break_ + "}"]);
 			else if (typeof depSchSub === "number") {
 				const depChildrenCtx: tsJSParentCtx = { ...childrenCtx, unEvalArr: parentCtx.unEvalArr, unEvalObj: parentCtx.unEvalObj };
@@ -950,9 +962,11 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 			if (!isReq && !isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "}"]);
 		} else {
 			// Parser mode: push errors and allocate output.
-			if (isReq && !isTestedKey) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + _name + ")){" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + ";" + break_ + "}"]);
-			else if (!isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "if(Object.hasOwn(" + inVar + "," + _name + ")){"]);
-			for (const r of deps) innerSteps.push([STEP.BODY, "if(!Object.hasOwn(" + inVar + "," + JSON.stringify(r) + ")){" + _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k + "/" + r, "Dependent required property missing: " + r) + ";" + break_ + "}"]);
+			if (isReq && !isTestedKey) innerSteps.push([STEP.BODY, "if(!_hop.call(" + inVar + "," + _name + ")){" + _err(parentCtx, inVar, pathVar + "/object/required/" + k, "Required property missing: " + k) + ";" + break_ + "}"]);
+			// See above: optional tested keys still need the hasOwn guard because
+			// `case undefined:` in the discriminator switch does not prove presence.
+			else if (!isDefault && (!isTestedKey || !isReq)) innerSteps.push([STEP.BODY, "if(_hop.call(" + inVar + "," + _name + ")){"]);
+			for (const r of deps) innerSteps.push([STEP.BODY, "if(!_hop.call(" + inVar + "," + JSON.stringify(r) + ")){" + _err(parentCtx, inVar, pathVar + "/object/dependentRequired/" + k + "/" + r, "Dependent required property missing: " + r) + ";" + break_ + "}"]);
 			if (depSchSub === false) {
 				innerSteps.push([STEP.BODY, _err(parentCtx, inVar, pathVar + "/object/dependentSchemas/" + k, "Dependent schema forbidden for property: " + k) + ";" + break_]);
 			} else if (typeof depSchSub === "number") {
@@ -968,7 +982,7 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 				const marks = evalMark + passMark;
 				if (marks) innerSteps.push([STEP.BODY, marks]);
 			}
-			if (!isReq && !isDefault && !isTestedKey) innerSteps.push([STEP.BODY, "}"]);
+			if (!isReq && !isDefault && (!isTestedKey || !isReq)) innerSteps.push([STEP.BODY, "}"]);
 		}
 	}
 
@@ -1104,17 +1118,37 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	}
 
 
-	const parserOutInit = (keepOnly !== undefined && !isCond)
-		? "const " + outReal + "={};"
-		: type === "plainObject"
-			? outReal + "={};"
-			: outReal + "=Object.assign(Object.create(null)," + inVar + ");";
+	// When "__proto__" is a declared property, the output object MUST use
+	// Object.create(null) so that data["__proto__"]=value creates an own
+	// property instead of triggering the prototype setter (which would
+	// silently drop the value). This aligns with the JSON Schema Test Suite
+	// which requires "__proto__" to be validated like any other property.
+	const hasProtoDeclared = declaredKeyOrder.includes("__proto__");
+	const nullProtoObj = hasProtoDeclared ? "Object.create(null)" : "{}";
+	const parserOutInit = useSingleAlloc
+		? outVar + "=" + nullProtoObj + ";"
+		: (keepOnly !== undefined && !isCond)
+			? "const " + outReal + "=" + nullProtoObj + ";"
+			: type === "plainObject"
+				? outReal + "=" + nullProtoObj + ";"
+				: outReal + "=Object.assign(Object.create(null)," + inVar + ");";
 
-	if (keepOnly !== undefined && !isCond) {
-		innerSteps.push([STEP.BODY, outVar + "={};for(const k of " + JSON.stringify(keepOnly) + "){if(Object.hasOwn(" + outReal + ",k)&&" + outReal + "[k]!==undefined)" + outVar + "[k]=" + outReal + "[k];}"]);
+	// Skip the keepOnly copy loop when the single-alloc fast path is active:
+	// properties were written directly into outVar, so there is no temp object
+	// to filter from. The loop is still emitted for dynamic-prop objects where
+	// the temp accumulates extra keys that must be filtered out.
+	// The !==undefined check was removed from the remaining loop to match Zod:
+	// an explicitly-present `undefined` value is preserved as an own key.
+	if (keepOnly !== undefined && !isCond && !useSingleAlloc) {
+		innerSteps.push([STEP.BODY, outVar + "=" + nullProtoObj + ";for(const k of " + JSON.stringify(keepOnly) + "){if(_hop.call(" + outReal + ",k))" + outVar + "[k]=" + outReal + "[k];}"]);
 	}
 
 	for (const rc of regexConstants) outSteps.push([STEP.OUT_CONST, rc]);
+	// Hoist hasOwnProperty into the outer closure (STEP.OUT_CONST) so it's
+	// accessible from both the main function body AND ref functions (L####).
+	// ~17% faster than Object.hasOwn with identical own-property semantics
+	// (verified by independent benchmark, Node v26.5.1, 5 inlined checks pattern).
+	outSteps.push([STEP.OUT_CONST, "_hop=Object.prototype.hasOwnProperty"]);
 	const envSteps = _assignOrCondEnv(parentCtx, inVar, outVar, {
 		block, break_, _break_, mustMatchType: declared, typeChecked: type === "plainObject" ? "plainObject" : "object",
 		typePosTest, typeErrMsg,
@@ -1128,15 +1162,15 @@ const object = (dnaOpt: tsObjectDNA, inVar: string, outVar: string, pathVar: str
 	return [...outSteps, ...envSteps];
 };
 
-export const o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
+export const o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx) =>
 	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, { declared: true, type: "object" });
-export const _o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
+export const _o = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx) =>
 	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, { declared: false, type: "object" });
-export const rcd = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
+export const rcd = (dnaOpt: tsObjectDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx) =>
 	object(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, { declared: true, type: "plainObject" });
 
 
-export const unevaluatedItems = (dnaOpt: [number, number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
+export const unevaluatedItems = (dnaOpt: [number, number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] =>
 	_unEvalEnv(parentCtx, {
 		kind: "items",
 		idx: labelId(),
@@ -1152,7 +1186,7 @@ export const unevaluatedItems = (dnaOpt: [number, number[], tsDnaInnerMeta], _in
  * Migrated `array` validator using `_assignOrCondEnv`.
  * Mirrors `array_old` behavior; envelope absorbs the head/tail boilerplate.
  */
-const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx, declared = true): tsJSFn => {
+const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx, declared = true): tsJSFn => {
 	const isCond = parentCtx.isCond;
 	const idx = labelId();
 	const aLen = "aLen" + idx;
@@ -1412,12 +1446,12 @@ const array = (dnaOpt: tsArrayDNA, inVar: string, outVar: string, pathVar: strin
 	});
 };
 
-export const a = (dnaOpt: tsArrayDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
+export const a = (dnaOpt: tsArrayDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx) =>
 	array(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, true);
-export const _a = (dnaOpt: tsArrayDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx) =>
+export const _a = (dnaOpt: tsArrayDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx) =>
 	array(dnaOpt, _inVarName, _outVarName, pathVar, labelId, parentCtx, false);
 
-export const ifThenElse = (dnaOpt: tsIfThenElseDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const ifThenElse = (dnaOpt: tsIfThenElseDNA, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const indices = dnaOpt[0];
 	const ifPart = indices[0];
 	const thenPart = indices[1];
@@ -1558,7 +1592,7 @@ export const ifThenElse = (dnaOpt: tsIfThenElseDNA, _inVarName: string, _outVarN
 	return steps;
 };
 
-export const not = (dnaOpt: [any], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const not = (dnaOpt: [any], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const isCond = parentCtx.isCond;
 	const innerIndex = dnaOpt[0][0];
 
@@ -1597,7 +1631,7 @@ export const not = (dnaOpt: [any], _inVarName: string, _outVarName: string, path
 	return steps;
 };
 
-export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const isCond = parentCtx.isCond;
 	const content = dnaOpt[0][0];
 	const indices: number[] = dnaOpt[0].slice(1) as number[];
@@ -1723,7 +1757,7 @@ export const anyOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 
 export const or = anyOf;
 
-export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const isCond = parentCtx.isCond;
 	const content = dnaOpt[0][0];
 	const indices: number[] = dnaOpt[0].slice(1) as number[];
@@ -1807,7 +1841,7 @@ export const allOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 	return steps;
 };
 
-export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const isCond = parentCtx.isCond;
 	const content = dnaOpt[0][0];
 	const indices: number[] = dnaOpt[0].slice(1) as number[];
@@ -1924,7 +1958,7 @@ export const oneOf = (dnaOpt: tsOfList, _inVarName: string, _outVarName: string,
 	return steps;
 };
 
-export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const isCond = parentCtx.isCond;
 	const [discriminatorName, discriminKeys, indices] = dnaOpt;
 	const discriminator = tojsStr(discriminatorName);
@@ -2044,7 +2078,7 @@ export const cli = (
 	_inVarName: string,
 	_outVarName: string,
 	pathVar: string,
-	labelId: tsLaberlId,
+	labelId: tsLabelId,
 	parentCtx: tsJSParentCtx
 ): tsJSFn => {
 	const isCond = parentCtx.isCond;

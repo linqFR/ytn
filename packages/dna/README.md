@@ -48,14 +48,15 @@ DNA Schema provides two validation modes:
 `parser()` is a `parse`+`transform` operation, comparable to Zod `parse()`. It does three things:
 
 1. **Validates** the input and collects the first blocking error set.
-2. **Reconstructs** the data into a fresh `Object.create(null)` output object.
+2. **Reconstructs** the data into a fresh output object.
 3. **Returns** `{ success: true, data }` on success or `{ success: false, errors }` on failure.
 
 Reconstruction means the parser:
 
-- creates a new object with no prototype (`Object.create(null)`),
-- copies the input's own properties with `Object.assign` so unknown properties allowed by `additionalProperties`/`unevaluatedProperties` are preserved,
+- creates a new output object — `Object.create(null)` for strict/loose objects (no prototype, safe against `__proto__` pollution), or a plain `{}` for standard objects (single-allocation fast path, writes only declared keys); when `__proto__` is a **declared** property, `Object.create(null)` is used so the value is preserved as an own key,
+- copies the input's own properties with `Object.assign` (strict/loose) so unknown properties allowed by `additionalProperties`/`unevaluatedProperties` are preserved; `Object.create(null)` makes `__proto__` a harmless own property (no prototype setter) — no skip needed, unlike Zod/AJV,
 - rebuilds arrays into new arrays,
+- preserves explicitly-present `undefined` values (aligned with Zod v4) — a key present in the input with value `undefined` remains present in the output,
 - keeps arbitrary property names (including `__proto__`, `constructor`, `toString`) as ordinary own keys instead of inherited or magic properties.
 
 Because of this transformation, `parser()` is necessarily slower than `validator()` — it does strictly more work than a boolean validator. Use `validator()` when you only need a true/false answer. Use `parser()` when you need a guaranteed fresh, isolated output object with detailed errors on failure.
@@ -289,6 +290,14 @@ export. Key differences:
   `dna.templateLiteralMutate()`, `.eq()` on date, `.register()`.
 - **DNA lacks**: `.deepPartial()`, `z.flattenError()` / `z.formatError()` / `z.treeifyError()`,
   `z.deno()` / `z.node()`, some introspection getters (`.options`, `.discriminator`).
+- **String length semantics**: DNA counts **Unicode code points** for `.min()` / `.max()` /
+  `.length()`, aligned with RFC 8259 §7 and JSON Schema Validation §6.3.1/6.3.2. Zod v4 counts
+  UTF-16 code units (`String.prototype.length`). For strings with astral characters (emoji,
+  flags, ZWJ sequences), the two disagree — e.g. `.max(5)` on `"🇫🇷"` passes in DNA (2 code
+  points ≤ 5) but fails in Zod (4 code units > 5). See
+  [docs/zod-comparison.md §5](docs/zod-comparison.md#5-string-methods) and
+  [docs/technical.md §10.1](docs/technical.md#101--type-string-minlength-3-maxlength-10-pattern-az)
+  for the full rationale and divergence table.
 
 Full feature-by-feature comparison: [docs/zod-comparison.md](docs/zod-comparison.md).
 

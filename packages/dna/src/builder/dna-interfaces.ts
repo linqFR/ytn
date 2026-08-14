@@ -2747,14 +2747,13 @@ function syncPromiseIssue(value: unknown): tsParserError {
  *
  * @typeParam T - The resolved value's output type.
  * @typeParam I - The resolved value's input type.
+ * @deprecated `dna.promise()` is deprecated, mirroring `z.promise()` deprecation
+ * in Zod v4. There are vanishingly few valid use cases for a `Promise` schema.
+ * If you suspect a value might be a `Promise`, simply `await` it before parsing
+ * it with DNA. Kept for compatibility with existing schemas.
  */
-// TODO: comment about depreciation of dna.promise
 export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
   override _core = new BaseCore<{ inner: DnaSomeType<T, I> }>("promise");
-
-  // static init<T, I = unknown>(innerSchema: DnaType<T>): any {
-  //   return this.initCore<T, I, tsStatePromise<T, I>>("promise", { innerSchema: innerSchema as any });
-  // }
 
   override unwrap(): DnaSomeType {
     return this._core.seed.inner;

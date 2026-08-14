@@ -629,10 +629,13 @@ describe("cliUnion — portability (generated function self-contained)", () => {
 			.extend({ branchId: dna.string().optional().default("brand-deploy") }),
 	]);
 
-	it("should produce code starting with 'return function'", () => {
+	it("should produce code containing 'return function'", () => {
 		const seq = cli.toDna();
 		const result = toJS(false, true)(seq);
-		expect(result.code.join("\n").trimStart().startsWith("return function")).toBe(true);
+		// result.code is an array of parts for new Function(...parts).
+		// The last part is the function body; it should contain "return function".
+		const body = result.code[result.code.length - 1];
+		expect(body.includes("return function")).toBe(true);
 	});
 
 	it("should have no required externals", () => {
@@ -644,19 +647,21 @@ describe("cliUnion — portability (generated function self-contained)", () => {
 	it("should produce a working function via new Function", () => {
 		const seq = cli.toDna();
 		const result = toJS(false, true)(seq);
-		const fn = new Function(result.code.join("\n"))() as (v: unknown) => any;
+		const fn = new Function(...result.code)() as (v: unknown) => any;
 		expect(typeof fn).toBe("function");
 		const r = fn({ cmd: "build", mode: "dev" });
 		expect(r.success).toBe(true);
 		if (r.success) expect(r.data.branchId).toBe("brand-build-dev");
 	});
 
-	it("should be rehydratable from toString()", () => {
+	it("should be rehydratable from full source (result.code)", () => {
 		const seq = cli.toDna();
 		const result = toJS(false, true)(seq);
-		const fn = new Function(result.code.join("\n"))() as Function;
-		const source = fn.toString();
-		const rehydrated = new Function("return " + source)() as Function;
+		// Rehydrate from the full parts array (new Function(...parts)).
+		// This is the supported portability path — fn.toString() alone loses
+		// STEP.OUT_CONST entries (regexes, _hop, ref functions) that live in
+		// the outer closure.
+		const rehydrated = new Function(...result.code)() as Function;
 		const r = rehydrated({ cmd: "deploy", mode: "staging" });
 		expect(r.success).toBe(true);
 		if (r.success) expect(r.data.branchId).toBe("brand-deploy");
@@ -665,7 +670,7 @@ describe("cliUnion — portability (generated function self-contained)", () => {
 	it("should produce a working validator via new Function", () => {
 		const seq = cli.toDna();
 		const result = toJS(true, true)(seq);
-		const fn = new Function(result.code.join("\n"))() as (v: unknown) => boolean;
+		const fn = new Function(...result.code)() as (v: unknown) => boolean;
 		expect(typeof fn).toBe("function");
 		expect(fn({ cmd: "build", mode: "dev" })).toBe(true);
 		expect(fn({ cmd: "unknown", mode: "dev" })).toBe(false);
@@ -674,7 +679,7 @@ describe("cliUnion — portability (generated function self-contained)", () => {
 	it("should produce identical results from raw fn and safeParse", () => {
 		const seq = cli.toDna();
 		const result = toJS(false, true)(seq);
-		const fn = new Function(result.code.join("\n"))() as (v: unknown) => any;
+		const fn = new Function(...result.code)() as (v: unknown) => any;
 		const inputs = [
 			{ cmd: "build", mode: "dev" },
 			{ cmd: "build", mode: "prod" },

@@ -62,22 +62,6 @@ type InferEnumDNA<T> = T extends [infer _Values, infer _Meta]
 	: unknown;
 
 /**
- * Type guard function for DNA validation
- *
- * @param value - The value to check
- * @param schema - The DNA schema to validate against
- * @returns True if value matches the schema type
- */
-export function isDNA<T>(
-	value: unknown,
-	schema: tsDna
-): value is InferDNA<typeof schema> {
-	// This is a runtime placeholder - actual validation should use the validator from toJs
-	// Type narrowing happens at compile time via the type parameter
-	return true;
-}
-
-/**
  * Assert type for DNA schema
  *
  * Use this to assert that a value matches the inferred type of a DNA schema.

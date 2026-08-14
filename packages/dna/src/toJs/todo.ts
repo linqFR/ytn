@@ -29,15 +29,31 @@
 // HIGH PRIORITY — hot path, measurable allocation / GC pressure
 // ============================================================================
 
-// TODO: [PERF-H1] Replace `Object.keys(passedIdx).length` with a counter when safe
-//   LOCATION: dna-js-json.ts > object() — additionalProperties post-loop length check
-//   PROBLEM:  `Object.keys(passedIdx).length` allocates an array per validation call
-//             just to count marked keys.
-//   FIX:      Keep `passedIdx` for membership, add `passedCount` and increment it when
-//             marking a new key. Use `passedCount<oLen` instead of `Object.keys(...).length<oLen`.
-//   CAVEATS:  `passedIdx` is also required as a set by `unevaluatedProperties` /
-//             `unevaluatedItems`. Apply the counter only in code paths that do not
-//             rely on the full `Object.keys` result for unevaluated propagation.
+// RESOLVED — 2026-08-14: [PERF-H1] Replace `Object.keys(passedIdx).length` with a counter
+//   Benchmark: counter-with-guard is always slower (guard cost > gain).
+//   `for...in` count is 35% faster for ≤18 keys but 1.7x slower for ≥20 (V8
+//   fast→slow properties transition at ~18-20 keyed stores).
+//   `Object.keys().length` is the best universal choice.
+
+// TODO: [PERF-H1b] Pre-declare known property keys in `passedIdx` object literal
+//   LOCATION: dna-js-json.ts > object() — `passedIdx` initialization
+//   PROBLEM:  `passedIdx = {}` + keyed assignment (`passedIdx[key]=1`) triggers V8's
+//             `TooManyFastProperties()` at ~18-20 keyed stores, transitioning to
+//             dictionary mode. `Object.keys().length` then slows down ~17x.
+//   FIX:      When the schema's declared properties are known at codegen time and
+//             there are no dynamic props (`!hasDynamicProps`), initialize `passedIdx`
+//             as an object literal with all declared keys pre-set to 0:
+//             `passedIdx = { name: 0, age: 0, email: 0, ... }`
+//             Subsequent keyed writes become modifications (not additions) → no
+//             HiddenClass transition → stays in fast mode.
+//   BENCHMARK: 1.8x faster `Object.keys().length` on 19-key object (210ms vs 385ms,
+//              5M iters, Node v26.5.1). `Object.keys()` on fast-mode object also
+//              beats `for...in` count (210ms vs 256ms).
+//   CAVEATS:  Only applicable when `!hasDynamicProps` (no additionalProperties,
+//             no patternProperties) — dynamic keys from input can still push past
+//             the soft limit. The `0` initial value allows `if(passedIdx[key])`
+//             membership checks without a separate sentinel.
+//   REF:      .devin/skills/ytn-dna-perf/v8-fast-properties.md
 
 // TODO: [PERF-H2] Skip `.visit` Map memoization for acyclic $refs
 //   LOCATION: dna-to-js.ts > END_REF/STR_REF
@@ -47,30 +63,44 @@
 //             Emit the `.visit` prelude only for refs proven to participate in a cycle.
 //   CAVEATS:  Correctness-critical. Default to the safe memoized path when cyclicity
 //             cannot be proven. Add circular-schema regression tests.
+//   STATUS:   2026-08-14 — Kept as TODO. Two findings:
+//             1. Acyclic refs are rare — refs exist primarily for recursion. The
+//                common case is cyclic, where the Map is needed.
+//             2. The Map cannot be replaced by a plain-object hashmap: the key is
+//                the input value `v`, which can be `null`, `undefined`, `false`,
+//                `0`, `""`, an object, or an array. Plain objects coerce keys to
+//                strings (collision risk) and cannot use objects as keys. `Map`
+//                uses `===` identity, which is required here.
+//             Next step: benchmark the Map overhead on a real acyclic-ref schema
+//             before investing in the Tarjan implementation.
 
 // ============================================================================
 // MEDIUM PRIORITY — to investigate, not to implement blindly
 // ============================================================================
 
-// TODO: [PERF-M1] Propagate `parentCtx.typeChecked` across allOf/anyOf/oneOf branches
-//   LOCATION: dna-js-json.ts > allOf() @ 1725-1730, anyOf() @ 1639, oneOf()
-//   PROBLEM:  Parser-mode children get a fresh `childCtx` without `parentCtx.typeChecked`,
-//             so each branch re-emits the full `Array.isArray` / `typeof` guard.
-//   FIX:      Either (a) emit one upstream type guard before the combinator when all
-//             branches agree on the input type, or (b) propagate `typeChecked` into the
-//             children while preserving per-branch error paths.
-//   CAVEATS:  `allOf` can mix disparate types. An upstream guard is only safe when the
-//             type is uniform across branches. Requires measuring real schemas first.
+// RESOLVED — 2026-08-14: [PERF-M1] Propagate `parentCtx.typeChecked` across allOf/anyOf/oneOf branches
+//   Already done: all three combinators create `childCtx` via `{ ...parentCtx, ... }`,
+//   which propagates `typeChecked` into every branch. Each branch then skips the
+//   redundant type guard (lines 72, 187, 415, 491, 533 in dna-js-json.ts check
+//   `parentCtx.typeChecked === <type>` and emit an empty test when it matches).
+//   The `testedProp` mechanism (§15 in ytn-dna-perf SKILL.md) extends this further
+//   for `discriminatedUnion`/`cliUnion` — propagating both the tested key AND the
+//   pre-bound value variable into each branch.
 
 // ============================================================================
 // LOW PRIORITY
 // ============================================================================
 
-// TODO: [PERF-L1] Optional compilation cache for repeated DNA inputs
-//   LOCATION: dna-to-js.ts > validator()/parser()
-//   PROBLEM:  `validator(dna)` / `parser(dna)` call `new Function()` every time.
-//             The same schema compiled repeatedly wastes compile-time work.
-//   FIX:      Optional cache keyed by DNA identity (WeakMap or a serialized key).
-//   CAVEATS:  Adds memory. Make it opt-in to avoid surprising retention.
+// RESOLVED — 2026-08-14: [PERF-L1] Optional compilation cache for repeated DNA inputs
+//   Already covered at the schema level: `DnaType._validate()` and `_safeParse()`
+//   use a `WeakMap<ctx | this, fn>` cache (dna-interfaces.ts lines 864-870, 918-924).
+//   The key is `ctx ?? this` — externals map if provided, otherwise the schema
+//   instance itself. `toDna()` is also cached on `_core`.
+//   The compilation-level functions `validator(dna)` / `parser(dna)` (used by
+//   schvalid) do not cache, but schvalid compiles once per schema in practice.
+//   A compilation-level cache would need a serialized key (JSON.stringify) —
+//   fragile and costly — or WeakMap, which doesn't work for arrays (two DNA
+//   seqs with identical content have different identities). Not worth the
+//   complexity for the marginal case.
 
 export {};

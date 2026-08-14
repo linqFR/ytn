@@ -305,7 +305,12 @@ export const nan = (meta?: string | tsDnaMeta) => initDna(DnaNaN, undefined, met
 
 export const file = (meta?: string | tsDnaMeta) => initDna(DnaFile, undefined, meta);
 
-/** @deprecated  */
+/**
+ * @deprecated `dna.promise()` is deprecated, mirroring `z.promise()` deprecation
+ * in Zod v4. There are vanishingly few valid use cases for a `Promise` schema.
+ * If you suspect a value might be a `Promise`, simply `await` it before parsing
+ * it with DNA. Kept for compatibility with existing schemas.
+ */
 export const promise = <T, I = T>(schema: DnaSomeType<T, I>, meta?: string | tsDnaMeta) => initDna(DnaPromise<T, I>, { inner: schema }, meta);
 
 export const hostname = (meta?: string | tsDnaMeta) => initDna(DnaHostname, undefined, meta);

@@ -152,15 +152,16 @@ test("valid function run", () => {
   });
 });
 
-test("f3 omitted and explicit undefined are equivalent", () => {
+test("f3 omitted and explicit undefined are distinguished (aligned with Zod)", () => {
   const schema = args2[0];
   const parsedOmitted = schema.parse({ f1: 21, f2: "asdf" });
   const parsedExplicit = schema.parse({ f1: 21, f2: "asdf", f3: undefined });
-  const expected = { f1: 21, f2: "asdf" };
-  expect(parsedOmitted).toEqual(expected);
-  expect(parsedExplicit).toEqual(expected);
+  const expectedOmitted = { f1: 21, f2: "asdf" };
+  expect(parsedOmitted).toEqual(expectedOmitted);
   expect(parsedOmitted).not.toHaveProperty("f3");
-  expect(parsedExplicit).not.toHaveProperty("f3");
+  // Zod preserves an explicitly-present undefined key; DNA now does too.
+  expect(parsedExplicit).toHaveProperty("f3");
+  expect(parsedExplicit.f3).toBeUndefined();
 });
 
 const args3 = [

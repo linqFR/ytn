@@ -47,7 +47,7 @@ loose.safeParse({ name: "John", extra: 1 });
 // { success: true, data: { name: "John", extra: 1 } }
 ```
 
-**Output difference**: `standard` uses the `keepOnly` mechanism (undefined optional props are not copied); `strict`/`loose` use `Object.assign` (unknown/evaluated props preserved).
+**Output difference**: `standard` strips unknown keys (only declared keys appear in output); `strict` rejects unknowns; `loose` preserves unknowns. All three modes preserve explicitly-present `undefined`-valued optional keys (aligned with Zod v4).
 
 ---
 

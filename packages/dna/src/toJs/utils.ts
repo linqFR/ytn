@@ -64,7 +64,11 @@ import type { tsDnaExternals, tsJSParentCtx, tsStackFrame } from "../types/index
  */
 
 export const _err = (ctx: tsJSParentCtx, _inVarName: string, path: string, msg: string, isLiteral = true) =>
-	"errors.push({message:" + (isLiteral ? JSON.stringify(msg) : escStr(msg)) + ",path:" + JSON.stringify(path) + ",input:" + _inVarName + "})"; //TODO: check if stringify is needed
+	// JSON.stringify is required on `path` and `msg`: property names from JSON
+	// Schema can contain `"` and `\`, which would break the generated string
+	// literal without escaping. Single quotes are preserved (not escaped) so
+	// the `'+_p+'` runtime path-concatenation trick still works in ref mode.
+	"errors.push({message:" + (isLiteral ? JSON.stringify(msg) : escStr(msg)) + ",path:" + JSON.stringify(path) + ",input:" + _inVarName + "})";
 
 /**
  * Detects whether a stringified function (`fn.toString().trim()`, as stored in the
@@ -195,7 +199,7 @@ export const simpleNodeToJs = (
 
 		// Handle trueSchema case in parser mode: if test is empty/true and body/counter are empty, just assign
 		if ((!test || test === "true") && !_body && !parentCtx.counter) {
-			return _outVarName ? _outVarName + "=" + _inVarName + ";" : _inVarName + ";"; // TODO: investigate to check the usefullness of returning only _inVarname
+			return _outVarName ? _outVarName + "=" + _inVarName + ";" : _inVarName + ";";
 		}
 		// `preBody` is a STATEMENT (e.g. `strCnt = fCount(v);`) that prepares
 		// state read by `_body`/`test` (e.g. surrogate-aware string length).

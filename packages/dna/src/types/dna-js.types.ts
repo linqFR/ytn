@@ -171,16 +171,16 @@ export type tsStackFrame = tsJSStepAct | tsJSStepOp;
 export type tsJSFn = tsJSStepString | tsStackFrame[];
 
 /**
- * @type tsLaberlId
+ * @type tsLabelId
  * @description Label ID generator for DNA→JS code generation
  */
-export type tsLaberlId = (_?: 0 | 1) => number;
+export type tsLabelId = (_?: 0 | 1) => number;
 
 /**
  * @type tsFnDNA
  * @description DNA function signature for code generation
  */
-export type tsFnDNA = (args: any[], inputVarName: string, outputVarName: string, pathVar: string, labelId?: tsLaberlId, parentCtx?: tsJSParentCtx) => tsJSFn;
+export type tsFnDNA = (args: any[], inputVarName: string, outputVarName: string, pathVar: string, labelId?: tsLabelId, parentCtx?: tsJSParentCtx) => tsJSFn;
 
 /**
  * @type tsMapper

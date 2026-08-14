@@ -250,12 +250,15 @@ const dnaSeq = cli.toDna();
 const { code, requiredExternals } = toJS(false, true)(dnaSeq);
 
 // requiredExternals: [] — no closure dependencies
-const parseFn = new Function(code.join("\n"))();
+// Use new Function(...code) to spread the parts correctly
+const parseFn = new Function(...code)();
 
-// Portable: can be serialized via toString() and rehydrated
-const rehydrated = new Function("return " + parseFn.toString())();
+// Portable: rehydrate from the full parts array
+const rehydrated = new Function(...code)();
 rehydrated({ cmd: "build", mode: "dev" }); // works independently
 ```
+
+> **Note on `toString()` rehydration**: `fn.toString()` only returns the inner function body — `STEP.OUT_CONST` entries (regexes, `_hop`, ref functions) in the outer closure are lost. For full portability, rehydrate from `new Function(...code)` using the original parts array, not from `fn.toString()`.
 
 ## API reference
 

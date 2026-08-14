@@ -147,8 +147,22 @@ function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchem
 		}
 		case "discriminator":
 			return convertDiscriminator(params, dnaSeq, refs);
+
+		// Const / enum (deep variants included — JSON Schema const/enum accept objects/arrays)
+		case "c":
+		case "cD":
+			return convertConst(params);
+		case "eD":
+			return convertEnum(params);
+
+		// Conditional schemas
+		case "not":
+			return convertNot(params, dnaSeq, refs);
+		case "ifThenElse":
+			return convertIfThenElse(params, dnaSeq, refs);
+
 		case "symbol":
-		case "sb":
+		case "sb": //stringbool
 		case "nan":
 		case "map":
 		case "set":
@@ -163,15 +177,6 @@ function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchem
 		case "transform":
 		case "pipe":
 		case "check":
-
-		// FIXME: they are not other implementations they exist in json schema
-		case "not":
-		case "if":
-		case "then":
-		case "else":
-		case "c":
-		case "cD":
-		case "eD":
 			// For complex types, return a basic schema
 			// These would need more sophisticated handling
 			return { type: "object", description: `DNA opcode: ${opcode}` };
@@ -549,4 +554,52 @@ function convertRef(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSc
 		return convertDnaNode(dna as tsDna, dnaSeq, refs);
 	}
 	return {};
+}
+
+/**
+ * Converts const DNA (`c` / `cD`) to JSON Schema.
+ * DNA format: ["c", value, meta] / ["cD", value, meta]
+ * JSON Schema `const` accepts any JSON value including objects and arrays.
+ */
+function convertConst(params: unknown[]): JSONSchema {
+	const value = params[0];
+	return { const: value };
+}
+
+/**
+ * Converts `not` DNA to JSON Schema.
+ * DNA format: ["not", [innerRefId], meta]
+ */
+function convertNot(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
+	const innerRef = (params[0] as unknown[])[0] as number;
+	const innerDna = dnaSeq[innerRef];
+	if (Array.isArray(innerDna) && innerDna.length > 0 && typeof innerDna[0] === 'string') {
+		return { not: convertDnaNode(innerDna as tsDna, dnaSeq, refs) };
+	}
+	return { not: {} };
+}
+
+/**
+ * Converts `ifThenElse` DNA to JSON Schema.
+ * DNA format: ["ifThenElse", [ifIndex, thenIndex, elseIndex], meta]
+ * Indices use -1 for "not applicable".
+ */
+function convertIfThenElse(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
+	const indices = params[0] as [number, number, number];
+	const [ifIdx, thenIdx, elseIdx] = indices;
+	const schema: Record<string, unknown> = {};
+
+	const convertRefByIdx = (idx: number): JSONSchema => {
+		if (idx < 0) return true;
+		const dna = dnaSeq[idx];
+		if (Array.isArray(dna) && dna.length > 0 && typeof dna[0] === 'string') {
+			return convertDnaNode(dna as tsDna, dnaSeq, refs);
+		}
+		return {};
+	};
+
+	schema.if = convertRefByIdx(ifIdx);
+	if (thenIdx >= 0) schema.then = convertRefByIdx(thenIdx);
+	if (elseIdx >= 0) schema.else = convertRefByIdx(elseIdx);
+	return schema;
 }

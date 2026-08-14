@@ -7,7 +7,7 @@ import type {
 	tsJSParentCtx,
 	tsJSStepAct,
 	tsJSStepString,
-	tsLaberlId,
+	tsLabelId,
 	tsStackFrame
 } from "../types/index.js";
 import { simpleNodeToJs, _err, _errMode, ERR_UNDEF, isAsyncFnStr, withAwait, externalsOutArgs, fastMergeArrays } from "./utils.js";
@@ -16,7 +16,7 @@ import { registerExternal } from "@ytrynot/dna/core";
 import * as jose from "jose";
 
 
-export const coerce = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx
+export const coerce = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx
 ): tsStackFrame[] => {
 	const opt = dnaOpt[0];
 	const steps: tsStackFrame[] = [];
@@ -59,9 +59,8 @@ export const coerce = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName: s
 type tsWrpOpt = [string, number, tsWrpPhase, any?];
 
 
-export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx
+export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx
 ): tsStackFrame[] => {
-	// TODO: full mutability
 	// DNA is intrinsically mutable: even a validator that ultimately returns `true`
 	// may need to mutate the value (e.g. `prefault`, `default` or `catch` assignments).
 	// Always guard writes against an absent `_outVarName` because `isCond` contexts
@@ -189,7 +188,7 @@ export const wrp = (dnaOpt: [tsWrpOpt, tsDnaInnerMeta], _inVarName: string, _out
 };
 
 // `mutate`: applies a transformation function to the value
-export const mutate = (dnaOpt: [string, tsDnaInnerMeta] | [string, string, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const mutate = (dnaOpt: [string, tsDnaInnerMeta] | [string, string, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const op = dnaOpt[0][0];
 	const idx = labelId();
 	const tmp = "mutV" + idx;
@@ -222,7 +221,7 @@ export const mutate = (dnaOpt: [string, tsDnaInnerMeta] | [string, string, tsDna
 };
 
 // `check`: applies a validation check function
-export const check = (dnaOpt: [[string, any?, any?], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const check = (dnaOpt: [[string, any?, any?], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	const op = dnaOpt[0][0];
 	let path, errMsg, test;
 	let isAsync = false;
@@ -317,7 +316,7 @@ export const check = (dnaOpt: [[string, any?, any?], tsDnaInnerMeta], _inVarName
 };
 
 // `sym`: matches only Symbol values. Zod's `z.symbol()`.
-export const sym = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const sym = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = parentCtx.typeChecked === "symbol" ? "" : "typeof " + _inVarName + '==="symbol"';
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/symbol", "Symbol is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "symbol";
@@ -326,7 +325,7 @@ export const sym = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: s
 
 // `date`: matches a real `Date` instance (Zod's `z.date()`). Excludes invalid
 // dates (`new Date("nope")` whose `.getTime()` is NaN), aligning with Zod V4.
-export const date = (dnaOpt: [[Date | null, Date | null], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const date = (dnaOpt: [[Date | null, Date | null], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const [minDate, maxDate] = dnaOpt[0];
 	// `t===t` is true unless `t` is NaN (NaN is the only value not equal to
 	// itself), so `getTime()===getTime()` rejects invalid dates without an
@@ -349,7 +348,7 @@ export const date = (dnaOpt: [[Date | null, Date | null], tsDnaInnerMeta], _inVa
 // `file`: matches a `File` instance. `globalThis.File` is available in
 // browsers and in Node.js >= 20. Read via `globalThis` so the generated code
 // works without an explicit `File` reference in the calling scope.
-export const file = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const file = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = _inVarName + " instanceof globalThis.File";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/file", "File is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "file";
@@ -360,7 +359,7 @@ export const file = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: 
 // The constructor name is stored in DNA and retrieved from the registry at runtime.
 // Uses simple closure pattern (C captured in preBody for optimal performance).
 // `symbol`: validates that the input is a primitive symbol
-export const symbol = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const symbol = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = "typeof " + _inVarName + "===\"symbol\"";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/symbol", "Symbol is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "symbol";
@@ -371,7 +370,7 @@ export const symbol = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName
 // Trims whitespace; normalizes via `new URL(...).href` when `normalize` is set;
 // optionally enforces protocol/hostname regex constraints.
 // Delegates success/failure wiring to `simpleNodeToJs` so parent `counter` and `failCase` are honored.
-export const url = (dnaOpt: [[string | null, string | null, boolean], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+export const url = (dnaOpt: [[string | null, string | null, boolean], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const [protocolRegex, hostnameRegex, normalize] = dnaOpt[0];
 	parentCtx.typeChecked = "string";
 	const trimExpr = _inVarName + ".trim()";
@@ -388,7 +387,7 @@ export const url = (dnaOpt: [[string | null, string | null, boolean], tsDnaInner
 };
 
 // `cidrv6`: validates IPv6 CIDR notation (address/prefix) via the shared `cV6` helper
-export const cidrv6 = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
+export const cidrv6 = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
 	parentCtx.typeChecked = "string";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/cidrv6", "Invalid CIDR v6") + ERR_UNDEF;
 	const test = 'typeof ' + _inVarName + '==="string" && ' + FN_cidrV6.apply(_inVarName);
@@ -396,7 +395,7 @@ export const cidrv6 = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName
 };
 
 // `jwt`: validates a JWT string using the `jose` library
-export const jwt = (dnaOpt: [string | null, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
+export const jwt = (dnaOpt: [string | null, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
 	const alg = dnaOpt[0];
 	parentCtx.typeChecked = "string";
 	registerExternal("jwtFn", jose.decodeProtectedHeader);
@@ -420,7 +419,7 @@ export const jwt = (dnaOpt: [string | null, tsDnaInnerMeta], _inVarName: string,
 // `sb`: Zod V4 `z.stringbool()` — validates a string against allowed truthy/falsy
 // tokens and parses it to the corresponding boolean via a lookup map.
 // The map is emitted as an outer constant (OUT_CONST) so it is built only once.
-export const sb = (dnaOpt: [[string[], string[], boolean], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
+export const sb = (dnaOpt: [[string[], string[], boolean], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
 	const [truthy, falsy, caseSensitive] = dnaOpt[0];
 	const idx = labelId();
 	const mapVar = "sbM" + idx;
@@ -441,7 +440,7 @@ export const sb = (dnaOpt: [[string[], string[], boolean], tsDnaInnerMeta], _inV
 	];
 };
 
-export const instanceOf = (dnaOpt: [string, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const instanceOf = (dnaOpt: [string, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const constructorName = dnaOpt[0];
 	parentCtx.typeChecked = constructorName;
 	const idx = labelId();
@@ -465,7 +464,7 @@ export const instanceOf = (dnaOpt: [string, tsDnaInnerMeta], _inVarName: string,
 // Format: ["codec", [inSchemaId, outSchemaId, decodeFn, encodeFn], meta]
 // decodeFn: function to transform input to output
 // encodeFn: function to transform output to input
-export const codec = (dnaOpt: [[number, number, string, string], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const codec = (dnaOpt: [[number, number, string, string], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const [inSchemaId, outSchemaId, decodeFn, encodeFn] = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 
@@ -492,7 +491,7 @@ export const codec = (dnaOpt: [[number, number, string, string], tsDnaInnerMeta]
 // partIds: array of schema IDs (only for schema positions)
 // canMutate: boolean flag for mutation support
 // meta: metadata object
-export const template = (dnaOpt: [string[], number[], boolean, tsDnaInnerMeta?], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx
+export const template = (dnaOpt: [string[], number[], boolean, tsDnaInnerMeta?], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx
 ): tsStackFrame[] => {
 	const idx = labelId();
 	const strParts = dnaOpt[0];
@@ -581,7 +580,7 @@ export const template = (dnaOpt: [string[], number[], boolean, tsDnaInnerMeta?],
 };
 
 // `transform`: applies custom schema transformation to the value
-export const transform = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const transform = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const [fnStr, fnLength] = dnaOpt[0];
 	const externals = dnaOpt[1]?.externals;
 	const isCond = parentCtx.isCond;
@@ -625,7 +624,7 @@ export const transform = (dnaOpt: [[string, number], tsDnaInnerMeta], _inVarName
 // `cur` variable. In parser mode a separate `next` output variable is used so
 // children that allocate a new container (`array`, `object`, etc.) do not
 // overwrite the input before reading it; `cur` is then advanced with `cur=next`.
-export const pipe = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const pipe = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const stepIds = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 	const idx = labelId();
@@ -662,7 +661,7 @@ export const pipe = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _ou
 // `chkSeq` (exported as `chk`): runs a self-validation followed by one or more `check` steps (used by
 // `.refine()` / `.check()`). In parser mode it stops as soon as an error is
 // pushed, so downstream checks are not evaluated with invalid/partial data.
-export const chkSeq = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
+export const chkSeq = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsStackFrame[] => {
 	const stepIds = dnaOpt[0];
 	const isCond = parentCtx.isCond;
 	const idx = labelId();
@@ -707,21 +706,21 @@ export const chkSeq = (dnaOpt: [number[], tsDnaInnerMeta], _inVarName: string, _
 	return steps;
 };
 
-const functionHandler = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+const functionHandler = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = "typeof " + _inVarName + '==="function"';
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/function", "Function is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "function";
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
 
-const voidHandler = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSStepString => {
+const voidHandler = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSStepString => {
 	const test = _inVarName + "===void 0";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/void", "Undefined is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "undefined";
 	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true);
 };
 
-export const promise = (dnaOpt: [number, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLaberlId, parentCtx: tsJSParentCtx): tsJSFn => {
+export const promise = (dnaOpt: [number, tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, labelId: tsLabelId, parentCtx: tsJSParentCtx): tsJSFn => {
 	if (parentCtx.isCond) {
 		const test = _inVarName + " instanceof Promise";
 		const condErr = _err(parentCtx, _inVarName, pathVar + "/promise", "Promise is required") + ERR_UNDEF;

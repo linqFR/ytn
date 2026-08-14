@@ -608,7 +608,7 @@ dna.string().optional()
 
 **JSON Schema equivalent:** there is no direct JSON Schema keyword for "accept `undefined`" — `required` controls which keys are required, and a key absent from `required` is optional (accepts missing/`undefined`). For a standalone optional schema, JSON Schema has no equivalent; the builder's `.optional()` is a wrapper that accepts `undefined` and is primarily meaningful in object property context.
 
-**Parity:** in object property context, both paths agree — a key absent from `required` (JSON Schema) or wrapped with `.optional()` (builder) accepts `undefined`/missing. The builder's parser uses `keepOnly` which **does not copy** `undefined`-valued optional properties into the output (they don't appear as own keys), while schvalid's parser preserves them — a minor `safeParse().data` shape difference on objects with explicitly-`undefined` optional properties.
+**Parity:** in object property context, both paths agree — a key absent from `required` (JSON Schema) or wrapped with `.optional()` (builder) accepts `undefined`/missing. The builder's parser preserves explicitly-present `undefined`-valued optional properties in the output (aligned with Zod v4), matching schvalid's behavior. Static objects (no dynamic props) use a single-allocation fast path (no `outObT0` temp, no copy loop); dynamic-prop objects use the temp + `keepOnly` loop. See `docs/zod-comparison.md` §"Object output: `undefined` handling" and §"Object output: `keepOnly` mechanism and single-allocation".
 
 ### Patterns with no builder equivalent
 
@@ -1488,6 +1488,31 @@ function (v) {
 ```
 
 Three constraints fused into a single conjunctive guard. The `pattern` regex is compiled once in the outer closure (`const spptn0 = /^[a-z]+$/u;`) and only `spptn0.test(v)` runs on each validation, so large or frequently-used patterns are not re-created on every call. The `fCount` helper counts code points (not UTF-16 code units) by skipping low surrogates.
+
+##### `fCount` vs `String.prototype.length` — spec compliance and Zod divergence
+
+DNA uses `fCount` (code points) for `.min()` / `.max()` / `.length()` string constraints, while Zod v4 uses `String.prototype.length` (UTF-16 code units). This is a **deliberate spec-compliance choice**, not a bug.
+
+**Spec justification:**
+- RFC 8259 §7 defines a JSON string as "a sequence of zero or more Unicode characters", and states that an astral character (e.g. U+1D11E) is a single character even though it is encoded as a UTF-16 surrogate pair (`\uD834\uDD1E`).
+- JSON Schema Validation §6.3.1/6.3.2 (maxLength/minLength) defines string length as "the number of its characters as defined by RFC 8259" — i.e. code points, not UTF-16 code units.
+
+**Consequence:** for strings containing astral characters (surrogate pairs), DNA and Zod disagree on length:
+
+| Input | Zod `.length` (UTF-16 units) | DNA `fCount` (code points) |
+|---|---|---|
+| `"abc"` | 3 | 3 |
+| `"é"` (U+00E9 precomposed) | 1 | 1 |
+| `"e\u0301"` (decomposed) | 2 | 2 |
+| `"😀"` (U+1F600) | 2 | 1 |
+| `"🇫🇷"` (regional indicator pair) | 4 | 2 |
+| `"👩‍🚀"` (ZWJ sequence) | 5 | 3 |
+
+This means `.max(5)` on `"🇫🇷"` passes in DNA (2 ≤ 5) but fails in Zod (4 > 5). Neither counts grapheme clusters — both are "code point" vs "code unit" level, not `Intl.Segmenter` level.
+
+**Performance trade-off:** `fCount` is O(n) (iterates the string), `String.prototype.length` is O(1) (native property). DNA accepts this cost as the price of spec compliance — `@ytrynot/schvalid` targets JSON Schema 2020-12 conformance, where "length" means code points.
+
+**Tests:** `packages/dna/tests/utf16-length.test.ts` documents 29 divergence cases across BMP, astral plane, flag emojis, ZWJ sequences, lone surrogates, and mixed ASCII + astral strings.
 
 #### 10.2 `{ "type": "integer", "minimum": 0, "maximum": 100 }`
 

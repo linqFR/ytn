@@ -21,7 +21,7 @@ export { initDna, BaseCore, bindMethods, MapSetCore, DNA_BINDABLE_METHODS } from
 
 // Compiler entry points (used by index.ts and toJs.ts entry points)
 export { toJS, validator, parser, validatorBuilder, parserBuilder } from "./toJs/dna-to-js.js";
-export type { tsToJSResult } from "./toJs/dna-to-js.js";
+export type { tsToJSResult, tsCompiledParts } from "./toJs/dna-to-js.js";
 
 // Error types (DnaError is a class — instanceof must be consistent across bundles)
 export { DnaError, dnaErrorSource } from "./shared/error.types.js";

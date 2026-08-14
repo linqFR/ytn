@@ -43,7 +43,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "perf": "tsx ./perf/zod-vs-dna-cycles.ts"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -79,7 +80,8 @@
     "@types/node": "^26.2.0",
     "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.12",
+    "zod": "^4.4.3"
   },
   "dependencies": {
     "jose": "^6.2.8"
