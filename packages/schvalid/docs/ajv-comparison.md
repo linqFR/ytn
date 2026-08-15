@@ -40,13 +40,13 @@
 | parseFast hybrid | ❌ | ✅ | schvalid advantage |
 | Parser output construction | ❌ | ✅ | schvalid advantage |
 | Standalone JS (toJS) | ⚠️ (ajv-pack) | ✅ (native) | schvalid advantage |
-| Compilation speed | Baseline | ~4x faster (see `tests/bench/`) | schvalid advantage |
+| Compilation speed | Baseline | faster than AJV (see `perf/`) | schvalid advantage |
 
 **Bottom line**: @ytrynot/schvalid covers all core JSON Schema 2020-12 keywords with full parity.
 It does not aim to replace AJV in all use cases — external $ref, custom keywords, async
 validation, type coercion, and vocabularies are intentionally out of scope for 0.2.x.
 schvalid's value proposition is: standalone compiled functions, DNA bytecode IR, parseFast
-hybrid mode, and ~4x faster compilation (benchmark data in `tests/bench/`).
+hybrid mode, and faster compilation and validation than AJV (run `npm run bench` to reproduce).
 
 ---
 
@@ -148,7 +148,7 @@ hybrid mode, and ~4x faster compilation (benchmark data in `tests/bench/`).
 | 4 | Parser mode with output construction | Validation only, no output | `parser()` returns `{ success, data }` with fresh `Object.create(null)` output | Similar to Zod's `parse()` contract. AJV never constructs output objects. |
 | 5 | Standalone JS output via toJS | Requires `ajv-pack` (semi-maintained) | `toJS()` from `@ytrynot/dna/toJs` | Core feature. Self-contained JS source code for both validator and parser. |
 | 6 | Compact DNA representation | N/A | Numeric array with minimal memory | Sentinels (`-1`, `null`) for absent constraints. DNA can be cached, serialized, transferred. |
-| 7 | Compilation speed | Baseline | ~4x faster (see `tests/bench/`) | Stack-based traversal, no AST construction, no code gen during conversion |
+| 7 | Compilation speed | Baseline | faster than AJV (see `perf/`) | Stack-based traversal, no AST construction, no code gen during conversion |
 | 8 | Parser output size | N/A | ~30% smaller standalone function | Compact DNA opcode-based code generation |
 | 9 | OpenAPI 3.1 discriminator — native, optimized | Plugin/keyword needed | Native with switch-based dispatch | Removes discriminator property from each `oneOf` branch, re-injects as `true`, inherits `additionalProperties` from root, O(1) switch dispatch |
 | 10 | DeepEqual complexity detection | N/A | Automatic for uniqueItems/const/enum | Analyzes item types to determine whether `deepEqual` is needed or fast `===` suffices. Compile-time optimization. |

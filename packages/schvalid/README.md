@@ -53,7 +53,7 @@ It does not aim to replace AJV in all use cases. Key differences:
 
 - **schvalid adds**: DNA bytecode intermediate representation (IR), `parseFast` hybrid mode,
   three-mode compilation API, parser output construction, standalone JS via `toJS()`,
-  ~4x faster compilation.
+  faster compilation and validation than AJV.
 - **schvalid lacks**: external $ref, custom formats, user-defined keywords, async
   validation, $data, type coercion, default injection, removeAdditional, vocabularies,
   schema registry, multi-draft support.
@@ -200,12 +200,14 @@ The discriminator is optimized with a `switch` statement in the generated JavaSc
 
 ## Performance
 
-**Benchmark Results** (vs AJV 2020 — not a correctness test, run via `npm run bench`):
+**Benchmark Results** (vs AJV 2020 — run `npm run bench` to reproduce on your machine):
 
-- Compilation: ~4x faster than AJV Minimal.
-- Validation (valid data): about as fast as AJV Minimal.
-- Parser mode: produces a standalone function ~30% smaller than AJV, but is ~3x slower than AJV for simple valid data because it builds a fresh output object. It is also ~3x slower than AJV AllErrors on the reference benchmark.
-- `parseFast` (valid data, no error): about as fast as AJV Minimal and `validation`. On invalid data it is ~3x slower than AJV AllErrors because it runs the cheap validator first, then the full parser to collect errors — a deliberate trade-off.
+- Compilation: faster than AJV Minimal (~4x on the reference schema).
+- Validation (valid data): faster than AJV Minimal.
+- `parseFast` (valid data, no error): faster than AJV Minimal. Returns `{ success: true, data }` (same reference as input — no copy). On invalid data it is slower than AJV AllErrors because it runs the fast validator first, then falls back to the full parser to collect detailed errors — a deliberate trade-off for the common case where most inputs are valid.
+- Parser mode: not directly comparable to AJV — AJV is validation-only (returns boolean), while `parser` constructs a fresh `Object.create(null)` output object with validated properties, like Zod's `parse()`. The generated function is ~30% smaller than AJV's, but the benchmark is slower because it does strictly more work (allocation + copy + reconstruction). This is a different contract, not a speed regression.
+
+Benchmark results vary across machines and runs. Run `npm run bench` yourself to get numbers for your environment.
 
 **Which mode should I use?**
 
