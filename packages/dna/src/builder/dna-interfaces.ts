@@ -185,7 +185,7 @@ export function externalsMap(externals?: tsDnaExternalsDecl): tsDnaExternals {
   if (!externals) return map;
   if (Array.isArray(externals)) {
     externals.forEach((e, i) => {
-      const n = (e as { name?: string } | null)?.name;
+      const n = e.name;
       if (!n) throw new Error("transform/refine external #" + i + " has no name; use the object form { myFn } for anonymous or minified values");
       map[n] = n;
     });
@@ -324,11 +324,11 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
       jsonSchema: {
         input: (options: StandardJSONSchemaV1.Options): Record<string, unknown> => {
           const schema = dnaToJsonSchema(this.toDna());
-          return typeof schema === 'boolean' ? {} : schema as Record<string, unknown>;
+          return typeof schema === 'boolean' ? {} : schema;
         },
         output: (options: StandardJSONSchemaV1.Options): Record<string, unknown> => {
           const schema = dnaToJsonSchema(this.toDna());
-          return typeof schema === 'boolean' ? {} : schema as Record<string, unknown>;
+          return typeof schema === 'boolean' ? {} : schema;
         }
       }
     };
@@ -383,6 +383,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @returns A new schema instance with the same state as `this`.
    */
   clone() {
+    // CAST: this.constructor is typed as Function by TS; narrowing to a constructor returning this requires a cast
     const clone = new (this.constructor as new () => this)();
     clone._core = this._core.clone();
     bindMethods(clone);
@@ -692,6 +693,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
     // .brand() adds a brand to the type for type-level discrimination
     // This is purely for TypeScript typing, no runtime effect
     // The direction parameter ("in" | "out" | "inout") controls which type gets branded
+    // CAST: conditional return types cannot be expressed at runtime; the same instance is returned regardless
     return this as PropertyKey extends T ? this : $DnaBranded<this, T, Dir>;
   }
 
@@ -814,7 +816,8 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @returns A cloned schema with a readonly output type.
    */
   readonly(): $ReadonlyReturnType<this> {
-    const r = cloner(this as unknown as DnaType<any, any>, cl => cl._core.meta.readonly = true);
+    const r = cloner(this, cl => cl._core.meta.readonly = true);
+    // CAST: cloner returns this; $ReadonlyReturnType<this> is a branded projection TS cannot derive from the return type
     return r as unknown as $ReadonlyReturnType<this>;
   }
 
@@ -1237,7 +1240,10 @@ export class DnaUnion<S extends tsDnaTupleSchemaRO> extends DnaCombinator<$Outpu
     .preSeed({ combinatorType: "anyOf" });
 
   /** Returns the union's option schemas (Zod v4 parity: `.options`). */
-  get options(): S { return this._core.seed.schemas as unknown as S; }
+  get options(): S {
+    // CAST: _core.seed.schemas is DnaSomeType[] (erased at runtime); S is the static tuple type and TS cannot verify the array-to-tuple correspondence
+    return this._core.seed.schemas as unknown as S;
+  }
 }
 
 /**
@@ -1519,6 +1525,7 @@ export class DnaLiteral<const T> extends DnaTypeWithWrappers<T, T> {
     if (Array.isArray(this._core.seed.value)) {
       throw new Error("This schema contains multiple valid literal values. Use `.values` instead.");
     }
+    // CAST: the conditional type T extends readonly any[] ? never : T cannot be resolved by TS from a runtime Array.isArray guard on a generic T
     return this._core.seed.value as T extends readonly any[] ? never : T;
   }
   get values(): Set<T> {
@@ -1620,6 +1627,7 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
           sq1 === "max" ? sq2 : null,
           sq1 === "pattern" ? (sq2 instanceof RegExp ? sq2.source : sq2) : null,
           sq1 === "format" ? sq2 : null,
+        // CAST: the array literal is inferred as a union of element types; TS cannot unify it with the fixed 4-element tuple type
         ] as [number | null, number | null, string | null, string | null],
         seqarr[3]]);
     } else if (seqarr[0] === "s") {
@@ -1888,6 +1896,7 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
     }
     const { dnaId, storeId } = this._emitChkSeq(coll, storeMark, storePosition, this._core.seed.sequence.length);
     coll.storeDNA(sDna, storeId, 0);
+    // CAST: tsSeqItem and tsDna are structurally compatible but TS cannot verify the opcode union overlap
     this._core.seed.sequence.forEach((step, i) => coll.storeDNA(step as tsDna, storeId, i + 1));
     return dnaId;
   }
@@ -2471,8 +2480,9 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
    */
   positive() {
     return cloner(this, cl => {
-      const min: any = cl._core.seed.min;
+      const min = cl._core.seed.min;
       if (min === null || (typeof min === 'bigint' ? min <= 0n : min <= 0)) {
+        // CAST: 0 is a number literal; T is generic (number|bigint) and TS cannot unify 0 with a generic numeric type
         cl._core.seed.min = 0 as T;
         cl._core.seed.exclMin = true;
       }
@@ -2485,8 +2495,9 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
    */
   nonnegative() {
     return cloner(this, cl => {
-      const min: any = cl._core.seed.min;
+      const min = cl._core.seed.min;
       if (min === null || (typeof min === 'bigint' ? min < 0n : min < 0)) {
+        // CAST: 0 is a number literal; T is generic (number|bigint) and TS cannot unify 0 with a generic numeric type
         cl._core.seed.min = 0 as T;
         cl._core.seed.exclMin = false;
       }
@@ -2499,8 +2510,9 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
    */
   negative() {
     return cloner(this, cl => {
-      const max: any = cl._core.seed.max;
+      const max = cl._core.seed.max;
       if (max === null || (typeof max === 'bigint' ? max >= 0n : max >= 0)) {
+        // CAST: 0 is a number literal; T is generic (number|bigint) and TS cannot unify 0 with a generic numeric type
         cl._core.seed.max = 0 as T;
         cl._core.seed.exclMax = true;
       }
@@ -2513,8 +2525,9 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
    */
   nonpositive() {
     return cloner(this, cl => {
-      const max: any = cl._core.seed.max;
+      const max = cl._core.seed.max;
       if (max === null || (typeof max === 'bigint' ? max > 0n : max > 0)) {
+        // CAST: 0 is a number literal; T is generic (number|bigint) and TS cannot unify 0 with a generic numeric type
         cl._core.seed.max = 0 as T;
         cl._core.seed.exclMax = false;
       }
@@ -2524,6 +2537,7 @@ export class NumberImpl<T extends number | bigint, I = unknown> extends DnaTypeW
   override get templateRegex(): string { return this._core.seed.min === null && this._core.seed.max === null && this._core.seed.multOf === null ? "-?\\d+(?:\\.\\d+)?" : "\x00"; }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
+    // CAST: state.kind is typed as string; TS cannot prove it is always a valid tsDnaOpcode
     const selfDna: tsDna = [this._core.state.kind as tsDnaOpcode, [this._core.seed.min, this._core.seed.exclMin, this._core.seed.max, this._core.seed.exclMax, this._core.seed.multOf], this.meta()];
     return coll.storeDNA(selfDna, storeMark, storePosition);
   }
@@ -2546,6 +2560,7 @@ export class DnaBigInt extends NumberImpl<bigint> {
   override get templateRegex(): string { return this._core.seed.min === null && this._core.seed.max === null && this._core.seed.multOf === null ? "-?\\d+n" : "\x00"; }
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
+    // CAST: state.kind is typed as string; TS cannot prove it is always a valid tsDnaOpcode
     const selfDna: tsDna = [this._core.state.kind as tsDnaOpcode, [this._core.seed.min, this._core.seed.exclMin, this._core.seed.max, this._core.seed.exclMax, this._core.seed.multOf], this.meta()];
     return coll.storeDNA(selfDna, storeMark, storePosition);
   }
@@ -2626,6 +2641,7 @@ export class DnaEnum<T extends tsDnaEnumLike> extends DnaTypeWithWrappers<
 
   override _core = new BaseCore<{ enumObj: T }>("enum");
 
+  // CAST: Object.values returns the constraint type, not the generic T[keyof T] which may be a narrower literal subtype
   get values(): T[keyof T][] { return Object.values(this._core.seed.enumObj) as T[keyof T][]; }
   get options(): T[keyof T][] { return Object.values(this._core.seed.enumObj) as T[keyof T][]; }
 
@@ -2638,7 +2654,9 @@ export class DnaEnum<T extends tsDnaEnumLike> extends DnaTypeWithWrappers<
    * @returns A cloned enum schema with only the extracted values.
    */
   extract(values: tsDnaEnumValueType[]) {
-    return cloner(this, cl => cl._core.seed.enumObj = Object.fromEntries(Object.entries(cl._core.seed.enumObj).filter(([k, v]) => values.includes(v))) as T);
+    return cloner(this, cl => {
+      cl._core.seed.enumObj = Object.fromEntries(Object.entries(cl._core.seed.enumObj).filter(([k, v]) => values.includes(v))) as T;
+    });
   }
   /**
    * Returns a new enum schema excluding the specified values.
@@ -2647,7 +2665,9 @@ export class DnaEnum<T extends tsDnaEnumLike> extends DnaTypeWithWrappers<
    * @returns A cloned enum schema without the excluded values.
    */
   exclude(values: tsDnaEnumValueType[]) {
-    return cloner(this, cl => cl._core.seed.enumObj = Object.fromEntries(Object.entries(cl._core.seed.enumObj).filter(([k, v]) => !values.includes(v))) as T);
+    return cloner(this, cl => {
+      cl._core.seed.enumObj = Object.fromEntries(Object.entries(cl._core.seed.enumObj).filter(([k, v]) => !values.includes(v))) as T;
+    });
   }
 
   override get templateRegex(): string {
@@ -2678,6 +2698,7 @@ export class DnaArray<S extends DnaSomeType = DnaSomeType> extends DnaTypeWithWr
 
 
   override unwrap<W extends S>(): W { //wrap for Array is not wrap for wrapper, unwrap of wrapper override until there is no wrapper anymore.
+    // CAST: itemSchema is typed as DnaSomeType (erased); W extends S but TS cannot verify the runtime subtype matches W
     return this._core.seed.itemSchema as W;
   }
 
@@ -2804,6 +2825,57 @@ export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
 }
 
 /**
+ * Negation schema: validates that the input does NOT match the inner schema.
+ * Mirrors JSON Schema's `not` keyword. Emits `["not", [innerId, jsonStr], meta]`
+ * where `jsonStr` is a stringified representation of the inner schema used by
+ * the toJs handler for error messages.
+ */
+// FIXME : fix the correct TS typing
+export class DnaNot<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
+  override _core = new BaseCore<{ inner: DnaSomeType<any, any> }>("not");
+
+  override unwrap(): DnaSomeType {
+    return this._core.seed.inner;
+  }
+
+  protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
+    const notDef: [number, string] = [-1, ""];
+    const storeId = coll.setStore(notDef);
+    this._core.rawDna = ["not", notDef];
+    const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, storeId);
+    this._core.setDnaId(coll, dnaId);
+    this._core.seed.inner.toDna(coll, storeId, 0);
+    return dnaId;
+  }
+}
+
+/**
+ * Conditional schema: validates `if` against the input; if it passes, validates
+ * `then`; if it fails, validates `else`. Mirrors JSON Schema's `if/then/else`.
+ * Emits `["ifThenElse", [ifId, thenId, elseId], meta]` where `-1` means absent.
+*/
+// FIXME : fix the correct TS typing
+export class DnaIfThenElse<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
+  override _core = new BaseCore<{ ifSchema: DnaSomeType<any, any>, thenSchema: DnaSomeType<any, any> | undefined, elseSchema: DnaSomeType<any, any> | undefined }>("ifThenElse");
+
+  override unwrap(): DnaSomeType {
+    return this._core.seed.ifSchema;
+  }
+
+  protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
+    const ifThenElseDef: [number, number, number] = [-1, -1, -1];
+    const storeId = coll.setStore(ifThenElseDef);
+    this._core.rawDna = ["ifThenElse", ifThenElseDef];
+    const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, storeId);
+    this._core.setDnaId(coll, dnaId);
+    this._core.seed.ifSchema.toDna(coll, storeId, 0);
+    if (this._core.seed.thenSchema) this._core.seed.thenSchema.toDna(coll, storeId, 1);
+    if (this._core.seed.elseSchema) this._core.seed.elseSchema.toDna(coll, storeId, 2);
+    return dnaId;
+  }
+}
+
+/**
  * Tuple schema (Zod's `z.tuple(items, rest?)`): validates fixed-length arrays
  * with one schema per position, plus an optional rest schema for extra items.
  *
@@ -2821,6 +2893,7 @@ export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> 
 
   /** Sets the rest schema for extra items beyond the fixed prefix. */
   rest<R2 extends DnaType<any, any>>(restSchema: R2): DnaTuple<S, R2> {
+    // CAST: cloner returns DnaTuple<S, R1>; the seed mutation changes the rest type to R2 but TS cannot track mutations through the callback
     return cloner(this, cl => { cl._core.seed.rest = restSchema; }) as unknown as DnaTuple<S, R2>;
   }
   /** Validates that the tuple has at least `n` items. */
@@ -3109,7 +3182,7 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
         newPropertySchemas[key] = schema;
       }
     }
-    // CAST: cloner preserves the DnaObject class but TS can't prove the omitted shape type Omit<T, K>
+    // CAST: cloner preserves the DnaObject class but TS cannot prove the omitted shape type Omit<T, K>
     return cloner(this, cl => { cl._core.seed.propertySchemas = newPropertySchemas; }) as DnaObject<Omit<T, K>>;
   }
 
@@ -3127,7 +3200,7 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
         newPropertySchemas[key] = schema;
       }
     }
-    // CAST: cloner preserves the DnaObject class but TS can't prove the picked shape type Pick<T, K>
+    // CAST: cloner preserves the DnaObject class but TS cannot prove the picked shape type Pick<T, K>
     return cloner(this, cl => { cl._core.seed.propertySchemas = newPropertySchemas; }) as DnaObject<Pick<T, K>>;
   }
 
@@ -3143,7 +3216,7 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
     for (const [key, schema] of Object.entries(shape)) {
       newPropertySchemas[key] = schema;
     }
-    // CAST: cloner preserves the DnaObject class but TS can't prove the extended shape type T & U
+    // CAST: cloner preserves the DnaObject class but TS cannot prove the extended shape type T & U
     return cloner(this, cl => { cl._core.seed.propertySchemas = newPropertySchemas; }) as unknown as DnaObject<T & U>;
   }
 
@@ -3444,7 +3517,7 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
 
   /** Returns the branch schemas (Zod v4 parity: `.options`). */
   get options(): S {
-    // CAST: S extends readonly DnaSomeType[] but _core.seed.schemas is DnaSomeType[]
+    // CAST: _core.seed.schemas is DnaSomeType[] (erased at runtime); S is the static tuple type and TS cannot verify the array-to-tuple correspondence
     return this._core.seed.schemas as unknown as S;
   }
   /** Returns the discriminator keys (auto-detected or explicit). */

@@ -91,6 +91,7 @@ import {
   DnaUnion,
   DnaXorUnion,
   DnaIntersection, DnaDiscriminatedUnion, DnaCliUnion,
+  DnaNot, DnaIfThenElse,
   DnaObject,
   DnaArray,
   DnaCodec,
@@ -271,6 +272,17 @@ export const cliUnion = <S extends tsDnaCliUnionObjects>(
     meta
   );
 };
+// FIXME : fix typescript
+export const not = (schema: DnaSomeType<unknown, unknown>, meta?: string | tsDnaMeta) =>
+  initDna(DnaNot<unknown, unknown>, { inner: schema }, meta);
+
+// FIXME : fix typescript and argumnts that could be optional
+export const ifThenElse = <TThen, IThen = unknown, TElse = TThen, IElse = IThen>(
+  ifSchema: DnaSomeType<unknown, unknown>,
+  thenSchema: DnaSomeType<TThen, IThen> | undefined,
+  elseSchema: DnaSomeType<TElse, IElse> | undefined,
+  meta?: string | tsDnaMeta
+) => initDna(DnaIfThenElse<TThen | TElse, IThen | IElse>, { ifSchema, thenSchema, elseSchema }, meta);
 
 export const record = <K extends DnaType<any, any>, V extends DnaType<any, any>>(keySchema: K, valueSchema: V, meta?: string | tsDnaMeta) =>
   initDna(DnaRecord<K, V>, { keySchema, valueSchema, type: "standard" }, meta);
@@ -424,7 +436,7 @@ export const lazy = <S extends DnaType<any, any>>(getter: () => S) => initDna(Dn
 export function custom<T>(fn: (val: any) => val is T, params?: any): DnaCustom<T, any>;
 export function custom<T>(fn: (val: any) => boolean, params?: any): DnaCustom<T, any>;
 export function custom<T>(fn: (val: any) => any, params?: any): DnaCustom<T, any> {
-  return initDna(DnaCustom<T>, { fn }).refine(fn as (value: T) => boolean, params);
+  return initDna(DnaCustom<T>, { fn }).refine(fn, params);
 }
 
 // Top-level check functions (Zod V4 style)
@@ -469,6 +481,7 @@ export const check = (fn: (value: unknown, ctx: { addIssue: (issue: { code: stri
 
 // Special constant for transform error handling (Zod V4 compatibility)
 
+// CAST: `never` is uninhabitable — TS forbids assigning any real value (including `undefined`) to it
 export const NEVER = undefined as never;
 
 

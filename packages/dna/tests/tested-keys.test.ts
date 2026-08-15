@@ -21,10 +21,14 @@ import { toJS } from "../src/toJs/dna-to-js.js";
  *   6. Branch uses the pre-bound variable instead of re-reading v[key]
  */
 
-// Helper: count hasOwn occurrences for a given key in generated JS
-// Matches Object.hasOwn(v,key) and _hop.call(v,key) (hoisted form)
+// Helper: count presence-check occurrences for a given key in generated JS.
+// Matches Object.hasOwn(v,key), _hop.call(v,key) (hoisted form), and ("key" in v).
+// The generated form depends on the `ownProperties` mode selected by `toJS`:
+//   "none" → _hop.call, "partial" → _hop.call for sensitive keys / `in` otherwise,
+//   "full" → `in` for all keys (builder default).
 function countHasOwn(js: string, key: string): number {
-	const matches = js.match(new RegExp(`(?:Object\\.hasOwn|_hop\\.call)\\(\\w+,${JSON.stringify(key)}\\)`, "g"));
+	const escapedKey = JSON.stringify(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const matches = js.match(new RegExp(`(?:Object\\.hasOwn|_hop\\.call)\\(\\w+,${escapedKey}\\)|${escapedKey}\\s+in\\s+\\w+`, "g"));
 	return matches ? matches.length : 0;
 }
 
@@ -268,8 +272,8 @@ describe("testedProp — nullable vs optional discriminator", () => {
 			dna.object({ cmd: dna.literal("deploy").nullable(), out: dna.string() }),
 		]);
 		const validateCode = toJS(true, true)(schema.toDna()).code.join("\n");
-		// nullable is NOT absent-tolerant → required in prevalidation
-		expect(validateCode).toContain('_hop.call');
+		// nullable is NOT absent-tolerant → required in prevalidation.
+		// The presence check form depends on ownProperties mode (full → `in`).
 		expect(countHasOwn(validateCode, "cmd")).toBeGreaterThanOrEqual(1);
 	});
 

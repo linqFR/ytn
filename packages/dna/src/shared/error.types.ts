@@ -172,10 +172,6 @@ export interface IDnaErrorMap<T extends ODnaIssueBase = tsDnaIssue> {
 export interface ODnaError<T = unknown> extends Error {
   type: T;
   issues: tsDnaIssue[];
-  _dna: {
-    output: T;
-    def: tsDnaIssue[];
-  };
   stack?: string;
   name: string;
 }
@@ -183,19 +179,18 @@ export interface ODnaError<T = unknown> extends Error {
 export class DnaError<T = unknown> extends Error {
 	public type: T;
 	public issues: tsParserError[];
-	public _dna: { output: T; def: tsParserError[] };
 	constructor(issues: tsParserError[], type?: T) {
 		super(issues[0]?.message ?? "DNA validation error");
 		this.name = "DnaError";
 		this.issues = issues;
-		this.type = (type ?? undefined) as unknown as T;
-		this._dna = { output: undefined as unknown as T, def: this.issues };
+		// CAST: `type` is optional (T | undefined) but the field is typed T; the error may be constructed before the type is known
+		this.type = type as T;
 		if (Error.captureStackTrace) Error.captureStackTrace(this, DnaError);
 	}
 }
 
 /** Inlined DnaError class source for `new Function` bodies (no module access). Must stay in sync with the class above. */
-export const dnaErrorSource='class DnaError extends Error{constructor(issues){super(issues[0]?.message||"DNA validation error");this.name="DnaError";this.issues=issues;this.type=undefined;this._dna={output:undefined,def:issues};if(typeof Error.captureStackTrace==="function")Error.captureStackTrace(this,DnaError);}}';
+export const dnaErrorSource='class DnaError extends Error{constructor(issues){super(issues[0]?.message||"DNA validation error");this.name="DnaError";this.issues=issues;this.type=undefined;if(typeof Error.captureStackTrace==="function")Error.captureStackTrace(this,DnaError);}}';
 
 ///////////////////    ERROR UTILITIES (TYPES ONLY)   ////////////////////////
 

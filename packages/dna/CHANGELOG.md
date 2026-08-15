@@ -1,5 +1,33 @@
 # @ytrynot/dna
 
+## 0.7.0
+
+### Minor Changes
+
+- New schema constructors and faster object validation
+  
+  - `dna.not(inner)` — negation schema, validates that the input does NOT match the inner schema.
+  - `dna.ifThenElse(if, then, else?)` — conditional schema; validates `then` when `if` passes, `else` when it fails.
+  - `fromDna()` now reconstructs `not`, `ifThenElse`, `cli`, `c`, `cD`, `_s`, `_n`, and `_a` opcodes (previously unsupported, roundtrip would crash).
+  - Object and array validation is significantly faster: ~30% on simple objects (5 keys), ~78% on nested objects, ~67% on arrays of 100 items, ~70% on discriminated unions. Average ~56% across benchmarks.
+  - `toJS(validateMode, enhancedMapper, ownProperties?)` accepts an optional third argument: `"none"` (strict own-property), `"partial"` (own-property for well-known keys, `in` otherwise), `"full"` (`in` for all keys, Zod v4 fastpath). Defaults: `"partial"` for JSON Schema conversion, `"full"` for the fluent builder.
+- 3878c3f: JSON Schema conversion: proper `const`, `enum`, `not`, and `ifThenElse` output
+  
+  - `schema.toJSONSchema()` now emits correct JSON Schema for `const` (`c`/`cD`), `enum` (`eD`), `not`, and `ifThenElse` opcodes. Previously these fell back to a generic `{ type: "object", description: "DNA opcode: ..." }` placeholder.
+  - `dna.promise()` is now formally deprecated (JSDoc), mirroring `z.promise()` deprecation in Zod v4. Kept for compatibility; prefer `await`-ing the value before parsing.
+  - New type export: `tsCompiledParts` (the `string[]` parts passed to `new Function(...parts)`) is now available from `@ytrynot/dna/core`.
+  - Compiler internals: `Set`-based body collections replaced with `Record<string, boolean>` to preserve insertion order and produce deterministic generated code across runs.
+  - Internal type rename: `tsLaberlId` → `tsLabelId` (typo fix, compiler-internal only).
+  - Removed unused `isDNA` placeholder function (never part of the public API, was a no-op returning `true`) and deleted duplicate `shared/inference.types.ts`.
+  - Cast cleanups in `fromDna`: unjustified `as any` replaced with documented `as unknown as T` casts.
+- 3878c3f: Object output: preserve explicitly-present `undefined` values (Zod v4 alignment)
+  
+  - `dna.object()`, `dna.strictObject()`, and `dna.looseObject()` now preserve optional keys with `undefined` value when the key is present in the input, matching Zod v4. Previously, standard mode stripped these keys.
+  - Object parser performance: ~3.4x faster on simple objects, ~3.7x faster on nested objects. DNA parser is now faster than Zod on all object benchmarks.
+  - `discriminatedUnion` with optional discriminator keys no longer adds an artificial `undefined` key to the output when the discriminator is absent from the input.
+  
+  BREAKING CHANGE: `safeParse().data` on standard objects now includes keys with `undefined` values when those keys were present in the input. Code that relied on `undefined`-valued optional keys being stripped must check key presence rather than value truthiness.
+
 ## 0.6.0
 
 ### Minor Changes

@@ -13,10 +13,10 @@ const __dirname = path.dirname(__filename);
 const suiteDir = path.resolve(__dirname, "./zod-test-suite");
 
 const supportedOpcodes = new Set<string>([
-  's', 'sb', 'n', 'i', 'bi', 'b', 'cidrv6', 'l', 'e', 'n0', 'undefined', 'T', 'F', 'nan',
-  'symbol', 'date', 'wrp', 'o', '_o', 'coerce', 'a', 'anyOf', 'allOf', 'oneOf', 'rcd',
+  's', '_s', 'sb', 'n', '_n', 'i', 'bi', 'b', 'cidrv6', 'l', 'c', 'cD', 'e', 'eD', 'n0', 'undefined', 'T', 'F', 'nan',
+  'symbol', 'date', 'wrp', 'o', '_o', '$o', 'coerce', 'a', '_a', 'anyOf', 'allOf', 'oneOf', 'rcd',
   'jwt', 'promise', 'discriminator', 'chkSeq', 'chkList', 'transform', 'url', 'instanceOf',
-  'ref', 'pipe', 'template', 'function',
+  'ref', 'pipe', 'template', 'function', 'not', 'ifThenElse', 'cli',
 ]);
 const supportedWrp = new Set<string>(['optional', 'nullable', 'nullish', 'nonoptional', 'exactOptional', 'default', 'prefault', 'catch']);
 
@@ -67,13 +67,33 @@ function normalizeDna(seq: tsDnaSeq): tsDna[] {
         if (typeof p[1] === 'number') out.push(p[1]);
         break;
       }
-      case 'a': {
+      case 'a':
+      case '_a': {
         const p = Array.isArray(params) ? params : [];
         for (const c of p) {
           if (Array.isArray(c) && c.length === 2 && (c[0] === 'items' || c[0] === 'contains') && typeof c[1] === 'number') {
             out.push(c[1]);
           }
         }
+        break;
+      }
+      case 'not': {
+        // DNA layout: ["not", [innerId, jsonStr], meta]
+        const p = Array.isArray(params) ? params : [];
+        if (typeof p[0] === 'number') out.push(p[0]);
+        break;
+      }
+      case 'ifThenElse': {
+        // DNA layout: ["ifThenElse", [ifId, thenId, elseId], meta]
+        const p = Array.isArray(params) ? params : [];
+        for (const v of p) if (typeof v === 'number' && v >= 0) out.push(v);
+        break;
+      }
+      case 'cli': {
+        // DNA layout: ["cli", discriminators, discriminKeys, branchDef, meta]
+        // branchDef = [prevalidationId, branch0Id, ...]
+        const branchDef = (seq[id] as tsDna)[3];
+        if (Array.isArray(branchDef)) for (const v of branchDef) if (typeof v === 'number') out.push(v);
         break;
       }
       case 'anyOf':
@@ -186,7 +206,8 @@ function normalizeDna(seq: tsDnaSeq): tsDna[] {
         newParams = [p[0], remap(p[1] as number)];
         break;
       }
-      case 'a': {
+      case 'a':
+      case '_a': {
         const p = Array.isArray(params) ? params : [];
         newParams = p.map((c: any) => {
           if (Array.isArray(c) && c.length === 2 && (c[0] === 'items' || c[0] === 'contains') && typeof c[1] === 'number') {
@@ -195,6 +216,22 @@ function normalizeDna(seq: tsDnaSeq): tsDna[] {
           return c;
         });
         break;
+      }
+      case 'not': {
+        const p = Array.isArray(params) ? params : [];
+        newParams = [typeof p[0] === 'number' ? remap(p[0]) : p[0], ...p.slice(1)];
+        break;
+      }
+      case 'ifThenElse': {
+        const p = Array.isArray(params) ? params : [];
+        newParams = p.map((v: unknown) => typeof v === 'number' && v >= 0 ? remap(v) : v);
+        break;
+      }
+      case 'cli': {
+        // DNA layout: ["cli", discriminators, discriminKeys, branchDef, meta]
+        // discriminators/discriminKeys have no DNA ids; branchDef does.
+        const branchDef = (node[3] as number[]).map((v: number) => typeof v === 'number' ? remap(v) : v);
+        return ["cli", node[1], node[2], branchDef, meta] as tsDna;
       }
       case 'anyOf':
       case 'allOf':

@@ -55,9 +55,7 @@ export type tsDnaOpcode =
 
   // Conditions
   | "not" // schema composition
-  | "if"
-  | "then"
-  | "else" // conditional schemas
+  | "ifThenElse" // combined if/then/else (emitted by schvalid)
 
   // wrappers
   | "wrp" // dnaopcode

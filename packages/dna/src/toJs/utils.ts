@@ -1,3 +1,6 @@
+import { STEP } from "../shared/const-steps.js";
+import { serializeRaw } from "../shared/utils.js";
+import type { tsDnaExternals, tsJSParentCtx, tsStackFrame } from "../types/index.js";
 
 export const PARSE_RETURN = "return errors.length?{success:false, errors}:{success:true, data};";
 export const _PARSE_RETURN = ";" + PARSE_RETURN;
@@ -32,9 +35,6 @@ export const fastMergeArrays = <T = any>(target: T[], source: T[]): T[] => {
 
 // Helper functions for DNA to JS compilation
 // These are shared between dna-js-full.ts and dna-js-builder.ts
-import { STEP } from "../shared/const-steps.js";
-import { serializeRaw } from "../shared/utils.js";
-import type { tsDnaExternals, tsJSParentCtx, tsStackFrame } from "../types/index.js";
 
 /**
  * DNA → JS CODE CONVENTIONS
@@ -76,7 +76,7 @@ export const _err = (ctx: tsJSParentCtx, _inVarName: string, path: string, msg: 
  * compile-time (codegen) check — evaluated once per `.refine()`/`.transform()`
  * during DNA→JS compilation, never at validation call time.
  */
-export const isAsyncFnStr = (fnStrTrimed: string): boolean =>{
+export const isAsyncFnStr = (fnStrTrimed: string): boolean => {
 	return /\basync\b/.test(fnStrTrimed) || /\bPromise\b/.test(fnStrTrimed);
 }
 /**
@@ -208,7 +208,7 @@ export const simpleNodeToJs = (
 		// otherwise reads in the ternary observe an undefined value.
 		const bodyExpr = _body ? "(" + _body + ")" : "";
 		const counterExpr = counter ? (Array.isArray(counter) ? "(" + counter.map(c => "(" + c + ")").join("&&") + ")" : "(" + counter + ")") : "";
-		const InAssigned = _inVarName ;
+		const InAssigned = _inVarName;
 		const trail = [bodyExpr, counterExpr, InAssigned].filter(Boolean).join("&&");
 
 		const hasOut = _outVarName.length > 0;

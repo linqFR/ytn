@@ -3,9 +3,10 @@ import * as c from '@ytrynot/dna/core';
 import { DnaMap, DnaSet } from '../builder/api-enhanced.js';
 import { getRegisteredExternals } from '@ytrynot/dna/core';
 import type { tsDnaMeta } from '../shared/meta-context.type.js';
-import type { tsDna, tsDnaId, tsDnaSeq } from '../types/core.types.js';
+import type { tsDna, tsDnaId, tsDnaOpcode, tsDnaSeq } from '../types/core.types.js';
 import type { tsPrimitiveClass, tsPrimitiveLiteral } from '../shared/base.types.js';
 import type { IDnaCollector, tsStoreMark, tsStorePosition } from '../builder/collector.types.js';
+import type { tsDnaEnumLike } from '../types/api-builder.types.ts';
 
 function isMeta(v: unknown): v is tsDnaMeta {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -21,16 +22,56 @@ function getParams(node: tsDna): unknown {
   return node[1];
 }
 
+/**
+ * Maps each DNA opcode to the static type of its `params` field (node[1]).
+ * `tsDna` uses `...any[]` for the middle elements, so `node[1]` is `any` and
+ * TS cannot infer the opcode-specific shape from a runtime string. This type
+ * provides the compile-time mapping that the runtime `switch (opcode)` enforces.
+ */
+type tsDnaParamsFor<O extends tsDnaOpcode> =
+  O extends 's' | '_s' ? [number | null, number | null, string | null, string | null]
+  : O extends 'sb' ? [string[], string[], boolean]
+  : O extends 'n' | '_n' | 'i' ? [number | null, boolean, number | null, boolean, number | null]
+  : O extends 'bi' ? [bigint | null, boolean, bigint | null, boolean, bigint | null]
+  : O extends 'date' ? [Date | null, Date | null]
+  : O extends 'wrp' ? [string, number, string, unknown]
+  : O extends 'o' | '_o' | 'a' | '_a' | 'rcd' ? [string, ...unknown[]][]
+  : O extends 'anyOf' | 'allOf' | 'oneOf' ? [string, ...number[]]
+  : O extends 'jwt' ? string | null
+  : O extends 'promise' ? number
+  : O extends 'discriminator' ? string
+  : O extends 'not' ? [number, string]
+  : O extends 'ifThenElse' ? [number, number, number]
+  : O extends 'chkSeq' | 'chkList' ? number[]
+  : O extends 'transform' ? [string, number]
+  : O extends 'url' ? [string | null, string | null, boolean]
+  : O extends 'instanceOf' ? string
+  : O extends 'coerce' ? [string, number]
+  : O extends 'e' | 'eD' ? unknown[]
+  : O extends 'c' | 'cD' | 'l' ? unknown
+  : unknown;
+
+/**
+ * Typed params extraction: returns `tsDnaParamsFor<O>` for the given opcode.
+ * The cast is centralized here (node[1] is `any` from `tsDna`'s `...any[]`);
+ * all call sites in `buildNode` receive a properly typed value.
+ */
+function paramsFor<O extends tsDnaOpcode>(opcode: O, node: tsDna): tsDnaParamsFor<O> {
+  if (node.length === 2 && isMeta(node[1])) return undefined as tsDnaParamsFor<O>;
+  // CAST: node[1] is `any` from tsDna's `...any[]` spread; the opcode→params mapping is enforced by the runtime switch but TS cannot verify it
+  return node[1] as tsDnaParamsFor<O>;
+}
+
 function reconstructFunc(fnStr: string, arity: number): (...args: unknown[]) => void {
   const args: string[] =
     arity <= 0 ? [] :
     arity === 1 ? ['ctx'] :
     arity === 2 ? ['value', 'ctx'] :
     Array.from({ length: arity }, (_, i) => `_${i}`);
-  // CAST: new Function returns Function, not a typed callable signature
+  // CAST: new Function returns Function; the concrete callable signature cannot be inferred
   const fn = new Function(...args, '') as (...args: unknown[]) => unknown;
   Object.defineProperty(fn, 'toString', { value: () => fnStr, writable: true, configurable: true });
-  // CAST: fn returns unknown but refine callbacks are typed as (...args) => void
+  // CAST: the callable returns unknown but refine callbacks expect (...args) => void; TS cannot unify the return types
   return fn as unknown as (...args: unknown[]) => void;
 }
 
@@ -70,32 +111,33 @@ class DnaTemplateReconstructed extends c.DnaTmplLiteralMutate<any> {
 
 function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any, any>, dnaList: tsDna[], id?: number, cache?: Map<number, c.DnaTypeWithWrappers<any, any>>) {
   const opcode = node[0];
-  const params = getParams(node);
   const meta = getMeta(node);
 
   switch (opcode) {
+    case '_s':
     case 's': {
-      const [min, max, pattern, format] = params as [number | null, number | null, any, any];
+      const [min, max, pattern, format] = paramsFor(opcode, node);
       return initDna(c.DnaString, { min, max, pattern, format }, meta);
     }
 
     case 'sb': {
-      const [truthy, falsy, caseSensitive] = params as [string[], string[], boolean];
+      const [truthy, falsy, caseSensitive] = paramsFor(opcode, node);
       return initDna(c.DnaStringBool, { truthy, falsy, case: caseSensitive ? 'sensitive' : 'insensitive' }, meta);
     }
 
+    case '_n':
     case 'n': {
-      const [min, exclMin, max, exclMax, multOf] = params as [number | null, boolean, number | null, boolean, number | null];
+      const [min, exclMin, max, exclMax, multOf] = paramsFor(opcode, node);
       return initDna(c.DnaNumber, { min, max, exclMin, exclMax, multOf }, meta);
     }
 
     case 'i': {
-      const [min, exclMin, max, exclMax, multOf] = params as [number | null, boolean, number | null, boolean, number | null];
+      const [min, exclMin, max, exclMax, multOf] = paramsFor(opcode, node);
       return initDna(c.DnaInt, { min, max, exclMin, exclMax, multOf }, meta);
     }
 
     case 'bi': {
-      const [min, exclMin, max, exclMax, multOf] = params as [bigint | null, boolean, bigint | null, boolean, bigint | null];
+      const [min, exclMin, max, exclMax, multOf] = paramsFor(opcode, node);
       return initDna(c.DnaBigInt, { min, max, exclMin, exclMax, multOf }, meta);
     }
 
@@ -105,15 +147,21 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
     case 'cidrv6':
       return initDna(c.DnaCidrv6, undefined, meta);
 
+    case 'c':
+    case 'cD':
     case 'l': {
-      const values = params as unknown[];
-      const value = values.length === 1 ? values[0] : values;
-      return initDna(c.DnaLiteral, { value }, meta);
+      // `l`: params is already an array of values.
+      // `c`/`cD`: params is a single value — wrap to match `l` format.
+      // DnaLiteral._rawValues normalizes the array for emission.
+      const params = paramsFor(opcode, node);
+      const values = Array.isArray(params) ? params : [params];
+      return initDna(c.DnaLiteral, { value: values }, meta);
     }
 
+    case 'eD':
     case 'e': {
-      const values = params as unknown[];
-      const enumObj = Object.fromEntries((values as unknown[]).map((v, i) => [String(i), v]));
+      const params = paramsFor(opcode, node);
+      const enumObj = Object.fromEntries(params.map((v, i) => [String(i), v]));
       return initDna(c.DnaEnum, { enumObj }, meta);
     }
 
@@ -127,8 +175,8 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       return initDna(c.DnaAny, undefined, meta);
 
     case 'F':
-      // DnaNever is not structurally assignable to DnaTypeWithWrappers<any, any>
-      // because of invariant transform/and/readonly signatures; up-cast via unknown.
+      // CAST: DnaNever has invariant transform/and/readonly method signatures that
+      // prevent structural assignment to DnaTypeWithWrappers<any,any>; TS cannot verify the subtype
       return initDna(c.DnaNever, undefined, meta) as unknown as c.DnaTypeWithWrappers<any, any>;
 
     case 'nan':
@@ -138,12 +186,12 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       return initDna(c.DnaSymbol, undefined, meta);
 
     case 'date': {
-      const [min, max] = params as [Date | null, Date | null];
+      const [min, max] = paramsFor(opcode, node);
       return initDna(c.DnaDate, { min, max }, meta);
     }
 
     case 'wrp': {
-      const [wrptype, innerId, , value] = params as [string, number, string, any];
+      const [wrptype, innerId, , value] = paramsFor(opcode, node);
       const inner = build(innerId);
       let wrapped: c.DnaTypeWithWrappers<any, any>;
       switch (wrptype) {
@@ -174,7 +222,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
 
     case 'o':
     case '_o': {
-      const constraints = params as [string, ...unknown[]][];
+      const constraints = paramsFor(opcode, node);
       const propertySchemas: Record<string, c.DnaTypeWithWrappers<any, any>> = {};
       let addPropSchema: c.DnaTypeWithWrappers<any, any> | boolean | undefined;
       let objType: 'strict' | 'loose' | 'standard' | 'object' = 'standard';
@@ -185,17 +233,23 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
 
       for (const [name, value] of constraints) {
         if (name === 'properties' || name === 'defaultProperties') {
+          // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
           for (const [key, childId] of (value as [string, number, tsDnaMeta][])) {
             propertySchemas[key] = build(childId);
           }
         } else if (name === 'required') {
+          // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
           requiredKeys = value as string[];
         } else if (name === 'keepOnly') {
           hasKeepOnly = true;
         } else if (name === 'additionalProperties') {
           if (value === false) objType = 'strict';
           else if (value === true) objType = 'loose';
-          else { objType = 'standard'; addPropSchema = build(value as number); }
+          else {
+            objType = 'standard';
+            // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
+            addPropSchema = build(value as number);
+          }
         }
       }
 
@@ -211,7 +265,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
     }
 
     case 'coerce': {
-      const [coerceCode, innerId] = params as [string, number];
+      const [coerceCode, innerId] = paramsFor(opcode, node);
       const inner = build(innerId);
       switch (coerceCode) {
         case 'toString': return initDna(c.DnaCoerceString, inner._state, meta);
@@ -224,22 +278,27 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       }
     }
 
+    case '_a':
     case 'a': {
-      const constraints = params as [string, ...unknown[]][];
+      const constraints = paramsFor(opcode, node);
       const prefixEntry = constraints.find(([name]) => name === 'prefixItems');
       if (prefixEntry) {
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         const prefixIds = prefixEntry[1] as number[];
         const itemsEntry = constraints.find(([name]) => name === 'items');
         if (!itemsEntry) throw new Error('fromDna: tuple missing items');
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         const restId = itemsEntry[1] as number | false;
         const items = prefixIds.map(build);
         const rest = restId === false ? undefined : build(restId);
         const minEntry = constraints.find(([name]) => name === 'minItems');
         const maxEntry = constraints.find(([name]) => name === 'maxItems');
         const prefixLen = prefixIds.length;
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         const minVal = minEntry ? (minEntry[1] as number) : null;
         const maxVal = maxEntry ? (maxEntry[1] as number) : null;
         // Distinguish user-specified .length() from .min()/.max()
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         const isLength = minEntry && maxEntry && (minEntry[1] as number) === (maxEntry[1] as number);
         return initDna(c.DnaTuple, {
           items,
@@ -250,39 +309,58 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
         }, meta);
       }
       const itemEntry = constraints.find(([name]) => name === 'items');
-      if (!itemEntry) throw new Error('fromDna: array missing items');
+      // `_a` (undeclared array) may have no items constraint — accept any items.
+      if (!itemEntry) {
+        if (opcode === '_a') {
+          const minEntry = constraints.find(([name]) => name === 'minItems');
+          const maxEntry = constraints.find(([name]) => name === 'maxItems');
+          return initDna(c.DnaArray, {
+            itemSchema: initDna(c.DnaAny, undefined, undefined),
+            // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
+            min: minEntry ? (minEntry[1] as number) : null,
+            // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
+            max: maxEntry ? (maxEntry[1] as number) : null,
+            length: null,
+          }, meta);
+        }
+        throw new Error('fromDna: array missing items');
+      }
       const minEntry = constraints.find(([name]) => name === 'minItems');
       const maxEntry = constraints.find(([name]) => name === 'maxItems');
       return initDna(c.DnaArray, {
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         itemSchema: build(itemEntry[1] as number),
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         min: minEntry ? (minEntry[1] as number) : null,
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         max: maxEntry ? (maxEntry[1] as number) : null,
         length: null,
       }, meta);
     }
 
     case 'anyOf': {
-      const [, ...ids] = params as [string, ...number[]];
+      const [, ...ids] = paramsFor(opcode, node);
       const schemas = ids.map(build);
       return initDna(c.DnaUnion, { schemas, combinatorType: 'anyOf' }, meta);
     }
 
     case 'allOf': {
-      const [, ...ids] = params as [string, ...number[]];
+      const [, ...ids] = paramsFor(opcode, node);
       const schemas = ids.map(build);
       return initDna(c.DnaIntersection, { schemas, combinatorType: 'allOf' }, meta);
     }
 
     case 'oneOf': {
-      const [, ...ids] = params as [string, ...number[]];
+      const [, ...ids] = paramsFor(opcode, node);
       const schemas = ids.map(build);
       return initDna(c.DnaXorUnion, { schemas, combinatorType: 'oneOf' }, meta);
     }
 
     case 'rcd': {
-      const constraints = params as [string, ...unknown[]][];
+      const constraints = paramsFor(opcode, node);
       const patternProperties = constraints.find(([name]) => name === 'patternProperties');
       if (patternProperties) {
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         const [pattern, valueId] = (patternProperties[1] as [string, number][])[0];
         const valueSchema = build(valueId);
         const keySchema = initDna(c.DnaString, { pattern: new RegExp(pattern, 'u') }, meta);
@@ -294,7 +372,9 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       if (!propertyNames || !additionalProperties) {
         throw new Error('fromDna: rcd missing propertyNames/additionalProperties');
       }
+      // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
       const keySchema = build(propertyNames[1] as number);
+      // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
       const valueSchema = build(additionalProperties[1] as number);
       const isFiniteKeys = propertyNames[2] === 'string';
       const type = (required || !isFiniteKeys) ? 'standard' : 'partial';
@@ -302,24 +382,26 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
     }
 
     case 'jwt':
-      return initDna(c.DnaJwt, { alg: params as string | null }, meta);
+      return initDna(c.DnaJwt, { alg: paramsFor(opcode, node) }, meta);
 
     case 'promise': {
-      const innerId = params as number;
+      const innerId = paramsFor(opcode, node);
       return initDna(c.DnaPromise, { inner: build(innerId) }, meta);
     }
 
     case 'discriminator': {
-      const discriminatorName = params as string;
+      const discriminatorName = paramsFor(opcode, node);
+      // CAST: tsDna uses `...any[]` for middle elements; node[2] is `any` and the cast annotates the discriminKeys type for this opcode
       const discriminKeys = node[2] as (tsPrimitiveLiteral | tsPrimitiveLiteral[])[];
+      // CAST: tsDna uses `...any[]` for middle elements; node[3] is `any` and the cast annotates the branchDef type for this opcode
       const discriminDef = node[3] as number[];
       const schemas = discriminDef.slice(1).map((refId, i) => {
-        // CAST: build() returns DnaTypeWithWrappers<any,any> but discriminator branches are DnaObject by DNA construction
+        // CAST: build returns DnaTypeWithWrappers<any,any>; TS cannot infer the concrete DnaObject subclass from a runtime child id
         const built = build(refId) as unknown as c.DnaObject;
         // Clone the branch: multiple branches may share the same DNA index
         // (identical except for the discriminant), so without cloning we'd
         // mutate the same cached instance repeatedly.
-        // CAST: cloner returns a broad type but the clone of a DnaObject is a DnaObject
+        // CAST: cloner is typed as returning DnaType<any,any>; the clone preserves the specific subtype but TS cannot track this
         const branch = c.cloner(built, () => {}) as unknown as c.DnaObject;
         // Reconstruct the discriminator schema from discriminKeys.
         // discriminKeys[i] is either a primitive (single const) or an array (enum/multi-literal).
@@ -352,29 +434,70 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       return initDna(c.DnaDiscriminatedUnion, { discriminator: discriminatorName, schemas }, meta);
     }
 
+    case 'not': {
+      // DNA format: ["not", [innerId, jsonStr], meta]
+      const [innerId] = paramsFor(opcode, node);
+      return initDna(c.DnaNot, { inner: build(innerId) }, meta);
+    }
+
+    case 'ifThenElse': {
+      // DNA format: ["ifThenElse", [ifId, thenId, elseId], meta]
+      // -1 means absent (no then/else branch).
+      const [ifId, thenId, elseId] = paramsFor(opcode, node);
+      return initDna(c.DnaIfThenElse, {
+        ifSchema: build(ifId),
+        thenSchema: thenId >= 0 ? build(thenId) : undefined,
+        elseSchema: elseId >= 0 ? build(elseId) : undefined,
+      }, meta);
+    }
+
+    case 'cli': {
+      // DNA format: ["cli", discriminators, discriminKeys, branchDef, meta]
+      // branchDef = [prevalidationId, branch0Id, branch1Id, ...]
+      // prevalidation is an internal object schema (type/required check) —
+      // not part of the public schema, so we skip it and reconstruct only
+      // the branch schemas. positionals cannot be recovered from DNA alone
+      // (it's a builder-side concept), so we leave it empty.
+      // CAST: tsDna uses `...any[]` for middle elements; node[1] is `any` and the cast annotates the discriminators type for this opcode
+      const discriminators = node[1] as string[];
+      // CAST: tsDna uses `...any[]` for middle elements; node[3] is `any` and the cast annotates the branchDef type for this opcode
+      const branchDef = node[3] as number[];
+      const branchIds = branchDef.slice(1);
+      const schemas = branchIds.map(build);
+      return initDna(c.DnaCliUnion, { schemas, discriminators, positionals: [] }, meta);
+    }
+
     case 'chkSeq': {
-      const ids = params as number[];
+      const ids = paramsFor(opcode, node);
       const [innerId, ...checkIds] = ids;
       let inner = build(innerId);
       for (const checkId of checkIds) {
         const checkNode = dnaList[checkId];
+        // CAST: tsDna uses `...any[]` for middle elements; checkNode[1] is `any` and the cast annotates the step params array type
         const stepParams = checkNode[1] as unknown[];
         const stepMeta = getMeta(checkNode);
-        const stepOp = checkNode[0] as string;
+        const stepOp = checkNode[0];
         if (stepOp === 'sb') {
           inner = build(checkId);
           continue;
         }
+        // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
         const kind = stepParams[0] as string;
+        // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime opcode check
         const stepItemMeta = stepOp === 's' ? stepParams[2] as tsDnaMeta | undefined : stepMeta;
         if (kind === 'property') {
+          // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
           const key = stepParams[1] as string | number;
+          // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
           const schema = build(stepParams[2] as number);
           const prop = initDna(c.DnaCheckProperty, { property: key, schema }, stepMeta);
           inner = inner.check(prop);
         } else if (kind === 'func') {
+          // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
           const fnStr = stepParams[1] as string;
+          // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
           const arity = stepParams[2] as number;
+          // CAST: reconstructFunc returns (...args:unknown[])=>void; check expects (ctx)=>void and TS cannot verify the overload narrowing
           inner = inner.check(reconstructFunc(fnStr, arity) as unknown as (ctx: unknown) => void);
           if (stepMeta) inner = inner.meta(stepMeta);
         } else if (inner instanceof c.DnaString) {
@@ -386,10 +509,16 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
             case 'normalize': inner = str.normalize(); break;
             case 'uppercase': inner = str.uppercase(stepItemMeta); break;
             case 'lowercase': inner = str.lowercase(stepItemMeta); break;
-            case 'startsWith': inner = str.startsWith(JSON.parse(stepParams[1] as string), stepItemMeta); break;
-            case 'endsWith': inner = str.endsWith(JSON.parse(stepParams[1] as string), stepItemMeta); break;
+            case 'startsWith':
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
+              inner = str.startsWith(JSON.parse(stepParams[1] as string), stepItemMeta); break;
+            case 'endsWith':
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
+              inner = str.endsWith(JSON.parse(stepParams[1] as string), stepItemMeta); break;
             case 'includes': {
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
               const inc = JSON.parse(stepParams[1] as string) as string;
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
               const position = stepParams[2] as number | undefined;
               if (position !== undefined) {
                 inner = str.includes(inc, stepItemMeta ? { ...stepItemMeta, position } : { position });
@@ -398,11 +527,21 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
               }
               break;
             }
-            case 'min': inner = str.min(stepParams[1] as number, stepItemMeta); break;
-            case 'max': inner = str.max(stepParams[1] as number, stepItemMeta); break;
-            case 'length': inner = str.length(stepParams[1] as number, stepItemMeta); break;
-            case 'pattern': inner = str.pattern(new RegExp(stepParams[1] as string, 'u'), stepItemMeta); break;
-            case 'format': inner = str._format(stepParams[1] as string, stepItemMeta); break;
+            case 'min':
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
+              inner = str.min(stepParams[1] as number, stepItemMeta); break;
+            case 'max':
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
+              inner = str.max(stepParams[1] as number, stepItemMeta); break;
+            case 'length':
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
+              inner = str.length(stepParams[1] as number, stepItemMeta); break;
+            case 'pattern':
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
+              inner = str.pattern(new RegExp(stepParams[1] as string, 'u'), stepItemMeta); break;
+            case 'format':
+              // CAST: stepParams is unknown[]; TS cannot narrow element types by position from a runtime check kind
+              inner = str._format(stepParams[1] as string, stepItemMeta); break;
             default:
               throw new Error(`fromDna: refine check kind not implemented: ${kind}`);
           }
@@ -414,7 +553,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
     }
 
     case 'chkList': {
-      const ids = params as number[];
+      const ids = paramsFor(opcode, node);
       let inner = build(ids[0]);
       for (let i = 1; i < ids.length; i++) {
         inner = inner.and(build(ids[i]));
@@ -423,17 +562,18 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
     }
 
     case 'transform': {
-      const [fnStr, arity] = params as [string, number];
+      const [fnStr, arity] = paramsFor(opcode, node);
       return initDna(c.DnaTransform, { fnStr, arity }, meta);
     }
 
     case 'url': {
-      const [protocolSerialized, hostnameSerialized, normalize] = (params as [string | null, string | null, boolean]);
+      const [protocolSerialized, hostnameSerialized, normalize] = paramsFor(opcode, node);
       return initDna(c.DnaUrl, { protocol: regexFromString(protocolSerialized), hostname: regexFromString(hostnameSerialized), normalize: normalize ?? false }, meta);
     }
 
     case 'instanceOf': {
-      const constructorName = params as string;
+      const constructorName = paramsFor(opcode, node);
+      // CAST: externals registry is typed as Record<string, unknown>; the constructor type cannot be inferred from the lookup
       const constructor = getRegisteredExternals()[constructorName] as tsPrimitiveClass;
       if (!constructor) throw new Error(`fromDna: external constructor not registered: ${constructorName}`);
       return initDna(c.DnaInstanceOf, { constructor }, meta);
@@ -442,13 +582,17 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
     case 'template': {
       // DNA layout: ["template", passiveParts, partIds, canMutate, meta?]
       // passiveParts, partIds, canMutate are direct node elements (not nested in params)
+      // CAST: tsDna uses `...any[]` for middle elements; node[1] is `any` and the cast annotates the passiveParts type for this opcode
       const passiveParts = node[1] as tsPrimitiveLiteral[];
+      // CAST: tsDna uses `...any[]` for middle elements; node[2] is `any` and the cast annotates the partIds type for this opcode
       const partIds = node[2] as number[];
+      // CAST: node[3] is typed as any from tsDna; TS cannot narrow by opcode since the index is a runtime string
       const canMutate = node[3] as boolean;
       const schemaParts: c.DnaType<any>[] = [];
       for (const partId of partIds) {
         schemaParts.push(build(partId));
       }
+      // CAST: initDna returns the base class type; the concrete subclass cannot be inferred from the class argument
       const inst = initDna(DnaTemplateReconstructed, { parts: [] }, meta) as DnaTemplateReconstructed;
       inst._reconstructedPassiveParts = passiveParts;
       inst._reconstructedSchemaParts = schemaParts;
@@ -458,6 +602,7 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
 
     case 'function': {
       // DNA layout: ["function", [inputDnaId, outputDnaId], meta?]
+      // CAST: tsDna uses `...any[]` for middle elements; node[1] is `any` and the cast annotates the ids type for this opcode
       const ids = node[1] as number[];
       const inputSchema = build(ids[0]);
       const outputSchema = build(ids[1]);
@@ -472,15 +617,18 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
 
 export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, any>>(seq: tsDnaSeq): S {
   const refListRaw = seq[seq.length - 1];
+  // CAST: tsDnaSeq is a fixed tuple type; TS cannot narrow the spread from a runtime Array.isArray check
   const dnaList = (Array.isArray(refListRaw) ? seq.slice(0, -1) : seq) as tsDna[];
   const cache = new Map<number, c.DnaTypeWithWrappers<any, any>>();
 
   function extractMapSet(seqNode: tsDna): c.DnaTypeWithWrappers<any, any> | undefined {
+    // CAST: getParams returns unknown (generic across all opcodes); TS cannot narrow to the opcode-specific array from a runtime string
     const stepIds = getParams(seqNode) as number[];
     const steps: tsDna[] = [];
     function add(id: number) {
       const n = dnaList[id];
       if (n[0] === 'pipe') {
+        // CAST: getParams returns unknown (generic across all opcodes); TS cannot narrow to the opcode-specific array from a runtime string
         const children = getParams(n) as number[];
         for (const child of children) add(child);
       } else {
@@ -494,12 +642,15 @@ export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, a
     let ctor: string;
     let chk: tsDna | undefined;
     if (instance[0] === 'chkSeq') {
+      // CAST: node[1] is typed as any from tsDna; TS cannot narrow by opcode since the index is a runtime string
       const ids = instance[1] as number[];
       const instanceOfNode = dnaList[ids[0]];
       if (instanceOfNode[0] !== 'instanceOf') return undefined;
+      // CAST: node[1] is typed as any from tsDna; TS cannot narrow by opcode since the index is a runtime string
       ctor = instanceOfNode[1] as string;
       chk = instance;
     } else {
+      // CAST: node[1] is typed as any from tsDna; TS cannot narrow by opcode since the index is a runtime string
       ctor = instance[1] as string;
       chk = steps.find(n => n[0] === 'chkSeq');
     }
@@ -509,13 +660,18 @@ export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, a
     let size: number | null = null;
     const check = chk;
     if (check) {
+      // CAST: node[1] is typed as any from tsDna; TS cannot narrow by opcode since the index is a runtime string
       const checkIds = check[1] as number[];
       const checkNode = dnaList[checkIds[1]];
+      // CAST: node[1] is typed as any from tsDna; TS cannot narrow by opcode since the index is a runtime string
       const checkDef = checkNode[1] as unknown[];
       if (checkDef[0] === 'property' && checkDef[1] === 'size') {
+        // CAST: checkDef is unknown[]; TS cannot narrow element types by position from a runtime property check
         const num = build(checkDef[2] as number);
         if (num instanceof c.DnaNumber) {
+          // CAST: _state is a generic internal type; TS cannot narrow the field type from a runtime instanceof check
           const numMin = num._state.min as number | null;
+          // CAST: _state is a generic internal type; TS cannot narrow the field type from a runtime instanceof check
           const numMax = num._state.max as number | null;
           if (numMin === numMax && numMin !== null) size = numMin;
           else { min = numMin; max = numMax; }
@@ -528,12 +684,15 @@ export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, a
     if (ctor === 'Map') {
       const rcd = steps.find(n => n[0] === 'rcd');
       if (!rcd) return undefined;
+      // CAST: getParams returns unknown (generic across all opcodes); TS cannot narrow to the constraint array tuple from a runtime string
       const rcdParams = getParams(rcd) as [string, ...unknown[]][];
       const propertyNames = rcdParams.find(([name]) => name === 'propertyNames');
       const additionalProperties = rcdParams.find(([name]) => name === 'additionalProperties');
       if (!propertyNames || !additionalProperties) return undefined;
       return initDna(DnaMap, {
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         keySchema: build(propertyNames[1] as number),
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         valueSchema: build(additionalProperties[1] as number),
         min, max, size,
       }, instanceMeta);
@@ -542,10 +701,12 @@ export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, a
     if (ctor === 'Set') {
       const arr = steps.find(n => n[0] === 'a');
       if (!arr) return undefined;
+      // CAST: getParams returns unknown (generic across all opcodes); TS cannot narrow to the constraint array tuple from a runtime string
       const arrParams = getParams(arr) as [string, ...unknown[]][];
       const itemEntry = arrParams.find(([name]) => name === 'items');
       if (!itemEntry) return undefined;
       return initDna(DnaSet, {
+        // CAST: constraint array elements are unknown from the [string, ...unknown[]] cast; TS cannot narrow the element type from a runtime constraint name
         itemSchema: build(itemEntry[1] as number),
         min, max, size,
       }, instanceMeta);
@@ -561,6 +722,7 @@ export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, a
     const node = dnaList[id];
     const meta = getMeta(node);
     if (node[0] === 'ref') {
+      // CAST: node[1] is typed as any from tsDna; TS cannot narrow by opcode since the index is a runtime string
       const targetId = node[1] as number;
       // If the target is itself a ref/lazy node, share its reconstructed DnaLazy.
       if (dnaList[targetId]?.[0] === 'ref') {
@@ -591,6 +753,7 @@ export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, a
       }
       const inst = initDna(c.DnaPipe, {}, meta);
       cache.set(id, inst);
+      // CAST: getParams returns unknown (generic across all opcodes); TS cannot narrow to the opcode-specific array from a runtime string
       const stepIds = getParams(node) as number[];
       inst._state.steps = stepIds.map(stepId => build(stepId));
       return inst;
@@ -608,6 +771,6 @@ export function fromDna<S extends c.DnaSomeType<any, any> = c.DnaSomeType<any, a
 
   const finalBuild = build(0);
   // S defaults to DnaSomeType<any, any>; callers can narrow via explicit type arg.
-  // CAST: DNA bytecode carries no compile-time type info, S is provided by the caller
+  // CAST: DNA bytecode carries no compile-time type info; S is caller-provided and TS cannot verify the runtime reconstruction matches S
   return finalBuild as unknown as S;
 }

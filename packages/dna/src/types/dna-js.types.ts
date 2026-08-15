@@ -23,6 +23,42 @@ export type tsJSFuncReturn = string;
 export type tsJSFuncReturnLong = [string, string];
 
 /**
+ * @type tsOwnPropertiesMode
+ * @description Presence-check strategy for `ownProperties` option of `toJS`.
+ *
+ * - `"none"`: always use `_hop.call(v,key)` (Object.prototype.hasOwnProperty).
+ *   Strict own-property semantics. Required for JSON Schema Test Suite
+ *   compliance when not using `"partial"`.
+ * - `"partial"`: use `_hop.call` for the 12 well-known Object.prototype
+ *   member names (`__proto__`, `toString`, `constructor`, `hasOwnProperty`,
+ *   `valueOf`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`,
+ *   `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`,
+ *   `__lookupSetter__`), and `"key" in v` for all other keys. Passes the
+ *   JSON Schema Test Suite while gaining `in` performance on the common
+ *   case (non-Object.prototype key names).
+ * - `"full"`: always use `("key" in v)`. Matches Zod v4 fastpath behavior
+ *   (see `packages/zod/src/v4/core/schemas.ts` `$ZodObjectJIT` L2088).
+ *   `toString`/`constructor`/etc. collisions with Object.prototype are
+ *   treated as alignment with Zod, not as bugs.
+ *
+ * Default: `"partial"` when `enhancedMapper === false` (schvalid),
+ * `"full"` when `enhancedMapper === true` (builder).
+ */
+export type tsOwnPropertiesMode = "none" | "partial" | "full";
+
+/**
+ * @type tsPresenceCheckFn
+ * @description Compile-time factory that returns the JavaScript expression
+ * string used for property-presence checks in generated code. The returned
+ * string is inlined at each presence-check site (6 INPUT sites in
+ * `dna-js-json.ts`). The keepOnly copy loop (L1143, OUTPUT site) always
+ * uses `_hop.call` directly and does NOT call this function — it checks
+ * own-property presence on a temp output object, where `in` would
+ * incorrectly see inherited Object.prototype members on `{}`.
+ */
+export type tsPresenceCheckFn = (inVar: string, key: string, steps?: tsStackFrame[]) => string;
+
+/**
  * @type tsJSParentCtx
  * @description Parent context for DNA→JS code generation
  */
@@ -177,10 +213,28 @@ export type tsJSFn = tsJSStepString | tsStackFrame[];
 export type tsLabelId = (_?: 0 | 1) => number;
 
 /**
+ * @type tsUtils
+ * @description Shared utilities passed to every DNA→JS code generation handler.
+ * Replaces the former standalone `labelId` parameter. Grouping `labelId` and
+ * `presenceCheck` into a single object avoids growing the positional parameter
+ * list of `tsFnDNA` each time a new compile-time utility is added.
+ *
+ * `hopcall` is the shared `_hop.call` expression generator with lazy hoisting:
+ * on first call it pushes `STEP.OUT_CONST` for `_hop=Object.prototype.hasOwnProperty`,
+ * then returns the `_hop.call(v,"k")` string. Used by `presenceCheck` in `"partial"`
+ * mode (for sensitive keys) and by the keepOnly copy loop in the object handler.
+ */
+export type tsUtils = {
+	labelId: tsLabelId;
+	presenceCheck: tsPresenceCheckFn;
+	hopcall: tsPresenceCheckFn;
+};
+
+/**
  * @type tsFnDNA
  * @description DNA function signature for code generation
  */
-export type tsFnDNA = (args: any[], inputVarName: string, outputVarName: string, pathVar: string, labelId?: tsLabelId, parentCtx?: tsJSParentCtx) => tsJSFn;
+export type tsFnDNA = (args: any[], inputVarName: string, outputVarName: string, pathVar: string, utils?: tsUtils, parentCtx?: tsJSParentCtx) => tsJSFn;
 
 /**
  * @type tsMapper
