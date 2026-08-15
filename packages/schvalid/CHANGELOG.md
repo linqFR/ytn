@@ -1,5 +1,21 @@
 # @ytrynot/schvalid
 
+## 0.3.6
+
+### Patch Changes
+
+- Faster validation via inherited DNA presence-check optimization
+  
+  - Object and array validation is significantly faster: ~30% on simple objects (5 keys), ~78% on nested objects, ~67% on arrays of 100 items, ~70% on discriminated unions. Average ~56% across benchmarks.
+  - JSON Schema Test Suite compliance is preserved (2713 passed, 88 skipped — same as before).
+- 3878c3f: `__proto__` safety: documentation and empirical test coverage
+  
+  - `docs/ajv-comparison.md`: added a dedicated `__proto__` safety section comparing AJV's `allSchemaProperties()` filter approach with schvalid's `Object.create(null)` architectural approach. Documents that AJV filters `__proto__` from schema properties (cannot validate it as a declared property) while schvalid preserves and validates it with zero runtime overhead (codegen-time `hasProtoDeclared` check in DNA).
+  - `tests/schemas/proto-safety.test.ts`: new 8-test suite verifying empirically that `Object.prototype` is not polluted after parsing malicious `JSON.parse` inputs containing `__proto__` keys. Covers parser mode, validator mode, fast mode, nested `__proto__`, array items, strict `additionalProperties: false`, and null-prototype output verification.
+  
+- Updated dependencies
+  - @ytrynot/dna@0.7.0
+
 ## 0.3.5
 
 ### Patch Changes
