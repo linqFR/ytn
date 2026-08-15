@@ -14,6 +14,44 @@ Therefore, every performance characteristic of `@ytrynot/schvalid` is inherited 
 
 The sections below (notably **DNA Opcodes** and the generated-code examples routed through `@ytrynot/schvalid`'s `jschemaToDna`) describe this shared contract from the DNA side.
 
+## Presence-check strategies (`toJS` `ownProperties` option)
+
+The `toJS(validateMode, enhancedMapper, ownProperties?)` function accepts an optional third argument that controls how property presence is checked in generated validation/parser code. This affects 6 input sites in `dna-js-json.ts` (required keys, optional keys, dependentRequired, etc.). The keepOnly output-copy loop always uses `_hop.call` directly and is not affected by this option.
+
+### Modes
+
+| Mode | Check expression | Default for | JSON Schema Test Suite |
+|------|-----------------|-------------|------------------------|
+| `"hasown"` | `_hop.call(v, key)` for all keys | — (opt-in) | ✅ compliant |
+| `"in-filtered"` | `_hop.call` for the 12 `Object.prototype` member names, `("key" in v)` for all other keys | `@ytrynot/schvalid` (`enhancedMapper === false`) | ✅ compliant |
+| `"in-object"` | `("key" in v)` for all keys | DNA builder (`enhancedMapper === true`) | ❌ not compliant (see below) |
+
+### Sensitive keys
+
+The 12 well-known `Object.prototype` own-property names that require `_hop.call` in `"in-filtered"` mode:
+
+`__proto__`, `toString`, `constructor`, `hasOwnProperty`, `valueOf`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__`
+
+These are the keys where `in` would see an inherited `Object.prototype` member on a plain `{}` and incorrectly report the key as present. The set is fixed by the ECMAScript specification (since ES2015) and is defined as the `SENSITIVE` map in `src/toJs/dna-to-js.ts`.
+
+### Why `"in-object"` fails the JSON Schema Test Suite
+
+The Test Suite includes a group titled *"properties whose names are Javascript object property names"* with the comment: *"Ensure JS implementations don't universally consider e.g. __proto__ to always be present in an object."*
+
+With `"in-object"`, `"toString" in {}` returns `true` (inherited from `Object.prototype`), so:
+- `required: ["toString"]` on `{}` passes (should fail — `toString` is not an own property)
+- `properties: { toString: { type: "number" } }` on `{}` triggers validation of `Object.prototype.toString` (a function) against `type: "number"` (should not apply — `toString` is not an own property)
+
+`"in-filtered"` avoids this by using `_hop.call` for these 12 keys, while keeping `in` performance for all other keys.
+
+### Performance
+
+`"in-filtered"` and `"in-object"` are both significantly faster than `"hasown"` (~56–66% on the reference schema) because `in` avoids the `Object.prototype.hasOwnProperty` lookup + `.call` overhead on the common path. `"in-filtered"` is the fastest JSON Schema Test Suite compliant mode. `"in-object"` is slightly slower (within noise) and not compliant.
+
+### `_hop` hoisting
+
+When `_hop.call` is used (in `"hasown"` mode, or for sensitive keys in `"in-filtered"` mode), DNA hoists `Object.prototype.hasOwnProperty` into a `_hop` variable in the outer closure (`STEP.OUT_CONST`), giving ~17% speedup over `Object.hasOwn` with identical own-property semantics.
+
 ## DNA Format Specification
 
 ### DNA Structure

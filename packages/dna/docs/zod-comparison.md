@@ -459,7 +459,7 @@ All DNA object modes preserve explicitly-present `undefined` values, matching Zo
 | `{ name: "x", age: 42, active: undefined }` | `{ name, age, active: undefined }` (3 keys) | `{ name, age, active: undefined }` (3 keys) | `{ name, age, active: undefined }` (3 keys) | `{ name, age, active: undefined }` (3 keys) |
 | `{ name: "x", age: 42 }` (active absent) | `{ name, age }` (2 keys) | `{ name, age }` (2 keys) | `{ name, age }` (2 keys) | `{ name, age }` (2 keys) |
 
-No divergence on `undefined` handling — both preserve present-`undefined` and keep absent keys absent. The divergence is in the **presence detection mechanism**: Zod uses `key in input` (traverses prototype chain), DNA uses `Object.hasOwn(v, key)` (own properties only). See [Presence detection: `in` vs `Object.hasOwn`](#presence-detection-in-vs-objecthasown) below.
+No divergence on `undefined` handling — both preserve present-`undefined` and keep absent keys absent. The divergence is in the **presence detection mechanism**: Zod uses `key in input` (traverses prototype chain), DNA defaults to `in` for the builder (`"in-object"` mode) or `in` + `_hop.call` for sensitive keys (`"in-filtered"` mode for schvalid). See [Presence detection: `in` vs `Object.hasOwn`](#presence-detection-in-vs-objecthasown) below.
 
 ### Object output: prototype-chain properties
 
@@ -471,7 +471,7 @@ No divergence on `undefined` handling — both preserve present-`undefined` and 
 
 **Zod v4** uses `key in input` (traverses the prototype chain) for both presence and unknown-key detection. Inherited properties are treated as unknowns: rejected in strict, preserved in loose.
 
-**DNA** uses `Object.hasOwn` (own properties only) and `Object.keys` (own enumerable only). Inherited properties are invisible: not rejected in strict, not preserved in loose.
+**DNA** uses `Object.keys` (own enumerable only) for unknown-key detection in strict/loose object modes. For property-presence checks, the strategy depends on the `ownProperties` mode (see [Presence detection](#presence-detection-in-vs-objecthasown) below): `"in-object"` uses `in` (like Zod), `"in-filtered"` uses `in` for normal keys and `_hop.call` for `Object.prototype` members, `"hasown"` uses `_hop.call` for all keys. Inherited properties are invisible in `"hasown"`/`"in-filtered"` modes; visible in `"in-object"` mode (like Zod).
 
 **Practical impact**: an input built via `Object.create(proto)` with routing/extra keys on the prototype will be treated differently. DNA ignores prototype-level keys; Zod sees them.
 
@@ -530,12 +530,18 @@ No divergence on `undefined` handling — both preserve present-`undefined` and 
 
 **Zod v4** uses `key in input` for presence detection (`handlePropertyResult` line 715, JIT fastpath line 905). This traverses the prototype chain — intentional, to support objects with prototypes.
 
-**DNA** uses `Object.prototype.hasOwnProperty.call(v, key)` (hoisted as `_hop`) for presence detection (required keys, optional keys). This is own-properties-only — inherited keys are invisible.
+**DNA** offers three presence-check strategies via the `ownProperties` option of `toJS` (see `docs/technical.md` → "Presence-check strategies"):
+
+| Mode | `in` vs `_hop.call` | Default for |
+|------|---------------------|-------------|
+| `"hasown"` | `_hop.call(v, key)` for all keys | — (opt-in) |
+| `"in-filtered"` | `_hop.call` for the 12 `Object.prototype` member names, `in` for all other keys | `@ytrynot/schvalid` (`enhancedMapper === false`) |
+| `"in-object"` | `("key" in v)` for all keys | DNA builder (`enhancedMapper === true`) |
+
+The `"in-object"` mode matches Zod v4's fastpath behavior exactly. The `"in-filtered"` mode gains the same `in` performance on normal key names while falling back to own-property checks for the 12 well-known `Object.prototype` members (see `docs/technical.md` for compliance details).
 
 **Performance nuance**: `in` is ~20–30x faster than `Object.hasOwn` only in the **monomorphic fast path** — a plain object with `Object.prototype` where the key is an own property present. V8 can inline the hidden-class lookup. In all other scenarios (absent key, null-proto object, inherited key, proto-chain key), `in` must traverse the prototype chain and becomes **comparable to or slower than** `Object.hasOwn`, which has stable ~130ms/10M-ops cost regardless of scenario.
 
-**DNA optimization**: DNA hoists `Object.prototype.hasOwnProperty` into a `_hop` variable in the outer closure (`STEP.OUT_CONST`), giving ~17% speedup over `Object.hasOwn` with identical own-property semantics. This is faster than `Object.hasOwn` in all scenarios and avoids the prototype-chain traversal of `in`.
+**DNA optimization**: when `_hop.call` is used (`"hasown"` or `"in-filtered"` for sensitive keys), DNA hoists `Object.prototype.hasOwnProperty` into a `_hop` variable in the outer closure (`STEP.OUT_CONST`), giving ~17% speedup over `Object.hasOwn` with identical own-property semantics.
 
 **Note**: `in` works correctly with all Unicode planes (BMP, SMP, TIP, Plane 14, surrogate pairs, combining characters, solo surrogates). The claim that "`in` does not work with UTF-16" is false — confirmed empirically.
-
-**Decision**: DNA uses hoisted `Object.prototype.hasOwnProperty.call` (as `_hop`) globally. The ~20–30x speedup of `in` on the monomorphic fast path is real but confined to required-key checks on plain objects; optional-key checks (absent keys) are actually slower with `in`. Combined with the semantic risks (inherited properties satisfying `required`, `__proto__` always visible via `in`, prototype-pollution exposure), own-property semantics remain preferable for JSON Schema compliance and security. A codegen option `assumePlainObjects` could selectively use `in` for required-key checks in the future — see SWOT analysis in `mailbox-2026-08-14-session2.md` (session 5).

@@ -24,8 +24,8 @@ import { toJS } from "../src/toJs/dna-to-js.js";
 // Helper: count presence-check occurrences for a given key in generated JS.
 // Matches Object.hasOwn(v,key), _hop.call(v,key) (hoisted form), and ("key" in v).
 // The generated form depends on the `ownProperties` mode selected by `toJS`:
-//   "none" → _hop.call, "partial" → _hop.call for sensitive keys / `in` otherwise,
-//   "full" → `in` for all keys (builder default).
+//   "hasown" → _hop.call, "in-filtered" → _hop.call for sensitive keys / `in` otherwise,
+//   "in-object" → `in` for all keys (builder default).
 function countHasOwn(js: string, key: string): number {
 	const escapedKey = JSON.stringify(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	const matches = js.match(new RegExp(`(?:Object\\.hasOwn|_hop\\.call)\\(\\w+,${escapedKey}\\)|${escapedKey}\\s+in\\s+\\w+`, "g"));
@@ -273,7 +273,7 @@ describe("testedProp — nullable vs optional discriminator", () => {
 		]);
 		const validateCode = toJS(true, true)(schema.toDna()).code.join("\n");
 		// nullable is NOT absent-tolerant → required in prevalidation.
-		// The presence check form depends on ownProperties mode (full → `in`).
+		// The presence check form depends on ownProperties mode (in-object → `in`).
 		expect(countHasOwn(validateCode, "cmd")).toBeGreaterThanOrEqual(1);
 	});
 

@@ -10,7 +10,7 @@
   - `dna.ifThenElse(if, then, else?)` — conditional schema; validates `then` when `if` passes, `else` when it fails.
   - `fromDna()` now reconstructs `not`, `ifThenElse`, `cli`, `c`, `cD`, `_s`, `_n`, and `_a` opcodes (previously unsupported, roundtrip would crash).
   - Object and array validation is significantly faster: ~30% on simple objects (5 keys), ~78% on nested objects, ~67% on arrays of 100 items, ~70% on discriminated unions. Average ~56% across benchmarks.
-  - `toJS(validateMode, enhancedMapper, ownProperties?)` accepts an optional third argument: `"none"` (strict own-property), `"partial"` (own-property for well-known keys, `in` otherwise), `"full"` (`in` for all keys, Zod v4 fastpath). Defaults: `"partial"` for JSON Schema conversion, `"full"` for the fluent builder.
+  - `toJS(validateMode, enhancedMapper, ownProperties?)` accepts an optional third argument: `"hasown"` (strict own-property via `Object.prototype.hasOwnProperty`), `"in-filtered"` (`in` for normal keys, `hasOwn` for the 12 well-known `Object.prototype` member names), `"in-object"` (`in` for all keys, Zod v4 fastpath). Defaults: `"in-filtered"` for JSON Schema conversion, `"in-object"` for the fluent builder.
 - 3878c3f: JSON Schema conversion: proper `const`, `enum`, `not`, and `ifThenElse` output
   
   - `schema.toJSONSchema()` now emits correct JSON Schema for `const` (`c`/`cD`), `enum` (`eD`), `not`, and `ifThenElse` opcodes. Previously these fell back to a generic `{ type: "object", description: "DNA opcode: ..." }` placeholder.

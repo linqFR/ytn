@@ -26,25 +26,25 @@ export type tsJSFuncReturnLong = [string, string];
  * @type tsOwnPropertiesMode
  * @description Presence-check strategy for `ownProperties` option of `toJS`.
  *
- * - `"none"`: always use `_hop.call(v,key)` (Object.prototype.hasOwnProperty).
+ * - `"hasown"`: always use `_hop.call(v,key)` (Object.prototype.hasOwnProperty).
  *   Strict own-property semantics. Required for JSON Schema Test Suite
- *   compliance when not using `"partial"`.
- * - `"partial"`: use `_hop.call` for the 12 well-known Object.prototype
+ *   compliance when not using `"in-filtered"`.
+ * - `"in-filtered"`: use `_hop.call` for the 12 well-known Object.prototype
  *   member names (`__proto__`, `toString`, `constructor`, `hasOwnProperty`,
  *   `valueOf`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`,
  *   `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`,
  *   `__lookupSetter__`), and `"key" in v` for all other keys. Passes the
  *   JSON Schema Test Suite while gaining `in` performance on the common
  *   case (non-Object.prototype key names).
- * - `"full"`: always use `("key" in v)`. Matches Zod v4 fastpath behavior
+ * - `"in-object"`: always use `("key" in v)`. Matches Zod v4 fastpath behavior
  *   (see `packages/zod/src/v4/core/schemas.ts` `$ZodObjectJIT` L2088).
  *   `toString`/`constructor`/etc. collisions with Object.prototype are
  *   treated as alignment with Zod, not as bugs.
  *
- * Default: `"partial"` when `enhancedMapper === false` (schvalid),
- * `"full"` when `enhancedMapper === true` (builder).
+ * Default: `"in-filtered"` when `enhancedMapper === false` (schvalid),
+ * `"in-object"` when `enhancedMapper === true` (builder).
  */
-export type tsOwnPropertiesMode = "none" | "partial" | "full";
+export type tsOwnPropertiesMode = "hasown" | "in-filtered" | "in-object";
 
 /**
  * @type tsPresenceCheckFn

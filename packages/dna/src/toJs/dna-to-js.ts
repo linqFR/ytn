@@ -14,7 +14,7 @@ type tsMapperIndex = Record<string, any>;
  * Computed keys (`["__proto__"]`, `["constructor"]`, ...) avoid special
  * object-literal semantics for `__proto__` and `constructor`.
  *
- * Used by the `"partial"` mode of {@link tsOwnPropertiesMode} to decide
+ * Used by the `"in-filtered"` mode of {@link tsOwnPropertiesMode} to decide
  * whether a key needs the strict own-property check (`_hop.call`) or
  * can use the faster `in` operator. The set is fixed by the ECMAScript
  * specification and has not changed since ES2015.
@@ -47,9 +47,9 @@ export function toJS(validateMode: boolean, enhancedMapper: true, ownProperties?
 export function toJS(validateMode: boolean = true, enhancedMapper: boolean = false, ownProperties?: tsOwnPropertiesMode) {
 
 	// Default ownProperties mode:
-	//   schvalid (enhancedMapper === false) ? "partial" (Test Suite compliant + perf)
-	//   builder  (enhancedMapper === true)  ? "full"    (Zod fastpath alignment)
-	const ownPropsMode: tsOwnPropertiesMode = ownProperties ?? (enhancedMapper ? "full" : "partial");
+	//   schvalid (enhancedMapper === false) ? "in-filtered" (Test Suite compliant + perf)
+	//   builder  (enhancedMapper === true)  ? "in-object"   (Zod fastpath alignment)
+	const ownPropsMode: tsOwnPropertiesMode = ownProperties ?? (enhancedMapper ? "in-object" : "in-filtered");
 
 	// Mapper for @ytrynot/schvalid (canonical DNA opcodes only)
 	// Mapper for DNA builder (canonical + builder-specific opcodes)
@@ -110,14 +110,14 @@ export function toJS(validateMode: boolean = true, enhancedMapper: boolean = fal
 		};
 
 		switch (ownPropsMode) {
-			case "full":
+			case "in-object":
 				presenceCheck = (v, k) => "(" + JSON.stringify(k) + " in " + v + ")";
 				break;
-			case "none":
+			case "hasown":
 				presenceCheck = (v, k) => "_hop.call(" + v + "," + JSON.stringify(k) + ")";
 				outerCtxConst["_hop=Object.prototype.hasOwnProperty"] = true;
 				break;
-			case "partial":
+			case "in-filtered":
 			default:
 				presenceCheck = (v, k, steps) => {
 					if (SENSITIVE[k]) return hopcall(v, k, steps);
