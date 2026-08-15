@@ -1,6 +1,6 @@
 {
   "name": "@ytrynot/qb",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Fluent SQLite Query Builder with Zod integration",
   "author": "linqFR",
   "license": "MIT",
@@ -54,7 +54,7 @@
     }
   },
   "peerDependencies": {
-    "@ytrynot/dna": "^0.6.0",
+    "@ytrynot/dna": "^0.7.0",
     "zod": "^4.4.3"
   },
   "peerDependenciesMeta": {
