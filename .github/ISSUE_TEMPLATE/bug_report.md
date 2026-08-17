@@ -31,7 +31,7 @@ If applicable, add screenshots to help explain your problem.
 
 - OS: [e.g. Windows, macOS]
 - Node Version: [e.g. 24.11.0]
-- Package Version: [e.g. @ytrynot/czvo@2.1.0]
+- Package Version: [e.g. @ytrynot/dna@0.7.0]
 
 ## Additional context
 

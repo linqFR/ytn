@@ -28,10 +28,6 @@ Which package is this feature request for?
 
 - [ ] @ytrynot/dna
 - [ ] @ytrynot/schvalid
-
-- [ ] @ytrynot/cdna
-
 - [ ] @ytrynot/qb
-- [ ] @ytrynot/wf
-
+- [ ] @ytrynot/cli
 - [ ] monorepo / tooling

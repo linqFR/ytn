@@ -6,16 +6,23 @@ First off, thank you for considering contributing to ytrynot! It's people like y
 
 ytrynot is a monorepo containing several independent TypeScript packages:
 
-- `@ytrynot/qb`: SQLite Query Builder.
-- `@ytrynot/czvo`: CLI to Zod-Validated Objects.
-- `@ytrynot/wf`: Workflow Router.
-- `@ytrynot/shared`: Internal shared toolbox (Private).
+**Public packages** (published to npm):
+
+- `@ytrynot/dna`: DNA schema builder with Zod-like API and bytecode compilation.
+- `@ytrynot/schvalid`: JSON Schema to DNA bytecode converter for high-performance validation.
+- `@ytrynot/qb`: Fluent SQLite Query Builder with Zod and DNA integration.
+- `@ytrynot/cli`: DNA-validated CLI router with Maranget decision trees and AOT compilation.
+
+**Private packages** (internal, never published):
+
+- `@ytrynot/shared`: Internal shared toolbox.
+- `@ytrynot/wf`: Workflow router (private).
 
 ## Development Workflow
 
 ### Prerequisites
 
-- Node.js >= 24.0.0
+- Node.js >= 25.0.0
 - npm (native workspaces)
 
 ### Getting Started

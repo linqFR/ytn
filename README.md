@@ -14,6 +14,7 @@ Each package is designed to be **lightweight**, **type-safe**, and **independent
 | **[@ytrynot/qb](./packages/query-builder)** | QueryBuilder | **SQLite Query Builder**  | `QB.table("users").select(["id"]).where(["active"]).toSQL()` |
 | **[@ytrynot/dna](./packages/dna)** | DNA | **Schema Builder** | `const schema = dna.string().min(5); const dna = schema.toDna();` |
 | **[@ytrynot/schvalid](./packages/schvalid)** | Schvalid | **JSON Schema Processing** | `const dna = jschemaToDna(schema); const validate = validator(dna);` |
+| **[@ytrynot/cli](./packages/cli)** | CLI | **DNA-validated CLI Factory & Router** | `const contract = createContract({ routes }); const result = execute(contract, argv);` |
 
 ---
 
@@ -70,6 +71,36 @@ const result = parse({ name: "John", age: 30 });
 // Returns: { success: true, data: { name: "John", age: 30 } }
 ```
 
+#### [@ytrynot/cli](./packages/cli/README.md)
+
+DNA-validated CLI router with 5-layer architecture, Maranget decision-tree routing, automatic help generation, and AOT compilation to standalone JS.
+
+```typescript
+import { dna } from "@ytrynot/dna";
+import { createContract, execute, compile } from "@ytrynot/cli";
+
+// Define routes as DNA schemas — routing, validation, and help all derive from this
+const buildRoute = dna.object({
+  cmd: dna.literal("build"),
+  files: dna.array(dna.string()).optional(),
+}).meta({ cli: { routeId: "build" }, description: "Build the project" });
+
+const contract = createContract({
+  name: "mycli",
+  description: "A demo CLI",
+  targets: [buildRoute],
+  cli: { positionals: ["cmd", "files"] },
+});
+
+// Layer 1: sync routing + validation
+const result = execute(contract, ["build", "a.ts", "b.ts"]);
+// → { success: true, route: "build", payload: { cmd: "build", files: ["a.ts", "b.ts"] } }
+
+// AOT: compile to standalone JS — no DNA runtime at call time
+const parser = compile(contract);
+const aot = parser(["build", "a.ts"]); // same result, no @ytrynot/dna needed
+```
+
 ## Tech Stack
 
 - **Runtime**: Node.js (>=25.0.0)
@@ -86,6 +117,7 @@ const result = parse({ name: "John", age: 30 });
 npm install @ytrynot/qb
 npm install @ytrynot/dna
 npm install @ytrynot/schvalid
+npm install @ytrynot/cli
 ```
 
 #### For development (monorepo)
@@ -127,6 +159,10 @@ npm test -w @ytrynot/dna
 # Example for Schvalid
 npm run build -w @ytrynot/schvalid
 npm test -w @ytrynot/schvalid
+
+# Example for CLI
+npm run build -w @ytrynot/cli
+npm test -w @ytrynot/cli
 ```
 
 ## License
