@@ -52,7 +52,7 @@
     }
   },
   "dependencies": {
-    "@ytrynot/dna": "^0.7.0"
+    "@ytrynot/dna": "^0.7.2"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
