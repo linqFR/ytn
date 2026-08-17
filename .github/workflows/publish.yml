@@ -8,6 +8,7 @@ on:
       - "packages/dna/package.json"
       - "packages/schvalid/package.json"
       - "packages/query-builder/package.json"
+      - "packages/cli/package.json"
   workflow_dispatch:
 
 permissions:
@@ -48,6 +49,7 @@ jobs:
           npm test -w @ytrynot/dna
           npm test -w @ytrynot/schvalid
           npm test -w @ytrynot/qb
+          npm test -w @ytrynot/cli
 
       - name: Configure git for tagging
         run: |
