@@ -37,6 +37,7 @@ This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It con
 - **`@ytrynot/czvo`** (`packages/cli-to-zvo`): A CLI contract definition and routing engine.
 - **`@ytrynot/wf`** (`packages/wf-runner`): A high-performance workflow router.
 - **`@ytrynot/cdna`** (`packages/cli-to-dna`): A CLI tool compiling JSON Schema into standalone JS validators using DNA bytecodes (private).
+- **`@ytrynot/cli`** (`packages/cli`): A DNA-based CLI router with 5-layer architecture and AOT compilation.
 
 ### Monorepo Structure
 
@@ -89,6 +90,16 @@ This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It con
 - **ALWAYS Read Package AGENTS.md First**: Before working on any package, you MUST read the package-specific `AGENTS.md` file located in that package's directory (e.g., `packages/query-builder/AGENTS.md`).
 - **Precedence Rule**: Package-specific AGENTS.md instructions take precedence over global instructions when there is a conflict.
 - **Global Foundation**: The global AGENTS.md (this file) provides the foundation. Package-specific files build upon it with package-specific context.
+
+### 0b. Action Approval Levels — Question vs Decision vs ADR
+
+Not all actions require the same level of validation. Use the correct level:
+
+- **Question → Answer**: A question from the user requires a conceptual or informative answer, NOT an action. No code modification without explicit approval.
+- **Proposition → Approval → Action** (default for fixes and improvements): The agent diagnoses, proposes a solution with code, waits for the user's approval, then implements. This applies to bug fixes, type fixes, refactors, and any change that does not alter the public API contract or the architecture. No ADR needed — the approval is sufficient trace.
+- **ADR (Architecture Decision Record)**: Required for decisions that affect the architecture or public API contract — new modules, changed signatures that break compatibility, new dependencies, design patterns, boundary changes between packages. These MUST be recorded in `mailbox-decisions.md` with a `DEC-NNNN` ID, validated by ADMIN, and traced in the daily mailbox.
+
+**Rule of thumb**: if the change is reversible and local (a fix, a type tightening, a non-breaking overload addition), proposition + approval is enough. If the change is structural or binding for future work, it needs an ADR.
 
 ### 1. Surgical Edits & Formatting
 
@@ -178,7 +189,7 @@ Reminder: Use Zod V4 exclusively.
 
 Publishing to npm is **fully automated** via GitHub Actions OIDC trusted publishing. No npm token, no 2FA, no manual `npm publish` is required.
 
-**Public packages** (published to npm): `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`.
+**Public packages** (published to npm): `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`, `@ytrynot/cli`.
 **Private packages** (never published, listed in `.changeset/config.json` `ignore`): `@ytrynot/wf`, `@ytrynot/czvo`, `@ytrynot/cdna`, `@ytrynot/shared`.
 
 **Workflow**: `.github/workflows/publish.yml` — triggered on push to `main` when `.changeset/**` or public package `package.json` files change.

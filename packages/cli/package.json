@@ -1,0 +1,64 @@
+{
+  "name": "@ytrynot/cli",
+  "version": "0.0.1",
+  "description": "DNA-validated CLI router with Maranget decision trees and automatic help generation",
+  "author": "linqFR",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/linqFR/ytn.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/linqFR/ytn/issues"
+  },
+  "homepage": "https://github.com/linqFR/ytn/tree/main/packages/cli#readme",
+  "keywords": [
+    "cli",
+    "router",
+    "dna",
+    "validation",
+    "maranget",
+    "decision-tree",
+    "typescript",
+    "parseargs",
+    "dna"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=25.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "peerDependencies": {
+    "@ytrynot/dna": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@ytrynot/dna": "*",
+    "@ytrynot/shared": "*",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.12"
+  }
+}
