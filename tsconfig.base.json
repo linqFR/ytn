@@ -25,7 +25,9 @@
     "packages/**/perf/**/*.ts",
     "shared/**/src/**/*.ts",
     "shared/**/sandbox/**/*.ts",
-    "shared/**/tests/**/*.ts"
+    "shared/**/tests/**/*.ts",
+    "packages/**/tsup.config.ts",
+    "tsup.config.base.ts"
   ],
   "exclude": [
     "**/_archive",
