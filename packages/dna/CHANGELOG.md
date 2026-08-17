@@ -1,5 +1,25 @@
 # @ytrynot/dna
 
+## 0.7.3
+
+### Patch Changes
+
+- ac6ddf2: Deprecate `shorts` in `cliUnion.toParseArgsConfig()`
+  
+  Short alias generation (auto-generation from first letter and `opts.shorts`
+  override) is deprecated. Short aliases are a `node:util.parseArgs` concern,
+  not a `cliUnion` schema concern (ADMIN decision 2026-08-15). The
+  `opts.shorts` parameter and the `short` field in the returned `options`
+  will be removed in a future release. Consumers should generate their own
+  shorts at the `parseArgs` config level.
+  
+  `toParseArgsConfig()` itself, `opts.strict`, and all other fields
+  (`allowPositionals`, `strict`, `type`, `multiple`) remain fully supported.
+- ac6ddf2: Fix `dna.preprocess` and `dna.cliUnion` type inference
+  
+  - `dna.preprocess(fn, target)` now returns `DnaPipe<DnaTransform<unknown, R>, T>` — the target schema type `T` and the `fn` return type `R` are preserved in the return type.
+  - `dna.cliUnion(schemas)` accepts `readonly` tuples and arrays (e.g. `as const` tuples, `.map()` results) without requiring a manual cast.
+
 ## 0.7.2
 
 ### Patch Changes
