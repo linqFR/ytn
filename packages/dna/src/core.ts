@@ -26,6 +26,11 @@ export type { tsToJSResult, tsCompiledParts } from "./toJs/dna-to-js.js";
 // Error types (DnaError is a class — instanceof must be consistent across bundles)
 // export { DnaError, dnaErrorSource } from "./shared/error.types.js";
 export { DnaError } from "./shared/error.types.js";
+export type {
+  tsDnaIssue as DnaIssue,
+  tsDnaIssueCode as DnaIssueCode,
+  tsDnaRawIssue as DnaRawIssue,
+} from "./shared/error.types.js";
 
 // Error codes (used by api-primitives, transitively in core via error.types)
 export { DnaIssueCodes } from "./shared/error-codes.js";

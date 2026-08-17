@@ -3,126 +3,125 @@
  * Allows dna.tsDnaString, dna.infer<typeof schema> to work
  */
 
-import type { DnaType } from "@ytrynot/dna/core";
 import type { $Input, $InputHead, $Output } from "./types/helpers.types.js";
 
-
-
 // Re-export everything from api (this creates the dna namespace)
+export * from "../src/builder/api-enhanced.js";
 export * from "../src/builder/api-primitives.js";
-export * from "../src/builder/api-enhanced.js"
 
 // Re-export all DNA schema classes as types (Zod v4 parity: $ZodTypes)
 export type {
-  DnaType,
-  DnaTypeWithWrappers,
   DnaAny,
-  DnaUnknown,
-  DnaNever,
-  DnaNull,
-  DnaUndefined,
-  DnaSymbol,
-  DnaVoid,
-  DnaNaN,
-  DnaUnion,
-  DnaIntersection,
-  DnaXorUnion,
-  DnaTransform,
-  DnaOptional,
-  DnaExactOptional,
-  DnaNonOptional,
-  DnaNullable,
-  DnaNullish,
-  DnaDefault,
-  DnaPrefault,
-  DnaCatch,
-  DnaLiteral,
-  DnaString,
-  DnaEmail,
-  DnaHttpUrl,
-  DnaHostname,
-  DnaUUID,
-  DnaGuid,
-  DnaE164,
-  DnaEmoji,
+  DnaArray,
   DnaBase64,
   DnaBase64Url,
-  DnaHex,
-  DnaNanoId,
-  DnaCuid,
-  DnaCuid2,
-  DnaUlid,
-  DnaXid,
-  DnaKsuid,
-  DnaIpv4,
-  DnaIpv6,
-  DnaMac,
+  DnaBigInt,
+  DnaBoolean,
+  DnaCatch,
+  DnaCheckProperty,
   DnaCidrv4,
   DnaCidrv6,
-  DnaJwt,
-  DnaHash,
-  DnaTmplLiteralMutate,
-  DnaTemplateLiteral,
-  DnaPipe,
-  DnaStringBool,
-  DnaIsoDatetime,
-  DnaIsoDate,
-  DnaIsoTime,
-  DnaIsoDuration,
-  DnaDate,
-  DnaUrl,
-  DnaBoolean,
-  DnaNumber,
-  DnaBigInt,
-  DnaInt,
-  DnaInt32,
-  DnaCoerceString,
-  DnaCoerceNumber,
-  DnaCoerceInt,
-  DnaCoerceInt32,
+  DnaCliUnion,
+  DnaCodec,
   DnaCoerceBigInt,
   DnaCoerceBoolean,
   DnaCoerceDate,
-  DnaEnum,
-  DnaArray,
-  DnaPromise,
-  DnaTuple,
-  DnaObject,
-  DnaDiscriminatedUnion,
-  DnaCliUnion,
-  DnaRecord,
-  DnaCodec,
-  DnaLazy,
-  DnaFunction,
+  DnaCoerceInt,
+  DnaCoerceInt32,
+  DnaCoerceNumber,
+  DnaCoerceString,
+  DnaCuid,
+  DnaCuid2,
   DnaCustom,
-  DnaInstanceOf,
+  DnaDate,
+  DnaDefault,
+  DnaDiscriminatedUnion,
+  DnaE164,
+  DnaEmail,
+  DnaEmoji,
+  DnaEnum,
+  DnaExactOptional,
   DnaFile,
-  DnaCheckProperty,
-  DnaSomeType,
+  DnaFunction,
+  DnaGuid,
+  DnaHash,
+  DnaHex,
+  DnaHostname,
+  DnaHttpUrl,
+  DnaInstanceOf,
+  DnaInt,
+  DnaInt32,
+  DnaIntersection,
+  DnaIpv4,
+  DnaIpv6,
+  DnaIsoDate,
+  DnaIsoDatetime,
+  DnaIsoDuration,
+  DnaIsoTime,
+  DnaIssue,
+  DnaIssueCode,
   DnaJson,
-  tsJsonValue,
+  // DnaJsonValue,
+  DnaJwt,
+  DnaKsuid,
+  DnaLazy,
+  DnaLiteral,
+  DnaMac,
+  DnaNaN,
+  DnaNanoId,
+  DnaNever,
+  DnaNonOptional,
+  DnaNull,
+  DnaNullable,
+  DnaNullish,
+  DnaNumber,
+  DnaObject,
+  DnaOptional,
+  DnaPipe,
+  DnaPrefault,
+  DnaPromise,
+  DnaRawIssue,
+  DnaRecord,
+  DnaSomeType,
+  DnaString,
+  DnaStringBool,
+  DnaSymbol,
+  DnaTemplateLiteral,
+  DnaTmplLiteralMutate,
+  DnaTransform,
+  DnaTuple,
+  DnaType,
+  DnaTypeWithWrappers,
+  DnaUlid,
+  DnaUndefined,
+  DnaUnion,
+  DnaUnknown,
+  DnaUrl,
+  DnaUUID,
+  DnaVoid,
+  DnaXid,
+  DnaXorUnion
 } from "@ytrynot/dna/core";
 
 // Utility exports
-export * as util from "./builder/util.js"
+export * as util from "./builder/util.js";
 
 // Type exports
 // export type * from "./types/api-builder.types.js";
 // export type * as ts from "./types/api-builder.types.js";
-export type { tsDna, tsDnaOpcode as tsDnaOpcode, tsDnaSeq } from "./types/core.types.js";
 export type { DnaFunctionOptions } from "./types/api-builder.types.js";
+export type { tsDna, tsDnaOpcode as tsDnaOpcode, tsDnaSeq } from "./types/core.types.js";
+export type { output as infer };
 
 
 
 export type output<S> = $Output<S>;
-export type { output as infer };
 
 export type input<S> = $Input<S>;
 export type inputHead<S> = $InputHead<S>;
 
 // Constructor registry for instanceof validation
 export {
-  registerExternal as registerConstructor,
-  getExternal as getConstructor,
+  getExternal as getConstructor, registerExternal as registerConstructor
 } from "@ytrynot/dna/core";
 

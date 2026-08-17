@@ -318,6 +318,125 @@ Creates a `DnaCliUnion` schema.
 
 `cliUnion` is independent from `discriminatedUnion`. They serve different use cases: `discriminatedUnion` for OpenAPI-compatible single-key routing, `cliUnion` for CLI multi-key routing with branch mutations.
 
+## Typing model
+
+### Type parameters
+
+```typescript
+export function cliUnion<const S extends readonly DnaSomeType[]>(
+  schemas: S,
+  config?: ICliUnionConfig,
+  meta?: string | tsDnaMeta
+): DnaCliUnion<S>
+```
+
+- **`S`** (const type parameter): inferred as a **readonly tuple** of branch schema types. The `const` modifier on the type parameter preserves tuple order and length at the call site.
+- **`ICliUnionConfig`**: `{ positionals?: string[]; discriminators?: string[] }` — minimal, runtime-only config. No `shorts` or `strict` (these are `parseArgs`-level concerns, see [ADMIN decision 2026-08-15](#toparseargsconfig)).
+
+### `_output` and `_input`
+
+```typescript
+class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]>
+  extends DnaTypeWithWrappers<any, any> {
+  declare readonly _output: $Output<S[number]>;
+  declare readonly _input: $Input<S[number]>;
+}
+```
+
+`_output` is the **union of branch outputs** (`$Output<S[number]>`), and `_input` is the **union of branch inputs** (`$Input<S[number]>`). `$Output<S>` extracts `_output` via `S extends { _output: infer O } ? O : unknown`.
+
+### Deferred pattern
+
+`DnaCliUnion` follows the same [deferred pattern](technical.md#deferred-outputinput-and-recursive-type-inference) as `DnaDiscriminatedUnion` and `DnaObject`:
+
+1. **Parent uses `any, any`**: `extends DnaTypeWithWrappers<any, any>` — the parent's `readonly declare _output: T` resolves to `any` and does not force eager resolution.
+2. **Re-declare via `declare readonly`**: `_output` and `_input` are re-declared with `declare readonly _output: $Output<S[number]>` / `declare readonly _input: $Input<S[number]>`. `declare` fields are erased at runtime and deferred until explicitly queried (e.g. `dna.infer<typeof cli>`).
+3. **No `out` variance on `S`**: `S` is invariant but never variance-checked (only used in `declare` fields), consistent with `DnaObject`'s `T`.
+
+### `.options` getter — justified cast
+
+```typescript
+get options(): S {
+  // CAST: _core.seed.schemas is DnaSomeType[] (erased at runtime);
+  // S is the static tuple type and TS cannot verify the array-to-tuple correspondence
+  return this._core.seed.schemas as unknown as S;
+}
+```
+
+The `as unknown as S` cast is justified and documented with a `// CAST:` comment on its own line (per repo rules). `_core.seed.schemas` is typed `DnaSomeType[]` (runtime-erased array), while `S` is the static tuple type — TypeScript cannot verify the array-to-tuple correspondence. This is the same pattern as `DnaUnion.options`.
+
+### `dna.infer<typeof cli>`
+
+```typescript
+import { dna } from "@ytrynot/dna";
+
+const cli = dna.cliUnion([
+  dna.object({ cmd: dna.literal("build"), mode: dna.literal("dev") }),
+  dna.object({ cmd: dna.literal("deploy"), mode: dna.literal("prod") }),
+]);
+
+type Routed = dna.infer<typeof cli>;
+// { cmd: "build"; mode: "dev" } | { cmd: "deploy"; mode: "prod" }
+```
+
+`dna.infer<S>` is an alias for `$Output<S>`, which extracts `_output` from the schema. For `DnaCliUnion<S>`, this resolves to `$Output<S[number]>` — the union of branch outputs.
+
+### Wrappers on `cliUnion`
+
+The `.optional()`, `.nullable()`, `.nullish()`, `.default()`, `.transform()`, `.catch()` wrappers are all available on the `cliUnion` schema (inherited from `DnaTypeWithWrappers`). They are applied **after** routing and branch validation.
+
+```typescript
+const optCli = cli.optional();
+// DnaOptional<DnaCliUnion<S>>
+// _output = $Output<S[number]> | undefined
+```
+
+### Type erosion when widened
+
+When a `DnaCliUnion<S>` is widened to `DnaCliUnion<readonly DnaSomeType[]>` (e.g. stored in a generic container), `_output` erodes to `unknown`:
+
+```typescript
+const erased: DnaCliUnion<readonly DnaSomeType[]> = cli;
+type Out = typeof erased["_output"]; // unknown
+```
+
+This is because `$Output<DnaSomeType>` = `unknown` (the default branch of the conditional type). The `@ytrynot/cli` package stores the `cliUnion` as `DnaCliUnion<readonly DnaSomeType[]>` in `IProcessedContract.cliUnion` (see `packages/cli/src/types/contract.types.ts`), so the typed output is only available at the construction site, not after storage in the contract.
+
+### Edge case: empty branch array
+
+```typescript
+const empty = dna.cliUnion([] as const);
+type Out = typeof empty["_output"]; // never
+```
+
+`S = readonly []` → `S[number] = never` → `$Output<never>` distributes over `never` and yields `never` (distributive conditional types over `never` produce `never`, not the `false` branch `unknown`). This is **consistent with `DnaUnion<S>`** which uses the same `$Output<S[number]>` pattern. Semantically defensible: an empty union cannot produce any valid value. Documented here because it is counter-intuitive (`unknown` would have been a safer default to avoid silent `never` propagation in pipelines).
+
+### `toParseArgsConfig()` return type
+
+```typescript
+toParseArgsConfig(opts?: { strict?: boolean }): {
+  allowPositionals: true;
+  strict: boolean;
+  options: Record<string, {
+    type: "string" | "boolean";
+    multiple: boolean;
+  }>;
+}
+```
+
+The return type is a **concrete type**, not generic over `S`. This is deliberate: the `options` keys are determined at runtime by introspecting the branches (unwrapping `_DnaWrapper`/`DnaPipe`, extracting leaf types), and are not inferrable from the static tuple `S`. Inferring `options` from `S` would require mapping each branch, unwrapping wrappers at the type level, and extracting leaf types — extremely complex for marginal gain. The current typing is the right trade-off.
+
+### Comparison with `DnaUnion` and `DnaDiscriminatedUnion`
+
+| | `DnaUnion<S>` | `DnaDiscriminatedUnion<K, S>` | `DnaCliUnion<S>` |
+|---|---|---|---|
+| Constraint on `S` | `tsDnaTupleSchemaRO` | `tsDnaDiscriminatedUnionObjects<K>` | `readonly DnaSomeType[]` |
+| `_output` | `$Output<S[number]>` | `$Output<S[number]>` | `$Output<S[number]>` |
+| `extends` | `DnaCombinator<...>` (typed) | `DnaTypeWithWrappers<any, any>` | `DnaTypeWithWrappers<any, any>` |
+| Empty array `_output` | `never` | n/a (requires ≥1 branch with key `K`) | `never` |
+
+**Note on the `S` constraint**: `DnaUnion` uses `tsDnaTupleSchemaRO` (which is `readonly [DnaType, ...DnaType[]] | readonly []`), while `DnaCliUnion` uses the looser `readonly DnaSomeType[]`. The looser constraint means a non-`const` `DnaSomeType[]` array is accepted — in that case `S[number]` resolves to `DnaSomeType` and `_output` erodes to `unknown`. The `const` modifier on the type parameter ensures tuple inference at the call site, so in practice the output is correctly typed when using `dna.cliUnion([...])` directly.
+
 ## Object modes in branches
 
 Each branch is a `DnaObject` and inherits its object mode (`standard`, `strict`, or `loose`). The mode controls how unknown properties are handled **after** routing. There are two ways to set the mode: at construction time via the top-level factory, or by chaining a mode method on an existing object schema.

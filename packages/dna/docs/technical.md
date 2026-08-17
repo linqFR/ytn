@@ -646,7 +646,7 @@ dna.string().optional()
 
 **JSON Schema equivalent:** there is no direct JSON Schema keyword for "accept `undefined`" — `required` controls which keys are required, and a key absent from `required` is optional (accepts missing/`undefined`). For a standalone optional schema, JSON Schema has no equivalent; the builder's `.optional()` is a wrapper that accepts `undefined` and is primarily meaningful in object property context.
 
-**Parity:** in object property context, both paths agree — a key absent from `required` (JSON Schema) or wrapped with `.optional()` (builder) accepts `undefined`/missing. The builder's parser preserves explicitly-present `undefined`-valued optional properties in the output (aligned with Zod v4), matching schvalid's behavior. Static objects (no dynamic props) use a single-allocation fast path (no `outObT0` temp, no copy loop); dynamic-prop objects use the temp + `keepOnly` loop. See `docs/zod-comparison.md` §"Object output: `undefined` handling" and §"Object output: `keepOnly` mechanism and single-allocation".
+**Parity:** in object property context, both paths agree — a key absent from `required` (JSON Schema) or wrapped with `.optional()` (builder) accepts `undefined`/missing. The builder's parser preserves explicitly-present `undefined`-valued optional properties in the output (aligned with Zod v4), matching schvalid's behavior. Static objects (no dynamic props) use a single-allocation fast path (no `outObT0` temp, no copy loop); dynamic-prop objects use the temp + `keepOnly` loop. See [zod-comparison.md — Object output: `undefined` handling](zod-comparison.md#object-output-undefined-handling) and [Object output: `keepOnly` mechanism and single-allocation](zod-comparison.md#object-output-keeponly-mechanism-and-single-allocation-performance).
 
 ### Patterns with no builder equivalent
 
@@ -1738,6 +1738,7 @@ Classes following this pattern:
 | `DnaTuple` | `S, R` | `DnaTypeWithWrappers<any, any>` | `tsDnaTupleValueWithRest<S, …>` |
 | `DnaPipe` | `out S, out T` | `DnaTypeWithWrappers<any, any>` | `$Output<T>` / `$Input<S>` |
 | `DnaDiscriminatedUnion` | `K, S` | `DnaTypeWithWrappers<any, any>` | `$Output<S[number]>` / `$Input<S[number]>` |
+| `DnaCliUnion` | `S` | `DnaTypeWithWrappers<any, any>` | `$Output<S[number]>` / `$Input<S[number]>` |
 | `DnaRecord` | `K, V` | `DnaTypeWithWrappers<any, any>` | `Record<$Output<K> & PropertyKey, $Output<V>>` |
 | `_DnaWrapper` | `Inner` | `DnaTypeWithWrappers<any, any>` | `Out` / `In` (defaults: `$Output<Inner>` / `$Input<Inner>`) |
 | `DnaOptional` | `Inner` | `_DnaWrapper<Inner, any, any>` | `$Output<Inner> \| undefined` |
@@ -1824,3 +1825,94 @@ The `default()` and `prefault()` methods on `DnaTypeWithWrappers` use `this["_ou
 - Builder methods that accept a schema argument (`optional()`, `nullable()`, `dna.array()`, …) MUST constrain it to `DnaSomeType`, not `DnaType<any, any>`, to avoid re-introducing circular type resolution.
 - Methods that transform `_output`/`_input` (e.g. `readonly()`) MUST NOT return `DnaType<NewOut, NewIn>` — the invariant `I` parameter breaks variance. Use a dedicated helper type (`$ReadonlyReturnType<S>`) that emits the transformed types as **intersection properties** instead of class type parameters. See [`readonly()` and variance](#readonly-and-variance-the-readonlyreturntype-helper) above.
 - **Do NOT add `out` to `DnaObject`'s `T` parameter.** Without `out`, `T` is invariant but never variance-checked (only used in `declare` fields), so everything works. With `out`, TypeScript triggers a variance check that fails because `$ReadonlyValue` (a conditional type) wrapping `$DnaObjectOutput<T>` (a mapped type) is not provably covariant. `DnaPipe<out S, out T>` works because `$Output<T>` is a conditional type that resolves to `unknown` for unconstrained `T`.
+
+## `DnaCliUnion` typing — specifics and edge cases
+
+`DnaCliUnion<S>` follows the deferred pattern (parent `any, any` + `declare readonly` re-declaration, see [Deferred output/input](#deferred-outputinput-and-recursive-type-inference) above). This section documents the specifics that are not covered by the general deferred pattern.
+
+### `const S` type parameter — tuple inference
+
+```typescript
+export function cliUnion<const S extends readonly DnaSomeType[]>(
+  schemas: S,
+  config?: ICliUnionConfig,
+  meta?: string | tsDnaMeta
+): DnaCliUnion<S>
+```
+
+The `const` modifier on `S` ensures that `dna.cliUnion([a, b, c])` infers `S = readonly [typeof a, typeof b, typeof c]` (a tuple, not a widened array). Without `const`, `S` would be `DnaSomeType[]` and `S[number]` would resolve to `DnaSomeType`, eroding `_output` to `unknown`.
+
+### `.options` getter — the `as unknown as S` cast
+
+```typescript
+get options(): S {
+  // CAST: _core.seed.schemas is DnaSomeType[] (erased at runtime);
+  // S is the static tuple type and TS cannot verify the array-to-tuple correspondence
+  return this._core.seed.schemas as unknown as S;
+}
+```
+
+The cast is **justified** and follows the repo rules (`// CAST:` comment on its own line above the cast). `_core.seed.schemas` is typed `DnaSomeType[]` (the runtime storage erases tuple information), while `S` is the static tuple type. TypeScript cannot verify that the runtime array corresponds to the static tuple. This is the same pattern as `DnaUnion.options` (line 1218-1220 in `dna-interfaces.ts`).
+
+### Empty branch array — `_output = never`
+
+```typescript
+const empty = dna.cliUnion([] as const);
+type Out = typeof empty["_output"]; // never, not unknown
+```
+
+`S = readonly []` → `S[number] = never` → `$Output<never>` distributes over `never` and yields `never`. This is because distributive conditional types over `never` produce `never`, not the `false` branch (`unknown`).
+
+This is **consistent with `DnaUnion<S>`** which uses the same `$Output<S[number]>` pattern. It is semantically defensible (an empty union cannot produce any valid value), but counter-intuitive — `unknown` would have been a safer default to avoid silent `never` propagation in pipelines. Documented here as a known edge case.
+
+### Type erosion when widened to `DnaCliUnion<readonly DnaSomeType[]>`
+
+```typescript
+const erased: DnaCliUnion<readonly DnaSomeType[]> = cli;
+type Out = typeof erased["_output"]; // unknown
+```
+
+`$Output<DnaSomeType>` = `unknown` (the `false` branch of `S extends { _output: infer O } ? O : unknown`). The `@ytrynot/cli` package stores the `cliUnion` as `DnaCliUnion<readonly DnaSomeType[]>` in `IProcessedContract.cliUnion` (see `packages/cli/src/types/contract.types.ts:138`), so the typed output is only available at the construction site, not after storage in the contract.
+
+### `toParseArgsConfig()` — concrete (non-generic) return type
+
+```typescript
+toParseArgsConfig(opts?: { strict?: boolean }): {
+  allowPositionals: true;
+  strict: boolean;
+  options: Record<string, {
+    type: "string" | "boolean";
+    multiple: boolean;
+  }>;
+}
+```
+
+The return type is **concrete**, not generic over `S`. The `options` keys are determined at runtime by introspecting the branches (unwrapping `_DnaWrapper`/`DnaPipe`, extracting leaf types via `unwrapToLeaf` and `deriveOptionType`). Inferring `options` from `S` at the type level would require mapping each branch, unwrapping wrappers, and extracting leaf types — extremely complex for marginal gain. The concrete typing is the right trade-off.
+
+### `ICliUnionConfig` — minimal, runtime-only
+
+```typescript
+export interface ICliUnionConfig {
+  positionals?: string[];
+  discriminators?: string[];
+}
+```
+
+No `shorts` or `strict` — these are `parseArgs`-level concerns, not schema concerns (ADMIN decision 2026-08-15, documented in the `toParseArgsConfig` JSDoc). `strict` is passed to `toParseArgsConfig({ strict })` at call time. `shorts` auto-generation and override are deprecated and will be removed.
+
+### Verification
+
+The typing was verified by `tsc --noEmit -p tsconfig.json` (strict, NodeNext, verbatimModuleSyntax) with type-regression assertions using `expectTypeOf`:
+
+- `S` is inferred as `readonly [typeof buildDev, typeof buildProd, typeof deploy]` ✓
+- `_output` is the union of branch outputs ✓
+- `_input` is the union of branch inputs ✓
+- `.options` returns `S` ✓
+- `.optional()` preserves `_output | undefined` ✓
+- Type erosion when widened to `DnaCliUnion<readonly DnaSomeType[]>` → `_output = unknown` ✓
+- `dna.infer<typeof cli>` == union of branch outputs ✓
+- `toParseArgsConfig()` return type matches the concrete signature ✓
+- Single-branch `cliUnion([a])` → `_output = typeof a["_output"]` ✓
+- Empty array `cliUnion([] as const)` → `_output = never` ✓
+
+See [cli-union.md — Typing model](cli-union.md#typing-model) for the user-facing documentation of the typing model.

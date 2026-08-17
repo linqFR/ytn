@@ -1,107 +1,99 @@
-// ============================================
-// Helper wrapper for meta parameter
-
-import { DnaIssueCodes } from "@ytrynot/dna/core";
+import type { DnaSomeType } from "@ytrynot/dna/core";
+import {
+  DnaAny,
+  DnaArray,
+  DnaBase64,
+  DnaBase64Url,
+  DnaBigInt,
+  DnaBoolean,
+  DnaCheckProperty,
+  DnaCidrv4,
+  DnaCidrv6,
+  DnaCliUnion,
+  DnaCodec,
+  DnaCoerceBigInt,
+  DnaCoerceBoolean,
+  DnaCoerceDate,
+  DnaCoerceInt,
+  DnaCoerceInt32,
+  DnaCoerceNumber,
+  DnaCoerceString,
+  DnaCuid,
+  DnaCuid2,
+  DnaCustom,
+  DnaDate,
+  DnaDiscriminatedUnion,
+  DnaE164,
+  DnaEmail,
+  DnaEmoji,
+  DnaEnum,
+  DnaFile,
+  DnaFunction,
+  DnaGuid,
+  DnaHash,
+  DnaHex,
+  DnaHostname,
+  DnaHttpUrl,
+  DnaIfThenElse,
+  DnaInstanceOf,
+  DnaInt,
+  DnaInt32,
+  DnaIntersection,
+  DnaIpv4,
+  DnaIpv6, DnaIssueCodes, DnaJwt,
+  DnaKsuid,
+  DnaLazy,
+  DnaLiteral,
+  DnaMac,
+  DnaNaN,
+  DnaNanoId,
+  DnaNever,
+  DnaNot,
+  DnaNull,
+  DnaNumber,
+  DnaObject,
+  DnaPipe,
+  DnaPromise,
+  DnaRecord,
+  DnaString,
+  DnaStringBool,
+  DnaSymbol,
+  DnaTemplateLiteral,
+  DnaTmplLiteralMutate,
+  DnaTransform,
+  DnaTuple,
+  DnaType,
+  DnaTypeWithWrappers,
+  DnaUlid,
+  DnaUndefined,
+  DnaUnion,
+  DnaUnknown,
+  DnaUrl,
+  DnaUUID,
+  DnaVoid,
+  DnaXid,
+  DnaXorUnion, initDna, Iso,
+  type DnaJson, type DnaJsonRaw
+} from "@ytrynot/dna/core";
+import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
 import type { tsDecodeFn, tsEncodeFn, tsTransformFn } from "../shared/handlers-builder.types.js";
-import type { tsDnaRefineCtx, tsDnaInnerMeta, tsDnaMeta } from "../shared/meta-context.type.js";
+import type { tsDnaInnerMeta, tsDnaMeta, tsDnaRefineCtx } from "../shared/meta-context.type.js";
 import type { tsDnaExternalsDecl } from "../shared/runtime.types.js";
-import { initDna } from "@ytrynot/dna/core";
-
+import { externalsMap } from "../shared/utils.js";
 import type {
+  DnaFunctionInput,
+  DnaFunctionOptions,
+  ICliUnionConfig,
   tsDnaDescribeCheck,
+  tsDnaDiscriminatedUnionObjects,
   tsDnaEnumInput,
   tsDnaEnumValues,
   tsDnaEnumValueType,
   tsDnaMetaCheck,
-  tsDnaValidationCheck,
-  tsDnaTupleSchemaBase,
   tsDnaTupleSchemaRO,
-  DnaFunctionInput,
-  DnaFunctionOptions,
-  tsDnaDiscriminatedUnionObjects,
-  tsDnaCliUnionObjects,
-  ICliUnionConfig,
+  tsDnaValidationCheck
 } from "../types/api-builder.types.js";
-import type { $ToEnum, $Input, $Output, $ArrayItem, $TemplateLiteral, $DnaObjectOutput, $DnaObjectInput } from "../types/helpers.types.js";
-import type { DnaSomeType } from "@ytrynot/dna/core";
-
-import {
-  DnaBigInt,
-  DnaBoolean, DnaDate,
-  DnaPipe, DnaString,
-  DnaEmail,
-  DnaHttpUrl,
-  DnaHostname,
-  DnaUUID,
-  DnaGuid,
-  DnaE164,
-  DnaEmoji,
-  DnaBase64,
-  DnaBase64Url,
-  DnaHex,
-  DnaNanoId,
-  DnaCuid,
-  DnaCuid2,
-  DnaUlid,
-  DnaXid,
-  DnaKsuid,
-  DnaIpv4,
-  DnaIpv6,
-  DnaMac,
-  DnaCidrv4,
-  DnaCidrv6,
-  DnaJwt,
-  DnaHash,
-  DnaEnum,
-  DnaLazy,
-  DnaInt32,
-  DnaInt,
-  Iso, DnaLiteral, DnaPromise,
-  DnaCheckProperty,
-  DnaTemplateLiteral,
-  DnaTmplLiteralMutate, DnaTuple, DnaUrl,
-  DnaNumber,
-  DnaStringBool,
-  DnaRecord,
-  DnaType,
-  DnaTypeWithWrappers,
-  DnaPrefault,
-  DnaOptional,
-  DnaNullable,
-  DnaNullish,
-  DnaCoerceString,
-  DnaCoerceNumber,
-  DnaCoerceInt,
-  DnaCoerceInt32,
-  DnaCoerceBoolean,
-  DnaCoerceBigInt,
-  DnaCoerceDate,
-  DnaAny,
-  DnaUnknown,
-  DnaCustom,
-  DnaNever,
-  DnaNull,
-  DnaUndefined,
-  DnaTransform,
-  DnaInstanceOf,
-  DnaFile,
-  DnaSymbol,
-  DnaVoid,
-  DnaNaN,
-  DnaUnion,
-  DnaXorUnion,
-  DnaIntersection, DnaDiscriminatedUnion, DnaCliUnion,
-  DnaNot, DnaIfThenElse,
-  DnaObject,
-  DnaArray,
-  DnaCodec,
-  externalsMap,
-  DnaFunction,
-  type DnaJson,
-  DnaNonOptional,
-  type DnaJsonRaw,
-} from "@ytrynot/dna/core";
-import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
+import type { $Input, $Output, $TemplateLiteral, $ToEnum } from "../types/helpers.types.js";
 
 // DNA compatibility: error codes (from DNA error-types.ts)
 
@@ -259,11 +251,11 @@ export const intersection = <S1 extends DnaType<any>, S2 extends DnaType<any>>(s
 export const discriminatedUnion = <K extends string, S extends tsDnaDiscriminatedUnionObjects<K>>(discriminator: K, schemas: S, meta?: string | tsDnaMeta) =>
   initDna(DnaDiscriminatedUnion<K, S>, { discriminator, schemas }, meta);
 
-export const cliUnion = <S extends tsDnaCliUnionObjects>(
+export function cliUnion<const S extends readonly DnaSomeType[]>(
   schemas: S,
   config?: ICliUnionConfig,
   meta?: string | tsDnaMeta
-) => {
+): DnaCliUnion<S> {
   const discriminators = config?.discriminators ?? DnaCliUnion.detectDiscriminators(schemas);
   const positionals = config?.positionals ?? DnaCliUnion.detectPositionals(schemas, discriminators);
   return initDna(
@@ -271,7 +263,7 @@ export const cliUnion = <S extends tsDnaCliUnionObjects>(
     { schemas: [...schemas], discriminators, positionals },
     meta
   );
-};
+}
 // FIXME : fix typescript
 export const not = (schema: DnaSomeType<unknown, unknown>, meta?: string | tsDnaMeta) =>
   initDna(DnaNot<unknown, unknown>, { inner: schema }, meta);
@@ -418,16 +410,16 @@ export const transform = <T, R>(fn: tsTransformFn<T, R>, meta?: string | tsDnaMe
 
 export const pipe = <S extends DnaType<any, any> = DnaType<any, any>, T extends DnaType<any, any> = DnaType<any, any>>(src: S, target: T, meta?: string | tsDnaMeta) => initDna(DnaPipe<S, T>, { steps: [src, target] }, meta);
 
-export function preprocess<O>(fn: (value: unknown, ctx: tsDnaRefineCtx<unknown>) => unknown, target: DnaType<O, any>, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaType<O, unknown>;
-export function preprocess<O>(fn: (value: unknown) => unknown, target: DnaType<O, any>, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaType<O, unknown>;
-export function preprocess<O>(fn: tsTransformFn<unknown, unknown>, target: DnaType<O, any>, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaType<O, unknown> {
+export function preprocess<R, T extends DnaType<any, any>>(fn: (value: unknown, ctx: tsDnaRefineCtx<unknown>) => R, target: T, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaPipe<DnaTransform<unknown, R>, T>;
+export function preprocess<R, T extends DnaType<any, any>>(fn: (value: unknown) => R, target: T, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaPipe<DnaTransform<unknown, R>, T>;
+export function preprocess<R, T extends DnaType<any, any>>(fn: tsTransformFn<unknown, R>, target: T, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaPipe<DnaTransform<unknown, R>, T> {
   const innerMeta: tsDnaInnerMeta = { preprocess: true };
   if (typeof meta === "string") innerMeta.message = meta;
   else if (meta) Object.assign(innerMeta, meta);
   const map = externalsMap(externals);
   const transformMeta: tsDnaInnerMeta | undefined = Object.keys(map).length ? { externals: map } : undefined;
-  const transformSchema = initDna(DnaTransform<unknown, unknown>, { fnStr: fn.toString().trim(), arity: fn.length }, transformMeta);
-  return initDna(DnaPipe<DnaTransform<unknown, unknown>, DnaType<O, any>>, { steps: [transformSchema, target] }, innerMeta);
+  const transformSchema = initDna(DnaTransform<unknown, R>, { fnStr: fn.toString().trim(), arity: fn.length }, transformMeta);
+  return initDna(DnaPipe<DnaTransform<unknown, R>, T>, { steps: [transformSchema, target] }, innerMeta);
 }
 
 export const lazy = <S extends DnaType<any, any>>(getter: () => S) => initDna(DnaLazy<$Output<S>, $Input<S>, S>, { getter });
@@ -513,6 +505,6 @@ export const nullish = <S extends DnaTypeWithWrappers<any, any>>(schema: S) => {
 };
 
 export {
-  _enum as enum, _instanceof as instanceof, _null as null, _void as void, _undefined as undefined
+  _enum as enum, _instanceof as instanceof, _null as null, _undefined as undefined, _void as void
 };
 

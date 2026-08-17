@@ -164,6 +164,18 @@ Both share the `"template"` opcode. The 4th tuple element (`canMutate` boolean a
 | `dna.discriminatedUnion(key, schemas)` | `DnaDiscriminatedUnion<K, S>` | union of branch outputs | `"discriminator"` | `.options`, `.discriminator` |
 | `dna.cliUnion(schemas, config?)` | `DnaCliUnion<S>` | union of branch outputs | `"cli"` | `.options`, `.discriminators`, `.positionals` |
 
+#### `DnaCliUnion` typing notes
+
+- **Type parameter**: `const S extends readonly DnaSomeType[]` — inferred as a readonly tuple at the call site. The `const` modifier is required for tuple inference; without it, `S` widens to `DnaSomeType[]` and `_output` erodes to `unknown`.
+- **`_output`**: `$Output<S[number]>` — union of branch outputs. Computed via the [deferred pattern](technical.md#deferred-outputinput-and-recursive-type-inference) (parent `any, any` + `declare readonly`).
+- **`_input`**: `$Input<S[number]>` — union of branch inputs.
+- **`.options`**: returns `S` (the static tuple). Uses a justified `as unknown as S` cast (runtime storage is `DnaSomeType[]`, TS cannot verify array→tuple correspondence).
+- **Empty array edge case**: `dna.cliUnion([] as const)` → `_output = never` (distributive conditional over `never`). Consistent with `DnaUnion`.
+- **Type erosion**: widening to `DnaCliUnion<readonly DnaSomeType[]>` → `_output = unknown` (`$Output<DnaSomeType>` defaults to `unknown`).
+- **`toParseArgsConfig()`**: concrete return type (not generic over `S`) — option keys are runtime-introspected, not statically inferrable.
+- **`ICliUnionConfig`**: `{ positionals?: string[]; discriminators?: string[] }` — minimal, no `shorts`/`strict` (parseArgs-level concerns).
+- **See also**: [cli-union.md#typing-model](cli-union.md#typing-model), [technical.md#dnacliunion-typing--specifics-and-edge-cases](technical.md#dnacliunion-typing--specifics-and-edge-cases).
+
 ---
 
 ## Wrapper Types

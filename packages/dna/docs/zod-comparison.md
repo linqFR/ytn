@@ -530,7 +530,7 @@ No divergence on `undefined` handling — both preserve present-`undefined` and 
 
 **Zod v4** uses `key in input` for presence detection (`handlePropertyResult` line 715, JIT fastpath line 905). This traverses the prototype chain — intentional, to support objects with prototypes.
 
-**DNA** offers three presence-check strategies via the `ownProperties` option of `toJS` (see `docs/technical.md` → "Presence-check strategies"):
+**DNA** offers three presence-check strategies via the `ownProperties` option of `toJS` (see [technical.md — Presence-check strategies](technical.md#presence-check-strategies-tojs-ownproperties-option)):
 
 | Mode | `in` vs `_hop.call` | Default for |
 |------|---------------------|-------------|
@@ -538,7 +538,7 @@ No divergence on `undefined` handling — both preserve present-`undefined` and 
 | `"in-filtered"` | `_hop.call` for the 12 `Object.prototype` member names, `in` for all other keys | `@ytrynot/schvalid` (`enhancedMapper === false`) |
 | `"in-object"` | `("key" in v)` for all keys | DNA builder (`enhancedMapper === true`) |
 
-The `"in-object"` mode matches Zod v4's fastpath behavior exactly. The `"in-filtered"` mode gains the same `in` performance on normal key names while falling back to own-property checks for the 12 well-known `Object.prototype` members (see `docs/technical.md` for compliance details).
+The `"in-object"` mode matches Zod v4's fastpath behavior exactly. The `"in-filtered"` mode gains the same `in` performance on normal key names while falling back to own-property checks for the 12 well-known `Object.prototype` members (see [technical.md — Presence-check strategies](technical.md#presence-check-strategies-tojs-ownproperties-option) for compliance details).
 
 **Performance nuance**: `in` is ~20–30x faster than `Object.hasOwn` only in the **monomorphic fast path** — a plain object with `Object.prototype` where the key is an own property present. V8 can inline the hidden-class lookup. In all other scenarios (absent key, null-proto object, inherited key, proto-chain key), `in` must traverse the prototype chain and becomes **comparable to or slower than** `Object.hasOwn`, which has stable ~130ms/10M-ops cost regardless of scenario.
 

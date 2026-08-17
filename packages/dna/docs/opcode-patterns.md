@@ -1024,37 +1024,10 @@ When adding a new opcode handler, choose the pattern based on the requirements:
 
 ---
 
-## Known Issues and TODOs
-
-### Fixed Issues
-
-1. **Sentinel collision in `array` handler** (fixed 2026-08-05): `itemsIndex` defaulted to `0` as the "no items declared" sentinel, but DNA index `0` is a valid items target (e.g. a recursive `$ref` pointing back to the root node at index 0). The truthiness checks `&& itemsIndex` (validate mode) and `&& itemsIndex !== 0` (parser mode) both treated index 0 as "absent", so the items-loop body was emitted empty — invalid items inside a recursive array were silently accepted.
-   - **Fix**: Switched the sentinel to `-1` (the project's standard absent-constraint sentinel) and changed the guards to `itemsIndex >= 0` in both validate and parser modes.
-   - **Regression tests**: `packages/schvalid/tests/schemas/regression-failles.test.ts` (section "recursive $ref as array items — sentinel fix").
-   - **Lesson**: Any codegen field that can hold a DNA index MUST use `-1` as the absent sentinel and guard with `>= 0`. Using `0` as a sentinel collides with valid index-0 references; using truthiness or `!== 0` instead of `>= 0` reintroduces the silent-accept bug.
-
-### seq Contract Violations (Resolved)
-
-The original `seq` opcode has been refactored into `chkList` (JSON Schema), `pipe` (builder), and `chkSeq` (refine/check). The `breakBlock` context property has been replaced by `failCase`/`outerblock`. The three original issues are all resolved:
-
-1. **mutate handler** (resolved): Now assigns `_outVarName=true` via `okFlag` in validator mode. The double semicolon is also gone (`okFlag` is concatenated without an extra `;`).
-
-2. **check handler** (resolved): Uses `simpleNodeToJs` with `failCase` (not `breakBlock`) for control flow. The `failCase`/`outerblock` properties are propagated by `chkList`/`pipe`/`chkSeq`.
-
-3. **seq context** (resolved): All three replacement handlers (`chkList`, `pipe`, `chkSeq`) propagate `parentCtx` via spread (`{ ...parentCtx, ... }`) — no handler passes an empty `{}` context anymore.
-
-### Pattern Inconsistencies (Resolved)
-
-- The `mutate` pattern now respects the `pipe` contract via `okFlag`.
-- The `check` pattern now uses `failCase` consistently with the rest of the codebase.
-- All sequence handlers propagate the full parent context to children.
-
----
-
 ## References
 
 - `src/toJs/dna-js-json.ts` - Canonical opcode handlers
 - `src/toJs/dna-js-builder.ts` - Builder-specific opcode handlers
 - `src/toJs/utils.ts` - Helper functions (`simpleNodeToJs`, `_errMode`, `_err`)
 - `src/toJs/dna-to-js.ts` - Main compiler that processes step arrays
-- `docs/technical.md` - DNA format and architecture documentation
+- [technical.md](technical.md) - DNA format and architecture documentation

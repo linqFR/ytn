@@ -1,3 +1,6 @@
+import type { tsDnaInnerMeta } from "./meta-context.type.js";
+import type { tsDnaExternals, tsDnaExternalsDecl } from "./runtime.types.js";
+
 interface tsSerializeRawCtx {
 	mode: "js" | "cache";
 	sortKeys: boolean;
@@ -41,4 +44,30 @@ export function serializeRaw(value: any, ctx: tsSerializeRawCtx): string {
 		return result;
 	}
 	return JSON.stringify(value);
+}
+
+/** Normalize an externals declaration into a mapper `{ nameInFn: externalsKey }`
+ * (identity by default). Array form derives names from `.name`; object form uses keys. */
+export function externalsMap(externals?: tsDnaExternalsDecl): tsDnaExternals {
+	const map: tsDnaExternals = {};
+	if (!externals) return map;
+	if (Array.isArray(externals)) {
+		externals.forEach((e, i) => {
+			const n = e.name;
+			if (!n) throw new Error("transform/refine external #" + i + " has no name; use the object form { myFn } for anonymous or minified values");
+			map[n] = n;
+		});
+	} else {
+		for (const k of Object.keys(externals)) map[k] = k;
+	}
+	return map;
+}
+
+export function metaNormalize(meta?: string | tsDnaInnerMeta, target?: string): tsDnaInnerMeta {
+	if (meta === undefined) return {};
+	let _meta: any;
+	if (typeof meta === "string") _meta = { error: meta };
+	else _meta = meta;
+	if (target) return { "~inner": _meta };
+	return _meta
 }

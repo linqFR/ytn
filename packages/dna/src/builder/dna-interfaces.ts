@@ -21,6 +21,7 @@ import type {
 
 import { stringify } from "@ytrynot/shared/js/json.js";
 import { isValidRegex } from "@ytrynot/shared/regex/is-valid-regex.js";
+import { externalsMap, metaNormalize } from "../shared/utils.js";
 import type {
   tsPrimitiveLiteral,
   tsStoreMark,
@@ -177,32 +178,6 @@ export class DnaCollector implements IDnaCollector {
 // ============================================
 // Factories
 // ============================================
-
-/** Normalize an externals declaration into a mapper `{ nameInFn: externalsKey }`
- * (identity by default). Array form derives names from `.name`; object form uses keys. */
-export function externalsMap(externals?: tsDnaExternalsDecl): tsDnaExternals {
-  const map: tsDnaExternals = {};
-  if (!externals) return map;
-  if (Array.isArray(externals)) {
-    externals.forEach((e, i) => {
-      const n = e.name;
-      if (!n) throw new Error("transform/refine external #" + i + " has no name; use the object form { myFn } for anonymous or minified values");
-      map[n] = n;
-    });
-  } else {
-    for (const k of Object.keys(externals)) map[k] = k;
-  }
-  return map;
-}
-
-function metaNormalize(meta?: string | tsDnaInnerMeta, target?: string): tsDnaInnerMeta {
-  if (meta === undefined) return {};
-  let _meta: any;
-  if (typeof meta === "string") _meta = { error: meta };
-  else _meta = meta;
-  if (target) return { "~inner": _meta };
-  return _meta
-}
 
 const SymSetHead = Symbol("setHead");
 const SymForceCoerce = Symbol("forceCoerce");
@@ -3585,17 +3560,19 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
    * - `multiple` is detected from `DnaArray` wrappers.
    * - Short aliases are auto-generated from the first letter of each flag,
    *   skipping if the letter is already taken. An explicit `shorts` mapping
-   *   overrides the auto-generation.
+   *   overrides the auto-generation. NOTE: short alias generation (both
+   *   auto-generation and `opts.shorts` override) is deprecated — it is a
+   *   `parseArgs` concern, not a `cliUnion` schema concern (ADMIN decision
+   *   2026-08-15). Will be removed in a future release. Consumers should
+   *   generate their own shorts at the `parseArgs` config level.
    * - Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers
    *   in the branch schemas. `parseArgs` is a pure lexical tokenizer.
    *
    * @param opts - Optional configuration.
-   * @param opts.shorts - Explicit short alias mapping (e.g. `{ verbose: "v" }`).
    * @param opts.strict - Whether `parseArgs` should run in strict mode (default: `false`).
    * @returns A `ParseArgsConfig`-compatible object for `node:util.parseArgs`.
    */
   toParseArgsConfig(opts?: {
-    shorts?: Record<string, string>;
     strict?: boolean;
   }): {
     allowPositionals: true;
@@ -3603,10 +3580,8 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
     options: Record<string, {
       type: "string" | "boolean";
       multiple: boolean;
-      short?: string;
     }>;
   } {
-    const explicitShorts = opts?.shorts ?? {};
     const strict = opts?.strict ?? false;
     const positionalSet = new Set(this.positionals);
     const flags = this.flags;
@@ -3631,34 +3606,18 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
       }
     }
 
-    // Auto-generate shorts: first letter, skip if taken
-    const usedShorts = new Set<string>();
     const options: Record<string, {
       type: "string" | "boolean";
       multiple: boolean;
-      short?: string;
     }> = {};
 
     for (const key of flags) {
       const meta = optionMeta[key];
       if (!meta) continue;
 
-      let short: string | undefined;
-      if (explicitShorts[key]) {
-        short = explicitShorts[key];
-        usedShorts.add(short);
-      } else {
-        const candidate = key[0];
-        if (candidate && !usedShorts.has(candidate)) {
-          short = candidate;
-          usedShorts.add(candidate);
-        }
-      }
-
       options[key] = {
         type: meta.type,
         multiple: meta.multiple,
-        ...(short && { short }),
       };
     }
 
@@ -4273,7 +4232,7 @@ export class DnaCheckProperty<K extends string | number, S extends DnaType<any, 
 
 }
 
-export type tsJsonValue = string | number | boolean | null | tsJsonValue[] | { [x: string]: tsJsonValue };
+export type DnaJsonValue = string | number | boolean | null | DnaJsonValue[] | { [x: string]: DnaJsonValue };
 
 // NEVER EDIT - if  TS triggers an error the cause is elsewhere
 export type DnaJsonRaw = DnaUnion<[
@@ -4285,4 +4244,4 @@ export type DnaJsonRaw = DnaUnion<[
   DnaRecord<DnaString, DnaJson>
 ]>;
 // NEVER EDIT - if  TS triggers an error the cause is elsewhere
-export type DnaJson = DnaLazy<tsJsonValue>;
+export type DnaJson = DnaLazy<DnaJsonValue>;
