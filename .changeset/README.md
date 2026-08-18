@@ -23,7 +23,7 @@ Brief title
 
 - List the affected package(s) with the bump type: `patch`, `minor`, or `major`.
 - Only public packages need changesets: `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`.
-- Private packages (`@ytrynot/wf`, `@ytrynot/czvo`, `@ytrynot/cdna`, `@ytrynot/shared`) are in the `ignore` list — no changeset needed.
+- Private packages (`@ytrynot/wf`, `@ytrynot/shared`) are in the `ignore` list — no changeset needed.
 
 ### Bump type
 

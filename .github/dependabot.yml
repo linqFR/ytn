@@ -13,22 +13,32 @@ updates:
   - package-ecosystem: "npm"
     directory: "/shared" # Internal shared toolbox
     schedule:
-      interval: "weekly"
+      interval: "monthly"
 
   - package-ecosystem: "npm"
     directory: "/packages/query-builder"
     schedule:
-      interval: "weekly"
-
-  - package-ecosystem: "npm"
-    directory: "/packages/cli-to-zvo"
-    schedule:
-      interval: "weekly"
+      interval: "monthly"
 
   - package-ecosystem: "npm"
     directory: "/packages/wf-runner"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+
+  - package-ecosystem: "npm"
+    directory: "/packages/dna"
+    schedule:
+      interval: "monthly"
+
+  - package-ecosystem: "npm"
+    directory: "/packages/schvalid"
+    schedule:
+      interval: "monthly"
+
+  - package-ecosystem: "npm"
+    directory: "/packages/cli"
+    schedule:
+      interval: "monthly"
 
   - package-ecosystem: "github-actions"
     directory: "/"

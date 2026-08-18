@@ -33,10 +33,10 @@ This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It con
 
 ### Main Packages
 
+- **`@ytrynot/dna`** (`packages/dna`): A DNA bytecode runtime engine and Zod-like schema builder.
+- **`@ytrynot/schvalid`** (`packages/schvalid`): A JSON Schema to DNA compiler and standalone validator generator.
 - **`@ytrynot/qb`** (`packages/query-builder`): A fluent SQLite query builder with Zod integration.
-- **`@ytrynot/czvo`** (`packages/cli-to-zvo`): A CLI contract definition and routing engine.
 - **`@ytrynot/wf`** (`packages/wf-runner`): A high-performance workflow router.
-- **`@ytrynot/cdna`** (`packages/cli-to-dna`): A CLI tool compiling JSON Schema into standalone JS validators using DNA bytecodes (private).
 - **`@ytrynot/cli`** (`packages/cli`): A DNA-based CLI router with 5-layer architecture and AOT compilation.
 
 ### Monorepo Structure
@@ -54,7 +54,7 @@ This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It con
 
 ## Environment & Tech Stack
 
-- **Runtime**: Node.js (>=25.0.0)
+- **Runtime**: Node.js (>=26.0.0)
 - **Language**: TypeScript 6.0.3 (esnext)
 - **Module System**: Pure ESM (`"type": "module"`)
 - **Package Manager**: `npm` with workspaces
@@ -79,7 +79,7 @@ This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It con
 - **Run all tests**: `npm.cmd test` (uses workspaces)
 - **Work on a specific package**: Use `-w` or `--workspace` flag.
   - Example: `npm.cmd test -w @ytrynot/qb`
-  - Example: `npm.cmd run build -w @ytrynot/czvo`
+  - Example: `npm.cmd run build -w @ytrynot/cli`
 
 ---
 
@@ -190,7 +190,7 @@ Reminder: Use Zod V4 exclusively.
 Publishing to npm is **fully automated** via GitHub Actions OIDC trusted publishing. No npm token, no 2FA, no manual `npm publish` is required.
 
 **Public packages** (published to npm): `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`, `@ytrynot/cli`.
-**Private packages** (never published, listed in `.changeset/config.json` `ignore`): `@ytrynot/wf`, `@ytrynot/czvo`, `@ytrynot/cdna`, `@ytrynot/shared`.
+**Private packages** (never published, listed in `.changeset/config.json` `ignore`): `@ytrynot/wf`, `@ytrynot/shared`.
 
 **Workflow**: `.github/workflows/publish.yml` — triggered on push to `main` when `.changeset/**` or public package `package.json` files change.
 
@@ -209,7 +209,7 @@ Publishing to npm is **fully automated** via GitHub Actions OIDC trusted publish
 **Important rules**:
 - **Never run `npm publish`, `npm run release`, or `changeset publish` locally**. Publishing is CI-only via OIDC. The `npm run release` script in `package.json` is kept only for the CI workflow — agents must never invoke it.
 - **Never run `npx.cmd changeset version` locally**. Version bumping is handled by the CI workflow (the "Version Packages" PR). Running it locally would desync local `package.json` versions from the registry.
-- **Always create a changeset** for changes to public packages (`@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`). Changes to private packages (`@ytrynot/czvo`, `@ytrynot/wf`, `@ytrynot/shared`) do NOT need changesets (they are in the `ignore` list).
+- **Always create a changeset** for changes to public packages (`@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`). Changes to private packages (e.g.: `@ytrynot/shared`) do NOT need changesets (they are in the `ignore` list).
 - **Changeset file format**: frontmatter with package names and bump type (`patch`/`minor`/`major`), followed by a markdown description of the change.
 
 ---

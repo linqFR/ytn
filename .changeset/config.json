@@ -9,8 +9,6 @@
   "updateInternalDependencies": "patch",
   "ignore": [
     "@ytrynot/wf",
-    "@ytrynot/czvo",
-    "@ytrynot/cdna",
     "@ytrynot/shared"
   ]
 }
