@@ -3418,8 +3418,7 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
  * 2. **Pre-routing transform** (owned by `@ytrynot/cli`) — flattens
  *    `{ values, positionals }` into a single plain object where each positional
  *    index is mapped to its declared name and each flag name is mapped to its
- *    target key. This mirrors what czvo does in its pre-routing `.transform()`
- *    (see `cli-engine/build-tools.ts`).
+ *    target key.
  *
  *    The resulting flat object is a **looseObject**:
  *    - **Positionals** and **flags declared in the branch schema** are
@@ -3454,13 +3453,12 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
  * and the branch is reached via another routing key, `.default()` injects the
  * branch's canonical value into the parsed output.
  *
- * ## Branch mutations (CZVO parity)
+ * ## Branch mutations
  *
  * Each branch is a full DNA schema and supports all DNA mutations:
  * `.default()`, `.extend()`, `.transform()`, `.prefault()`, etc. This allows
  * injecting branch-specific metadata (e.g. `branchId`) into the parsed output
- * even when the input does not contain it — the same pattern czvo uses in
- * `forge()` (`targets[name].zod.extend({ discriminant }).transform(...)`).
+ * even when the input does not contain it.
  *
  * The builder must accept `DnaPipe` branches (e.g. `dna.object({...}).transform(...)`)
  * by unwrapping to the underlying `DnaObject` for discriminator/positional

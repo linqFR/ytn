@@ -163,7 +163,7 @@
   - `docs/opcode-patterns.md`: Replace incorrect `STEP.CONST` with `STEP.OUT_CONST` for helper functions and regex patterns. Add 3-mechanism distinction table (`STEP.OUT_CONST` / `preDecls` → `STEP.BODY` / `STEP.CONST`). Shorten `fCount`/`dEq` examples with reference to `inline-func.ts`. Fix `oLen` conditional logic. Add `STEP.CONST` vs `STEP.OUT_CONST` subsection.
   - `docs/type-inventory.md`: Remove duplicate `.min()`/`.max()` entries in `dna.string()` key methods.
 
-- a6a381d: Add `repository`, `bugs`, and `homepage` fields to package.json. Fix GitHub URLs to point to `linqFR/ytn` (was `linqFR/ytrynot` in cli-to-zvo).
+- a6a381d: Add `repository`, `bugs`, and `homepage` fields to package.json. Fix GitHub URLs to point to `linqFR/ytn`.
 
 ## 0.3.0
 
@@ -193,13 +193,6 @@
 
   "@ytrynot/qb": Build infrastructure and configuration.
 
-  - Migrates build from tsup to tsdown and back to tsup.
-  - Centralizes tsconfig include patterns in `tsconfig.base.json`.
-
-  "@ytrynot/czvo": Codec refactor and build infrastructure.
-
-  - Refactors `makeEmptyTo` in `zod-codecs.ts`: removes the `z.coerce.string().pipe(...)` wrapper in favor of a direct `z.preprocess(...)` with explicit return type annotation. Non-string inputs are no longer coerced to string before preprocessing — they fall through to the `""` branch (same as before for non-string `typeof` checks).
-  - Reorganizes performance tests from `tests/performance/` to `perf/` (standalone tsx scripts).
   - Migrates build from tsup to tsdown and back to tsup.
   - Centralizes tsconfig include patterns in `tsconfig.base.json`.
 

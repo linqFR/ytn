@@ -471,7 +471,7 @@ describe("cliUnion — toDna / fromDna roundtrip", () => {
 });
 
 // ============================================================
-// Branch mutation: .extend() + .default() — CZVO parity
+// Branch mutation: .extend() + .default()
 // ============================================================
 
 describe("cliUnion — .extend() + .default() branch mutation", () => {
