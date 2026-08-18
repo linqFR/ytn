@@ -1,9 +1,3 @@
-/**
- * @ytrynot/cli — Contract type definitions.
- *
- * @module @ytrynot/cli/types
- */
-
 import type {
   DnaObject,
   DnaCliUnion,
@@ -107,20 +101,6 @@ export type OHandlerResult =
   | { success: true; data: unknown }
   | { success: false; error: string };
 
-/**
- * Relaxed form of OHandlerResult that accepts boolean widening.
- * DNA transforms infer `{ success: false, error: "..." }` as
- * `{ success: boolean, error: string }` — this type matches the
- * widened inference while staying structurally compatible with
- * OHandlerResult consumers.
- *
- * `data` is the discriminant: the success branch always has `data`,
- * the error branch never has it. This allows `if ("data" in result)`
- * to narrow correctly regardless of `success` widening.
- */
-export type OHandlerResultLoose =
-  | { success: true; data: unknown }
-  | { success: boolean; error: string; data?: undefined };
 
 // ============================================================
 // Formatted result — couche 3 output
@@ -182,6 +162,17 @@ export interface CliError {
   message: string;
   path: string;
   input: unknown;
+}
+
+/**
+ * Minimal shape actually consumed by `formatCliError` — `message` is
+ * optional (defaults to `"Unknown error"`) and `input` is not read. This is
+ * narrower than `CliError` on purpose: the formatter shouldn't require a
+ * field it never uses.
+ */
+export interface tsCliErrorInput {
+  message?: string;
+  path: string;
 }
 
 export type OExecuteResult =

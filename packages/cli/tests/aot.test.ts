@@ -5,12 +5,8 @@ import { createContract } from "../src/contract.js";
 import { compile } from "../src/compile.js";
 import { execute } from "../src/factory.js";
 import {
-  buildBranch,
-  deployBranch,
-  helpBranch,
-  versionBranch,
   targets,
-  fallbacks,
+  fallbacks
 } from "./fixtures.js";
 
 const processed = createContract({

@@ -1,9 +1,3 @@
-/**
- * @ytrynot/cli — DNA-validated CLI router with Maranget decision trees.
- *
- * @module @ytrynot/cli
- */
-
 export { createContract } from "./contract.js";
 export { executeContract, cliFactory, fullCli, execute } from "./factory.js";
 export { compile } from "./compile.js";

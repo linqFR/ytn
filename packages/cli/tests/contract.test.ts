@@ -1,16 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { dna } from "@ytrynot/dna";
 import { createContract } from "../src/contract.js";
-import type { IProcessedContract } from "../src/types/contract.types.js";
 import {
-  buildBranch,
-  deployBranch,
-  helpBranch,
-  versionBranch,
   targets,
   fallbacks,
   branchWithoutRouteId,
-  minimalTargets,
+  minimalTargets
 } from "./fixtures.js";
 
 describe("createContract", () => {

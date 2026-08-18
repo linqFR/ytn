@@ -2,15 +2,11 @@ import { describe, it, expect } from "vitest";
 import { createContract } from "../src/contract.js";
 import { compile } from "../src/compile.js";
 import { execute } from "../src/factory.js";
-import { buildHelp, printHelp } from "../src/help.js";
+import { buildHelp } from "../src/help.js";
 import { formatCliError } from "../src/error.js";
 import {
-  buildBranch,
-  deployBranch,
-  helpBranch,
-  versionBranch,
   targets,
-  fallbacks,
+  fallbacks
 } from "./fixtures.js";
 
 /**

@@ -227,6 +227,9 @@ Full signatures, parameters, and return types: see [API Reference](./docs/api-re
   signatures, parameters, return types, type definitions.
 - **[Architecture](./docs/architecture.md)** — the 5-layer pipeline, Maranget
   routing, the `\x00ID` convention, portability boundary, AOT scope.
+- **[How To: Use CLI Routing in a REPL](./docs/how-to-use-cli-in-a-repl.md)** —
+  build a stdin-based REPL on top of `dna.cliUnion` (no `@ytrynot/cli` dependency
+  required, bypasses `parseArgs` and `process.exit`).
 
 ## Status
 

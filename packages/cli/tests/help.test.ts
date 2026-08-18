@@ -2,12 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { buildHelp, printHelp } from "../src/help.js";
 import { createContract } from "../src/contract.js";
 import {
-  buildBranch,
-  deployBranch,
-  helpBranch,
-  versionBranch,
   targets,
-  fallbacks,
+  fallbacks
 } from "./fixtures.js";
 
 const processed = createContract({

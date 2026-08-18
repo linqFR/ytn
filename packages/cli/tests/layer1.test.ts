@@ -4,12 +4,8 @@ import { execute } from "../src/factory.js";
 import { toJS } from "@ytrynot/dna/toJs";
 import { compile } from "../src/compile.js";
 import {
-  buildBranch,
-  deployBranch,
-  helpBranch,
-  versionBranch,
   targets,
-  fallbacks,
+  fallbacks
 } from "./fixtures.js";
 
 /**

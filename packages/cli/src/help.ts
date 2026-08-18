@@ -13,8 +13,6 @@
  * - `\x00ID` excluded from help output
  * - `.meta().description` on routes and fields provides help text
  * - `.meta().cli.hidden` marks routes hidden from general help
- *
- * @module @ytrynot/cli/help
  */
 
 import { DnaLiteral } from "@ytrynot/dna/core";

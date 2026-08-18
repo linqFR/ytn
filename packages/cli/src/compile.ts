@@ -1,13 +1,3 @@
-/**
- * @ytrynot/cli — AOT compilation.
- *
- * Compiles the DNA pipeline into a standalone JS function via `toJS`.
- * The compiled function requires no DNA runtime — only the externals
- * captured at compile time.
- *
- * @module @ytrynot/cli/compile
- */
-
 import { toJS } from "@ytrynot/dna/toJs";
 import type { IProcessedContract, OExecuteResult, CliError } from "./types/contract.types.js";
 

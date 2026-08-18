@@ -3,12 +3,8 @@ import { createContract } from "../src/contract.js";
 import { executeContract, cliFactory, fullCli } from "../src/factory.js";
 import type { IHandlers, FormatterFn } from "../src/types/contract.types.js";
 import {
-  buildBranch,
-  deployBranch,
-  helpBranch,
-  versionBranch,
   targets,
-  fallbacks,
+  fallbacks
 } from "./fixtures.js";
 
 /**
