@@ -17,10 +17,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Node.js 25
+      - name: Setup Node.js 26
         uses: actions/setup-node@v4
         with:
-          node-version: "25"
+          node-version: "26"
           cache: 'npm'
 
       - name: Clean install
