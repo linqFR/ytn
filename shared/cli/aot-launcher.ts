@@ -7,9 +7,9 @@ import { existsSync } from "../dirpath/fs-ops.js";
  * @description Configuration for the AOT compiler launcher.
  */
 export interface ICompilerLauncherOptions {
-  /** The human-readable name of the compiler (e.g., 'CZVO') */
+  /** The human-readable name of the compiler */
   name: string;
-  /** The official command name (e.g., 'czvo-compile') */
+  /** The official command name*/
   command: string;
   /** Default output filename if not specified by user. */
   defaultOut: string;

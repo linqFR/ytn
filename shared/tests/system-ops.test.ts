@@ -32,10 +32,10 @@ describe("shared/system-ops (Functional & Rupture)", () => {
     });
 
     it("should load a package including name and version async", async () => {
-      const pkgPath = path.resolve("./packages/cli-to-zvo");
+      const pkgPath = path.resolve("./packages/cli");
       const res = await pkg.loadPackage(pkgPath);
       expect(isSuccess(res)).toBe(true);
-      expect(res[1].name).toBe("@ytrynot/czvo");
+      expect(res[1].name).toBe("@ytrynot/cli");
       expect(res[1].version).toBeDefined();
     });
 
