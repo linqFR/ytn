@@ -74,7 +74,7 @@
 
 ### Patch Changes
 
-- a6a381d: Add `repository`, `bugs`, and `homepage` fields to package.json. Fix GitHub URLs to point to `linqFR/ytn` (was `linqFR/ytrynot` in cli-to-zvo).
+- a6a381d: Add `repository`, `bugs`, and `homepage` fields to package.json. Fix GitHub URLs to point to `linqFR/ytn`.
 - 35157b3: Documentation consistency audit — fix inaccuracies across schvalid docs.
 
   - `docs/ajv-comparison.md`: Fix test runner description — `discoverJsonFiles()` IS recursive, optional/ files are filtered by `shouldSkipFile()`. Correct format count from 18 to 19 (matching `JSONFORMAT` in `string-formats.ts`). Qualify "~4x faster" compilation claim with reference to `tests/bench/`. Remove line counts from Source References. Fix test counts to 1243 passing per mode / 44 skipped (was 1201).
@@ -120,13 +120,6 @@
 
   "@ytrynot/qb": Build infrastructure and configuration.
 
-  - Migrates build from tsup to tsdown and back to tsup.
-  - Centralizes tsconfig include patterns in `tsconfig.base.json`.
-
-  "@ytrynot/czvo": Codec refactor and build infrastructure.
-
-  - Refactors `makeEmptyTo` in `zod-codecs.ts`: removes the `z.coerce.string().pipe(...)` wrapper in favor of a direct `z.preprocess(...)` with explicit return type annotation. Non-string inputs are no longer coerced to string before preprocessing — they fall through to the `""` branch (same as before for non-string `typeof` checks).
-  - Reorganizes performance tests from `tests/performance/` to `perf/` (standalone tsx scripts).
   - Migrates build from tsup to tsdown and back to tsup.
   - Centralizes tsconfig include patterns in `tsconfig.base.json`.
 
