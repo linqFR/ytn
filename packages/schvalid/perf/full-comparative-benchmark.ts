@@ -3,37 +3,57 @@ import { z } from "zod";
 import { validator as validatorDnaNormal, parser as parserDnaNormal } from "@ytrynot/dna/toJs";
 import { jschemaToDna, schvalid as schvalidNormal } from "../src/index.js";
 
+const GC_AVAILABLE = typeof globalThis.gc === "function";
+
+/** Force GC between runs if --expose-gc was passed; no-op otherwise. */
+function forceGc(): void {
+  if (GC_AVAILABLE) globalThis.gc?.();
+}
+
+/** Print GC status + stats legend (shared between compilation and validation sections). */
+function printGcAndStatsLegend(): void {
+  console.log(`GC between runs: ${GC_AVAILABLE ? "YES (--expose-gc)" : "NO (pass --expose-gc)"}`);
+  console.log("Stats: mean = average; median = middle value; p95 = 95% of measurements are at or below this value (5% are slower). CV% = coefficient of variation.");
+}
+
+/** DCE sink — prevents V8 from eliminating function calls. */
+let _sink = 0;
+
 type BenchmarkStats = {
   mean: number;
   median: number;
   p95: number;
   stdDev: number;
+  cvPct: number;
 };
 
 const computeStats = (samples: number[]): BenchmarkStats => {
   const sorted = [...samples].sort((a, b) => a - b);
   const mean = sorted.reduce((sum, v) => sum + v, 0) / sorted.length;
   const median = sorted.length % 2
-    ? sorted[Math.floor(sorted.length / 2)]
-    : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
-  const p95 = sorted[Math.floor(sorted.length * 0.95)];
+    ? sorted[Math.floor(sorted.length / 2)]!
+    : (sorted[sorted.length / 2 - 1]! + sorted[sorted.length / 2]!) / 2;
+  const p95 = sorted[Math.floor(sorted.length * 0.95)]!;
   const variance = sorted.reduce((sum, v) => sum + (v - mean) ** 2, 0) / sorted.length;
   const stdDev = Math.sqrt(variance);
-  return { mean, median, p95, stdDev };
+  const cvPct = (stdDev / mean) * 100;
+  return { mean, median, p95, stdDev, cvPct };
 };
 
 const pad = (n: number, width: number) => n.toFixed(5).padEnd(width);
+const fmtCv = (n: number) => `${n.toFixed(1)}%`.padStart(6);
 
 const runCompilationBench = (
   fn: (index: number) => unknown,
   iterations: number,
   runs: number,
 ): BenchmarkStats => {
-  for (let i = 0; i < 100; i++) fn(i);
+  for (let i = 0; i < 100; i++) _sink = (_sink + +!!fn(i % iterations)) | 0;
   const samples: number[] = [];
   for (let r = 0; r < runs; r++) {
+    forceGc();
     const start = performance.now();
-    for (let i = 0; i < iterations; i++) fn(i);
+    for (let i = 0; i < iterations; i++) _sink = (_sink + +!!fn(i)) | 0;
     samples.push((performance.now() - start) / iterations);
   }
   return computeStats(samples);
@@ -44,29 +64,44 @@ const runValidationBench = (
   iterations: number,
   runs: number,
 ): { valid: BenchmarkStats; invalid: BenchmarkStats } => {
-  for (let i = 0; i < 100; i++) {
-    fn(validData);
-    fn(invalidData);
+  for (let i = 0; i < 10_000; i++) {
+    _sink = (_sink + +!!fn(validData)) | 0;
+    _sink = (_sink + +!!fn(invalidData)) | 0;
   }
   const validSamples: number[] = [];
   const invalidSamples: number[] = [];
   for (let r = 0; r < runs; r++) {
+    forceGc();
     const startValid = performance.now();
-    for (let i = 0; i < iterations; i++) fn(validData);
+    for (let i = 0; i < iterations; i++) _sink = (_sink + +!!fn(validData)) | 0;
     validSamples.push((performance.now() - startValid) / iterations);
 
+    forceGc();
     const startInvalid = performance.now();
-    for (let i = 0; i < iterations; i++) fn(invalidData);
+    for (let i = 0; i < iterations; i++) _sink = (_sink + +!!fn(invalidData)) | 0;
     invalidSamples.push((performance.now() - startInvalid) / iterations);
   }
   return { valid: computeStats(validSamples), invalid: computeStats(invalidSamples) };
 };
 
-const shuffle = <T>(arr: T[]): T[] => {
+/** Deterministic shuffle (seeded) — avoids Math.random() non-determinism. */
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const shuffle = <T>(arr: T[], rng: () => number): T[] => {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = copy[i]!;
+    copy[i] = copy[j]!;
+    copy[j] = tmp;
   }
   return copy;
 };
@@ -76,30 +111,35 @@ const runValidationBenchInterleaved = (
   iterations: number,
   runs: number,
 ): { valid: BenchmarkStats; invalid: BenchmarkStats }[] => {
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 10_000; i++) {
     for (const fn of fns) {
-      fn(validData);
-      fn(invalidData);
+      _sink = (_sink + +!!fn(validData)) | 0;
+      _sink = (_sink + +!!fn(invalidData)) | 0;
     }
   }
   const validSamples: number[][] = fns.map(() => []);
   const invalidSamples: number[][] = fns.map(() => []);
   const indices = fns.map((_, i) => i);
   for (let r = 0; r < runs; r++) {
-    for (const i of shuffle(indices)) {
-      const fn = fns[i];
+    forceGc();
+    // Seeded shuffle per run — deterministic, different order each run
+    const order = shuffle(indices, mulberry32(r * 7919 + 31));
+    for (const i of order) {
+      const fn = fns[i]!;
+      forceGc();
       const startValid = performance.now();
-      for (let j = 0; j < iterations; j++) fn(validData);
-      validSamples[i].push((performance.now() - startValid) / iterations);
+      for (let j = 0; j < iterations; j++) _sink = (_sink + +!!fn(validData)) | 0;
+      validSamples[i]!.push((performance.now() - startValid) / iterations);
 
+      forceGc();
       const startInvalid = performance.now();
-      for (let j = 0; j < iterations; j++) fn(invalidData);
-      invalidSamples[i].push((performance.now() - startInvalid) / iterations);
+      for (let j = 0; j < iterations; j++) _sink = (_sink + +!!fn(invalidData)) | 0;
+      invalidSamples[i]!.push((performance.now() - startInvalid) / iterations);
     }
   }
   return fns.map((_, i) => ({
-    valid: computeStats(validSamples[i]),
-    invalid: computeStats(invalidSamples[i]),
+    valid: computeStats(validSamples[i]!),
+    invalid: computeStats(invalidSamples[i]!),
   }));
 };
 
@@ -189,21 +229,21 @@ const zodSchema = z.object({
   console.log("WARNING: Benchmark results may vary between runs due to parallel execution scheduling.");
   console.log("=".repeat(90));
   console.log("COMPILATION PERFORMANCE COMPARISON (ms per compilation)");
-  console.log("Stats: mean = average; median = middle value; p95 = 95% of measurements are at or below this value (5% are slower); stddev = dispersion.");
+  printGcAndStatsLegend();
   console.log("NOTE: 'DNA Validation' and 'DNA Parser' are low-level @ytrynot/dna modes included for internal comparison with Zod.");
   console.log(`Workload: ${runs} runs x ${iterations.toLocaleString()} schemas = ${(runs * iterations).toLocaleString()} compilations per mode`);
   console.log("=".repeat(90));
-  console.log("| Mode               | mean (ms)    | median (ms) | p95 (ms) | stddev (ms) |");
-  console.log("|--------------------|--------------|-------------|----------|-------------|");
-  console.log(`| AJV Minimal        | ${pad(ajvMin.mean, 12)} | ${pad(ajvMin.median, 11)} | ${pad(ajvMin.p95, 8)} | ${pad(ajvMin.stdDev, 11)} |`);
-  console.log(`| AJV AllErrors      | ${pad(ajvAll.mean, 12)} | ${pad(ajvAll.median, 11)} | ${pad(ajvAll.p95, 8)} | ${pad(ajvAll.stdDev, 11)} |`);
-  console.log(`| Schvalid Val       | ${pad(schvalidVal.mean, 12)} | ${pad(schvalidVal.median, 11)} | ${pad(schvalidVal.p95, 8)} | ${pad(schvalidVal.stdDev, 11)} |`);
-  console.log(`| Schvalid ParseFast | ${pad(schvalidFast.mean, 12)} | ${pad(schvalidFast.median, 11)} | ${pad(schvalidFast.p95, 8)} | ${pad(schvalidFast.stdDev, 11)} |`);
-  console.log(`| DNA Validation     | ${pad(dnaVal.mean, 12)} | ${pad(dnaVal.median, 11)} | ${pad(dnaVal.p95, 8)} | ${pad(dnaVal.stdDev, 11)} |`);
-  console.log("|--------------------|--------------|-------------|----------|-------------|");
-  console.log(`| DNA Parser         | ${pad(dnaParse.mean, 12)} | ${pad(dnaParse.median, 11)} | ${pad(dnaParse.p95, 8)} | ${pad(dnaParse.stdDev, 11)} |`);
-  console.log(`| Schvalid Parse     | ${pad(schvalidParse.mean, 12)} | ${pad(schvalidParse.median, 11)} | ${pad(schvalidParse.p95, 8)} | ${pad(schvalidParse.stdDev, 11)} |`);
-  console.log(`| Zod                | ${pad(zod.mean, 12)} | ${pad(zod.median, 11)} | ${pad(zod.p95, 8)} | ${pad(zod.stdDev, 11)} |`);
+  console.log("| Mode               | mean (ms)    | median (ms) | p95 (ms) | stddev (ms) | CV%   |");
+  console.log("|--------------------|--------------|-------------|----------|-------------|-------|");
+  console.log(`| AJV Minimal        | ${pad(ajvMin.mean, 12)} | ${pad(ajvMin.median, 11)} | ${pad(ajvMin.p95, 8)} | ${pad(ajvMin.stdDev, 11)} | ${fmtCv(ajvMin.cvPct)} |`);
+  console.log(`| AJV AllErrors      | ${pad(ajvAll.mean, 12)} | ${pad(ajvAll.median, 11)} | ${pad(ajvAll.p95, 8)} | ${pad(ajvAll.stdDev, 11)} | ${fmtCv(ajvAll.cvPct)} |`);
+  console.log(`| Schvalid Val       | ${pad(schvalidVal.mean, 12)} | ${pad(schvalidVal.median, 11)} | ${pad(schvalidVal.p95, 8)} | ${pad(schvalidVal.stdDev, 11)} | ${fmtCv(schvalidVal.cvPct)} |`);
+  console.log(`| Schvalid ParseFast | ${pad(schvalidFast.mean, 12)} | ${pad(schvalidFast.median, 11)} | ${pad(schvalidFast.p95, 8)} | ${pad(schvalidFast.stdDev, 11)} | ${fmtCv(schvalidFast.cvPct)} |`);
+  console.log(`| DNA Validation     | ${pad(dnaVal.mean, 12)} | ${pad(dnaVal.median, 11)} | ${pad(dnaVal.p95, 8)} | ${pad(dnaVal.stdDev, 11)} | ${fmtCv(dnaVal.cvPct)} |`);
+  console.log("|--------------------|--------------|-------------|----------|-------------|-------|");
+  console.log(`| DNA Parser         | ${pad(dnaParse.mean, 12)} | ${pad(dnaParse.median, 11)} | ${pad(dnaParse.p95, 8)} | ${pad(dnaParse.stdDev, 11)} | ${fmtCv(dnaParse.cvPct)} |`);
+  console.log(`| Schvalid Parse     | ${pad(schvalidParse.mean, 12)} | ${pad(schvalidParse.median, 11)} | ${pad(schvalidParse.p95, 8)} | ${pad(schvalidParse.stdDev, 11)} | ${fmtCv(schvalidParse.cvPct)} |`);
+  console.log(`| Zod                | ${pad(zod.mean, 12)} | ${pad(zod.median, 11)} | ${pad(zod.p95, 8)} | ${pad(zod.stdDev, 11)} | ${fmtCv(zod.cvPct)} |`);
   console.log("=".repeat(90));
   const speedupLabel = (s: string) => s.padEnd(16);
   const speedupValue = (n: number) => `${n.toFixed(2)}x`.padStart(6);
@@ -250,22 +290,22 @@ const zodSchema = z.object({
   console.log("WARNING: Benchmark results may vary between runs due to parallel execution scheduling.");
   console.log("=".repeat(110));
   console.log("VALIDATION PERFORMANCE COMPARISON (ms per validation)");
-  console.log("Stats: mean = average; median = middle value; p95 = 95% of measurements are at or below this value (5% are slower).");
+  printGcAndStatsLegend();
   console.log("NOTE: 'DNA Parser' is the low-level DNA parser included for apples-to-apples comparison with Zod's parse-and-transform contract.");
   console.log("=".repeat(110));
   console.log("Schema:     JSON Schema with string, number, email, array, boolean");
   console.log(`Valid:      ${JSON.stringify(validData)}`);
   console.log(`Invalid:    ${JSON.stringify(invalidData)}`);
   console.log(`Workload:   ${runs} runs x ${iterations.toLocaleString()} validations x ${fns.length} validators = ${(runs * iterations * fns.length).toLocaleString()} total validations per data`);
-  console.log("Method:     Interleaved + random order per run; each validator measured on the same data");
+  console.log("Method:     Interleaved + seeded shuffle per run; each validator measured on the same data; GC forced between runs");
   console.log("=".repeat(110));
-  console.log("| Mode               | Valid mean | Valid median | Valid p95 | Invalid mean | Invalid median | Invalid p95 |");
-  console.log("|--------------------|------------|--------------|-----------|--------------|----------------|-------------|");
+  console.log("| Mode               | Valid mean | Valid median | Valid p95 | Valid CV% | Invalid mean | Invalid median | Invalid p95 | Invalid CV% |");
+  console.log("|--------------------|------------|--------------|-----------|-----------|--------------|----------------|-------------|-------------|");
   for (let i = 0; i < labels.length; i++) {
-    const r = results[i];
-    console.log(`| ${labels[i].padEnd(18)} | ${pad(r.valid.mean, 10)} | ${pad(r.valid.median, 12)} | ${pad(r.valid.p95, 9)} | ${pad(r.invalid.mean, 12)} | ${pad(r.invalid.median, 14)} | ${pad(r.invalid.p95, 11)} |`);
+    const r = results[i]!;
+    console.log(`| ${labels[i]!.padEnd(18)} | ${pad(r.valid.mean, 10)} | ${pad(r.valid.median, 12)} | ${pad(r.valid.p95, 9)} | ${fmtCv(r.valid.cvPct)} | ${pad(r.invalid.mean, 12)} | ${pad(r.invalid.median, 14)} | ${pad(r.invalid.p95, 11)} | ${fmtCv(r.invalid.cvPct)} |`);
     if (i === parserStartIndex - 1) {
-      console.log("|--------------------|------------|--------------|-----------|--------------|----------------|-------------|");
+      console.log("|--------------------|------------|--------------|-----------|-----------|--------------|----------------|-------------|-------------|");
     }
   }
   console.log("=".repeat(110));
@@ -344,3 +384,5 @@ const zodSchema = z.object({
   console.log("Note: ParseFast's own dispatcher closure is tiny (~150 bytes); its real cost is the sum of the validate + parse functions it wraps and reuses (see `combineFast`).");
   console.log("=".repeat(80));
 }
+
+console.log(`\nDCE sink: ${_sink} (non-zero confirms calls were not eliminated)`);

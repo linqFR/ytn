@@ -46,7 +46,7 @@
     "test": "vitest run tests/schemas",
     "test:full": "vitest run",
     "bench": "npm.cmd run perf",
-    "perf": "tsx ./perf/full-comparative-benchmark.ts && tsx ./perf/bundle-performance.ts"
+    "perf": "node --import tsx --expose-gc ./perf/full-comparative-benchmark.ts && node --import tsx --expose-gc ./perf/bundle-performance.ts"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

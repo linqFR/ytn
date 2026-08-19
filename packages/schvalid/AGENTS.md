@@ -273,7 +273,7 @@ npm test
 # Run all correctness tests
 npm run test:full
 
-# Run all benchmarks (standalone tsx, not vitest; `bench` is an alias of `perf`)
+# Run all benchmarks (standalone, GC-controlled via --expose-gc)
 npm run bench
 # or
 npm run perf
