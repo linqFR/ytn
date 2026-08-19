@@ -44,7 +44,9 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
-    "perf": "tsx ./perf/zod-vs-dna-cycles.ts"
+    "perf": "node --import tsx --expose-gc ./perf/zod-vs-dna-cycles.ts",
+    "perf:maranget": "node --import tsx --expose-gc ./perf/bench-ifchain-vs-maranget.ts",
+    "perf:patterns": "node --import tsx --expose-gc ./perf/bench-codegen-patterns.ts"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

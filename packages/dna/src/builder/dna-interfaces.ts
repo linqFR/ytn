@@ -55,6 +55,7 @@ import type {
   $DnaBranded,
   $DnaPartialShape,
   $Input,
+  $IsAny,
   $MaybeAsync,
   $Output,
   $ReadonlyValue,
@@ -1114,8 +1115,8 @@ export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
    * @param value - The default value to use when output is `undefined`.
    * @returns A `DnaDefault` wrapper.
    */
-  default<This extends DnaSomeType>(this: This, value: This["_output"]): DnaDefault<This> {
-    return initDna(DnaDefault<This>, { inner: this, value })[SymSetHead](this._head);
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V): DnaDefault<This, V> {
+    return initDna(DnaDefault<This, V>, { inner: this, value })[SymSetHead](this._head);
   }
   /**
    * Wraps this schema in a {@link DnaPrefault} that substitutes `value` when
@@ -1434,7 +1435,8 @@ export class DnaNullish<Inner extends DnaSomeType = DnaSomeType> extends _DnaWra
 
 /** Default wrapper: substitutes a default value when the output is `undefined`. Created via `.default(value)`. */
 // Default wrapper - provides default value for output
-export class DnaDefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
+export class DnaDefault<Inner extends DnaSomeType = DnaSomeType, V = $Output<Inner>> extends _DnaWrapper<Inner, any, any> {
+  declare readonly _output: $IsAny<$Output<Inner>> extends true ? V : $RemoveUndefined<$Output<Inner>> | V;
   override _core = Object.defineProperty(
     new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
     "defaultValue",
@@ -1494,8 +1496,10 @@ function isRequiredKey(schema: DnaSomeType): boolean {
 export class DnaLiteral<const T> extends DnaTypeWithWrappers<T, T> {
   override _core = new BaseCore<{ value: T }>("literal")
 
-  // TypeScript static warning: .value returns never for multi-value literals
-  // Runtime check: throws error if accessed on multi-value literal
+  // Legacy accessor: returns the single literal value. The factory flattens
+  // multi-value inputs into a union type (`T = "a" | "b"`), so `.value` is
+  // typed as `T` even for multi-value literals. Accessing it at runtime on a
+  // multi-value literal throws — use `.values` instead in that case.
   get value(): T extends readonly any[] ? never : T {
     if (Array.isArray(this._core.seed.value)) {
       throw new Error("This schema contains multiple valid literal values. Use `.values` instead.");

@@ -1044,7 +1044,7 @@ This is a **simplification of Maranget's usefulness heuristic**. Maranget origin
 
 **Why the simplification is acceptable for CLI**:
 - CLI schemas rarely exceed 10–20 branches
-- The benchmark (`bench-ifchain-vs-maranget.ts`) shows the tree is 1.2x–2.3x faster than if-chain regardless of balance
+- The benchmark ([`perf/bench-ifchain-vs-maranget.ts`](../perf/bench-ifchain-vs-maranget.ts)) shows the tree is 1.2x–2.5x faster than if-chain regardless of balance
 - The codegen runs once at schema definition time; only the generated code runs per-call
 
 ### Codegen rules (leaf patterns)
@@ -1094,16 +1094,7 @@ This follows the DNA fast-fail discipline: no `else` chains, each successful pat
 
 ### Benchmark (architecture: if-chain vs Maranget tree)
 
-`sandbox/bench-ifchain-vs-maranget.ts`, Node v26.5.1, polymorphic, 7 runs, 1M iters:
-
-| N branches | if-chain (ns/op) | Maranget tree (ns/op) | Speedup |
-|---|---|---|---|
-| 3  | 9.78  | 9.23  | 1.06x (noise) |
-| 10 | 14.13 | 11.45 | 1.23x |
-| 25 | 21.36 | 13.67 | 1.56x |
-| 50 | 31.98 | 14.01 | 2.28x |
-
-The if-chain is O(N) (each branch adds a test); the tree is O(log N) (each level halves candidates). For N ≤ 3, no measurable difference. For N ≥ 10, the tree is clearly faster.
+The benchmark ([`perf/bench-ifchain-vs-maranget.ts`](../perf/bench-ifchain-vs-maranget.ts), 15 runs, 1M iters, polymorphic, GC-controlled) shows the Maranget tree is 1.2x–2.5x faster than if-chain for N ≥ 10 branches, with no measurable difference for N ≤ 3. Full results table and methodology in [cli-union.md — Routing complexity](cli-union.md#routing-complexity).
 
 **Caveat**: the benchmark generates functions via `new Function(...)` with hand-written strings, not via the real `cli.toJS()` codegen. The real generated code may differ slightly in structure (labels, closures, prevalidation step).
 
@@ -1872,7 +1863,7 @@ const erased: DnaCliUnion<readonly DnaSomeType[]> = cli;
 type Out = typeof erased["_output"]; // unknown
 ```
 
-`$Output<DnaSomeType>` = `unknown` (the `false` branch of `S extends { _output: infer O } ? O : unknown`). The `@ytrynot/cli` package stores the `cliUnion` as `DnaCliUnion<readonly DnaSomeType[]>` in `IProcessedContract.cliUnion` (see `packages/cli/src/types/contract.types.ts:138`), so the typed output is only available at the construction site, not after storage in the contract.
+`$Output<DnaSomeType>` = `unknown` (the `false` branch of `S extends { _output: any } ? S["_output"] : unknown`). The `@ytrynot/cli` package stores the `cliUnion` as `DnaCliUnion<readonly DnaSomeType[]>` in `IProcessedContract.cliUnion` (see `packages/cli/src/types/contract.types.ts:138`), so the typed output is only available at the construction site, not after storage in the contract.
 
 ### `toParseArgsConfig()` — concrete (non-generic) return type
 

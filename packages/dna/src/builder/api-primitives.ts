@@ -246,7 +246,7 @@ export const xor = <T extends DnaType<any, any>, U extends DnaType<any, any>>(sc
   initDna(DnaXorUnion<$Output<T>, $Output<U>>, { schemas: [...schemas] }, meta);
 
 export const intersection = <S1 extends DnaType<any>, S2 extends DnaType<any>>(schema1: S1, schema2: S2, meta?: string | tsDnaMeta) =>
-  initDna(DnaIntersection, { schemas: [schema1, schema2] }, meta);
+  initDna(DnaIntersection<$Output<S1>, $Output<S2>>, { schemas: [schema1, schema2] }, meta);
 
 export const discriminatedUnion = <K extends string, S extends tsDnaDiscriminatedUnionObjects<K>>(discriminator: K, schemas: S, meta?: string | tsDnaMeta) =>
   initDna(DnaDiscriminatedUnion<K, S>, { discriminator, schemas }, meta);

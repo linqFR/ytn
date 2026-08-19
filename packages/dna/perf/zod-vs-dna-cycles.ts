@@ -11,8 +11,12 @@
  *   For Zod: schema recreation, first safeParse before internal caches are set up.
  * - Warm (subsequent cycles): compiles once, massive warmup (10 000 calls),
  *   then measures. Captures the TurboFan-optimized state.
+ * - 20 runs, median + CV% reported
+ * - GC forced between runs (--expose-gc; degrades gracefully)
+ * - DCE sink prevents V8 from eliminating calls
+ * - Cold: order alternated per-run (DNA/Zod) to balance V8 tier-up bias
  *
- * Cases: from simplest (string) to most complex (nested object with transforms).
+ * Run: node --import tsx --expose-gc packages/dna/perf/zod-vs-dna-cycles.ts
  */
 
 import { dna } from "../src/index.js";
@@ -25,10 +29,16 @@ import { z } from "zod";
 const ITERATIONS = 1000;
 const RUNS = 20;
 const WARMUP = 10_000;
+const GC_AVAILABLE = typeof globalThis.gc === "function";
+
+/** Force GC between runs if --expose-gc was passed; no-op otherwise. */
+function forceGc(): void {
+  if (GC_AVAILABLE) globalThis.gc?.();
+}
 
 // --- Types ---
 
-type Stats = { mean: number; median: number; p95: number; stdDev: number };
+type Stats = { mean: number; median: number; p95: number; stdDev: number; cvPct: number };
 type CompileFn = () => (data: unknown) => unknown;
 
 type CaseDef = {
@@ -38,31 +48,38 @@ type CaseDef = {
   data: unknown;
 };
 
+// --- DCE sink ---
+
+let _sink = 0;
+
 // --- Helpers ---
 
 const computeStats = (samples: number[]): Stats => {
   const sorted = [...samples].sort((a, b) => a - b);
   const mean = sorted.reduce((sum, v) => sum + v, 0) / sorted.length;
   const median = sorted.length % 2
-    ? sorted[Math.floor(sorted.length / 2)]
-    : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
-  const p95 = sorted[Math.floor(sorted.length * 0.95)];
+    ? sorted[Math.floor(sorted.length / 2)]!
+    : (sorted[sorted.length / 2 - 1]! + sorted[sorted.length / 2]!) / 2;
+  const p95 = sorted[Math.floor(sorted.length * 0.95)]!;
   const variance = sorted.reduce((sum, v) => sum + (v - mean) ** 2, 0) / sorted.length;
   const stdDev = Math.sqrt(variance);
-  return { mean, median, p95, stdDev };
+  const cvPct = (stdDev / mean) * 100;
+  return { mean, median, p95, stdDev, cvPct };
 };
 
 /**
  * Measures the first cycle (cold): recompiles the function on each run (not measured),
  * then measures the first batch of ITERATIONS calls. Captures the baseline-JIT state
- * before TurboFan optimizes the function.
+ * before TurboFan optimizes the function. Order is alternated per-run to balance
+ * V8 tier-up bias.
  */
 const measureCold = (compile: CompileFn, data: unknown): Stats => {
   const samples: number[] = [];
   for (let r = 0; r < RUNS; r++) {
+    forceGc();
     const fn = compile(); // recompile — not measured
     const start = performance.now();
-    for (let i = 0; i < ITERATIONS; i++) fn(data);
+    for (let i = 0; i < ITERATIONS; i++) _sink = (_sink + +!!fn(data)) | 0;
     const elapsed = performance.now() - start;
     samples.push(ITERATIONS / (elapsed / 1000));
   }
@@ -75,11 +92,12 @@ const measureCold = (compile: CompileFn, data: unknown): Stats => {
  */
 const measureWarm = (compile: CompileFn, data: unknown): Stats => {
   const fn = compile(); // compile once
-  for (let i = 0; i < WARMUP; i++) fn(data); // warmup — triggers TurboFan
+  for (let i = 0; i < WARMUP; i++) _sink = (_sink + +!!fn(data)) | 0; // warmup — triggers TurboFan
   const samples: number[] = [];
   for (let r = 0; r < RUNS; r++) {
+    forceGc();
     const start = performance.now();
-    for (let i = 0; i < ITERATIONS; i++) fn(data);
+    for (let i = 0; i < ITERATIONS; i++) _sink = (_sink + +!!fn(data)) | 0;
     const elapsed = performance.now() - start;
     samples.push(ITERATIONS / (elapsed / 1000));
   }
@@ -89,6 +107,7 @@ const measureWarm = (compile: CompileFn, data: unknown): Stats => {
 const fmt = (n: number): string => Math.round(n).toLocaleString("en-US").padStart(12);
 const fmtRatio = (n: number): string => `x${n.toFixed(2)}`.padStart(7);
 const fmtRatioWide = (n: number): string => `x${n.toFixed(2)}`.padStart(9);
+const fmtCv = (n: number): string => `${n.toFixed(1)}%`.padStart(6);
 
 // --- Test cases ---
 
@@ -235,8 +254,8 @@ for (const caseDef of cases) {
   const zodS = caseDef.makeZod();
 
   const dv = dnaV(caseDef.data);
-  const dp = dnaP(caseDef.data);
-  const zp = zodS.safeParse(caseDef.data);
+  const dp = dnaP(caseDef.data) as { success: boolean };
+  const zp = zodS.safeParse(caseDef.data) as { success: boolean };
 
   if (dv !== true) {
     throw new Error(`${caseDef.name}: DNA validator returned ${String(dv)} for valid data`);
@@ -256,9 +275,10 @@ console.log("=".repeat(110));
 console.log("BENCHMARK: Zod vs DNA — First cycle (cold) vs subsequent cycles (warm)");
 console.log("=".repeat(110));
 console.log(`Configuration: ${ITERATIONS} calls/batch x ${RUNS} runs | warmup: ${WARMUP.toLocaleString("en-US")} calls`);
+console.log(`GC between runs: ${GC_AVAILABLE ? "YES (--expose-gc)" : "NO (pass --expose-gc for deterministic GC)"}`);
 console.log(`Cold = recompile on each run (not measured), measure 1st batch (baseline-JIT, before TurboFan)`);
 console.log(`Warm = compile 1x + warmup, measure after TurboFan optimization`);
-console.log(`Unit: ops/sec (operations per second) — median used as primary metric`);
+console.log(`Unit: ops/sec (operations per second) — median used as primary metric | CV% = coefficient of variation`);
 console.log(`Node: ${process.version} | V8: ${process.versions.v8}`);
 console.log("=".repeat(110));
 
@@ -296,11 +316,11 @@ for (const caseDef of cases) {
   const zodWarm = measureWarm(zodCompile, caseDef.data);
 
   // Per-case table
-  console.log("| Engine  | Cold ops/s   | Warm ops/s   | Warm/Cold |");
-  console.log("|---------|--------------|--------------|-----------|");
-  console.log(`| DNA V   | ${fmt(dnaVCold.median)} | ${fmt(dnaVWarm.median)} | ${fmtRatioWide(dnaVWarm.median / dnaVCold.median)} |`);
-  console.log(`| DNA P   | ${fmt(dnaPCold.median)} | ${fmt(dnaPWarm.median)} | ${fmtRatioWide(dnaPWarm.median / dnaPCold.median)} |`);
-  console.log(`| Zod     | ${fmt(zodCold.median)} | ${fmt(zodWarm.median)} | ${fmtRatioWide(zodWarm.median / zodCold.median)} |`);
+  console.log("| Engine  | Cold ops/s   | Cold CV% | Warm ops/s   | Warm CV% | Warm/Cold |");
+  console.log("|---------|--------------|----------|--------------|----------|-----------|");
+  console.log(`| DNA V   | ${fmt(dnaVCold.median)} | ${fmtCv(dnaVCold.cvPct)} | ${fmt(dnaVWarm.median)} | ${fmtCv(dnaVWarm.cvPct)} | ${fmtRatioWide(dnaVWarm.median / dnaVCold.median)} |`);
+  console.log(`| DNA P   | ${fmt(dnaPCold.median)} | ${fmtCv(dnaPCold.cvPct)} | ${fmt(dnaPWarm.median)} | ${fmtCv(dnaPWarm.cvPct)} | ${fmtRatioWide(dnaPWarm.median / dnaPCold.median)} |`);
+  console.log(`| Zod     | ${fmt(zodCold.median)} | ${fmtCv(zodCold.cvPct)} | ${fmt(zodWarm.median)} | ${fmtCv(zodWarm.cvPct)} | ${fmtRatioWide(zodWarm.median / zodCold.median)} |`);
   console.log("");
   console.log(`  DNA V vs Zod — cold: ${fmtRatio(dnaVCold.median / zodCold.median)} | warm: ${fmtRatio(dnaVWarm.median / zodWarm.median)}`);
   console.log(`  DNA P vs Zod — cold: ${fmtRatio(dnaPCold.median / zodCold.median)} | warm: ${fmtRatio(dnaPWarm.median / zodWarm.median)}`);
@@ -348,3 +368,4 @@ console.log("=".repeat(110));
 console.log("DNA V = DNA validator (boolean, fail-fast) | DNA P = DNA parser (result + reconstruction/transforms) | Zod = safeParse");
 console.log("V/Z = DNA vs Zod speedup ratio | Warm/Cold = speedup after V8 JIT optimization (TurboFan)");
 console.log("=".repeat(110));
+console.log(`DCE sink: ${_sink} (non-zero confirms calls were not eliminated)`);

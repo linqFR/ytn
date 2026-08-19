@@ -25,139 +25,152 @@ test("assignability", () => {
   const _probeObjInside = probe({ a: "a", b: true });
 
   // String
-  expectTypeOf(dna.string()._output).toEqualTypeOf<string>();
+  const dnaString = dna.string();
+  expectTypeOf<dna.infer<typeof dnaString>>().toEqualTypeOf<string>();
   const zodString = z.string();
   expectTypeOf<z.infer<typeof zodString>>().toEqualTypeOf<string>();
 
   // Number
-  expectTypeOf(dna.number()._output).toEqualTypeOf<number>();
+  const dnaNumber = dna.number();
+  expectTypeOf<dna.infer<typeof dnaNumber>>().toEqualTypeOf<number>();
   const zodNumber = z.number();
   expectTypeOf<z.infer<typeof zodNumber>>().toEqualTypeOf<number>();
 
   // BigInt
-  expectTypeOf(dna.bigint()._output).toEqualTypeOf<bigint>();
+  const dnaBigInt = dna.bigint();
+  expectTypeOf<dna.infer<typeof dnaBigInt>>().toEqualTypeOf<bigint>();
   const zodBigInt = z.bigint();
   expectTypeOf<z.infer<typeof zodBigInt>>().toEqualTypeOf<bigint>();
 
   // Boolean
-  expectTypeOf(dna.boolean()._output).toEqualTypeOf<boolean>();
+  const dnaBoolean = dna.boolean();
+  expectTypeOf<dna.infer<typeof dnaBoolean>>().toEqualTypeOf<boolean>();
   const zodBoolean = z.boolean();
   expectTypeOf<z.infer<typeof zodBoolean>>().toEqualTypeOf<boolean>();
 
   // Date
-  expectTypeOf(dna.date()._output).toEqualTypeOf<Date>();
+  const dnaDate = dna.date();
+  expectTypeOf<dna.infer<typeof dnaDate>>().toEqualTypeOf<Date>();
   const zodDate = z.date();
   expectTypeOf<z.infer<typeof zodDate>>().toEqualTypeOf<Date>();
 
   // Undefined
-  expectTypeOf(dna.undefined()._output).toEqualTypeOf<undefined>();
+  const dnaUndefined = dna.undefined();
+  expectTypeOf<dna.infer<typeof dnaUndefined>>().toEqualTypeOf<undefined>();
   const zodUndefined = z.undefined();
   expectTypeOf<z.infer<typeof zodUndefined>>().toEqualTypeOf<undefined>();
 
   // Nullable
-  expectTypeOf(dna.string().nullable()._output).toEqualTypeOf<string | null>();
-  expectTypeOf(dna.string().nullable().unwrap()._output).toEqualTypeOf<string>();
+  const dnaNullable = dna.string().nullable();
+  expectTypeOf<dna.infer<typeof dnaNullable>>().toEqualTypeOf<string | null>();
+  expectTypeOf<dna.infer<typeof dnaNullable>>().not.toEqualTypeOf<unknown>();
+  const dnaNullableUnwrapped = dnaNullable.unwrap();
+  expectTypeOf<dna.infer<typeof dnaNullableUnwrapped>>().toEqualTypeOf<string>();
   const zodNullable = z.string().nullable();
   expectTypeOf<z.infer<typeof zodNullable>>().toEqualTypeOf<string | null>();
 
   // Null
-  expectTypeOf(dna.null()._output).toEqualTypeOf<null>();
+  const dnaNull = dna.null();
+  expectTypeOf<dna.infer<typeof dnaNull>>().toEqualTypeOf<null>();
   const zodNull = z.null();
   expectTypeOf<z.infer<typeof zodNull>>().toEqualTypeOf<null>();
 
   // Any
-  expectTypeOf(dna.any()._output).toEqualTypeOf<any>();
+  const dnaAny = dna.any();
+  expectTypeOf<dna.infer<typeof dnaAny>>().toEqualTypeOf<any>();
   const zodAny = z.any();
   expectTypeOf<z.infer<typeof zodAny>>().toEqualTypeOf<any>();
 
   // Unknown
-  expectTypeOf(dna.unknown()._output).toEqualTypeOf<unknown>();
+  const dnaUnknown = dna.unknown();
+  expectTypeOf<dna.infer<typeof dnaUnknown>>().toEqualTypeOf<unknown>();
   const zodUnknown = z.unknown();
   expectTypeOf<z.infer<typeof zodUnknown>>().toEqualTypeOf<unknown>();
 
   // Never
-  expectTypeOf(dna.never()._output).toEqualTypeOf<never>();
+  const dnaNever = dna.never();
+  expectTypeOf<dna.infer<typeof dnaNever>>().toEqualTypeOf<never>();
   const zodNever = z.never();
   expectTypeOf<z.infer<typeof zodNever>>().toEqualTypeOf<never>();
 
   // Void
-  expectTypeOf(dna.void()._output).toEqualTypeOf<void>();
+  const dnaVoid = dna.void();
+  expectTypeOf<dna.infer<typeof dnaVoid>>().toEqualTypeOf<void>();
   const zodVoid = z.void();
   expectTypeOf<z.infer<typeof zodVoid>>().toEqualTypeOf<void>();
 
   // Array
   const da = dna.array(dna.string());
-  type tda = dna.infer<typeof da>;
-  expectTypeOf(da._output).toEqualTypeOf<string[]>();
+  expectTypeOf<dna.infer<typeof da>>().toEqualTypeOf<string[]>();
+  expectTypeOf<dna.infer<typeof da>>().not.toEqualTypeOf<unknown[]>();
   const zodArray = z.array(z.string());
-  type rzodArray = z.infer<typeof zodArray>
   expectTypeOf<z.infer<typeof zodArray>>().toEqualTypeOf<string[]>();
 
   type s = PropertyKey
 
   // Object
   const dob = dna.object({ key: dna.string() });
-  type tdob = dna.infer<typeof dob>;
-  expectTypeOf(dob._output).toEqualTypeOf<{ key: string }>();
+  expectTypeOf<dna.infer<typeof dob>>().toEqualTypeOf<{ key: string }>();
+  expectTypeOf<dna.infer<typeof dob>>().not.toEqualTypeOf<unknown>();
   const zodObject = z.object({ key: z.string() });
-  type tZodOb = z.infer<typeof zodObject>;
   expectTypeOf<z.infer<typeof zodObject>>().toEqualTypeOf<{ key: string }>();
 
   // Union
-  expectTypeOf(dna.union([dna.string(), dna.number()])._output).toEqualTypeOf<string | number>();
+  const dnaUnion = dna.union([dna.string(), dna.number()]);
+  expectTypeOf<dna.infer<typeof dnaUnion>>().toEqualTypeOf<string | number>();
   const zodUnion = z.union([z.string(), z.number()]);
   expectTypeOf<z.infer<typeof zodUnion>>().toEqualTypeOf<string | number>();
 
   // Intersection
+  const dnaIntersection = dna.intersection(dna.string(), dna.number());
+  expectTypeOf<dna.infer<typeof dnaIntersection>>().toEqualTypeOf<string & number>();
+  expectTypeOf<dna.infer<typeof dnaIntersection>>().not.toEqualTypeOf<unknown>();
   const zodIntersection = z.intersection(z.string(), z.number());
   expectTypeOf<z.infer<typeof zodIntersection>>().toEqualTypeOf<string & number>();
 
   // Tuple
+  const dnaTuple = dna.tuple([dna.string(), dna.number()]);
+  expectTypeOf<dna.infer<typeof dnaTuple>>().toEqualTypeOf<[string, number]>();
+  expectTypeOf<dna.infer<typeof dnaTuple>>().not.toEqualTypeOf<unknown[]>();
   const zodTuple = z.tuple([z.string(), z.number()]);
   expectTypeOf<z.infer<typeof zodTuple>>().toEqualTypeOf<[string, number]>();
 
   // Record
-  expectTypeOf(dna.record(dna.string(), dna.number())._output).toEqualTypeOf<Record<string, number>>();
+  const dnaRecord = dna.record(dna.string(), dna.number());
+  expectTypeOf<dna.infer<typeof dnaRecord>>().toEqualTypeOf<Record<string, number>>();
+  expectTypeOf<dna.infer<typeof dnaRecord>>().not.toEqualTypeOf<Record<string, unknown>>();
   const zodRecord = z.record(z.string(), z.number());
   expectTypeOf<z.infer<typeof zodRecord>>().toEqualTypeOf<Record<string, number>>();
 
   // Map
   const dmap = dna.map(dna.string(), dna.number());
-  type tdmap = dna.infer<typeof dmap>;
-  expectTypeOf(dmap._output).toEqualTypeOf<Map<string, number>>();
+  expectTypeOf<dna.infer<typeof dmap>>().toEqualTypeOf<Map<string, number>>();
   const zodMap = z.map(z.string(), z.number());
   expectTypeOf<z.infer<typeof zodMap>>().toEqualTypeOf<Map<string, number>>();
 
   // Set
-  expectTypeOf(dna.set(dna.string())._output).toEqualTypeOf<Set<string>>();
+  const dnaSet = dna.set(dna.string());
+  expectTypeOf<dna.infer<typeof dnaSet>>().toEqualTypeOf<Set<string>>();
   const zodSet = z.set(z.string());
   expectTypeOf<z.infer<typeof zodSet>>().toEqualTypeOf<Set<string>>();
 
   // Literal
-  const dl = dna.literal("example"); //DnaLiteral<"example">
-  type tdl = dna.infer<typeof dl>; // = "example"
+  const dl = dna.literal("example");
   const dlV = dl.value;
   const dlVs = dl.values;
-
-  expectTypeOf(dl._output).toEqualTypeOf<"example">();
+  expectTypeOf<dna.infer<typeof dl>>().toEqualTypeOf<"example">();
+  expectTypeOf<dna.infer<typeof dl>>().not.toEqualTypeOf<unknown>();
   const zodLiteral = z.literal("example");
   const zl = zodLiteral.value;
   const zls = zodLiteral.values;
-  // console.log(zl, dlV, zls, dlVs);
-
   expectTypeOf<z.infer<typeof zodLiteral>>().toEqualTypeOf<"example">();
 
-  // Literal
+  // Literal (multi)
   const dl2 = dna.literal([1, "1", true, "example"]);
-  type tdl2 = dna.infer<typeof dl2>;
   const dl2V = dl2.values;
-  // const dl3V = dl2.value;
-  expectTypeOf(dl2._output).toEqualTypeOf<1 | "1" | true | "example">();
+  expectTypeOf<dna.infer<typeof dl2>>().toEqualTypeOf<1 | "1" | true | "example">();
   const zodLiteral2 = z.literal([1, "1", true, "example"]);
   const zl2 = zodLiteral2.values;
-  // const zl3 = zodLiteral2.value;
-  // console.log(zl2, dl2V);
-  type tzodLiteral2 = z.infer<typeof zodLiteral2>;
   expectTypeOf<z.infer<typeof zodLiteral2>>().toEqualTypeOf<1 | "1" | true | "example">();
 
 
@@ -183,33 +196,26 @@ test("assignability", () => {
 
   // --- dna.enum with as const variables ---
   const denumArrConst = dna.enum(EnumArrConst);
-  type t_denumArrConst = typeof denumArrConst;
-  expectTypeOf(denumArrConst._output).toEqualTypeOf<"a" | "b" | "c" | "d">();
+  expectTypeOf<dna.infer<typeof denumArrConst>>().toEqualTypeOf<"a" | "b" | "c" | "d">();
+  expectTypeOf<dna.infer<typeof denumArrConst>>().not.toEqualTypeOf<unknown>();
   const denumObjConst = dna.enum(EnumObjConst);
-  type t_denumObjConst = typeof denumObjConst;
-  expectTypeOf(denumObjConst._output).toEqualTypeOf<"aa" | "bb" | 24 | 48>();
+  expectTypeOf<dna.infer<typeof denumObjConst>>().toEqualTypeOf<"aa" | "bb" | 24 | 48>();
 
   // --- dna.enum without as const (types are widened) ---
   const denumArr = dna.enum(EnumArr);
-  type t_denumArr = typeof denumArr;
-  expectTypeOf(denumArr._output).toEqualTypeOf<string>();
+  expectTypeOf<dna.infer<typeof denumArr>>().toEqualTypeOf<string>();
   const denumObj = dna.enum(EnumObj);
-  type t_denumObj = typeof denumObj;
-  expectTypeOf(denumObj._output).toEqualTypeOf<string | number>();
+  expectTypeOf<dna.infer<typeof denumObj>>().toEqualTypeOf<string | number>();
 
   // --- dna.enum inline literals ---
   const denumInlineArr = dna.enum(["a", "b", "c", "d"]);
-  type t_denumInlineArr = typeof denumInlineArr;
-  expectTypeOf(denumInlineArr._output).toEqualTypeOf<"a" | "b" | "c" | "d">();
+  expectTypeOf<dna.infer<typeof denumInlineArr>>().toEqualTypeOf<"a" | "b" | "c" | "d">();
   const denumInlineObj = dna.enum({ "p1": "aa", "p2": "bb", "p3": 24, "p4": 48 });
-  type t_denumInlineObj = typeof denumInlineObj;
-  expectTypeOf(denumInlineObj._output).toEqualTypeOf<"aa" | "bb" | 24 | 48>();
+  expectTypeOf<dna.infer<typeof denumInlineObj>>().toEqualTypeOf<"aa" | "bb" | 24 | 48>();
 
   // --- dna.enum from TypeScript enum ---
   const denumFenum = dna.enum(Fenum);
-  type t_denumFenum = dna.infer<typeof denumFenum>;
-    // Heterogeneous numeric enums have reverse mappings; the inferred value type is string | 2.
-    expectTypeOf(denumFenum._output).toEqualTypeOf<Fenum>();
+  expectTypeOf<dna.infer<typeof denumFenum>>().toEqualTypeOf<Fenum>();
   const zEEnum = z.enum(Fenum)
   type t_zEEnum = z.infer<typeof zEEnum>;
   expectTypeOf<t_zEEnum>().toEqualTypeOf<Fenum>();
@@ -289,36 +295,35 @@ test("assignability", () => {
 
   // Lazy
   const lazySchema = dna.lazy(() => dna.string());
-  expectTypeOf(lazySchema._output).toEqualTypeOf<string>();
+  expectTypeOf<dna.infer<typeof lazySchema>>().toEqualTypeOf<string>();
+  expectTypeOf<dna.infer<typeof lazySchema>>().not.toEqualTypeOf<unknown>();
   const zodLazySchema = z.lazy(() => z.string());
   expectTypeOf<z.infer<typeof zodLazySchema>>().toEqualTypeOf<string>();
 
   // Optional
   const dso = dna.string().optional();
-  type tdso = dna.infer<typeof dso>;
-  expectTypeOf(dna.string().optional()._output).toEqualTypeOf<string | undefined>();
+  expectTypeOf<dna.infer<typeof dso>>().toEqualTypeOf<string | undefined>();
+  expectTypeOf<dna.infer<typeof dso>>().not.toEqualTypeOf<unknown>();
   const zodOptional = z.string().optional();
-  type tzodOptional = z.infer<typeof zodOptional>;
   expectTypeOf<z.infer<typeof zodOptional>>().toEqualTypeOf<string | undefined>();
 
   // Default
-  expectTypeOf(dna.string().default("default")._output).toEqualTypeOf<string>();
+  const dnaDefault = dna.string().default("default");
+  expectTypeOf<dna.infer<typeof dnaDefault>>().toEqualTypeOf<string>();
+  expectTypeOf<dna.infer<typeof dnaDefault>>().not.toEqualTypeOf<unknown>();
   const zodDefault = z.string().default("default");
   expectTypeOf<z.infer<typeof zodDefault>>().toEqualTypeOf<string>();
 
   // TemplateLiteral
   const parts = [dna.literal("a"), dna.number().min(3), "b"];
   const dtl = dna.templateLiteral(parts);
-  type tdtl = dna.infer<typeof dtl>;
   type hdtl = $TemplateLiteral<typeof parts>;
-  expectTypeOf(dtl._output).not.toEqualTypeOf<`a${number}b`>();
+  expectTypeOf<dna.infer<typeof dtl>>().not.toEqualTypeOf<`a${number}b`>();
   // Test with inline array
   const dtl2 = dna.templateLiteral([dna.literal("a"), dna.number().min(3), "b"]);
   type arr = typeof parts; //= (string, DnaNumber, DnaLiteral<"a">)[]
-  type tdtl2 = dna.infer<typeof dtl2>;
-  expectTypeOf<typeof dtl2._output>().toEqualTypeOf<`a${number}b`>();
-  expectTypeOf(dtl2._output).toEqualTypeOf<`a${number}b`>();
-  expectTypeOf<typeof dtl2._output>().not.toEqualTypeOf<`${any}${number}b`>();
+  expectTypeOf<dna.infer<typeof dtl2>>().toEqualTypeOf<`a${number}b`>();
+  expectTypeOf<dna.infer<typeof dtl2>>().not.toEqualTypeOf<`${any}${number}b`>();
 
   const zparts = [z.literal("a"), z.number().min(3), "b"];
   const zodTemplateLiteral = z.templateLiteral(zparts);
@@ -347,14 +352,15 @@ test("assignability", () => {
   expectTypeOf<testInlineArray>().toEqualTypeOf<`a${number}b`>();
 
   // Transform
-  expectTypeOf(dna.unknown().transform((val) => val as string)._output).toEqualTypeOf<string>();
+  const dnaTransform = dna.unknown().transform((val) => val as string);
+  expectTypeOf<dna.infer<typeof dnaTransform>>().toEqualTypeOf<string>();
+  expectTypeOf<dna.infer<typeof dnaTransform>>().not.toEqualTypeOf<unknown>();
   const zodTransform = z.unknown().transform((val) => val as string);
   expectTypeOf<z.infer<typeof zodTransform>>().toEqualTypeOf<string>();
 
   // NonOptional
   const dsonon = dna.string().optional().nonoptional();
-  type tdsonon = dna.infer<typeof dsonon>;
-  expectTypeOf(dsonon._output).toEqualTypeOf<string>();
+  expectTypeOf<dna.infer<typeof dsonon>>().toEqualTypeOf<string>();
   const zodNonOptional = z.string().optional().nonoptional();
   zodNonOptional._zod.def.innerType;
   zodNonOptional._zod.def.type;
@@ -364,35 +370,36 @@ test("assignability", () => {
   expectTypeOf<z.infer<typeof zodNonOptional>>().toEqualTypeOf<string>();
 
   // Readonly
-  expectTypeOf(dna.object({ key: dna.string() }).readonly()._output).toEqualTypeOf<{ readonly key: string }>();
-  const dnaReadOnly = dna.object({ key: dna.string() }).readonly();
-  type tsDnaReadOnly = dna.infer<typeof dnaReadOnly>;
-  expectTypeOf<tsDnaReadOnly>().toEqualTypeOf<{ readonly key: string }>();
+  const dnaReadonly = dna.object({ key: dna.string() }).readonly();
+  expectTypeOf<dna.infer<typeof dnaReadonly>>().toEqualTypeOf<{ readonly key: string }>();
   const zodReadonly = z.object({ key: z.string() }).readonly();
-  type tszodReadOnly = z.infer<typeof zodReadonly>;
   expectTypeOf<z.infer<typeof zodReadonly>>().toEqualTypeOf<{ readonly key: string }>();
 
   // Readonly after transform — verifies out variance on DnaObject/DnaPipe/DnaTransform
   const dnaTransformReadonly = dna.object({ key: dna.string() }).transform((v) => v).readonly();
-  expectTypeOf<typeof dnaTransformReadonly._output>().toEqualTypeOf<{ readonly key: string }>();
+  expectTypeOf<dna.infer<typeof dnaTransformReadonly>>().toEqualTypeOf<{ readonly key: string }>();
 
   // NaN
-  expectTypeOf(dna.nan()._output).toEqualTypeOf<number>();
+  const dnaNan = dna.nan();
+  expectTypeOf<dna.infer<typeof dnaNan>>().toEqualTypeOf<number>();
   const zodNan = z.nan();
   expectTypeOf<z.infer<typeof zodNan>>().toEqualTypeOf<number>();
 
   // Pipe
-  expectTypeOf(dna.unknown().pipe(dna.number())._output).toEqualTypeOf<number>();
+  const dnaPipe = dna.unknown().pipe(dna.number());
+  expectTypeOf<dna.infer<typeof dnaPipe>>().toEqualTypeOf<number>();
   const zodPipe = z.unknown().pipe(z.number());
   expectTypeOf<z.infer<typeof zodPipe>>().toEqualTypeOf<number>();
 
   // Preprocess
-  expectTypeOf(dna.preprocess((v) => v, dna.number())._output).toEqualTypeOf<number>();
+  const dnaPreprocess = dna.preprocess((v) => v, dna.number());
+  expectTypeOf<dna.infer<typeof dnaPreprocess>>().toEqualTypeOf<number>();
   const zodPreprocess = z.preprocess((v) => v, z.number());
   expectTypeOf<z.infer<typeof zodPreprocess>>().toEqualTypeOf<number>();
 
   // Catch
-  expectTypeOf(dna.string().catch("fallback")._output).toEqualTypeOf<string>();
+  const dnaCatch = dna.string().catch("fallback");
+  expectTypeOf<dna.infer<typeof dnaCatch>>().toEqualTypeOf<string>();
   const zodCatch = z.string().catch("fallback");
   expectTypeOf<z.infer<typeof zodCatch>>().toEqualTypeOf<string>();
 });
