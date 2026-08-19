@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dna } from "../src/index.js";
+import { dna, type DnaLazy } from "../src/index.js";
 import { fromDna } from "../src/fromDna/index.js";
 import { validator, parser, toJS } from "../src/toJs/dna-to-js.js";
 import { validatorBuilder, parserBuilder } from "../src/toJs/dna-to-js.js";
@@ -283,7 +283,24 @@ describe("recipes: discriminated union", () => {
 describe("recipes: recursion via dna.lazy()", () => {
   it("recursive Category schema", () => {
     type Category = { name: string; subcategories: Category[] };
-    const CategorySchema: ReturnType<typeof dna.lazy<Category>> = dna.lazy(() =>
+    const CategorySchema: DnaLazy<Category> = dna.lazy(() =>
+      dna.object({
+        name: dna.string(),
+        subcategories: dna.array(CategorySchema),
+      })
+    );
+
+    const result = CategorySchema.parse({
+      name: "root",
+      subcategories: [{ name: "child", subcategories: [] }],
+    });
+    expect(result.name).toBe("root");
+    expect(result.subcategories[0].name).toBe("child");
+  });
+
+  it("recursive Category schema — inferred output (no annotation)", () => {
+    type Category = { name: string; subcategories: Category[] };
+    const CategorySchema: DnaLazy<Category> = dna.lazy(() =>
       dna.object({
         name: dna.string(),
         subcategories: dna.array(CategorySchema),

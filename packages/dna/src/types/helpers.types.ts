@@ -7,12 +7,13 @@ import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js"
 // infering tools for Dna
 // =================================
 
-export type $DnaOut<S> = S extends { _output: any } ? S["_output"] : unknown;
-export type $DnaIn<S> = S extends { _input: any } ? S["_input"] : unknown;
-
 // Simple helpers for internal use (extract directly from schema properties)
-export type $Output<S> = S extends { _output: infer O } ? O : unknown;
-export type $Input<S> = S extends { _input: infer I } ? I : unknown;
+// Use indexed access (S["_output"]) instead of infer O — the infer pattern
+// captures the parent's `any` on deferred classes (DnaObject uses
+// `extends DnaType<any, any>` + `declare _output`), while indexed access
+// correctly resolves the `declare` override.
+export type $Output<S> = S extends { _output: any } ? S["_output"] : unknown;
+export type $Input<S> = S extends { _input: any } ? S["_input"] : unknown;
 export type $InputHead<T> = T extends { _head: infer H }
   ? unknown extends H
   ? $Input<T>
@@ -97,6 +98,10 @@ export type $EnumObj<T> = T extends Record<string, infer V> ? Record<string, V> 
 
 // Helper for array types
 export type $ArrayItem<T> = T extends (infer I)[] ? I : never;
+
+// Detect `any` — needed because `any` is absorbant (`any | T = any`) and
+// prevents default-value type propagation in DnaDefault/DnaPrefault.
+export type $IsAny<T> = 0 extends (1 & T) ? true : false;
 
 // Helper to remove undefined from a type (distributive)
 export type $RemoveUndefined<T> = T extends any ? T extends undefined ? never : T : never;

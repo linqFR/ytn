@@ -74,16 +74,18 @@ See [Maranget decision tree codegen](technical.md#maranget-decision-tree-codegen
 
 ### Routing complexity
 
-The decision tree is O(log N) — each level eliminates half the candidates. A flat if-chain is O(N). The benchmark (`sandbox/bench-ifchain-vs-maranget.ts`) confirms the scaling:
+The decision tree is O(log N) — each level eliminates half the candidates. A flat if-chain is O(N). The benchmark ([`perf/bench-ifchain-vs-maranget.ts`](../perf/bench-ifchain-vs-maranget.ts)) confirms the scaling:
 
-| N branches | if-chain (ns/op) | Maranget tree (ns/op) | Speedup |
+| N branches | Speedup (Maranget vs if-chain) | CV% range | Verdict |
 |---|---|---|---|
-| 3  | 9.78  | 9.23  | 1.06x (noise) |
-| 10 | 14.13 | 11.45 | 1.23x |
-| 25 | 21.36 | 13.67 | 1.56x |
-| 50 | 31.98 | 14.01 | 2.28x |
+| 3  | 1.17x | 3-13% | Noise — no measurable difference |
+| 10 | 1.15x | 1-6% | Maranget slightly faster |
+| 25 | 1.50x | 2-4% | Maranget clearly faster |
+| 50 | 1.91x | 1-12% | Maranget much faster (polymorphic); up to 2.5x monomorphic |
 
-The if-chain grows linearly with N; the tree stays nearly flat. For N ≤ 3, no measurable difference. For N ≥ 10, the tree is clearly faster. Values are environment-specific; treat as trends, not portable absolutes.
+**CV%** (Coefficient of Variation) = (stddev / mean) × 100 — measures how much the 7 benchmark runs varied between each other. Low CV% (≤5%) means stable, repeatable results. High CV% (≥15%) means the measurement is noisy and the speedup factor may not be reliable. The "CV% range" column shows the min–max CV% observed across all test cases (first/mid/last/invalid/mixed-polymorphic).
+
+The if-chain grows linearly with N; the tree stays nearly flat. For N ≤ 3, no measurable difference. For N ≥ 10, the tree is consistently faster. Speedup factors are portable across platforms; raw timings are not (see [AGENTS.md — Performance Reporting](../../AGENTS.md#performance-reporting-critical)).
 
 ## Usage
 
@@ -343,7 +345,7 @@ class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]>
 }
 ```
 
-`_output` is the **union of branch outputs** (`$Output<S[number]>`), and `_input` is the **union of branch inputs** (`$Input<S[number]>`). `$Output<S>` extracts `_output` via `S extends { _output: infer O } ? O : unknown`.
+`_output` is the **union of branch outputs** (`$Output<S[number]>`), and `_input` is the **union of branch inputs** (`$Input<S[number]>`). `$Output<S>` extracts `_output` via `S extends { _output: any } ? S["_output"] : unknown` (indexed access — see [technical.md](technical.md#deferred-outputinput-and-recursive-type-inference)).
 
 ### Deferred pattern
 
