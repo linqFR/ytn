@@ -1,119 +1,158 @@
 # @ytrynot/shared/types
 
-Standard structural and utility types for the ytrynot monorepo. This directory establishes the common language for type safety across all independent packages.
+Type-level helpers for the ytrynot ecosystem. Pure TypeScript, zero runtime cost.
 
-## Table of Contents
-
-- [Nominal Typing (Branding)](#nominal-typing)
-- [Async Utilities](#async-utilities)
-- [Structural Data (JSON)](#structural-data)
-- [Advanced Modifiers](#advanced-modifiers)
-- [Global Conventions](#global-conventions)
-
----
-
-## Nominal Typing
-
-To prevent logic errors where different string identifiers (e.g., `UserId` vs `OrderId`) are accidentally mixed even though they are both strings, we use **Branding**.
-
-### `$Branded<T, K>`
-
-Creates an opaque/branded type that remains compatible with base type `T` at runtime but stays incompatible with other identical structures at compile-time.
+## Usage
 
 ```typescript
-import type { $Branded } from "@ytrynot/shared/types/index.js";
-
-type UserId = $Branded<string, "UserId">;
-type OrderId = $Branded<string, "OrderId">;
-
-function getUser(id: UserId) { /* ... */ }
-
-const myOrderId = "order-1" as OrderId;
-// getUser(myOrderId); // ❌ TypeScript Error!
+import type { $Flatten, $XOR, $IsAny, $Entries } from "@ytrynot/shared/types";
 ```
 
----
-
-## Async Utilities
-
-Simplifies handling of asynchronous values and function returns.
-
-### `$Awaitable<T>`
-
-Represents a value that may or may not be wrapped in a Promise. Essential for defining flexible interfaces that support both sync and async implementations.
+Granular imports (avoids resolving the full barrel):
 
 ```typescript
-import type { $Awaitable } from "@ytrynot/shared/types/index.js";
-
-type MyGate = (data: unknown) => $Awaitable<string>;
+import type { $Flatten } from "@ytrynot/shared/types/structural.type.js";
+import type { $IsAny } from "@ytrynot/shared/types/predicates.type.js";
 ```
 
-### `$UnwrapPromise<T>`
+## File organization
 
-Extracts the inner type of a `Promise<T>`. If the type is not a Promise, it returns the type as-is.
-
----
-
-## Structural Data (JSON)
-
-Ensures data integrity when dealing with serialization and transmission.
-
-### `tsJSONPrimitive`
-
-The base set of primitives allowed in a JSON structure: `string | number | boolean | null`.
-
-### `tsValidJSON<T>`
-
-Strict recursive type checking to ensure a structure `T` is fully serializable to JSON. It validates arrays and objects while forbidding symbols, bigints, and functions.
-
-```typescript
-import type { tsValidJSON } from "@ytrynot/shared/types/index.js";
-
-// ✅ Valid structure
-const payload: tsValidJSON<{ id: string }> = { id: "1" };
-
-// ❌ TypeScript Error: Functions are not valid JSON!
-// const invalid: tsValidJSON<{f: Function}> = { f: () => {} };
+```
+shared/types/
+├── branding.type.ts    — $Branded, $brand
+├── async.type.ts       — $Awaitable, $UnwrapPromise, $MaybeAsync, $InferReturnType
+├── structural.type.ts  — $Flatten, $FlattenDistributive, $XOR, $Without, $DeepReadonly, $ReadonlyValue, $RemoveUndefined, $Or
+├── predicates.type.ts  — $IsAny, $IsDigit, $IsLower, $IsUpper, $HasProperty, $PropertyCheck
+├── enum.type.ts        — $EnumKeys, $EnumValues, $EnumAsObj, $EnumObj, $ArrayItem, $ToEnum
+├── record.type.ts      — $Keys, $Entries, $RecordSetToArray, $UnionToIntersection, $RequireAtLeastOne, $RequiredNotNull
+├── str.type.ts         — tsKebabCase, tsCamelCase, tsSnakeCase, tsScreamingSnakeCase, tsPascalCase
+├── json.type.ts        — tsJSONPrimitive, $isValidJSON
+├── index.ts            — re-export all
+└── all-types.ts        — consolidated hub for the 'ts.' namespace
 ```
 
----
+## Quick reference
 
-## Advanced Modifiers
+### Flatten family (`structural.type.ts`)
 
-Low-level structural transformations used for complex type orchestration.
+| Helper | Behavior on `A \| B` | Use case |
+|--------|----------------------|----------|
+| `$Flatten<T>` | `{...A & B}` (intersection of common keys) | Single object: resolve `Omit`/`Pick`/intersections to flat shape |
+| `$FlattenCombinative<T>` | alias of `$Flatten` | Same — emphasizes combinative behavior |
+| `$ToRecord<T>` | alias of `$Flatten` | Same — emphasizes Record-like output |
+| `$FlattenDistributive<T>` | `{...A} \| {...B}` (each member flattened) | Unions: preserve each branch (discriminated unions, cliUnion) |
 
-- **`$DeepReadonly<T>`**: Recursively applies `readonly` across an entire object tree.
-- **`$Entries<T>`**: Provides a type-safe signature for `Object.entries(T)`.
-- **`$Keys<T>`**: Provides a type-safe signature for `Object.keys(T)`.
-- **`$RequireAtLeastOne<T, Keys>`**: Ensures at least one of the specified properties is present.
-- **`$RequiredNotNull<T, K>`**: Ensures a specific property is both required and not null/undefined.
-- **`$UnionToIntersection<U>`**: Converts a union type to an intersection type.
-- **`$Without<T, U>`**: Guarantees that `T` does not contain any keys belonging to `U`.
-- **`$XOR<T, U>`**: Exclusive OR. Enforces that exactly one of the two shapes is present.
+### Exclusive / mutual exclusion (`structural.type.ts`)
 
----
+| Helper | Returns | Description |
+|--------|---------|-------------|
+| `$Without<T, U>` | `{ [P in Exclude<keyof T, keyof U>]?: never }` | Internal — marks common keys as forbidden |
+| `$XOR<T, U>` | `T` xor `U` | Exactly one of T or U, not both |
+| `$Or<T, U>` | `T \| U` | Trivial union alias for syntax consistency |
 
-## Global Conventions
+### Deep transforms (`structural.type.ts`)
 
-All types in this directory follow the **ytrynot Naming Standards**:
+| Helper | Returns | Description |
+|--------|---------|-------------|
+| `$DeepReadonly<T>` | recursively readonly | Applies `readonly` at every level |
+| `$ReadonlyValue<T>` | `Readonly<T>` or `T` | Readonly for objects, identity for primitives |
+| `$RemoveUndefined<T>` | `T` without `undefined` | Distributive over unions |
 
-- **`I*`**: Interfaces/Types for Input/Config data (e.g., `IContract`).
-- **`O*`**: Interfaces/Types for Output/Result data (e.g., `OResult`).
-- **`$*`**: Type-modifiers / active functional types (e.g., `$XOR`).
-- **`ts*`**: Simple static type aliases or fixed structures (e.g., `tsSnakeCase`).
-- **`u*`**: High-level exported utility functions to help developers to type correctly an item definition (e.g., `uDefineWf`).
+### Predicates (`predicates.type.ts`)
 
-### Integration with SafeMode
+| Helper | Returns | Description |
+|--------|---------|-------------|
+| `$IsAny<T>` | `true` or `false` | Detects exactly `any` (not just `unknown`) |
+| `$IsDigit<C>` | `true` or `false` | Single-char string is 0-9 |
+| `$IsLower<C>` | `true` or `false` | Single-char string is lowercase |
+| `$IsUpper<C>` | `true` or `false` | Single-char string is uppercase |
+| `$HasProperty<T, K>` | `T` or `never` | Type guard — key K exists on T |
+| `$PropertyCheck<T, K, S>` | `T` or `{ [P in K]: S }` | Returns T if K exists, else a shape with K:S |
 
-While defined in `shared/safe`, the `tsSafeResult` type is the cornerstone of ytrynot's error management:
-`[error: E | null | undefined, result: R | null | undefined]`.
+### Enum & array (`enum.type.ts`)
 
-### The `ts.` Namespace
+| Helper | Returns | Example on `{ a: 1, b: 2 }` |
+|--------|---------|-------------------------------|
+| `$EnumKeys<T>` | key type | `"a" \| "b"` |
+| `$EnumValues<T>` | value type | `1 \| 2` |
+| `$EnumAsObj<T>` | readonly enum object | `{ readonly a: 1; readonly b: 2 }` |
+| `$EnumObj<T>` | `Record<string, V>` | `Record<string, 1 \| 2>` |
+| `$ArrayItem<T>` | item type | `T[number]` equivalent |
+| `$ToEnum<T>` | flattened enum object | `{ a: "a"; b: "b" } & {}` |
 
-In the `@ytrynot/shared` package, all these types are gathered under the global `ts` namespace for easy access:
+### Record & keys (`record.type.ts`)
+
+| Helper | Returns | Example on `{ a: 1, b: 2 }` |
+|--------|---------|-------------------------------|
+| `$Keys<T>` | `(keyof T)[]` | `("a" \| "b")[]` |
+| `$Entries<T>` | `[K, T[K]][]` | `["a", 1] \| ["b", 2][]` |
+| `$RecordSetToArray<T>` | `Record<string, I[]>` | Maps `Set<I>` values to `I[]` |
+| `$UnionToIntersection<U>` | intersection | `A \| B` → `A & B` |
+| `$RequireAtLeastOne<T, K>` | requires ≥1 of K | At least one key from K must be present |
+| `$RequiredNotNull<T, K>` | `T & { [P in K]-?: Exclude<T[P], null \| undefined> }` | Property required and non-null |
+
+### Async (`async.type.ts`)
+
+| Helper | Returns | Description |
+|--------|---------|-------------|
+| `$Awaitable<T>` | `T \| Promise<T>` | Value may be wrapped in Promise |
+| `$UnwrapPromise<T>` | inner type | `Promise<T>` → `T`, `T` → `T` |
+| `$MaybeAsync<T>` | `T \| Promise<T>` | Alias for `$Awaitable` |
+| `$InferReturnType<F>` | inner return type | Like `ReturnType<F>` but unwraps `Promise<T>` → `T` |
+
+### Branding (`branding.type.ts`)
+
+| Helper | Returns | Description |
+|--------|---------|-------------|
+| `$Branded<T, K>` | `T & { [$brand]: { [P in K]: true } }` | Phantom-typing using Zod's `$brand` symbol |
+
+### String patterns (`str.type.ts`)
+
+| Helper | Returns | Description |
+|--------|---------|-------------|
+| `tsKebabCase` | branded string | Validated kebab-case |
+| `tsCamelCase` | branded string | Validated camelCase |
+| `tsSnakeCase` | branded string | snake_case |
+| `tsScreamingSnakeCase` | branded string | SCREAMING_SNAKE_CASE |
+| `tsPascalCase` | branded string | PascalCase |
+
+### JSON (`json.type.ts`)
+
+| Helper | Returns | Description |
+|--------|---------|-------------|
+| `tsJSONPrimitive` | `string \| number \| boolean \| null` | Base JSON primitives |
+| `$isValidJSON<T>` | `T` or `never` | Recursively validates T is JSON-serializable |
+
+## Comparison: `$Keys` vs `$EnumKeys` vs `$Entries`
+
+| Helper | Returns | Example on `{ a: 1, b: 2 }` |
+|--------|---------|-------------------------------|
+| `$Keys<T>` | `(keyof T)[]` — array of keys | `("a" \| "b")[]` |
+| `$EnumKeys<T>` | `K` — the key type itself | `"a" \| "b"` |
+| `$Entries<T>` | `[K, T[K]][]` — array of tuples | `["a", 1] \| ["b", 2][]` |
+| `$EnumValues<T>` | `V` — the value type | `1 \| 2` |
+
+## Comparison: `$Flatten` vs `$FlattenDistributive`
 
 ```typescript
-import { ts } from "@ytrynot/shared";
+type A = { cmd: "build"; files: string[] };
+type B = { cmd: "deploy"; target: string };
+type Union = A | B;
 
-type MyId = ts.$Branded<string, "MyId">;
+type Flat = $Flatten<Union>;
+// → { cmd: "build" | "deploy" } & {}  (common keys only, values intersected)
+
+type FlatDist = $FlattenDistributive<Union>;
+// → { cmd: "build"; files: string[] } | { cmd: "deploy"; target: string }  (each branch preserved)
+```
+
+Use `$Flatten` for single objects, `$FlattenDistributive` for discriminated unions.
+
+## Comparison: `$InferReturnType` vs `ReturnType`
+
+```typescript
+async function fetchUser(): Promise<string> { return "Alice"; }
+
+type R1 = ReturnType<typeof fetchUser>;      // Promise<string>
+type R2 = $InferReturnType<typeof fetchUser>; // string (Promise unwrapped)
 ```
