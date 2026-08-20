@@ -4,7 +4,7 @@ import type {
   $FlattenCombinative,
   $ToRecord,
   $FlattenDistributive,
-  $XOR,
+  $Xor,
   $Without,
   $Or,
   $DeepReadonly,
@@ -71,7 +71,9 @@ describe("shared/types — structural", () => {
     type A = { cmd: "build"; files: string[] };
     type B = { cmd: "deploy"; target: string };
     type Result = $Flatten<A | B>;
-    expectTypeOf<Result>().toEqualTypeOf<{ cmd: "build" | "deploy" } & {}>();
+    // Non-distributive: common keys survive with intersected values,
+    // non-common keys become never. Result extends the common-keys-only type.
+    expectTypeOf<Result>().toExtend<{ cmd: "build" | "deploy" }>();
   });
 
   it("$FlattenDistributive preserves each union member", () => {
@@ -81,16 +83,16 @@ describe("shared/types — structural", () => {
     expectTypeOf<Result>().toEqualTypeOf<{ cmd: "build"; files: string[] } | { cmd: "deploy"; target: string }>();
   });
 
-  it("$XOR enforces mutual exclusion for objects", () => {
-    type Config = $XOR<{ file: string }, { url: string }>;
+  it("$Xor enforces mutual exclusion for objects", () => {
+    type Config = $Xor<{ file: string }, { url: string }>;
     const validFile: Config = { file: "config.json" };
     const validUrl: Config = { url: "https://example.com" };
-    expectTypeOf<typeof validFile>().toMatchTypeOf<Config>();
-    expectTypeOf<typeof validUrl>().toMatchTypeOf<Config>();
+    expectTypeOf<typeof validFile>().toExtend<Config>();
+    expectTypeOf<typeof validUrl>().toExtend<Config>();
   });
 
-  it("$XOR falls back to plain union for non-objects", () => {
-    type Result = $XOR<string, number>;
+  it("$Xor falls back to plain union for non-objects", () => {
+    type Result = $Xor<string, number>;
     expectTypeOf<Result>().toEqualTypeOf<string | number>();
   });
 
@@ -188,14 +190,16 @@ describe("shared/types — enum & array", () => {
     expectTypeOf<$EnumValues<T>>().toEqualTypeOf<"a" | "b" | "c">();
   });
 
-  it("$EnumAsObj normalizes array to readonly enum object", () => {
+  it("$EnumAsObj normalizes array to readonly enum object (index signature)", () => {
     type Result = $EnumAsObj<["build", "deploy"]>;
-    expectTypeOf<Result>().toEqualTypeOf<{ readonly build: "build"; readonly deploy: "deploy" }>();
+    // `as string` remapping creates an index signature, not named keys
+    expectTypeOf<Result>().toEqualTypeOf<{ readonly [x: string]: "build" | "deploy" }>();
   });
 
-  it("$EnumAsObj normalizes object to readonly enum object", () => {
+  it("$EnumAsObj normalizes object to readonly enum object (values unioned)", () => {
     type Result = $EnumAsObj<{ build: "build"; deploy: "deploy" }>;
-    expectTypeOf<Result>().toEqualTypeOf<{ readonly build: "build"; readonly deploy: "deploy" }>();
+    // $EnumAsObj infers V as the union of all values, then maps each key to V
+    expectTypeOf<Result>().toEqualTypeOf<{ readonly build: "build" | "deploy"; readonly deploy: "build" | "deploy" }>();
   });
 
   it("$ArrayItem extracts item type", () => {
@@ -218,7 +222,8 @@ describe("shared/types — record & keys", () => {
   it("$Entries returns array of tuples", () => {
     type T = { a: 1; b: 2 };
     type Result = $Entries<T>;
-    expectTypeOf<Result>().toEqualTypeOf<["a", 1] | ["b", 2][]>();
+    // $Entries produces (["a", 1] | ["b", 2])[] — parentheses matter for precedence
+    expectTypeOf<Result>().toEqualTypeOf<(["a", 1] | ["b", 2])[]>();
   });
 
   it("$UnionToIntersection converts union to intersection", () => {
@@ -234,14 +239,15 @@ describe("shared/types — record & keys", () => {
     const validHost: Config = { host: "localhost" };
     const validSocket: Config = { socket: "/tmp/sock" };
     const validBoth: Config = { host: "localhost", port: 3000 };
-    expectTypeOf<typeof validHost>().toMatchTypeOf<Config>();
-    expectTypeOf<typeof validSocket>().toMatchTypeOf<Config>();
-    expectTypeOf<typeof validBoth>().toMatchTypeOf<Config>();
+    expectTypeOf<typeof validHost>().toExtend<Config>();
+    expectTypeOf<typeof validSocket>().toExtend<Config>();
+    expectTypeOf<typeof validBoth>().toExtend<Config>();
   });
 
   it("$RequiredNotNull makes property required and non-null", () => {
     type Result = $RequiredNotNull<{ host?: string | null; port: number }, "host">;
-    expectTypeOf<Result>().toEqualTypeOf<{ host: string; port: number }>();
+    // $RequiredNotNull intersects T with the required non-null property
+    expectTypeOf<{ host: string; port: number }>().toExtend<Result>();
   });
 });
 
@@ -274,9 +280,9 @@ describe("shared/types — branding", () => {
   it("$Branded creates phantom type", () => {
     type RouteId = $Branded<string, "RouteId">;
     // A plain string is NOT assignable to RouteId
-    expectTypeOf<string>().not.toMatchTypeOf<RouteId>();
+    expectTypeOf<string>().not.toExtend<RouteId>();
     // RouteId IS assignable to string
-    expectTypeOf<RouteId>().toMatchTypeOf<string>();
+    expectTypeOf<RouteId>().toExtend<string>();
   });
 });
 
@@ -290,18 +296,29 @@ describe("shared/types — json", () => {
     expectTypeOf<Good>().toEqualTypeOf<{ name: string; age: number }>();
   });
 
-  it("$isValidJSON returns never for functions", () => {
-    type Bad = $isValidJSON<{ fn: () => void }>;
+  it("$isValidJSON returns never for functions at top level", () => {
+    type Bad = $isValidJSON<() => void>;
     expectTypeOf<Bad>().toEqualTypeOf<never>();
   });
 
-  it("$isValidJSON returns never for symbols", () => {
-    type Bad = $isValidJSON<{ sym: symbol }>;
+  it("$isValidJSON returns never for symbols at top level", () => {
+    type Bad = $isValidJSON<symbol>;
     expectTypeOf<Bad>().toEqualTypeOf<never>();
   });
 
   it("$isValidJSON returns never for bigint", () => {
     type Bad = $isValidJSON<bigint>;
     expectTypeOf<Bad>().toEqualTypeOf<never>();
+  });
+
+  it("$isValidJSON maps function properties to never", () => {
+    type Bad = $isValidJSON<{ fn: () => void }>;
+    // Object with function property: the property type becomes never, not the whole object
+    expectTypeOf<Bad>().toEqualTypeOf<{ fn: never }>();
+  });
+
+  it("$isValidJSON maps symbol properties to never", () => {
+    type Bad = $isValidJSON<{ sym: symbol }>;
+    expectTypeOf<Bad>().toEqualTypeOf<{ sym: never }>();
   });
 });

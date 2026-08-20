@@ -5,7 +5,7 @@ Type-level helpers for the ytrynot ecosystem. Pure TypeScript, zero runtime cost
 ## Usage
 
 ```typescript
-import type { $Flatten, $XOR, $IsAny, $Entries } from "@ytrynot/shared/types";
+import type { $Flatten, $Xor, $IsAny, $Entries } from "@ytrynot/shared/types";
 ```
 
 Granular imports (avoids resolving the full barrel):
@@ -21,7 +21,7 @@ import type { $IsAny } from "@ytrynot/shared/types/predicates.type.js";
 shared/types/
 ├── branding.type.ts    — $Branded, $brand
 ├── async.type.ts       — $Awaitable, $UnwrapPromise, $MaybeAsync, $InferReturnType
-├── structural.type.ts  — $Flatten, $FlattenDistributive, $XOR, $Without, $DeepReadonly, $ReadonlyValue, $RemoveUndefined, $Or
+├── structural.type.ts  — $Flatten, $FlattenDistributive, $Xor, $Without, $DeepReadonly, $ReadonlyValue, $RemoveUndefined, $Or
 ├── predicates.type.ts  — $IsAny, $IsDigit, $IsLower, $IsUpper, $HasProperty, $PropertyCheck
 ├── enum.type.ts        — $EnumKeys, $EnumValues, $EnumAsObj, $EnumObj, $ArrayItem, $ToEnum
 ├── record.type.ts      — $Keys, $Entries, $RecordSetToArray, $UnionToIntersection, $RequireAtLeastOne, $RequiredNotNull
@@ -47,7 +47,7 @@ shared/types/
 | Helper | Returns | Description |
 |--------|---------|-------------|
 | `$Without<T, U>` | `{ [P in Exclude<keyof T, keyof U>]?: never }` | Internal — marks common keys as forbidden |
-| `$XOR<T, U>` | `T` xor `U` | Exactly one of T or U, not both |
+| `$Xor<T, U>` | `T` xor `U` | Exactly one of T or U, not both |
 | `$Or<T, U>` | `T \| U` | Trivial union alias for syntax consistency |
 
 ### Deep transforms (`structural.type.ts`)

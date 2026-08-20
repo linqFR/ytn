@@ -49,7 +49,7 @@ export type $FlattenDistributive<T> = T extends any ? { [K in keyof T]: T[K] } :
 
 /**
  * @type {$Without} $Without
- * @description Internal primitive for `$XOR`. Marks keys common to T and U as
+ * @description Internal primitive for `$Xor`. Marks keys common to T and U as
  * optional `never`, effectively forbidding them. Not intended for direct use.
  *
  * @template T
@@ -58,7 +58,7 @@ export type $FlattenDistributive<T> = T extends any ? { [K in keyof T]: T[K] } :
 export type $Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
 
 /**
- * @type {$XOR} $XOR
+ * @type {$Xor} $Xor
  * @description Exclusive OR of two types T or U. Used when a structure MUST match
  * exactly one of two different shapes, but not both at once (Mutually Exclusive).
  * Falls back to a plain union for non-object types.
@@ -66,14 +66,14 @@ export type $Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
  * @template T
  * @template U
  */
-export type $XOR<T, U> = (T | U) extends object
+export type $Xor<T, U> = (T | U) extends object
   ? ($Without<T, U> & U) | ($Without<U, T> & T)
   : T | U;
 
 /**
  * @type {$Or} $Or
  * @description Trivial union alias — `T | U`. Provided for syntax consistency
- * alongside `$XOR`.
+ * alongside `$Xor`.
  *
  * @template T
  * @template U

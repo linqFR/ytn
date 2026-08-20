@@ -12,8 +12,8 @@ Detailed examples, edge cases, and design rationale for each helper.
 | `$FlattenCombinative<T>` | alias of `$Flatten` | Same — emphasizes non-distributive | — |
 | `$ToRecord<T>` | alias of `$Flatten` | Same — emphasizes Record-like output | — |
 | `$FlattenDistributive<T>` | `<T>` → flat per union member | Flatten each branch of a union independently | `$FlattenDistributive<{a:1} \| {b:2}>` → `{a:1} \| {b:2}` |
-| `$XOR<T, U>` | `<T, U>` → T xor U | Exactly one shape, never both | `$XOR<{file:string}, {url:string}>` — file XOR url |
-| `$Without<T, U>` | `<T, U>` → forbidden keys | Internal for `$XOR` — marks common keys as `never` | Not for direct use |
+| `$Xor<T, U>` | `<T, U>` → T xor U | Exactly one shape, never both | `$Xor<{file:string}, {url:string}>` — file XOR url |
+| `$Without<T, U>` | `<T, U>` → forbidden keys | Internal for `$Xor` — marks common keys as `never` | Not for direct use |
 | `$Or<T, U>` | `<T, U>` → `T \| U` | Trivial union alias for syntax consistency | `$Or<string, number>` → `string \| number` |
 | `$DeepReadonly<T>` | `<T>` → recursively readonly | `readonly` at every level | `$DeepReadonly<{x:{y:number}}>` → `{readonly x:{readonly y:number}}` |
 | `$ReadonlyValue<T>` | `<T>` → readonly or identity | Readonly for objects, identity for primitives | `$ReadonlyValue<string>` → `string` |
@@ -207,10 +207,10 @@ type tte = {
 
 ### Exclusive / mutual exclusion
 
-#### `$XOR<T, U>`
+#### `$Xor<T, U>`
 
 ```typescript
-type Config = $XOR<{ file: string }, { url: string }>;
+type Config = $Xor<{ file: string }, { url: string }>;
 // ✅ { file: "config.json" }
 // ✅ { url: "https://..." }
 // ❌ { file: "x", url: "https://..." } — both present
@@ -219,7 +219,7 @@ type Config = $XOR<{ file: string }, { url: string }>;
 
 #### `$Without<T, U>`
 
-Internal for `$XOR`. Marks common keys as `never`:
+Internal for `$Xor`. Marks common keys as `never`:
 ```typescript
 type T = { a: 1; b: 2 };
 type U = { a: 3 };

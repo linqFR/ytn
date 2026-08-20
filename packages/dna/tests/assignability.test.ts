@@ -402,9 +402,43 @@ test("assignability", () => {
   expectTypeOf<dna.infer<typeof dnaCatch>>().toEqualTypeOf<string>();
   const zodCatch = z.string().catch("fallback");
   expectTypeOf<z.infer<typeof zodCatch>>().toEqualTypeOf<string>();
-});
 
-test("checks", () => {
-  const _a: any = {} as any;
-  const _b: any = {} as any;
+  // Nullish — missing from original test suite
+  const dnaNullish = dna.string().nullish();
+  expectTypeOf<dna.infer<typeof dnaNullish>>().toEqualTypeOf<string | null | undefined>();
+  expectTypeOf<dna.infer<typeof dnaNullish>>().not.toEqualTypeOf<unknown>();
+  const zodNullish = z.string().nullish();
+  expectTypeOf<z.infer<typeof zodNullish>>().toEqualTypeOf<string | null | undefined>();
+
+  // Prefault — missing from original test suite
+  const dnaPrefault = dna.string().prefault("prefaultValue");
+  expectTypeOf<dna.infer<typeof dnaPrefault>>().toEqualTypeOf<string>();
+  expectTypeOf<dna.infer<typeof dnaPrefault>>().not.toEqualTypeOf<unknown>();
+
+  // ExactOptional — missing from original test suite
+  const dnaExactOptional = dna.string().exactOptional();
+  expectTypeOf<dna.infer<typeof dnaExactOptional>>().toEqualTypeOf<string>();
+  expectTypeOf<dna.infer<typeof dnaExactOptional>>().not.toEqualTypeOf<unknown>();
+
+  // _input type verification — DnaDefault._input was silently `any` before fix
+  // Verify _input is correctly typed (not any) on all wrappers that redeclare it
+  const dnaDefaultInput = dna.string().default("x");
+  expectTypeOf<(typeof dnaDefaultInput)["_input"]>().toEqualTypeOf<string | undefined>();
+  expectTypeOf<(typeof dnaDefaultInput)["_input"]>().not.toEqualTypeOf<any>();
+
+  const dnaOptionalInput = dna.string().optional();
+  expectTypeOf<(typeof dnaOptionalInput)["_input"]>().toEqualTypeOf<string | undefined>();
+  expectTypeOf<(typeof dnaOptionalInput)["_input"]>().not.toEqualTypeOf<any>();
+
+  const dnaNullableInput = dna.string().nullable();
+  expectTypeOf<(typeof dnaNullableInput)["_input"]>().toEqualTypeOf<string | null>();
+  expectTypeOf<(typeof dnaNullableInput)["_input"]>().not.toEqualTypeOf<any>();
+
+  const dnaNullishInput = dna.string().nullish();
+  expectTypeOf<(typeof dnaNullishInput)["_input"]>().toEqualTypeOf<string | null | undefined>();
+  expectTypeOf<(typeof dnaNullishInput)["_input"]>().not.toEqualTypeOf<any>();
+
+  const dnaNonOptionalInput = dna.string().optional().nonoptional();
+  expectTypeOf<(typeof dnaNonOptionalInput)["_input"]>().toEqualTypeOf<string>();
+  expectTypeOf<(typeof dnaNonOptionalInput)["_input"]>().not.toEqualTypeOf<any>();
 });

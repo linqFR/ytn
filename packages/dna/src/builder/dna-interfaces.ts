@@ -21,7 +21,6 @@ import type {
 
 import { stringify } from "@ytrynot/shared/js/json.js";
 import { isValidRegex } from "@ytrynot/shared/regex/is-valid-regex.js";
-import { externalsMap, metaNormalize } from "../shared/utils.js";
 import type {
   tsPrimitiveLiteral,
   tsStoreMark,
@@ -32,6 +31,7 @@ import { ABSENT_TOLERANT_WRAPPERS, INT32Bounds, WRAPPERS_KEYOPT, WRAPPERS_XFAULT
 import { convertToStandardFailure } from "../shared/standard-schema-utils.js";
 import type { StandardJSONSchemaV1, StandardSchemaV1, StandardSchemaWithJSONProps } from "../shared/standard-schema.types.js";
 import { STRING_FORMAT_PATTERNS, escReg } from "../shared/string-format.js";
+import { externalsMap, metaNormalize } from "../shared/utils.js";
 import type { tsToJSResult } from "../toJs/dna-to-js.js";
 import { parserBuilder, toJS, validatorBuilder } from "../toJs/dna-to-js.js";
 import { dnaToJsonSchema } from "../toJs/dna-to-json-schema.js";
@@ -1394,7 +1394,7 @@ class _DnaWrapper<
 export class DnaOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | undefined;
   declare readonly _input: $Input<Inner> | undefined;
-  override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" }).rawMeta({optional:true});
+  override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" }).rawMeta({ optional: true });
 }
 
 /**
@@ -1430,13 +1430,14 @@ export class DnaNullable<Inner extends DnaSomeType = DnaSomeType> extends _DnaWr
 export class DnaNullish<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | null | undefined;
   declare readonly _input: $Input<Inner> | null | undefined;
-  override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" }).rawMeta({ nullish: true, optional:true, nullable:true });
+  override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" }).rawMeta({ nullish: true, optional: true, nullable: true });
 }
 
 /** Default wrapper: substitutes a default value when the output is `undefined`. Created via `.default(value)`. */
 // Default wrapper - provides default value for output
 export class DnaDefault<Inner extends DnaSomeType = DnaSomeType, V = $Output<Inner>> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $IsAny<$Output<Inner>> extends true ? V : $RemoveUndefined<$Output<Inner>> | V;
+  declare readonly _input: $Input<Inner> | undefined;
   override _core = Object.defineProperty(
     new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
     "defaultValue",
@@ -1606,7 +1607,7 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
           sq1 === "max" ? sq2 : null,
           sq1 === "pattern" ? (sq2 instanceof RegExp ? sq2.source : sq2) : null,
           sq1 === "format" ? sq2 : null,
-        // CAST: the array literal is inferred as a union of element types; TS cannot unify it with the fixed 4-element tuple type
+          // CAST: the array literal is inferred as a union of element types; TS cannot unify it with the fixed 4-element tuple type
         ] as [number | null, number | null, string | null, string | null],
         seqarr[3]]);
     } else if (seqarr[0] === "s") {
@@ -2917,7 +2918,7 @@ export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> 
  * @typeParam T - The shape type (a record of property name to schema).
  */
 // Object implementation
-export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, DnaSomeType>> extends DnaTypeWithWrappers<any, any> {
+export class DnaObject<T extends Record<string, DnaSomeType> = Record<string, DnaSomeType>> extends DnaTypeWithWrappers<any, any> {
   /** No `out` variance on `T`: the deferred pattern (parent `any, any` + `declare` fields) breaks circular type inference on its own. Adding `out T` triggers a variance check that fails because `$ReadonlyValue` (conditional type) wrapping `$DnaObjectOutput<T>` (mapped type) is not provably covariant. */
   // Deferred output/input: the parent uses `any, any` to break circular type inference
   // (recursive schemas with getters). The actual types are re-declared here via `declare`
