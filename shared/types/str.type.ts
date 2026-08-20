@@ -1,5 +1,5 @@
 import type { $Branded } from "./branding.type.js";
-import type { $IsLower, $IsUpper, $IsDigit } from "./modifiers.type.js";
+import type { $IsLower, $IsUpper, $IsDigit } from "./predicates.type.js";
 
 /**
  * Compile-time String Pattern Validation.

@@ -19,10 +19,46 @@ Centralized, lightweight, and type-safe utilities for the ytrynot monorepo. This
   - [Filesystem and Paths (dirpath)](./dirpath/README.md)
   - [Templates and YAML (template)](./template/README.md)
   - [Global Types (types)](./types/README.md)
+  - [Regex (regex)](#regex)
+  - [CLI (cli)](#cli)
+  - [Polyfill (polyfill)](#polyfill)
 
 ---
 
 ## Namespaces
+
+### Regex
+
+Regex validation utilities — check if a string is a valid ECMAScript regex pattern.
+
+```typescript
+import { isValidRegex } from "@ytrynot/shared/regex/is-valid-regex.js";
+
+isValidRegex("^[a-z]+$"); // true
+isValidRegex("[invalid", "u"); // false
+```
+
+### CLI
+
+AOT compiler launcher — boots a compiled CLI standalone bundle with `parseArgs` and path resolution.
+
+```typescript
+import { createAotLauncher } from "@ytrynot/shared/cli/aot-launcher.js";
+```
+
+### Polyfill
+
+Forward-compatible polyfills for upcoming ECMAScript standards.
+
+- `Map.prototype.getOrInsert` / `getOrInsertComputed` (Stage 2026 baseline)
+
+```typescript
+import "@ytrynot/shared/polyfill/map-ext.js";
+
+const map = new Map<string, number>();
+map.getOrInsert("key", 42); // 42 (inserted)
+map.getOrInsert("key", 99); // 42 (already present)
+```
 
 ## Best Practices: Direct Imports
 

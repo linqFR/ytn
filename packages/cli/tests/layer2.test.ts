@@ -4,12 +4,8 @@ import { executeContract } from "../src/factory.js";
 import type { IHandlers, OHandlerResult } from "../src/types/contract.types.js";
 import { toJS } from "@ytrynot/dna/toJs";
 import {
-  buildBranch,
-  deployBranch,
-  helpBranch,
-  versionBranch,
   targets,
-  fallbacks,
+  fallbacks
 } from "./fixtures.js";
 
 /**
@@ -252,7 +248,7 @@ describe("Layer 2 — executeContract (async, 2 externals)", () => {
         code: string[];
         requiredExternals: string[];
       };
-      expect(compiled.requiredExternals.sort()).toEqual(["handlers", "parseArgs"]);
+      expect(compiled.requiredExternals.sort()).toEqual(["dna", "handlers", "parseArgs"]);
     });
 
     it("should generate async function (contains 'async function')", () => {

@@ -68,8 +68,8 @@ Each route MUST declare `.meta({ cli: { routeId: "..." } })`. `createContract()`
 
 ## Dependencies
 
-- **`@ytrynot/dna`** (peer): provides `dna.cliUnion`, `dna.preprocess`, `toJS`, builder API
-- **`@ytrynot/dna/toJs`** (peer): `toJS` for AOT compilation
+- **`@ytrynot/dna`** (dependency): provides `dna.cliUnion`, `dna.preprocess`, `toJS`, builder API
+- **`@ytrynot/dna/toJs`** (dependency): `toJS` for AOT compilation
 - **`@ytrynot/shared`** (dev, inlined): private toolbox
 - **Node.js `node:util.parseArgs`**: lexical tokenizer (passed as external)
 
@@ -86,5 +86,5 @@ Follows global naming standards (`I*` input/config, `O*` output/result, `ts*` st
 - **Build**: `tsup` via `tsup.config.ts` extending `../../tsup.config.base.ts`.
 - **Output**: ESM only (`"type": "module"`), `dist/index.js` + `dist/index.d.ts`.
 - **`@ytrynot/shared`** is inlined via `noExternal` in the base tsup config (devDependency, never shipped).
-- **Peer dependency**: `@ytrynot/dna` (not bundled — consumers provide it).
+- **Dependency**: `@ytrynot/dna` (installed automatically with `@ytrynot/cli`, externalized by tsup).
 - **Publishing**: OIDC trusted publishing via GitHub Actions (see global `AGENTS.md`). Agents must never run `npm publish` locally.

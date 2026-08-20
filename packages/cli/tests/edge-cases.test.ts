@@ -12,9 +12,7 @@ import {
 } from "./fixtures.js";
 
 /**
- * Edge cases identified from:
- * - CZVO test suite (packages/cli-to-zvo/tests/)
- * - Web research (commander.js, yargs, Click, argparse, parseArgs)
+ * Edge cases identified from Web research (commander.js, yargs, Click, argparse, parseArgs)
  *
  * These tests verify behaviors that depend on node:util.parseArgs native
  * handling, combined with our flagMap interceptor and cliUnion routing.

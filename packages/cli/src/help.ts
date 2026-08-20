@@ -13,15 +13,12 @@
  * - `\x00ID` excluded from help output
  * - `.meta().description` on routes and fields provides help text
  * - `.meta().cli.hidden` marks routes hidden from general help
- *
- * @module @ytrynot/cli/help
  */
 
 import { DnaLiteral } from "@ytrynot/dna/core";
-import type { DnaObject } from "@ytrynot/dna";
-import type { IProcessedContract, ICliMeta } from "./types/contract.types.js";
+import type { IProcessedContract } from "./types/contract.types.js";
 import { getCliMeta } from "./contract.js";
-import { ROUTE_ID_KEY } from "./constants.js";
+import { ROUTE_ID_KEY } from "./routeId.js";
 
 /**
  * Builds help text from a processed contract.

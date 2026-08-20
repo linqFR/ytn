@@ -6,7 +6,6 @@
  * Layer 3: cliFactory()              → IFormattedContract   (3 externals: parseArgs, handlers, formatter)
  * Layer 4: fullCli()                 → (argv) => Promise<void>  (3 externals + Node globals)
  *
- * @module @ytrynot/cli/factory
  */
 
 import type {
@@ -14,9 +13,6 @@ import type {
   IExecutableContract,
   IFormattedContract,
   IHandlers,
-  OExecuteResult,
-  OHandlerResult,
-  CliError,
   FormatterFn,
 } from "./types/contract.types.js";
 
@@ -36,15 +32,14 @@ import type {
 export function execute(
   processed: IProcessedContract,
   argv: string[],
-): OExecuteResult {
+) {
   const result = processed.pipeline.safeParse(argv, processed.externals);
   if (!result.success) {
-    // CAST: errors is unknown[] from safeParse — matches CliError structurally
-    return { success: false, errors: result.errors as CliError[] };
+    return { success: false as const, errors: result.errors };
   }
   // CAST: data is unknown from safeParse — transform produces { route, payload }
   const { route, payload } = result.data as { route: string; payload: Record<string, unknown> };
-  return { success: true, route, payload };
+  return { success: true as const, route, payload };
 }
 
 /**
@@ -62,20 +57,20 @@ export function execute(
 export function executeContract(
   processed: IProcessedContract,
   handlers: IHandlers,
-): IExecutableContract {
+) {
   const pipeline = processed.pipeline.transform(
-    async (validated): Promise<OHandlerResult> => {
+    async (validated) => {
       if (!validated) {
-        return { success: false, error: "No matching route" };
+        return { success: false as const, error: "No matching route" };
       }
       const { route, payload } = validated;
       const handler = handlers[route];
       if (!handler) {
-        return { success: false, error: `No handler for route: ${route}` };
+        return { success: false as const, error: `No handler for route: ${route}` };
       }
       const result = await handler(payload);
       if (!result) {
-        return { success: false, error: "Handler returned no result" };
+        return { success: false as const, error: "Handler returned no result" };
       }
       return result;
     },
@@ -104,7 +99,7 @@ export function executeContract(
 export function cliFactory(
   executable: IExecutableContract,
   formatter: FormatterFn,
-): IFormattedContract {
+) {
   const pipeline = executable.pipeline.transform(
     (result) => {
       return formatter(result);
@@ -134,7 +129,7 @@ export function cliFactory(
  */
 export function fullCli(
   formatted: IFormattedContract,
-): () => Promise<void> {
+) {
   return async () => {
     const argv = process.argv.slice(2);
     const result = await formatted.pipeline.safeParseAsync(argv, formatted.externals);

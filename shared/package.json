@@ -1,6 +1,6 @@
 {
   "name": "@ytrynot/shared",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "description": "Global shared utilities for the ytrynot project",
   "type": "module",
@@ -9,6 +9,9 @@
   },
   "peerDependencies": {
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0"
   },
   "exports": {
     ".": {

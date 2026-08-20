@@ -1,5 +1,4 @@
 import { dna } from "@ytrynot/dna";
-import type { DnaObject } from "@ytrynot/dna";
 
 /**
  * Shared test fixtures — routes and contract used across all test files.

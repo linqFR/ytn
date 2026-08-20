@@ -1,4 +1,4 @@
-import type { $RecordSetToArray, $Entries } from "../types/modifiers.type.js";
+import type { $RecordSetToArray, $Entries } from "../types/record.type.js";
 
 /**
  * Specialized Record and Map manipulation utilities.

@@ -1,15 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { createContract } from "../src/contract.js";
 import { executeContract, cliFactory } from "../src/factory.js";
-import type { IHandlers, OHandlerResult, OFormattedResult, FormatterFn } from "../src/types/contract.types.js";
+import type { IHandlers, OFormattedResult, FormatterFn } from "../src/types/contract.types.js";
 import { toJS } from "@ytrynot/dna/toJs";
 import {
-  buildBranch,
-  deployBranch,
-  helpBranch,
-  versionBranch,
   targets,
-  fallbacks,
+  fallbacks
 } from "./fixtures.js";
 
 /**
@@ -190,7 +186,7 @@ describe("Layer 3 — cliFactory (async, 3 externals)", () => {
         code: string[];
         requiredExternals: string[];
       };
-      expect(compiled.requiredExternals.sort()).toEqual(["formatter", "handlers", "parseArgs"]);
+      expect(compiled.requiredExternals.sort()).toEqual(["dna", "formatter", "handlers", "parseArgs"]);
     });
   });
 });
