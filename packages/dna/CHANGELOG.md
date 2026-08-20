@@ -1,5 +1,36 @@
 # @ytrynot/dna
 
+## 0.7.5
+
+### Patch Changes
+
+- 8be32ee: Fix `DnaDefault._input` silently typed as `any` and deduplicate type helpers.
+  
+  - Add `declare readonly _input: $Input<Inner> | undefined` on `DnaDefault`
+    (was inherited as `any` from the deferred parent, breaking type inference
+    for `.default()` consumers)
+  - Re-export type helpers (`$IsAny`, `$ReadonlyValue`, `$RemoveUndefined`,
+    `$Flatten`, `$UnionToIntersection`, `$EnumKeys`, `$MaybeAsync`, etc.) from
+    `@ytrynot/shared/types` instead of duplicating them in `helpers.types.ts`
+  - Add `expectTypeOf` regression tests for `_input` on all wrappers
+    (DnaDefault, DnaOptional, DnaNullable, DnaNullish, DnaNonOptional)
+    and for missing output types (nullish, prefault, exactOptional)
+- 8be32ee: @ytrynot/shared: reorganize shared/types into thematic files
+  
+  - Split `modifiers.type.ts` into `structural.type.ts`, `predicates.type.ts`,
+    `enum.type.ts`, `record.type.ts`
+  - Add `$FlattenDistributive<T>` (preserves each union member independently)
+  - Add `$FlattenCombinative<T>` and `$ToRecord<T>` as aliases of `$Flatten`
+  - Add `$MaybeAsync<T>` and `$InferReturnType<F>` to `async.type.ts`
+  - Rename `tsValidJSON` → `$isValidJSON` (predicate, not static type)
+  - Add `README.md` and `wiki.md` with comparison tables and usage examples
+  - Add `types.test.ts` with 43 `expectTypeOf` tests covering all helpers
+  - Update `shared/README.md` with missing namespaces (regex, cli, polyfill)
+  - Fix broken imports in `shared/js/set-ops.ts` and `packages/cli/src/preprocess.ts`
+  
+  Impact: @ytrynot/dna and @ytrynot/cli import from @ytrynot/shared/types.
+  The import paths changed (modifiers.type.ts → structural.type.ts / record.type.ts).
+
 ## 0.7.4
 
 ### Patch Changes
