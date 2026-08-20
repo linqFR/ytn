@@ -168,6 +168,13 @@ Reminder: Use Zod V4 exclusively.
 - **Agnostic SQL**: The builder targets Generic SQL. Avoid dialect-specific syntax unless handled via configurable adaptors.
 - **Forbidden Files**: Never commit or modify files listed in `.gitignore`. Specifically, any `.env`, secret, or sensitive credential MUST remain local.
 
+### Performance Reporting (CRITICAL)
+
+- **Never report raw absolute timings (ns/op, ops/s, ms/op) as meaningful facts.** These values are platform-dependent — they vary with CPU model, clock frequency, cache hierarchy, JIT warmup, system load, and Node/V8 version. A number like `9.78 ns/op` is unrepeatable on any other machine and gives a false impression of precision.
+- **Report ratios, not absolutes.** Use speedup factors (e.g. "1.56x faster"), scaling trends (e.g. "linear vs logarithmic"), and crossover points (e.g. "Maranget wins above ~10 branches"). These are portable across platforms.
+- **Raw numbers are for traceability only.** If raw timings must be kept, store them in sandbox or LESSONS-LEARNED files with machine specs, Node version, and date — never in docs, mailbox entries, or ADRs as universal truths.
+- **Always note whether variance was measured** (stddev, confidence interval) or not. A ratio without variance is a hypothesis, not a conclusion.
+
 ---
 
 ## Testing Guidelines
@@ -183,6 +190,7 @@ Reminder: Use Zod V4 exclusively.
 ## Commits & Versions
 
 - **Versioning**: We use **Changesets**. If you make changes that require a version bump, run `npx.cmd changeset` to create a markdown file in the `.changeset` directory.
+- **Read `.changeset/README.md`**: Before creating a changeset, read the README in `.changeset/` for the current rules on frontmatter, bump types, and description style.
 - **PR Title Format**: `[<project_name>] <Title>` (e.g., `[@ytrynot/qb] Fix recursive unwrapping of ZodOptional`).
 
 ### Publishing Procedure (Automated via OIDC Trusted Publishing)
@@ -258,7 +266,7 @@ All access to global utilities MUST use the namespaces defined in `@ytrynot/shar
 - `safe.*`: Deterministic error management (`[err, res]`).
 - `lockobj.*`: Data integrity protection (Lockable Proxies).
 - `fsops.*`: Secure and deterministic I/O primitives.
-- `ts.*`: Global types and modifiers (`Branded`, `ValidJSON`, `Awaitable`).
+- `ts.*`: Global types and modifiers (`Branded`, `ValidJSON`, `Awaitable`). Organized by theme in `shared/types/` — see [shared/types/README.md](shared/types/README.md) (quick-reference tables) and [shared/types/wiki.md](shared/types/wiki.md) (in-depth guide with examples). **Always check these before writing a new type helper** — duplication is forbidden. Files: `structural.type.ts` (flatten, XOR, deep readonly), `predicates.type.ts` (`$IsAny`, char checks), `enum.type.ts` (keys/values extraction), `record.type.ts` (`$Keys`, `$Entries`, `$UnionToIntersection`), `async.type.ts` (`$Awaitable`, `$InferReturnType`), `branding.type.ts` (`$Branded`), `str.type.ts` (validated string patterns), `json.type.ts` (`$isValidJSON`).
 
 #### Robustness Standards (SafeMode)
 

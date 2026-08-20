@@ -20,8 +20,6 @@
 ## Checklist
 
 - [ ] Staging checked with `git status`?
-- [ ] Strict Zod v4 - No internal Zod `_def` or `ZodEffect` access?
-- [ ] Versioning handled via `npm run change`?
 - [ ] Commit message follows the `[package-name] Short summary` format?
 
 ## Related Issues
