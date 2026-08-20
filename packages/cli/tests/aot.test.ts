@@ -40,9 +40,10 @@ describe("AOT compilation", () => {
       expect(compiled.code[1]).toContain("return function");
     });
 
-    it("should list only parseArgs as requiredExternal (1 external, no routeKey — DEC-0027 new architecture)", () => {
-      expect(compiled.requiredExternals).toHaveLength(1);
+    it("should list parseArgs and dna as requiredExternals (DEC-0027 new architecture)", () => {
+      expect(compiled.requiredExternals).toHaveLength(2);
       expect(compiled.requiredExternals).toContain("parseArgs");
+      expect(compiled.requiredExternals).toContain("dna");
       expect(compiled.requiredExternals).not.toContain("parseArgsConfig");
       expect(compiled.requiredExternals).not.toContain("positionalMeta");
       expect(compiled.requiredExternals).not.toContain("flagMap");

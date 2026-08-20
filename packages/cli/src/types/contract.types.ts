@@ -1,9 +1,12 @@
 import type {
   DnaObject,
   DnaCliUnion,
-  DnaSomeType,
   DnaType,
-} from "@ytrynot/dna";
+} from "@ytrynot/dna/core";
+import type {
+  ROUTE_ID_KEY,
+  InjectedRoutes,
+} from "../routeId.js";
 
 // ============================================================
 // parseArgs config
@@ -76,10 +79,10 @@ export type IFlagMap = Record<string, string>;
 // IContract — user input
 // ============================================================
 
-export interface IContract {
+export interface IContract<T extends readonly [DnaObject, ...DnaObject[]] = readonly [DnaObject, ...DnaObject[]]> {
   name: string;
   description: string;
-  targets: readonly [DnaObject, ...DnaObject[]];
+  targets: T;
   fallbacks?: readonly DnaObject[];
   cli?: ICliOptions;
 }
@@ -115,12 +118,14 @@ export interface OFormattedResult {
 // IProcessedContract — output of createContract() (couche 1)
 // ============================================================
 
-export interface IProcessedContract {
+export interface IProcessedContract<
+  T extends readonly [DnaObject, ...DnaObject[]] = readonly [DnaObject, ...DnaObject[]]
+> {
   name: string;
   description: string;
   pipeline: DnaType<{ route: string; payload: Record<string, unknown> }>;
-  cliUnion: DnaCliUnion<readonly DnaSomeType[]>;
-  routes: readonly DnaObject[];
+  cliUnion: DnaCliUnion<InjectedRoutes<T, typeof ROUTE_ID_KEY>>;
+  routes: T;
   parseArgsConfig: OParseArgsConfig;
   positionalMeta: OPositionalMeta[];
   externals: Record<string, unknown>;

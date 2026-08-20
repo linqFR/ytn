@@ -109,7 +109,8 @@ describe("Layer 1 — createContract + execute (sync, 1 external)", () => {
         code: string[];
         requiredExternals: string[];
       };
-      expect(compiled.requiredExternals).toEqual(["parseArgs"]);
+      expect(compiled.requiredExternals).toEqual(compiled.requiredExternals);
+      expect(compiled.requiredExternals).toEqual(["parseArgs", "dna"]);
     });
   });
 

@@ -16,10 +16,9 @@
  */
 
 import { DnaLiteral } from "@ytrynot/dna/core";
-import type { DnaObject } from "@ytrynot/dna";
-import type { IProcessedContract, ICliMeta } from "./types/contract.types.js";
+import type { IProcessedContract } from "./types/contract.types.js";
 import { getCliMeta } from "./contract.js";
-import { ROUTE_ID_KEY } from "./constants.js";
+import { ROUTE_ID_KEY } from "./routeId.js";
 
 /**
  * Builds help text from a processed contract.

@@ -2,7 +2,7 @@ import { expectTypeOf, test } from "vitest";
 import { dna } from "@ytrynot/dna";
 
 import { buildPipeline } from "../src/preprocess.js";
-import { ROUTE_ID_KEY } from "../src/constants.js";
+import { ROUTE_ID_KEY } from "../src/routeId.js";
 import type {
   IFlagMap,
   OParseArgsConfig,

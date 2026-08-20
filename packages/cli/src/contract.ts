@@ -1,10 +1,10 @@
-﻿import type { DnaObject } from "@ytrynot/dna";
-import { dna } from "@ytrynot/dna";
-import { DnaLiteral } from "@ytrynot/dna/core";
+﻿import { dna } from "@ytrynot/dna";
+import { DnaLiteral, DnaCliUnion, DnaObject } from "@ytrynot/dna/core";
 import { parseArgs as nodeParseArgs } from "node:util";
 
-import { ROUTE_ID_KEY } from "./constants.js";
 import { buildPipeline } from "./preprocess.js";
+import type { InjectedRoutes } from "./routeId.js";
+import { ROUTE_ID_KEY } from "./routeId.js";
 import type {
   ICliMeta,
   IContract,
@@ -43,10 +43,12 @@ function getCmdValue(route: DnaObject): string | undefined {
   return undefined;
 }
 
-export function createContract(
-  contract: IContract,
+export function createContract<
+  T extends readonly [DnaObject, ...DnaObject[]],
+>(
+  contract: IContract<T>,
   options?: IContractOptions,
-): IProcessedContract {
+): IProcessedContract<T> {
   const allRoutes = contract.fallbacks
     ? [...contract.targets, ...contract.fallbacks]
     : [...contract.targets];
@@ -122,7 +124,12 @@ export function createContract(
     }
   }
 
-  // DEC-0027: Inject \x00ID via apply from .meta().cli.routeId
+  // DEC-0027: Inject \x00ID (route header) via apply from .meta().cli.routeId.
+  // DNA transports \x00ID opaquely (validated as DnaDefault<DnaString>, route-agnostic).
+  // The extractStep (preprocess.ts) strips \x00ID → { route, payload }.
+  // CAST: .map() widens the tuple to DnaObject[]; InjectedRoutes<T, K> restores the
+  // tuple type with \x00ID injected per route (type-level map, same shape as runtime).
+  // Double cast via unknown: .map() returns array, InjectedRoutes is a fixed-length tuple.
   const injectedRoutes = allRoutes.map((route) =>
     route.apply((schema) => {
       const meta = getCliMeta(schema);
@@ -134,14 +141,18 @@ export function createContract(
       }
       return schema.extend({ [ROUTE_ID_KEY]: dna.string().default(routeId) });
     }),
-  );
+  ) as unknown as InjectedRoutes<T, typeof ROUTE_ID_KEY>;
 
+  // CAST: allRoutes spread widens to DnaObject[]; T is the static tuple type and TS
+  // cannot verify the array-to-tuple correspondence (same pattern as DnaCliUnion.options getter).
+  // Cast to DnaCliUnion<InjectedRoutes<T, K>> — the injected type includes \x00ID per route,
+  // matching the runtime injection done above and the constraint in buildPipeline.
   const cliUnion = dna.cliUnion(
     injectedRoutes,
     contract.cli?.positionals
       ? { positionals: contract.cli.positionals }
       : undefined,
-  );
+  ) as unknown as DnaCliUnion<InjectedRoutes<T, typeof ROUTE_ID_KEY>>;
 
   // parseArgsConfig â€” build from DNA config + meta-derived flags
   const dnaConfig = cliUnion.toParseArgsConfig({ strict: contract.cli?.strict });
@@ -206,7 +217,8 @@ export function createContract(
     description: contract.description,
     pipeline,
     cliUnion,
-    routes: allRoutes,
+    // CAST: allRoutes spread widens to DnaObject[]; T is the static tuple type
+    routes: allRoutes as unknown as T,
     parseArgsConfig,
     positionalMeta,
     externals,
