@@ -201,9 +201,9 @@ export interface DnaSomeType<T = unknown, I = unknown> {
   readonly _head: unknown;
   [SymForceCoerce](): DnaSomeType<T, I>;
   parse(value: unknown, ctx?: tsDnaExternals): T;
-  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult;
+  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]>;
   parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T>;
-  safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult>;
+  safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>>;
   validate(value: unknown, ctx?: tsDnaExternals): boolean;
   validateAsync(value: unknown, ctx?: tsDnaExternals): Promise<boolean>;
 
@@ -913,7 +913,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A parser result object.
    */
-  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult {
+  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]> {
     // Invoke the parser from `_safeParse` (subclass-overridable, e.g. DnaCodec) for
     // the same reason as `validate` above.
     const fn = this._safeParse(ctx);
@@ -963,7 +963,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A parser result object.
    */
-  async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     if (value instanceof Promise) value = await value;
     // Awaiting a plain (non-async) compiled function's return value is a
     // no-op — this works uniformly whether `_safeParse` compiled a sync or
@@ -978,31 +978,31 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A promise resolving to a parser result object.
    */
-  spa(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  spa(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     return this.safeParseAsync(value, ctx);
   }
 
   /** Alias for {@link safeParse} (codec decode direction). */
-  safeDecode(value: unknown, ctx: tsDnaExternals): tsDnaParserResult { return this.safeParse(value, ctx); }
+  safeDecode(value: unknown, ctx: tsDnaExternals): tsDnaParserResult<this["_output"]> { return this.safeParse(value, ctx); }
   /** Alias for {@link spa} (async codec decode direction). */
-  safeDecodeAsync(value: unknown, ctx: tsDnaExternals): Promise<tsDnaParserResult> { return this.spa(value, ctx); }
+  safeDecodeAsync(value: unknown, ctx: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> { return this.spa(value, ctx); }
   /** Alias for {@link parse} (codec decode direction). */
   decode(value: unknown, ctx: tsDnaExternals): T { return this.parse(value, ctx); }
   /** Alias for {@link parseAsync} (async codec decode direction). */
   decodeAsync(value: unknown, ctx: tsDnaExternals): Promise<T> { return Promise.resolve(this.parseAsync(value, ctx)); }
 
   /** Alias for {@link safeParse} (codec encode direction). Overridden by {@link DnaCodec}. */
-  safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult { return this.safeParse(value, ctx); }
+  safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_input"]> { return this.safeParse(value, ctx) as tsDnaParserResult<this["_input"]>; }
   /** Alias for {@link spa} (async codec encode direction). */
-  safeEncodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> { return Promise.resolve(this.safeEncode(value, ctx)); }
+  safeEncodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_input"]>> { return Promise.resolve(this.safeEncode(value, ctx)); }
   /** Alias for {@link parse} (codec encode direction). */
-  encode(value: unknown, ctx?: tsDnaExternals): T {
+  encode(value: unknown, ctx?: tsDnaExternals): this["_input"] {
     const res = this.safeEncode(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
   }
   /** Alias for {@link parseAsync} (async codec encode direction). */
-  encodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> { return Promise.resolve(this.encode(value, ctx)); }
+  encodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_input"]> { return Promise.resolve(this.encode(value, ctx)); }
 
 
   // Information methods
@@ -2760,7 +2760,7 @@ export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
     return this._core.seed.inner;
   }
 
-  override safeParse(value: unknown, _ctx?: tsDnaExternals): tsDnaParserResult {
+  override safeParse(value: unknown, _ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]> {
     if (!(value instanceof Promise)) return { success: false, errors: [nonPromiseIssue(value)] };
     throw new DnaError([syncPromiseIssue(value)]);
   }
@@ -3932,7 +3932,9 @@ export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
   // Decode direction (`_validate`/`_safeParse`) is inherited: the base builds from
   // `this.toDna()` and caches in `#state`.
 
-  override safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult {
+  // Encode direction: validates O (output) and produces I (input).
+  // Base signature returns tsDnaParserResult<this["_input"]> = tsDnaParserResult<I> — correct.
+  override safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_input"]> {
     if (!this._core.seed.cachedEncodeParserMap) this._core.seed.cachedEncodeParserMap = new WeakMap();
     const key = ctx ?? this;
     const cached = this._core.seed.cachedEncodeParserMap.get(key);
