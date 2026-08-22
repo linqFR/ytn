@@ -41,3 +41,6 @@ packages/wf-router/
 
 # Inter-session mailboxes (local only, not shared on GitHub)
 **/mailbox/
+
+# Skills CLI lock file (local only)
+skills-lock.json
