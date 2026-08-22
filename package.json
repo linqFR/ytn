@@ -20,7 +20,7 @@
     "tag": "changeset git-tag"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.0",
+    "@changesets/cli": "^3.0.1",
     "@types/node": "^26.1.1",
     "acorn": "^8.18.0",
     "acorn-walk": "^8.3.5",
