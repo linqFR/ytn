@@ -765,7 +765,10 @@ describe("cliUnion — edge cases and break attempts", () => {
 		]);
 		const r = cli.safeParse({ cmd: "build", mode: "dev", extra: "ignored" });
 		expect(r.success).toBe(true);
-		if (r.success) expect(r.data.extra).toBeUndefined();
+		// CAST: r.data is now precisely typed (no `extra` property) after the safeParse
+		// type fix. This test verifies the runtime behavior (keepOnly strips extra props),
+		// so we cast to access the property that the type correctly says is absent.
+		if (r.success) expect((r.data as Record<string, unknown>).extra).toBeUndefined();
 	});
 
 	it("should handle deeply nested discriminator values (3 keys)", () => {

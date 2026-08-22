@@ -250,4 +250,6 @@ export const QB = QueryBuilder;
 export * from "./types.js";
 // Re-export OnConflictBuilder (returned by Builder.onConflict())
 export { OnConflictBuilder } from "./builder.js";
+// Re-export resolveDefault for manual column default value quoting
+export { resolveDefault } from "./sql-literal.js";
 

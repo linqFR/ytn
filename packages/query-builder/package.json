@@ -55,7 +55,7 @@
     }
   },
   "peerDependencies": {
-    "@ytrynot/dna": "^0.7.0",
+    "@ytrynot/dna": "^0.7.5",
     "zod": "^4.4.3"
   },
   "peerDependenciesMeta": {

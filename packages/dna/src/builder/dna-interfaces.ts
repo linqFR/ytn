@@ -200,10 +200,10 @@ export interface DnaSomeType<T = unknown, I = unknown> {
   readonly _core: BaseCore<any>;
   readonly _head: unknown;
   [SymForceCoerce](): DnaSomeType<T, I>;
-  parse(value: unknown, ctx?: tsDnaExternals): T;
-  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult;
-  parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T>;
-  safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult>;
+  parse(value: unknown, ctx?: tsDnaExternals): this["_output"];
+  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]>;
+  parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]>;
+  safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>>;
   validate(value: unknown, ctx?: tsDnaExternals): boolean;
   validateAsync(value: unknown, ctx?: tsDnaExternals): Promise<boolean>;
 
@@ -913,7 +913,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A parser result object.
    */
-  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult {
+  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]> {
     // Invoke the parser from `_safeParse` (subclass-overridable, e.g. DnaCodec) for
     // the same reason as `validate` above.
     const fn = this._safeParse(ctx);
@@ -934,7 +934,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @throws {DnaError} When validation fails.
    */
   // Additional parsing methods
-  parse(value: unknown, ctx?: tsDnaExternals): T | never {
+  parse(value: unknown, ctx?: tsDnaExternals): this["_output"] {
     const res = this.safeParse(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
@@ -949,7 +949,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @returns The parsed and validated data.
    * @throws {DnaError} When validation fails.
    */
-  async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> {
+  async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]> {
     const res = await this.safeParseAsync(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
@@ -963,7 +963,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A parser result object.
    */
-  async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     if (value instanceof Promise) value = await value;
     // Awaiting a plain (non-async) compiled function's return value is a
     // no-op — this works uniformly whether `_safeParse` compiled a sync or
@@ -978,31 +978,31 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A promise resolving to a parser result object.
    */
-  spa(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  spa(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     return this.safeParseAsync(value, ctx);
   }
 
   /** Alias for {@link safeParse} (codec decode direction). */
-  safeDecode(value: unknown, ctx: tsDnaExternals): tsDnaParserResult { return this.safeParse(value, ctx); }
+  safeDecode(value: unknown, ctx: tsDnaExternals): tsDnaParserResult<this["_output"]> { return this.safeParse(value, ctx); }
   /** Alias for {@link spa} (async codec decode direction). */
-  safeDecodeAsync(value: unknown, ctx: tsDnaExternals): Promise<tsDnaParserResult> { return this.spa(value, ctx); }
+  safeDecodeAsync(value: unknown, ctx: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> { return this.spa(value, ctx); }
   /** Alias for {@link parse} (codec decode direction). */
-  decode(value: unknown, ctx: tsDnaExternals): T { return this.parse(value, ctx); }
+  decode(value: unknown, ctx: tsDnaExternals): this["_output"] { return this.parse(value, ctx); }
   /** Alias for {@link parseAsync} (async codec decode direction). */
-  decodeAsync(value: unknown, ctx: tsDnaExternals): Promise<T> { return Promise.resolve(this.parseAsync(value, ctx)); }
+  decodeAsync(value: unknown, ctx: tsDnaExternals): Promise<this["_output"]> { return Promise.resolve(this.parseAsync(value, ctx)); }
 
   /** Alias for {@link safeParse} (codec encode direction). Overridden by {@link DnaCodec}. */
-  safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult { return this.safeParse(value, ctx); }
+  safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_input"]> { return this.safeParse(value, ctx) as tsDnaParserResult<this["_input"]>; }
   /** Alias for {@link spa} (async codec encode direction). */
-  safeEncodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> { return Promise.resolve(this.safeEncode(value, ctx)); }
+  safeEncodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_input"]>> { return Promise.resolve(this.safeEncode(value, ctx)); }
   /** Alias for {@link parse} (codec encode direction). */
-  encode(value: unknown, ctx?: tsDnaExternals): T {
+  encode(value: unknown, ctx?: tsDnaExternals): this["_input"] {
     const res = this.safeEncode(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
   }
   /** Alias for {@link parseAsync} (async codec encode direction). */
-  encodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> { return Promise.resolve(this.encode(value, ctx)); }
+  encodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_input"]> { return Promise.resolve(this.encode(value, ctx)); }
 
 
   // Information methods
@@ -1115,7 +1115,9 @@ export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
    * @param value - The default value to use when output is `undefined`.
    * @returns A `DnaDefault` wrapper.
    */
-  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V): DnaDefault<This, V> {
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V): DnaDefault<This, V>;
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: () => V): DnaDefault<This, V>;
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V | (() => V)): DnaDefault<This, V> {
     return initDna(DnaDefault<This, V>, { inner: this, value })[SymSetHead](this._head);
   }
   /**
@@ -1125,7 +1127,9 @@ export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
    * @param value - The prefault value to use when input is `undefined`.
    * @returns A `DnaPrefault` wrapper.
    */
-  prefault<This extends DnaSomeType>(this: This, value: This["_input"]): DnaPrefault<This> {
+  prefault<This extends DnaSomeType>(this: This, value: This["_input"]): DnaPrefault<This>;
+  prefault<This extends DnaSomeType>(this: This, value: () => This["_input"]): DnaPrefault<This>;
+  prefault<This extends DnaSomeType>(this: This, value: This["_input"] | (() => This["_input"])): DnaPrefault<This> {
     return initDna(DnaPrefault<This>, { inner: this, value })[SymSetHead](this._head);
   }
   /**
@@ -1304,7 +1308,7 @@ class _DnaWrapper<
   Out = $Output<Inner>,
   In = $Input<Inner>,
 > extends DnaTypeWithWrappers<any, any> {
-  override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In>, valueExternals?: tsDnaExternals }>("wrap");
+  override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In> | (() => Out) | (() => In), valueExternals?: tsDnaExternals }>("wrap");
   declare _input: In;
   declare _output: Out;
   // declare _output: $Output<Inner> & {
@@ -1439,9 +1443,9 @@ export class DnaDefault<Inner extends DnaSomeType = DnaSomeType, V = $Output<Inn
   declare readonly _output: $IsAny<$Output<Inner>> extends true ? V : $RemoveUndefined<$Output<Inner>> | V;
   declare readonly _input: $Input<Inner> | undefined;
   override _core = Object.defineProperty(
-    new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
+    new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> | (() => $Output<Inner>) }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
     "defaultValue",
-    { get() { return this.seed.value; } }
+    { get() { const v = this.seed.value; return typeof v === "function" ? v() : v; } }
   );
 }
 
@@ -1449,9 +1453,9 @@ export class DnaDefault<Inner extends DnaSomeType = DnaSomeType, V = $Output<Inn
 // Prefault wrapper - provides default value for input
 export class DnaPrefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   override _core = Object.defineProperty(
-    new BaseCore<{ wrapperType: "prefault", phase: "pre", inner: Inner, value: $Input<Inner> }>("wrap").preSeed({ wrapperType: "prefault", phase: "pre" }),
+    new BaseCore<{ wrapperType: "prefault", phase: "pre", inner: Inner, value: $Input<Inner> | (() => $Input<Inner>) }>("wrap").preSeed({ wrapperType: "prefault", phase: "pre" }),
     "prefaultValue",
-    { get() { return this.seed.value; } }
+    { get() { const v = this.seed.value; return typeof v === "function" ? v() : v; } }
   );
 }
 
@@ -2760,23 +2764,23 @@ export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
     return this._core.seed.inner;
   }
 
-  override safeParse(value: unknown, _ctx?: tsDnaExternals): tsDnaParserResult {
+  override safeParse(value: unknown, _ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]> {
     if (!(value instanceof Promise)) return { success: false, errors: [nonPromiseIssue(value)] };
     throw new DnaError([syncPromiseIssue(value)]);
   }
 
-  override parse(value: unknown, ctx?: tsDnaExternals): T {
+  override parse(value: unknown, ctx?: tsDnaExternals): this["_output"] {
     const res = this.safeParse(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
   }
 
-  override async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  override async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     const resolved = value instanceof Promise ? await value : value;
     return this._core.seed.inner.safeParseAsync(resolved, ctx);
   }
 
-  override async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> {
+  override async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]> {
     const resolved = value instanceof Promise ? await value : value;
     return this._core.seed.inner.parseAsync(resolved, ctx);
   }
@@ -3932,7 +3936,9 @@ export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
   // Decode direction (`_validate`/`_safeParse`) is inherited: the base builds from
   // `this.toDna()` and caches in `#state`.
 
-  override safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult {
+  // Encode direction: validates O (output) and produces I (input).
+  // Base signature returns tsDnaParserResult<this["_input"]> = tsDnaParserResult<I> — correct.
+  override safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_input"]> {
     if (!this._core.seed.cachedEncodeParserMap) this._core.seed.cachedEncodeParserMap = new WeakMap();
     const key = ctx ?? this;
     const cached = this._core.seed.cachedEncodeParserMap.get(key);

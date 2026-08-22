@@ -48,6 +48,14 @@ npm install @ytrynot/cli @ytrynot/dna
 
 `@ytrynot/dna` is a peer dependency — consumers provide it. It is not bundled.
 
+## Agent Skills
+
+Install the [ytn agent skill](../../skills/ytn/SKILL.md) so your AI coding agent knows how to use this package:
+
+```bash
+npx skills add linqFR/ytn
+```
+
 ## CLI contract
 
 A CLI contract is a DNA schema definition that describes the entire CLI structure — routes (subcommands), positional arguments, flags, and their validation rules. You define each route as a `dna.object` with a `cmd: dna.literal(...)` discriminator and `.meta({ cli: { routeId: "..." } })`, then pass the routes to `createContract()` which assembles the 5-layer pipeline. The contract is the single source of truth: routing, validation, help generation, and AOT compilation all derive from it. Handlers and formatters are added in subsequent layers — they are not part of the contract itself.

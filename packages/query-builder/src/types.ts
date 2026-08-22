@@ -158,6 +158,34 @@ export interface IWindowDefinition {
  */
 export type tsSqliteType = "TEXT" | "INTEGER" | "REAL" | "BOOLEAN" | "DATETIME" | "BLOB";
 
+/**
+ * @type tsDefaultValue
+ * @description Default value for a column, accepting two signatures:
+ * - **Tagged**: `{ [type]: value }` — the DDL engine knows the type and quotes
+ *   automatically into a SQL literal.
+ *   - `{ string: "pending" }` → `DEFAULT 'pending'`
+ *   - `{ number: 42 }` → `DEFAULT 42`
+ *   - `{ boolean: true }` → `DEFAULT TRUE`
+ *   - `{ date: new Date("2024-01-01") }` → `DEFAULT '2024-01-01T00:00:00.000Z'`
+ *   - `{ raw: "CURRENT_TIMESTAMP" }` → `DEFAULT CURRENT_TIMESTAMP` (escape hatch)
+ * - **Direct**: `value` (string or number) — passes through `.toString()`,
+ *   treated as raw SQL. The user provides the complete literal.
+ *   - `"CURRENT_TIMESTAMP"` → `CURRENT_TIMESTAMP`
+ *   - `42` → `42`
+ *   - `"'user'"` → `'user'` (user supplies the quotes)
+ *
+ * Introspectors (Zod, DNA) always produce the tagged form since they know the
+ * schema type. Manual `qbColumn` definitions may use either form.
+ */
+export type tsDefaultValue =
+  | { string: string }
+  | { number: number }
+  | { boolean: boolean }
+  | { date: Date }
+  | { raw: string }
+  | string
+  | number;
+
 
 /**
  * @type qbTable
@@ -196,8 +224,8 @@ export interface qbColumn {
   optional: boolean;
   /** Whether the column has a default value (DEFAULT clause emitted). */
   hasDefault: boolean;
-  /** Default value (SQL literal) when `hasDefault` is true. */
-  defaultValue?: unknown;
+  /** Default value (tagged or direct) when `hasDefault` is true. See `tsDefaultValue`. */
+  defaultValue?: tsDefaultValue;
   /** Whether the column is an auto-increment primary key. */
   pkauto?: boolean;
   /** Whether the column is marked as UNIQUE. */

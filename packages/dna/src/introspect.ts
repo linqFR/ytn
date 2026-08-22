@@ -116,12 +116,16 @@ export function unwrapDeep(schema: DnaSomeType): DnaSomeType {
  * Returns the default value of a DnaDefault wrapper.
  * Returns `undefined` if the schema is not a DnaDefault wrapper.
  *
+ * Getter functions (`dna.x().default(() => value)`) are resolved by the
+ * `DnaDefault.defaultValue` getter itself — this function delegates to it,
+ * matching Zod v4's `def.defaultValue` behavior.
+ *
  * @param schema - Any DNA schema.
- * @returns The default value, or `undefined`.
+ * @returns The resolved default value, or `undefined`.
  */
 export function defaultValue(schema: DnaSomeType): unknown {
   if (schema._core.seed.wrapperType !== "default") return undefined;
-  return schema._core.seed.value;
+  return (schema as any)._core.defaultValue;
 }
 
 /**

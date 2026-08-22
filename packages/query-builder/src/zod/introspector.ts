@@ -14,6 +14,7 @@ import type {
   qbColumn,
   ISchemaIntrospector,
   tsSqliteType,
+  tsDefaultValue,
 } from "../types.js";
 
 /**
@@ -42,8 +43,10 @@ export class ZodIntrospector implements ISchemaIntrospector<z.ZodType> {
       const sqliteType = mapZodTypeToSqlite(baseType, unwrapped);
 
       const zodDefault = getZodDefaultValue(schemaItem);
-      const hasDefault = zodDefault !== undefined || meta.default !== undefined;
-      const defaultValue = zodDefault ?? meta.default;
+      const hasDefault = zodDefault !== undefined;
+      const defaultValue = zodDefault !== undefined
+        ? tagDefault(baseType, zodDefault)
+        : undefined;
 
       return {
         name: key,
@@ -109,3 +112,19 @@ function mapZodTypeToSqlite(baseType: string | undefined, schema: z.ZodType): ts
 
 /** Shared singleton instance. */
 export const zodIntrospector = new ZodIntrospector();
+
+/**
+ * @function tagDefault
+ * @description Maps a Zod base type + default value to a tagged `tsDefaultValue`.
+ * @param {string | undefined} baseType - The Zod base type name (from def.type).
+ * @param {unknown} value - The resolved default value.
+ * @returns {tsDefaultValue} The tagged default value.
+ */
+function tagDefault(baseType: string | undefined, value: unknown): tsDefaultValue {
+  if (baseType === "string") return { string: value as string };
+  if (baseType === "number" || baseType === "bigint") return { number: value as number };
+  if (baseType === "boolean") return { boolean: value as boolean };
+  if (baseType === "date") return { date: value as Date };
+  // Fallback: treat as raw SQL string
+  return { raw: String(value) };
+}

@@ -70,7 +70,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | AUTOINCREMENT | ✅ | `pkauto: true` → `PRIMARY KEY AUTOINCREMENT` |
 | NOT NULL | ✅ | Inferred from `optional: false` |
 | UNIQUE (single column) | ✅ | `unique: true` or `options.unique` |
-| DEFAULT | ✅ | `defaultValue` or `options.defaults` |
+| DEFAULT | ✅ | `.default()` (Zod/DNA) or `defaultValue` (manual columns) or `options.defaults` |
 | IF NOT EXISTS | ✅ | Always generated |
 | Column-level CHECK | ✅ | `qbColumn.check: "expr"` |
 | COLLATE | ❌ | Out of scope (niche) |
@@ -113,7 +113,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | WHERE IN (subquery) | ✅ | `.whereIn(col, Builder)` |
 | WHERE raw SQL | ✅ | `.whereRaw(condition)` |
 | Search (LIKE) | ✅ | `.search(fields)` → `LIKE @search_term` |
-| EXISTS / NOT EXISTS | ✅ | `.exists()`, `.notExists()` |
+| EXISTS / NOT EXISTS | ✅ | `.asExists()`, `.asNotExists()` |
 | GROUP BY | ✅ | `.groupBy(fields)` |
 | HAVING | ✅ | `.having(conditions)` |
 | ORDER BY | ✅ | `.orderBy(field, dir)` |
@@ -206,8 +206,8 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 |--------|---------|-------------|
 | `.toSQL()` | `string` | Compiles builder state into SQL string |
 | `.clone()` | `Builder` | Independent deep copy of current state |
-| `.exists()` | `string` | `EXISTS (this.toSQL())` |
-| `.notExists()` | `string` | `NOT EXISTS (this.toSQL())` |
+| `.asExists()` | `string` | `EXISTS (this.toSQL())` |
+| `.asNotExists()` | `string` | `NOT EXISTS (this.toSQL())` |
 | `.buildUpsertStatement()` | — | Removed — use `.upsert()` or `.onConflict()` |
 | `.uniqueKeys(...keys)` | `this` | Pre-set conflict targets for upsert auto-deduction |
 

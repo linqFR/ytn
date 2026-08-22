@@ -165,6 +165,14 @@ npm run build -w @ytrynot/cli
 npm test -w @ytrynot/cli
 ```
 
+## Agent Skills
+
+This repo ships a [skill.md](./skills/ytn/SKILL.md) compatible with the [Agent Skills](https://agentskills.io) standard. Install it into your AI coding agent (Claude Code, Cursor, Codex, Windsurf, Devin...) so it knows how to use the ytn packages:
+
+```bash
+npx skills add linqFR/ytn
+```
+
 ## License
 
 This project is licensed under the **MIT License**.

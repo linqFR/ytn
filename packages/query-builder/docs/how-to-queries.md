@@ -235,6 +235,8 @@ QueryBuilder.table("users", ["email"]).upsert("email", "name").toSQL();
 // INSERT INTO users (email, name) VALUES (@email, @name) ON CONFLICT(email) DO UPDATE SET name = excluded.name
 ```
 
+> **Note**: `excluded` is a special table in SQLite's upsert syntax that contains the values that would have been inserted. Using `excluded.field` references the new value from the INSERT, while the unqualified column name references the existing row value.
+
 ### ON CONFLICT sub-builder
 
 For fine-grained control, use `.insert().onConflict(cols)`:
@@ -369,7 +371,7 @@ QueryBuilder.table("events").select(["type"]).distinct().toSQL();
 
 ## Text search
 
-`.search(searchFields, strictFields)` builds a `LIKE` query combined with strict equality filters:
+`.search(columnsToSearch, columnsToFilter)` searches a text pattern across `columnsToSearch` (via `LIKE @search_term`) and filters exact values on `columnsToFilter` (via `col = @col`):
 
 ```typescript
 QueryBuilder.table("docs")

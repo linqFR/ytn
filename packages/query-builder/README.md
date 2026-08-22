@@ -42,6 +42,14 @@ npm install @ytrynot/dna
 
 If you use only the fluent DML API (no schema-driven DDL), neither peer dependency is required.
 
+## Agent Skills
+
+Install the [ytn agent skill](../../skills/ytn/SKILL.md) so your AI coding agent knows how to use this package:
+
+```bash
+npx skills add linqFR/ytn
+```
+
 ## Quick start
 
 The smallest example: build a `SELECT` query and get the SQL string with named parameters.

@@ -676,20 +676,20 @@ export class Builder {
 
   /**
    * @function search
-   * @description Configures a SELECT query with LIKE filters across multiple columns.
-   * @param {string[]} searchFields - Columns to search in.
-   * @param {(string | { col: string, param: string })[]} [additionalFilters=[]] - Additional WHERE conditions.
+   * @description Searches a text pattern across `columnsToSearch` (via `LIKE @search_term`) and filters exact values on `columnsToFilter` (via `col = @col`).
+   * @param {string[]} columnsToSearch - Columns where the text pattern is searched with LIKE.
+   * @param {(string | { col: string, param: string })[]} [columnsToFilter=[]] - Columns filtered by exact match (col = @col).
    * @returns {this} The current Builder instance for chaining.
-   * @usage `.search(['name', 'email'])` -> nécessite de passer `{ search_term: '%valeur%' }` à l'exécution.
+   * @usage `.search(['name', 'email'], ['status'])` -> requires passing `{ search_term: '%value%', status: 'active' }` at execution time.
    * @impact Changes mode to 'SELECT'.
    */
   public search(
-    searchFields: string[],
-    additionalFilters: tsWhereDefinition[] = [],
+    columnsToSearch: string[],
+    columnsToFilter: tsWhereDefinition[] = [],
   ): this {
     this.#mode = "SELECT";
-    this.#searchFields = searchFields;
-    this.#whereFields = additionalFilters;
+    this.#searchFields = columnsToSearch;
+    this.#whereFields = columnsToFilter;
     return this;
   }
 
