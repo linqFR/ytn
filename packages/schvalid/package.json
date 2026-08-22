@@ -59,7 +59,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@ytrynot/dna": "^0.7.0"
+    "@ytrynot/dna": "^0.7.5"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
