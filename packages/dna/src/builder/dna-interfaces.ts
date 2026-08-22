@@ -200,9 +200,9 @@ export interface DnaSomeType<T = unknown, I = unknown> {
   readonly _core: BaseCore<any>;
   readonly _head: unknown;
   [SymForceCoerce](): DnaSomeType<T, I>;
-  parse(value: unknown, ctx?: tsDnaExternals): T;
+  parse(value: unknown, ctx?: tsDnaExternals): this["_output"];
   safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]>;
-  parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T>;
+  parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]>;
   safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>>;
   validate(value: unknown, ctx?: tsDnaExternals): boolean;
   validateAsync(value: unknown, ctx?: tsDnaExternals): Promise<boolean>;
@@ -934,7 +934,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @throws {DnaError} When validation fails.
    */
   // Additional parsing methods
-  parse(value: unknown, ctx?: tsDnaExternals): T | never {
+  parse(value: unknown, ctx?: tsDnaExternals): this["_output"] {
     const res = this.safeParse(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
@@ -949,7 +949,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @returns The parsed and validated data.
    * @throws {DnaError} When validation fails.
    */
-  async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> {
+  async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]> {
     const res = await this.safeParseAsync(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
@@ -987,9 +987,9 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
   /** Alias for {@link spa} (async codec decode direction). */
   safeDecodeAsync(value: unknown, ctx: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> { return this.spa(value, ctx); }
   /** Alias for {@link parse} (codec decode direction). */
-  decode(value: unknown, ctx: tsDnaExternals): T { return this.parse(value, ctx); }
+  decode(value: unknown, ctx: tsDnaExternals): this["_output"] { return this.parse(value, ctx); }
   /** Alias for {@link parseAsync} (async codec decode direction). */
-  decodeAsync(value: unknown, ctx: tsDnaExternals): Promise<T> { return Promise.resolve(this.parseAsync(value, ctx)); }
+  decodeAsync(value: unknown, ctx: tsDnaExternals): Promise<this["_output"]> { return Promise.resolve(this.parseAsync(value, ctx)); }
 
   /** Alias for {@link safeParse} (codec encode direction). Overridden by {@link DnaCodec}. */
   safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_input"]> { return this.safeParse(value, ctx) as tsDnaParserResult<this["_input"]>; }
@@ -2765,18 +2765,18 @@ export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
     throw new DnaError([syncPromiseIssue(value)]);
   }
 
-  override parse(value: unknown, ctx?: tsDnaExternals): T {
+  override parse(value: unknown, ctx?: tsDnaExternals): this["_output"] {
     const res = this.safeParse(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
   }
 
-  override async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  override async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     const resolved = value instanceof Promise ? await value : value;
     return this._core.seed.inner.safeParseAsync(resolved, ctx);
   }
 
-  override async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> {
+  override async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]> {
     const resolved = value instanceof Promise ? await value : value;
     return this._core.seed.inner.parseAsync(resolved, ctx);
   }
