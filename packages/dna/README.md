@@ -73,6 +73,14 @@ For detailed information about DNA opcodes, architecture, and implementation det
 npm install @ytrynot/dna
 ```
 
+## Agent Skills
+
+Install the [ytn agent skill](../../skills/ytn/SKILL.md) so your AI coding agent knows how to use this package:
+
+```bash
+npx skills add linqFR/ytn
+```
+
 ## Package Exports
 
 `@ytrynot/dna` ships multiple entry points. All non-core entry points import runtime classes from `@ytrynot/dna/core`, ensuring a single class identity for `instanceof` checks and a shared registry Map across bundles (mirrors the `zod/v4/core` pattern).
