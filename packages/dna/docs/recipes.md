@@ -361,9 +361,17 @@ import { dna } from "@ytrynot/dna";
 const withDefault = dna.string().default("fallback");
 withDefault.parse(undefined);  // "fallback"
 
+// .default() also accepts a getter function (resolved at access time)
+const withGetterDefault = dna.date().default(() => new Date("2024-01-01"));
+withGetterDefault.parse(undefined);  // Date (2024-01-01)
+
 // .prefault() — applied before validation (transforms run on default)
 const withPrefault = dna.string().trim().prefault("  default  ");
 withPrefault.parse(undefined);  // "default" (trimmed)
+
+// .prefault() also accepts a getter function
+const withGetterPrefault = dna.string().prefault(() => "generated");
+withGetterPrefault.parse(undefined);  // "generated"
 
 // .catch() — applied when validation fails
 const withCatch = dna.string().catch("fallback");
@@ -373,9 +381,9 @@ withCatch.parse(123);  // "fallback" (invalid input caught)
 const topPrefault = dna.prefault(dna.string().trim(), "  default  ");
 ```
 
-- **`.default()`**: input is `undefined` → use default
-- **`.prefault()`**: before validation → use fallback (transforms apply to it)
-- **`.catch()`**: validation fails → use fallback
+- **`.default()`**: input is `undefined` → use default. Accepts a direct value or a getter function `() => T`. The getter is called each time the default is needed (not memoized). The `defaultValue` getter on the schema instance always returns the resolved value, never the raw function — matching Zod v4's `def.defaultValue` behavior.
+- **`.prefault()`**: before validation → use fallback (transforms apply to it). Accepts a direct value or a getter function `() => T`, same resolution semantics as `.default()`.
+- **`.catch()`**: validation fails → use fallback. Accepts a direct value or a recovery function `(ctx) => R`. Unlike `.default()` and `.prefault()`, the `catchValue` getter returns the raw value (including functions) without calling it — the recovery function is invoked at parse time with the error context.
 
 ---
 

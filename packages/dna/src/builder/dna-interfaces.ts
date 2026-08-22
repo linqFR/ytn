@@ -1115,7 +1115,9 @@ export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
    * @param value - The default value to use when output is `undefined`.
    * @returns A `DnaDefault` wrapper.
    */
-  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V): DnaDefault<This, V> {
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V): DnaDefault<This, V>;
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: () => V): DnaDefault<This, V>;
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V | (() => V)): DnaDefault<This, V> {
     return initDna(DnaDefault<This, V>, { inner: this, value })[SymSetHead](this._head);
   }
   /**
@@ -1125,7 +1127,9 @@ export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
    * @param value - The prefault value to use when input is `undefined`.
    * @returns A `DnaPrefault` wrapper.
    */
-  prefault<This extends DnaSomeType>(this: This, value: This["_input"]): DnaPrefault<This> {
+  prefault<This extends DnaSomeType>(this: This, value: This["_input"]): DnaPrefault<This>;
+  prefault<This extends DnaSomeType>(this: This, value: () => This["_input"]): DnaPrefault<This>;
+  prefault<This extends DnaSomeType>(this: This, value: This["_input"] | (() => This["_input"])): DnaPrefault<This> {
     return initDna(DnaPrefault<This>, { inner: this, value })[SymSetHead](this._head);
   }
   /**
@@ -1304,7 +1308,7 @@ class _DnaWrapper<
   Out = $Output<Inner>,
   In = $Input<Inner>,
 > extends DnaTypeWithWrappers<any, any> {
-  override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In>, valueExternals?: tsDnaExternals }>("wrap");
+  override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In> | (() => Out) | (() => In), valueExternals?: tsDnaExternals }>("wrap");
   declare _input: In;
   declare _output: Out;
   // declare _output: $Output<Inner> & {
@@ -1439,9 +1443,9 @@ export class DnaDefault<Inner extends DnaSomeType = DnaSomeType, V = $Output<Inn
   declare readonly _output: $IsAny<$Output<Inner>> extends true ? V : $RemoveUndefined<$Output<Inner>> | V;
   declare readonly _input: $Input<Inner> | undefined;
   override _core = Object.defineProperty(
-    new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
+    new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> | (() => $Output<Inner>) }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
     "defaultValue",
-    { get() { return this.seed.value; } }
+    { get() { const v = this.seed.value; return typeof v === "function" ? v() : v; } }
   );
 }
 
@@ -1449,9 +1453,9 @@ export class DnaDefault<Inner extends DnaSomeType = DnaSomeType, V = $Output<Inn
 // Prefault wrapper - provides default value for input
 export class DnaPrefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   override _core = Object.defineProperty(
-    new BaseCore<{ wrapperType: "prefault", phase: "pre", inner: Inner, value: $Input<Inner> }>("wrap").preSeed({ wrapperType: "prefault", phase: "pre" }),
+    new BaseCore<{ wrapperType: "prefault", phase: "pre", inner: Inner, value: $Input<Inner> | (() => $Input<Inner>) }>("wrap").preSeed({ wrapperType: "prefault", phase: "pre" }),
     "prefaultValue",
-    { get() { return this.seed.value; } }
+    { get() { const v = this.seed.value; return typeof v === "function" ? v() : v; } }
   );
 }
 
