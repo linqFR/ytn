@@ -1,4 +1,5 @@
 import type { IUniqueConstraint, qbColumn, qbTableOptions } from "./types.js";
+import { resolveDefault } from "./sql-literal.js";
 
 /**
  * @function validateIdentifier
@@ -86,7 +87,7 @@ export class DDLEngine {
           : " PRIMARY KEY";
       } else {
         if (isUniqueFromDoc) constraints += " UNIQUE";
-        const defValue = defaults[name] ?? col.defaultValue ?? meta.default;
+        const defValue = defaults[name] ?? resolveDefault(col.defaultValue);
         if (defValue !== undefined) {
           constraints += ` DEFAULT ${defValue}`;
         } else if (!optional) {

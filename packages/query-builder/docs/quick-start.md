@@ -98,6 +98,8 @@ Output (verified):
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  age INTEGER NOT NULL,
   created_at DATETIME
 );
 ```
@@ -161,7 +163,7 @@ users.req.select("id", "name").where("id").toSQL();
 // Upsert with auto-deduced unique keys (from schema metadata: pk + unique)
 users.req.upsert("email", "name").toSQL();
 // INSERT INTO users (email, name) VALUES (@email, @name)
-// ON CONFLICT(id, email) DO UPDATE SET name = @name
+// ON CONFLICT(id, email) DO UPDATE SET name = excluded.name
 ```
 
 The `req` getter returns a `Builder` pre-configured with the table name and all unique keys detected from the schema (columns with `meta.pk`, `meta.unique`, or `pkauto`). This lets `.upsert()` auto-deduce its conflict targets without you passing them explicitly.

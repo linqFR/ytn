@@ -172,7 +172,7 @@ describe("README Examples Verification", () => {
         const UserSchema = z.object({
             id: z.string().uuid().meta({ pk: true }),
             email: z.string().email().meta({ unique: true }),
-            role: z.string().meta({ defaultValue: "'user'" }),
+            role: z.string().default('user'),
             created_at: z.date().optional(),
         });
 

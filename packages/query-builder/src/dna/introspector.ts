@@ -8,6 +8,7 @@ import type {
   qbColumn,
   ISchemaIntrospector,
   tsSqliteType,
+  tsDefaultValue,
   IForeignKeyDefinition,
 } from "../types.js";
 
@@ -42,8 +43,10 @@ export class DnaIntrospector implements ISchemaIntrospector<DnaType> {
       const sqliteType = mapDnaKindToSqlite(kind);
 
       const def = introspect.defaultValue(f);
-      const defaultValue = def !== undefined ? def : meta.default;
-      const hasDefault = def !== undefined || defaultValue !== undefined;
+      const hasDefault = def !== undefined;
+      const defaultValue = def !== undefined
+        ? tagDnaDefault(kind, def)
+        : undefined;
 
       return {
         name: key,
@@ -142,3 +145,19 @@ function normalizeFk(value: unknown): string | IForeignKeyDefinition | undefined
 
 /** Shared singleton instance. */
 export const dnaIntrospector = new DnaIntrospector();
+
+/**
+ * @function tagDnaDefault
+ * @description Maps a DNA kind + default value to a tagged `tsDefaultValue`.
+ * @param {string} kind - The DNA kind string (from `.type`).
+ * @param {unknown} value - The resolved default value.
+ * @returns {tsDefaultValue} The tagged default value.
+ */
+function tagDnaDefault(kind: string, value: unknown): tsDefaultValue {
+  if (kind === "string") return { string: value as string };
+  if (kind === "number" || kind === "int" || kind === "int32" || kind === "bigint") return { number: value as number };
+  if (kind === "boolean") return { boolean: value as boolean };
+  if (kind === "date") return { date: value as Date };
+  // Fallback: treat as raw SQL string
+  return { raw: String(value) };
+}

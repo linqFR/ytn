@@ -131,7 +131,7 @@ export const orderColumnsManual: qbColumn[] = [
   { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: { pk: true } },
   { name: 'user_id', sqliteType: 'TEXT', optional: false, hasDefault: false, fk: { table: 'users', col: 'id', onDelete: 'CASCADE' }, meta: { fk: { table: 'users', col: 'id', onDelete: 'CASCADE' } } },
   { name: 'total', sqliteType: 'REAL', optional: false, hasDefault: false, meta: {} },
-  { name: 'status', sqliteType: 'TEXT', optional: false, hasDefault: true, defaultValue: 'pending', meta: {} },
+  { name: 'status', sqliteType: 'TEXT', optional: false, hasDefault: true, defaultValue: { string: 'pending' }, meta: {} },
 ];
 
 // ─── Test Matrix ────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ export const mixedColumnsManual: qbColumn[] = [
 
 export const defaultsColumnsManual: qbColumn[] = [
   col('id', 'TEXT', { meta: { pk: true } }),
-  col('status', 'TEXT', { hasDefault: true, defaultValue: 'pending' }),
+  col('status', 'TEXT', { hasDefault: true, defaultValue: { string: 'pending' } }),
   col('count', 'INTEGER', { hasDefault: true, defaultValue: 0 }),
 ];
 
