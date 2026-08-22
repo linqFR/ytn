@@ -156,13 +156,13 @@ const field2 = dna.string().describe("User's full name");
 
 ### Further reading
 
-- [README](../../packages/dna/README.md) — full API, entry points, CLI Union, externals
-- [Recipes](../../packages/dna/docs/recipes.md) — 15+ copy-paste recipes (object modes, recursion, pipe, refinements, coercion, template literals, function schemas, records/maps/sets, defaults, branding, metadata)
-- [Technical docs](../../packages/dna/docs/technical.md) — DNA opcodes, architecture, codegen internals
-- [Zod comparison](../../packages/dna/docs/zod-comparison.md) — DNA vs Zod feature parity
-- [Externals](../../packages/dna/docs/externals.md) — externals mechanism for transforms
-- [Serialization](../../packages/dna/docs/serialization.md) — DNA serialization format
-- [Opcode patterns](../../packages/dna/docs/opcode-patterns.md) — opcode usage patterns
+- [README](https://github.com/linqFR/ytn/tree/main/packages/dna/README.md) — full API, entry points, CLI Union, externals
+- [Recipes](https://github.com/linqFR/ytn/tree/main/packages/dna/docs/recipes.md) — 15+ copy-paste recipes (object modes, recursion, pipe, refinements, coercion, template literals, function schemas, records/maps/sets, defaults, branding, metadata)
+- [Technical docs](https://github.com/linqFR/ytn/tree/main/packages/dna/docs/technical.md) — DNA opcodes, architecture, codegen internals
+- [Zod comparison](https://github.com/linqFR/ytn/tree/main/packages/dna/docs/zod-comparison.md) — DNA vs Zod feature parity
+- [Externals](https://github.com/linqFR/ytn/tree/main/packages/dna/docs/externals.md) — externals mechanism for transforms
+- [Serialization](https://github.com/linqFR/ytn/tree/main/packages/dna/docs/serialization.md) — DNA serialization format
+- [Opcode patterns](https://github.com/linqFR/ytn/tree/main/packages/dna/docs/opcode-patterns.md) — opcode usage patterns
 
 ---
 
@@ -233,8 +233,8 @@ schvalid("all");        // { validate, parse, parseFast } — all compiled once,
 
 ### Further reading
 
-- [README](../../packages/schvalid/README.md) — full API, modes, performance
-- [AJV comparison](../../packages/schvalid/docs/ajv-comparison.md) — schvalid vs AJV feature-by-feature
+- [README](https://github.com/linqFR/ytn/tree/main/packages/schvalid/README.md) — full API, modes, performance
+- [AJV comparison](https://github.com/linqFR/ytn/tree/main/packages/schvalid/docs/ajv-comparison.md) — schvalid vs AJV feature-by-feature
 
 ---
 
@@ -350,11 +350,11 @@ stmt.run({ id: crypto.randomUUID(), email: "a@b.com", name: "Alice", age: 30, cr
 
 ### Further reading
 
-- [Quick Start](../../packages/query-builder/docs/quick-start.md) — full tutorial, end-to-end CRUD
-- [How-to: Queries](../../packages/query-builder/docs/how-to-queries.md) — SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, ordering, limits, pagination, text search, GROUP BY
-- [How-to: DDL](../../packages/query-builder/docs/how-to-ddl.md) — all schema sources, metadata keys, foreign keys, indexes, composite PK
-- [How-to: Advanced](../../packages/query-builder/docs/how-to-advanced.md) — EXISTS, CASE WHEN, subqueries, window functions, PragmaBuilder
-- [Feature reference](../../packages/query-builder/docs/feature-reference.md) — complete method inventory, SQLite version matrix
+- [Quick Start](https://github.com/linqFR/ytn/tree/main/packages/query-builder/docs/quick-start.md) — full tutorial, end-to-end CRUD
+- [How-to: Queries](https://github.com/linqFR/ytn/tree/main/packages/query-builder/docs/how-to-queries.md) — SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, ordering, limits, pagination, text search, GROUP BY
+- [How-to: DDL](https://github.com/linqFR/ytn/tree/main/packages/query-builder/docs/how-to-ddl.md) — all schema sources, metadata keys, foreign keys, indexes, composite PK
+- [How-to: Advanced](https://github.com/linqFR/ytn/tree/main/packages/query-builder/docs/how-to-advanced.md) — EXISTS, CASE WHEN, subqueries, window functions, PragmaBuilder
+- [Feature reference](https://github.com/linqFR/ytn/tree/main/packages/query-builder/docs/feature-reference.md) — complete method inventory, SQLite version matrix
 
 ---
 
@@ -481,10 +481,10 @@ Every route MUST:
 
 ### Further reading
 
-- [How to define a CLI contract](../../packages/cli/docs/how-to-define-a-cli-contract.md) — 12 recipes (subcommands, flags, positionals, help, aliases, coercion, hidden routes, catchall, full CLI, AOT)
-- [How to use CLI in a REPL](../../packages/cli/docs/how-to-use-cli-in-a-repl.md)
-- [Architecture](../../packages/cli/docs/architecture.md) — 5-layer pipeline design
-- [API reference](../../packages/cli/docs/api-reference.md) — signatures
+- [How to define a CLI contract](https://github.com/linqFR/ytn/tree/main/packages/cli/docs/how-to-define-a-cli-contract.md) — 12 recipes (subcommands, flags, positionals, help, aliases, coercion, hidden routes, catchall, full CLI, AOT)
+- [How to use CLI in a REPL](https://github.com/linqFR/ytn/tree/main/packages/cli/docs/how-to-use-cli-in-a-repl.md)
+- [Architecture](https://github.com/linqFR/ytn/tree/main/packages/cli/docs/architecture.md) — 5-layer pipeline design
+- [API reference](https://github.com/linqFR/ytn/tree/main/packages/cli/docs/api-reference.md) — signatures
 
 ---
 
@@ -501,6 +501,23 @@ Every route MUST:
 | Build a CLI with validated routes | `@ytrynot/cli` |
 | Compile a CLI to standalone JS | `@ytrynot/cli` (`compile()`) |
 | Serialize a schema to bytecode | `@ytrynot/dna` (`.toDna()`) |
+
+## Version Check
+
+The code examples and API in this skill may evolve. To check if your installed `@ytrynot/*` packages are up to date with the latest npm versions, run the bundled script:
+
+```bash
+node scripts/check-versions.mjs
+```
+
+This compares each installed package version against the npm registry and reports outdated packages. If any are outdated, update the packages and the skill:
+
+```bash
+npm install @ytrynot/dna@latest @ytrynot/schvalid@latest @ytrynot/qb@latest @ytrynot/cli@latest
+npx skills update ytn
+```
+
+The documentation links above point to the `main` branch on GitHub and always reflect the latest version of the docs.
 
 ## Tech Stack Notes
 
