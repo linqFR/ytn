@@ -93,6 +93,7 @@ npx skills add linqFR/ytn
 | `@ytrynot/dna/core` | `import { DnaType } from "@ytrynot/dna/core"` | Runtime classes (`DnaType`, `DnaObject`, ...), `initDna`, `toJS`, `DnaError`, registry |
 | `@ytrynot/dna/toJs` | `import { toJS } from "@ytrynot/dna/toJs"` | Low-level compiler (`toJS`, `validator`, `parser`) |
 | `@ytrynot/dna/introspect` | `import * as introspect from "@ytrynot/dna/introspect"` | Schema introspection utilities (`isOptional`, `isObject`, `unwrap`, ...) |
+| `@ytrynot/dna/fromDna` | `import { fromDna } from "@ytrynot/dna/fromDna"` | DNA bytecode → fluent schema reconstruction (roundtrip) |
 
 **When to use `@ytrynot/dna/core`**: when you need `instanceof DnaType` / `instanceof DnaObject` to work across bundles, or direct access to `initDna`, `BaseCore`, `DnaError`, or the registry. The main `@ytrynot/dna` entry point re-exports everything for everyday usage — you only need `core` for cross-bundle class identity or low-level internals.
 
@@ -218,7 +219,8 @@ const fn = new Function(...result.code)({ /* required externals */ });
 `@ytrynot/dna` can rebuild a fluent builder schema from its own DNA bytecode. This lets you serialize, transfer, and restore a schema without touching JSON Schema:
 
 ```typescript
-import { dna, fromDna } from "@ytrynot/dna";
+import { dna } from "@ytrynot/dna";
+import { fromDna } from "@ytrynot/dna/fromDna";
 
 const original = dna.object({
   name: dna.string().min(2),
