@@ -1,5 +1,32 @@
 # @ytrynot/dna
 
+## 0.8.0
+
+### Minor Changes
+
+- c06294f: Export `fromDna` as a public subpath entry point
+  
+  - `fromDna` (DNA bytecode → fluent schema reconstruction) is now importable via `@ytrynot/dna/fromDna`.
+  - Previously documented but not packaged — the subpath is now built and shipped.
+- af05353: Maranget union: canonical name and routing modes
+  
+  - `dna.marangetUnion(schemas, config)` is the canonical name for discriminated unions with wildcard branches. `dna.cliUnion` remains available as a CLI convenience that sets `mode: "cli"` automatically.
+  - `config.mode` selects routing semantics when a catch-all branch overlaps a constructor branch:
+    - `"constructor-priority"` (default): constructor rows win over catch-all on the same column; catch-all acts as fallback.
+    - `"source-order"`: first matching branch in declaration order wins (strict decision-tree semantics).
+    - `"cli"`: constructor-priority routing with discriminator columns sorted by positional priority for CLI usage.
+  - `introspect.toParseArgsConfig(schema, { positionals })` accepts a CLI-level positional override.
+
+### Patch Changes
+
+- 4d5aa05: Type safety improvements for public API
+  
+  - `custom()` params now typed as `tsRefineOptions`
+  - `IIssue.input` now typed as `$Input<T>` (distinguishes input from output type)
+  - `ODnaIssueNotMultipleOf.divisor` now accepts `number | bigint`
+  - Add 38 unit tests for `toJs/inline-func.ts` (`FN_fCount`, `FN_dEq`,
+  `FN_cidrV6`, `FN_toBigInt`, `FN_toDate`, `FN_dMerge`)
+
 ## 0.7.6
 
 ### Patch Changes
