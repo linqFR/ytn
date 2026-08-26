@@ -1,6 +1,7 @@
 import { STEP } from "../shared/const-steps.js";
 import type { tsDnaInnerMeta } from "../shared/meta-context.type.js";
 import type { tsPrimitiveLiteral } from "../shared/base.types.js";
+import { CONSTRUCTOR_PRIORITY, WILDCARD, WILDCARD_CELL, compile, type IMarangetRow, type tsPat, type tsTreeNode, type tsMarangetMode } from "../algo/maranget.js";
 import { getStringFormatPattern } from "../shared/string-format.js";
 import type {
 	tsArrayDNA,
@@ -2112,15 +2113,29 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta],
 };
 
 /**
- * CLI multi-key routing union codegen — Maranget decision tree.
- * DNA format: ["cli", discriminators, discriminKeys, branchDef, meta]
- *   - discriminators: string[] — the routing key names
- *   - discriminKeys: (primitive | primitive[])[] per branch — finite values per key per branch
- *   - branchDef: number[] — [prevalidationId, branch0Id, branch1Id, ...]
+ * Multi-key routing union codegen — Maranget decision tree (opcode `"maranget"`).
+ * DNA format: ["maranget", discAdn, discriminKeys, branchDef, mode, meta]
+ *   - discAdn: (string | string[])[] — the routing key names (column order);
+ *     required columns are strings, optional columns are grouped in a final
+ *     sub-array (the optionality marker, decided by the builder from the
+ *     live branch types).
+ *   - discriminKeys: the clause matrix (DEC-0041 Option A) — one array per
+ *     branch, position = column; singleton → direct value, multi → sub-array,
+ *     `undefined` present → real value, position beyond length → wildcard.
+ *   - branchDef: number[] — [prevalidationId, branch0Id, branch1Id, ...] (targets)
+ *   - mode: "constructor-priority" | "source-order" — the routing semantics when
+ *     a wildcard (catch-all) row overlaps a constructor row:
+ *       - "constructor-priority" (default): constructor rows win over wildcard
+ *         rows on the same column (P1_match ∪ P2' — deliberate deviation from
+ *         Maranget strict source order, DEC-0039 Gap E / Option B).
+ *       - "source-order": Maranget strict — the first row in matrix order that
+ *         matches wins.
  *
- * Builds a nested switch/if decision tree from the clause matrix using the
- * q-heuristic (choose the column with fewest distinct values that still splits).
- * This produces O(log N) depth instead of O(N) sequential tests.
+ * This handler is a PURE EMITTER (DEC-0041 SoC): it converts the ADN cells
+ * (absent → WILDCARD), calls the pure Maranget algorithm
+ * `algo/maranget.ts > compile(rows, mode, isOptionalKey)` (q-heuristic,
+ * rules 1/2/4, P2'-carrying, row ordering by mode — matrix → tree), then
+ * translates the `TreeNode` into JS switch/if steps.
  *
  * Codegen rules (see sandbox/cli-branches-union-dna-format.md):
  *   1. Required key → switch on the value
@@ -2130,8 +2145,8 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta],
  *   5. Leaf node → validate branch N
  *   6. Fail node → error or break
  */
-export const cli = (
-	dnaOpt: [string[], (tsPrimitiveLiteral | tsPrimitiveLiteral[])[][], number[], tsDnaInnerMeta],
+export const maranget = (
+	dnaOpt: [(string | string[])[], (tsPrimitiveLiteral | tsPrimitiveLiteral[])[][], number[], tsMarangetMode, tsDnaInnerMeta],
 	_inVarName: string,
 	_outVarName: string,
 	pathVar: string,
@@ -2140,7 +2155,45 @@ export const cli = (
 ): tsJSFn => {
 	const { labelId } = utils;
 	const isCond = parentCtx.isCond;
-	const [discriminators, discriminKeys, indices] = dnaOpt;
+	const [discAdn, discriminKeys, indices, mode = CONSTRUCTOR_PRIORITY] = dnaOpt;
+
+	// Unfold discriminators: required columns are strings, optional columns
+	// are grouped in the final sub-array (the optionality marker — the builder
+	// knows the declared types, the codegen just reads the marker).
+	const discriminators: string[] = [];
+	let nRequired = 0;
+	for (const d of discAdn) {
+		if (Array.isArray(d)) discriminators.push(...d);
+		else { discriminators.push(d); nRequired++; }
+	}
+	// A column is optional iff it is past the required prefix.
+	const isOptionalKey: boolean[] = discriminators.map((_, j) => j >= nRequired);
+
+	// Convert the ADN matrix (per branch array; absent column = wildcard) into
+	// Maranget rows. Cell forms: singleton → direct value, multi → sub-array,
+	// `undefined` PRESENT at a position → real value (dna.undefined()), a
+	// position BEYOND the array length → WILDCARD.
+	const matrix: IMarangetRow[] = discriminKeys.map((cells, i) => {
+		const patterns: tsPat[] = new Array(discriminators.length).fill(WILDCARD);
+		for (let j = 0; j < cells.length; j++) {
+			const v = cells[j];
+			// Explicit wildcard marker (WILDCARD_CELL "\x00") → keep the fill
+			// default (WILDCARD); the cell sits at its real column position so
+			// later values are not shifted onto the wrong column.
+			if (v === WILDCARD_CELL) continue;
+			// Flat value set → generic pattern: singleton → constructor,
+			// multi-value → or-pattern (DEC-0040: or-patterns of finite values).
+			patterns[j] = Array.isArray(v)
+				? { kind: "or", alts: v.map(val => ({ kind: "ctor", ctor: val, args: [] })) }
+				: { kind: "ctor", ctor: v, args: [] };
+		}
+		return { patterns, id: i + 1 }; // +1 because indices[0] is prevalidation
+	});
+
+	// --- Maranget: compile matrix → tree (pure algo module), then emit ---
+	// `compile` is DNA-agnostic (patterns + mode + optionality → TreeNode).
+	// This handler is the emitter: it translates the TreeNode into JS steps.
+	const tree = compile(matrix, mode, isOptionalKey);
 
 	const idx = labelId();
 	const block = "cliB" + idx;
@@ -2158,7 +2211,7 @@ export const cli = (
 	// keys, it does not produce output. Passing the real outVarName triggers
 	// parserOutInit's Object.assign which fires all getters on the input.
 	steps.push(
-		[indices[0], _inVarName, "", pathVar + "/cli", { ...parentCtx, failCase: "break " + block + ";" }]
+		[indices[0], _inVarName, "", pathVar + "/maranget", { ...parentCtx, failCase: "break " + block + ";" }]
 	);
 	// In parser mode, the prevalidation's type check uses `breakBase`
 	// (unconditional `break oB1`) — see handler `o` L708 and _assignOrCondEnv
@@ -2182,133 +2235,79 @@ export const cli = (
 	for (let j = 0; j < discriminators.length; j++) testedPropMap[discriminators[j]] = cliValNames[j];
 	childCtx.testedProp = testedPropMap;
 
-	// --- Clause matrix construction ---
-	// Each row = one branch; each cell = normalized value array for one key
-	interface IRow { cells: tsPrimitiveLiteral[][]; branchIdx: number }
-	const allRows: IRow[] = [];
-	for (let i = 0; i < discriminKeys.length; i++) {
-		const cells: tsPrimitiveLiteral[][] = [];
-		for (let j = 0; j < discriminators.length; j++) {
-			const rawValues = discriminKeys[i][j];
-			cells.push(Array.isArray(rawValues) ? rawValues : [rawValues]);
-		}
-		allRows.push({ cells, branchIdx: i + 1 }); // +1 because indices[0] is prevalidation
-	}
-
-	// Determine which keys are optional (have undefined in any branch's values for that key)
-	const isOptionalKey: boolean[] = discriminators.map((_, j) =>
-		allRows.some(row => row.cells[j].includes(undefined))
-	);
-
-	// --- q-heuristic: choose column with fewest distinct values that still splits ---
-	// If no column splits (e.g. single row), still pick a column to test
-	// (verification) — the routing keys are replaced by any() in branches,
-	// so the tree is the only thing that checks discriminator values.
-	const chooseColumn = (rows: IRow[], remainingCols: Set<number>): number => {
-		let bestCol = -1;
-		let minDistinct = Infinity;
-		let bestNonSplit = -1;
-		for (const col of remainingCols) {
-			const vals = new Set<string>();
-			for (const row of rows) {
-				for (const v of row.cells[col]) {
-					vals.add(v === undefined ? "__undef__" : String(v));
-				}
-			}
-			if (vals.size >= 2) {
-				// Column splits — prefer it (q-heuristic: fewest distinct = most balanced)
-				if (vals.size < minDistinct) { minDistinct = vals.size; bestCol = col; }
-			} else {
-				// Column doesn't split but still needs testing (verification)
-				if (bestNonSplit === -1) bestNonSplit = col;
-			}
-		}
-		// Prefer splitting columns; fall back to non-splitting for verification
-		return bestCol !== -1 ? bestCol : bestNonSplit;
-	};
-
-	// --- Recursive tree emission ---
+	// --- Tree emission (TreeNode → JS steps) ---
 	const emitFail = (keyName: string): string => {
 		if (isCond) return outerBreak_;
-		return _err(parentCtx, _inVarName, pathVar + "/cli", "No CLI branch matches (" + keyName + ")") + ";" + _outVarName + "=undefined;";
+		return _err(parentCtx, _inVarName, pathVar + "/maranget", "No CLI branch matches (" + keyName + ")") + ";" + _outVarName + "=undefined;";
 	};
 
-	const emitTree = (rows: IRow[], remainingCols: Set<number>): void => {
-		// Base case 0: no rows → fail
-		if (rows.length === 0) {
+	const emitNode = (node: tsTreeNode): void => {
+		if (node.kind === "fail") {
 			steps.push([STEP.BODY, emitFail("no branches")]);
 			return;
 		}
-
-		// Choose column to split on
-		const col = chooseColumn(rows, remainingCols);
-		if (col === -1) {
-			// No column splits → either:
-			// - remainingCols is empty (all keys tested) → validate the branch
-			// - all remaining cols have 1 distinct value per branch but branches differ
-			//   → construction validation (rule 4) guarantees this can't happen with >1 row
-			// For a single row with unsplitable remaining cols, the values were already
-			// constrained by the parent switch/if cases, so we can validate directly.
-			const row = rows[0];
+		if (node.kind === "leaf") {
+			// Validate the branch. With the mixture rule several rows can
+			// survive here; the first one in the mode-ordered rows wins
+			// (constructor-priority: constructors first, P1_match ∪ P2').
 			steps.push(
-				[indices[row.branchIdx], _inVarName, _outVarName, pathVar + "/cli/" + (row.branchIdx - 1), { ...childCtx }]
+				[indices[node.id], _inVarName, _outVarName, pathVar + "/maranget/" + (node.id - 1), { ...childCtx }]
 			);
 			return;
 		}
-
+		// switch
+		const col = node.col;
 		const key = discriminators[col];
-		const keyStr = tojsStr(key);
 		const valName = cliValNames[col];
-		const isOptional = isOptionalKey[col];
+		const hasDefault = node.default.kind !== "fail";
 
-		// Group rows by value on this column (a row with multiple values appears in multiple groups)
-		const groups = new Map<string, { value: tsPrimitiveLiteral; rows: IRow[] }>();
-		for (const row of rows) {
-			for (const v of row.cells[col]) {
-				const vKey = v === undefined ? "__undef__" : String(v);
-				if (!groups.has(vKey)) groups.set(vKey, { value: v, rows: [] });
-				groups.get(vKey)!.rows.push(row);
-			}
-		}
-
-		const newRemaining = new Set(remainingCols);
-		newRemaining.delete(col);
-
-		if (isOptional) {
+		if (node.optional) {
 			// Rule 2: if (key === undefined) first, then dispatch on remaining values.
 			// DNA fast-fail pattern: wrap in a block, if(undefined) handles the absent
 			// case, then switch/if handles present values. No else — fall through to
 			// fail at the end of the block.
-			const undefGroup = groups.get("__undef__");
-			const valueGroups = [...groups.values()].filter(g => g.value !== undefined);
-
-			// Open a sub-block for this optional key
 			const subBlock = "cliO" + labelId();
 			steps.push([STEP.BODY, subBlock + ":{"]);
 
-			// if (key === undefined) → subtree, then break out of sub-block
-			if (undefGroup) {
+			// if (key === undefined) → subtree, then break out of sub-block.
+			// Explicit `undefined` values AND wildcard rows match absence.
+			if (node.undef) {
 				steps.push([STEP.BODY, "if(" + valName + "===undefined){"]);
-				emitTree(undefGroup.rows, newRemaining);
-				steps.push([STEP.BODY, "break " + subBlock + ";}"]);
+				emitNode(node.undef);
+				steps.push([STEP.BODY, "break " + subBlock + ";}"]); 
 			}
 
 			// Remaining values: switch (rule 1/4) or if (rule 3, singleton)
-			if (valueGroups.length === 1) {
+			if (node.cases.length === 1) {
 				// Rule 3: singleton → if (key === value) { subtree; break }
-				const g = valueGroups[0];
+				// The if ALWAYS breaks: on success the branch validation produced
+				// `data`, on failure it pushed errors — either way the fall-through
+				// fail below must not run (it would add a spurious error / FAIL).
+				const g = node.cases[0];
 				steps.push([STEP.BODY, "if(" + valName + "===" + tojsStr(g.value) + "){"]);
-				emitTree(g.rows, newRemaining);
-				steps.push([STEP.BODY, "break " + subBlock + ";}"]);
-			} else if (valueGroups.length > 1) {
+				emitNode(g.subtree);
+				steps.push([STEP.BODY, "break " + subBlock + ";}"]); 
+				if (hasDefault) {
+					// Mixture rule: any other present value matches the wildcards
+					steps.push([STEP.BODY, "else{"]);
+					emitNode(node.default);
+					steps.push([STEP.BODY, "break " + subBlock + "}"]);
+				}
+			} else if (node.cases.length > 1) {
 				// Rule 1/4: switch with explicit case per value.
 				// Each case breaks the sub-block (not just the switch) so success
 				// exits the optional block and skips the fall-through fail.
-				// No default — no-match falls through the switch to the fail below.
+				// With wildcards, a `default` carries the wildcard rows (mixture rule);
+				// without them, no-match falls through the switch to the fail below.
 				steps.push([STEP.BODY, "switch(" + valName + "){"]);
-				for (const g of valueGroups) {
+				for (const g of node.cases) {
 					steps.push([STEP.BODY, "case " + tojsStr(g.value) + ":"]);
-					emitTree(g.rows, newRemaining);
+					emitNode(g.subtree);
+					steps.push([STEP.BODY, "break " + subBlock + ";"]);
+				}
+				if (hasDefault) {
+					steps.push([STEP.BODY, "default:"]);
+					emitNode(node.default);
 					steps.push([STEP.BODY, "break " + subBlock + ";"]);
 				}
 				steps.push([STEP.BODY, "}"]);
@@ -2318,20 +2317,25 @@ export const cli = (
 			// or by not matching any if above) → fail, then close sub-block
 			steps.push([STEP.BODY, emitFail(key) + "}"]);
 		} else {
-			// Rule 1: switch on required key
+			// Rule 1: switch on required key. With wildcards, the `default`
+			// becomes the wildcard subtree (mixture rule) instead of a fail.
 			steps.push([STEP.BODY, "switch(" + valName + "){"]);
-			for (const g of groups.values()) {
+			for (const g of node.cases) {
 				steps.push([STEP.BODY, "case " + tojsStr(g.value) + ":"]);
-				emitTree(g.rows, newRemaining);
+				emitNode(g.subtree);
 				steps.push([STEP.BODY, "break;"]);
 			}
-			steps.push([STEP.BODY, "default:" + emitFail(key) + "}"]);
+			if (hasDefault) {
+				steps.push([STEP.BODY, "default:"]);
+				emitNode(node.default);
+				steps.push([STEP.BODY, "}"]);
+			} else {
+				steps.push([STEP.BODY, "default:" + emitFail(key) + "}"]);
+			}
 		}
 	};
 
-	// Build the tree from all rows and all columns
-	const allCols = new Set(discriminators.map((_, j) => j));
-	emitTree(allRows, allCols);
+	emitNode(tree);
 
 	// Close block
 	steps.push([STEP.BODY, "}"]);

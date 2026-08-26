@@ -6,7 +6,7 @@ import type {
   DnaTuple,
 } from "@ytrynot/dna/core";
 import type { $Output } from "./helpers.types.js";
-
+import type { tsMarangetMode } from "../algo/maranget.js";
 import type { tsDnaMeta } from "../shared/meta-context.type.js";
 
 // ============================================
@@ -65,10 +65,23 @@ export type tsDnaCliUnionObjects<
 > = [S, ...S[]];
 
 export interface ICliUnionConfig {
-  /** Keys that are positionals, in order. If absent → auto-detection. */
-  positionals?: string[];
   /** Override auto-detected discriminators. */
   discriminators?: string[];
+  /**
+   * Routing semantics when a wildcard (catch-all) branch overlaps a
+   * constructor branch (Maranget decision tree):
+   * - `CONSTRUCTOR_PRIORITY` (default) — constructor rows win over wildcard
+   *   rows on the same column (catch-all = fallback). Deliberate deviation
+   *   from Maranget strict source order.
+   * - `SOURCE_ORDER` — Maranget strict: the first branch in source order
+   *   that matches wins.
+   * - `CLI_MODE` — CLI contract: routes like `CONSTRUCTOR_PRIORITY`; the
+   *   required discriminator columns are sorted by positional priority
+   *   (self-describing in `discAdn`). Positionals are derived by the class —
+   *   a CLI-level override lives in `introspect.toParseArgsConfig(schema,
+   *   { positionals })`.
+   */
+  mode?: tsMarangetMode;
 }
 
 // ============================================

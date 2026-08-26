@@ -16,6 +16,18 @@
 // Re-export all runtime classes and helpers from dna-interfaces
 export * from "./builder/dna-interfaces.js";
 
+// Maranget union key analysis (former class statics — SoC: derivation lives
+// in utils, publicly exposed through @ytrynot/dna/introspect)
+export {
+  detectDiscriminators,
+  detectOptionalDiscriminators,
+  detectPositionals,
+  finiteValueSet,
+  isRequiredKey,
+  sortForCli,
+  unwrapToDnaObject,
+} from "./algo/maranget-keys.js";
+
 // Instance factory and core state classes (used by api-primitives, api-enhanced, fromDna)
 export { initDna, BaseCore, bindMethods, MapSetCore, DNA_BINDABLE_METHODS } from "./builder/dna-core.js";
 

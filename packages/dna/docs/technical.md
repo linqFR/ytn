@@ -328,16 +328,17 @@ Underscore prefix (e.g., `"_o"`, `"_s"`, `"_n"`) indicates unconstrained types. 
   - Uses `switch` statement for efficient dispatching
   - Branch sub-schemas are emitted **as-is** (not cloned): the discriminator property retains its original schema (literal/enum/pipe/...). Redundant `hasOwn` and const-check on the routing key are elided at codegen time via `parentCtx.testedProp` (see [§5bis](#5bis-discriminatorcli-routing-key-redundancy-elision-parentctxtestedprop)). This preserves transforms/pipes on the routing key (e.g. `pipe(literal("build"), transform(...))`) that the previous cloner (which replaced the key with `DnaAny`) silently dropped.
 
-- `["cli", [discriminators], [discriminKeys], [refs]]` - CLI multi-key routing union
+- `["maranget", discAdn, discriminKeys, branchDef, mode]` - multi-key routing union (Maranget)
 
-  - `discriminators`: Array of routing key names (string[]) — the keys used to dispatch input to the correct branch. Unlike `discriminator` (single-key), `cli` supports multiple keys.
-  - `discriminKeys`: 2D array — `discriminKeys[branchIndex][keyIndex]` contains the finite values accepted by that branch for the corresponding key. Each entry is either a **primitive** (singleton) or an **array of primitives** (multi-value), same format as `discriminator`'s `keys`.
-  - `refs`: Array of DNA index references — `refs[0]` is the pre-validation object (checks `type: "object"` + required key presence), `refs[1..N]` are the branch sub-schemas.
-  - **Codegen**: builds a Maranget decision tree (see [Maranget decision tree codegen](#maranget-decision-tree-codegen-cli-opcode) below) from the clause matrix. The tree is computed at codegen time, not stored in the DNA.
+  - `discAdn`: `(string | string[])[]` — routing key names (column order). Required columns are strings; optional columns are grouped in a **final sub-array** (the optionality marker), e.g. `["cmd", "mode", ["verbose"]]`. Unlike `discriminator` (single-key), `maranget` supports multiple keys.
+  - `discriminKeys`: the **clause matrix** (DEC-0041 Option A) — one array per branch, position = column. Singleton → direct value; multi-value → sub-array (`["dev","prod"]`); `undefined` PRESENT → real value (`dna.undefined()`, `.optional()`, `.nullish()`); a position beyond the array length → wildcard (trailing absences stay sparse); a **non-trailing** absence (a wildcard BEFORE a value, e.g. a branch routing on a different key) → the explicit `WILDCARD_CELL` marker `"\x00"` at its position (keeps the matrix aligned — NUL is JSON-safe and impossible as a CLI input).
+  - `branchDef`: Array of DNA index references — `branchDef[0]` is the pre-validation object (checks `type: "object"` + required key presence), `branchDef[1..N]` are the branch sub-schemas.
+  - `mode`: `"constructor-priority"` (default) | `"source-order"` — routing semantics (DEC-0041).
+  - **Codegen**: the matrix arrives in the opcode args (zero generic plumbing — no `utils.dna`). The handler converts ADN cells (`WILDCARD_CELL` marker `"\x00"` and beyond-length positions → WILDCARD), calls `algo/maranget.ts > compile(rows, mode, isOptionalKey)` (pure matrix → tree, see [Maranget decision tree codegen](#maranget-decision-tree-codegen-cli-opcode) below), then emits JS. The tree is computed at codegen time, not stored in the DNA.
   - Branch sub-schemas are emitted **as-is** (same as `discriminator`): routing keys retain their original schema. Redundant `hasOwn` and const-check on routing keys are elided via `parentCtx.testedProp` (see [§5bis](#5bis-discriminatorcli-routing-key-redundancy-elision-parentctxtestedprop)). Branch mutations (`.extend()`, `.transform()`, `.default()`) are preserved naturally.
-  - **No JSON Schema equivalent**: `cli` is a DNA-specific opcode with no OpenAPI/JSON Schema counterpart. It is emitted only by the builder's `dna.cliUnion()`.
-  - **Optional keys**: a key is optional if any branch has `undefined` in its `discriminKeys` for that key. The codegen emits `if (key === undefined)` first, then dispatches on remaining values (see codegen rule 2).
-  - **`toParseArgsConfig()`**: the `DnaCliUnion` class exposes a method that derives a `node:util.parseArgs` config from the schema. It infers option types (`"string"` / `"boolean"`) from leaf schemas, detects `multiple` from `DnaArray` wrappers, and auto-generates short aliases (first letter, skip if taken). Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers. See [CLI Union](cli-union.md) for full documentation.
+  - **No JSON Schema equivalent**: `maranget` is a DNA-specific opcode with no OpenAPI/JSON Schema counterpart. It is emitted only by the builder's `dna.marangetUnion()`/`dna.cliUnion()`.
+  - **Optional keys**: a column is optional when the builder marks it in `discAdn` (any declaring branch is optional/nullish/`dna.undefined()`/any/unknown/non-finite — the builder knows the live types; "the wrap gives the value"). The codegen emits `if (key === undefined)` first, then dispatches on remaining values (see codegen rule 2). A plain wildcard (absent cell) does NOT make a column optional by itself.
+  - **`toParseArgsConfig()`**: the class exposes a delegate to `introspect.toParseArgsConfig` (CLI-facing schema concern — needs no Maranget output). It infers option types (`"string"` / `"boolean"`) from leaf schemas, detects `multiple` from `DnaArray` wrappers. Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers. See [CLI Union](cli-union.md) for full documentation.
   - **`flags` getter**: returns non-positional keys across all branches. These are the keys that `@ytrynot/cli` maps to `parseArgs` options.
 
 - `["not", ref]` - Negation of validator
@@ -1001,9 +1002,19 @@ Every `buildNode` branch calls `initDna(Class, seed, meta)` with the normalized 
 - `dna.function()` serializes as `["function", [inputDnaId, outputDnaId]]` — the input tuple and output schema are full children in the DNA graph. `fromDna` reconstructs the `DnaFunction` with both child schemas. `.implement(fn, externals?)` / `.implementAsync(fn, externals?)` accept an optional externals map (merged with `getRegisteredExternals()`); the returned function exposes `requiredExternals: string[]`.
 - `toDna()` equality is a necessary but not sufficient condition for `safeParse` parity; the `toJs` codegen must also support the same opcodes.
 
-## Maranget decision tree codegen (`cli` opcode)
+## Maranget decision tree codegen (`maranget` opcode)
 
-The `cli` opcode (`dna-js-json.ts > cli()`) compiles a multi-key routing clause matrix into a nested `switch`/`if` decision tree. This is a **simplified adaptation** of Luc Maranget's algorithm (*"Compiling Pattern Matching to Good Decision Trees"*, ML'08, 2008), tailored for CLI-scale schemas (3–50 branches, 2–5 discriminator keys).
+> **Full reference**: the complete Maranget technical reference — clause matrix
+> format, compilation rules, heuristics, P2'-carrying, routing modes, wildcard
+> encoding, F1 fix, validation evidence — is in
+> [technical-maranget.md](technical-maranget.md). The section below is the
+> codegen-specific subset.
+
+> **Conceptual guide**: for the algorithm explained with diagrams (clause
+> matrix, mixture rule, P2'-carrying, routing modes), see
+> [maranget.md](maranget.md). This section is the codegen reference.
+
+The `maranget` opcode (`dna-js-json.ts > maranget()`, formerly `cli`) compiles a multi-key routing clause matrix into a nested `switch`/`if` decision tree. This is a **simplified adaptation** of Luc Maranget's algorithm (*"Compiling Pattern Matching to Good Decision Trees"*, ML'08, 2008), tailored for CLI-scale schemas (3–50 branches, 2–5 discriminator keys).
 
 ### Algorithm
 
@@ -1067,7 +1078,7 @@ The tree leaves and internal nodes follow 6 rules validated by micro-benchmarks 
 
 ### Optional key handling (DNA fast-fail pattern)
 
-Optional keys (where any branch has `undefined` in its `discriminKeys` for that key) use a labelled sub-block with `break`:
+Optional keys (columns marked optional in `discAdn` by the builder — a declaring branch carries `undefined` in its cell, e.g. `[true, undefined]` for `.optional()`) use a labelled sub-block with `break`:
 
 ```javascript
 cliO0: {
@@ -1088,9 +1099,26 @@ This follows the DNA fast-fail discipline: no `else` chains, each successful pat
 
 ### What the codegen does NOT do
 
-- **No wildcard handling**: all cells in the clause matrix are finite value sets. There are no wildcards (`_`) because `cliUnion` requires all branches to declare all discriminator keys (Option A — see design doc).
-- **No overlap detection**: if two branches have overlapping `discriminKeys`, the tree generates two paths for the same input. The first match wins (determined by tree structure), but this is implicit. Overlap validation should be done at construction time (`cliUnion` factory), not in the codegen.
-- **No `fromDna` reconstruction**: the `cli` opcode is not yet handled by `fromDna`. The roundtrip `toDna → fromDna` will fail for `cliUnion` schemas.
+- **No matrix construction**: the clause matrix arrives in the opcode args (built by the builder) — the codegen only converts absent cells and `WILDCARD_CELL` markers → WILDCARD and emits the tree computed by `algo/maranget.ts`.
+- **No overlap detection**: if two branches have overlapping cells, the tree generates two paths for the same input. The first match wins (determined by tree structure), but this is implicit. Overlap validation should be done at construction time (`cliUnion` factory), not in the codegen.
+- **No branch shape recovery**: `fromDna` rebuilds the schema from `branchDef` (the branches are emitted as-is); the matrix is preserved in the ADN (roundtrip verified).
+
+### Wildcard handling (F1 fix, ACT-0028)
+
+The codegen handles **two kinds of wildcard cells** in the ADN matrix:
+
+- **Trailing wildcards** (absent columns at the end of a branch array): encoded
+  as positions beyond the array length (sparse). The codegen fills these with
+  `WILDCARD` during cell conversion.
+- **Non-trailing wildcards** (a wildcard BEFORE a declared value, e.g. a branch
+  routing on a different key like `{help:"help"}` without `cmd`): encoded with
+  the explicit `WILDCARD_CELL` marker `"\x00"` at their position. The codegen
+  converts `"\x00"` → `WILDCARD` (same as beyond-length positions).
+
+Without the marker, a non-trailing absence would shift later values into the
+wrong column (misrouting). The marker keeps the matrix position-aligned. See
+[maranget.md — F1](maranget.md#f1-non-trailing-wildcard-alignment) for the full
+explanation and validation evidence (24 000 oracle comparisons, 0 divergence).
 
 ### Benchmark (architecture: if-chain vs Maranget tree)
 
