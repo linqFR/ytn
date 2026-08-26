@@ -68,7 +68,7 @@ export type {
   DnaDiscriminatedUnion,
   DnaNot,
   DnaIfThenElse,
-  DnaCliUnion,
+  DnaMarangetUnion,
   DnaObject,
   DnaCodec,
   DnaFunction,

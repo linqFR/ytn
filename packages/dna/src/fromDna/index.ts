@@ -1,12 +1,11 @@
-import { initDna } from '@ytrynot/dna/core';
 import * as c from '@ytrynot/dna/core';
+import { getRegisteredExternals, initDna } from '@ytrynot/dna/core';
+import { CLI_MODE, CONSTRUCTOR_PRIORITY, type tsMarangetMode } from '../algo/maranget.js';
 import { DnaMap, DnaSet } from '../builder/api-enhanced.js';
-import { getRegisteredExternals } from '@ytrynot/dna/core';
+import type { IDnaCollector, tsStoreMark, tsStorePosition } from '../builder/collector.types.js';
+import type { tsPrimitiveClass, tsPrimitiveLiteral } from '../shared/base.types.js';
 import type { tsDnaMeta } from '../shared/meta-context.type.js';
 import type { tsDna, tsDnaId, tsDnaOpcode, tsDnaSeq } from '../types/core.types.js';
-import type { tsPrimitiveClass, tsPrimitiveLiteral } from '../shared/base.types.js';
-import type { IDnaCollector, tsStoreMark, tsStorePosition } from '../builder/collector.types.js';
-import type { tsDnaEnumLike } from '../types/api-builder.types.ts';
 
 function isMeta(v: unknown): v is tsDnaMeta {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -451,20 +450,37 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       }, meta);
     }
 
-    case 'cli': {
-      // DNA format: ["cli", discriminators, discriminKeys, branchDef, meta]
+    case 'maranget': {
+      // DNA format: ["maranget", discAdn, discriminKeys, branchDef, mode, meta]
+      // discAdn = required columns (strings) + optional columns (final sub-array)
       // branchDef = [prevalidationId, branch0Id, branch1Id, ...]
       // prevalidation is an internal object schema (type/required check) —
       // not part of the public schema, so we skip it and reconstruct only
-      // the branch schemas. positionals cannot be recovered from DNA alone
-      // (it's a builder-side concept), so we leave it empty.
-      // CAST: tsDna uses `...any[]` for middle elements; node[1] is `any` and the cast annotates the discriminators type for this opcode
-      const discriminators = node[1] as string[];
+      // the branch schemas. positionals are DERIVED by the class
+      // (detectPositionals on the branch schemas + discriminator order) —
+      // they are never stored in the seed nor the ADN (single source of
+      // truth = the Maranget input).
+      // CAST: tsDna uses `...any[]` for middle elements; node[1] is `any` and the cast annotates the discAdn type for this opcode
+      const discAdn = node[1] as (string | string[])[];
+      // Unfold: required columns are strings, optional columns are in the final sub-array.
+      const discriminators: string[] = [];
+      for (const d of discAdn) {
+        if (Array.isArray(d)) discriminators.push(...d);
+        else discriminators.push(d);
+      }
       // CAST: tsDna uses `...any[]` for middle elements; node[3] is `any` and the cast annotates the branchDef type for this opcode
       const branchDef = node[3] as number[];
+      // CAST: tsDna uses `...any[]` for middle elements; node[4] is `any` and the cast annotates the routing mode type for this opcode
+      const mode = node[4] as tsMarangetMode | undefined;
       const branchIds = branchDef.slice(1);
       const schemas = branchIds.map(build);
-      return initDna(c.DnaCliUnion, { schemas, discriminators, positionals: [] }, meta);
+      // Mode "cli" reconstructs the CLI construct (`DnaCliUnion` — adds the
+      // derived positionals/flags views); other modes the generic class.
+      return initDna(
+        mode === CLI_MODE ? c.DnaCliUnion : c.DnaMarangetUnion,
+        { schemas, discriminators, mode: mode ?? CONSTRUCTOR_PRIORITY },
+        meta
+      );
     }
 
     case 'chkSeq': {
