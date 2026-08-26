@@ -1,5 +1,19 @@
 # @ytrynot/schvalid
 
+## 0.3.8
+
+### Patch Changes
+
+- 5cf7ad9: Dependency version bumps
+  
+  - Bump `jose` from `^6.2.9` to `^6.2.10` (transitive dep of `@ytrynot/dna`).
+  - Bump `@ytrynot/dna` dependency range from `^0.7.0`/`^0.7.3` to `^0.7.5` in `@ytrynot/schvalid` and `@ytrynot/qb` (peerDependency).
+  - No code changes — version range alignment only.
+- Updated dependencies [7b4bcf0]
+- Updated dependencies [5cf7ad9]
+- Updated dependencies [45711eb]
+  - @ytrynot/dna@0.7.6
+
 ## 0.3.7
 
 ### Patch Changes
