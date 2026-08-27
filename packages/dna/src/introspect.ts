@@ -266,17 +266,11 @@ export function toParseArgsConfig(
   const positionalSet = new Set(
     opts?.positionals ?? detectPositionals(schema.options, schema.discriminators)
   );
+  // Single pass: collect declared keys AND option metadata.
   // Flags = declared keys NOT positional — recomputed from the EFFECTIVE set so
   // a CLI-level override stays consistent (the class getter uses the derived
   // set; with no override this equals schema.flags, same insertion order).
   const declaredKeys = new Set<string>();
-  for (const branch of schema.options) {
-    const obj = unwrapToDnaObject(branch);
-    for (const key of Object.keys(obj.shape)) declaredKeys.add(key);
-  }
-  const flags = [...declaredKeys].filter(k => !positionalSet.has(k));
-
-  // Collect option metadata from all branches
   const optionMeta: Record<string, {
     type: "string" | "boolean";
     multiple: boolean;
@@ -285,6 +279,7 @@ export function toParseArgsConfig(
   for (const branch of schema.options) {
     const obj = unwrapToDnaObject(branch);
     for (const key of Object.keys(obj.shape)) {
+      declaredKeys.add(key);
       if (positionalSet.has(key)) continue;
       if (optionMeta[key]) continue; // first branch wins
 
@@ -295,6 +290,7 @@ export function toParseArgsConfig(
       optionMeta[key] = { type, multiple };
     }
   }
+  const flags = [...declaredKeys].filter(k => !positionalSet.has(k));
 
   const options: Record<string, {
     type: "string" | "boolean";
