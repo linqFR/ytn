@@ -244,14 +244,20 @@ function deriveOptionType(leaf: DnaSomeType): { type: "string" | "boolean"; mult
  */
 export function toParseArgsConfig(
   schema: DnaMarangetUnion<any>,
-  opts?: {
+  {
+    strict = false,
+    positionals,
+    ignoreKeys = [],
+  }: {
     strict?: boolean;
     /** CLI-level positional override — keys consumed positionally, in order.
      *  Absent → the class-derived positionals (detectPositionals). Never
      *  stored in the seed nor the ADN: this override lives where parseArgs is
      *  configured. */
     positionals?: string[];
-  }
+    /** Keys to ignore when building the parse args config. */
+    ignoreKeys?: string[];
+  } = {},
 ): {
   allowPositionals: true;
   strict: boolean;
@@ -260,12 +266,13 @@ export function toParseArgsConfig(
     multiple: boolean;
   }>;
 } {
-  const strict = opts?.strict ?? false;
   // Effective positional set: CLI override ?? derived (the generic
   // `DnaMarangetUnion` carries no positionals — derivation lives here).
   const positionalSet = new Set(
-    opts?.positionals ?? detectPositionals(schema.options, schema.discriminators)
+    positionals ?? detectPositionals(schema.options, schema.discriminators)
   );
+  // Keys to ignore (caller-specified — e.g. CLI passes "\x00ID").
+  const ignoreSet = new Set<string>(ignoreKeys);
   // Single pass: collect declared keys AND option metadata.
   // Flags = declared keys NOT positional — recomputed from the EFFECTIVE set so
   // a CLI-level override stays consistent (the class getter uses the derived
@@ -281,6 +288,7 @@ export function toParseArgsConfig(
     for (const key of Object.keys(obj.shape)) {
       declaredKeys.add(key);
       if (positionalSet.has(key)) continue;
+      if (ignoreSet.has(key)) continue;
       if (optionMeta[key]) continue; // first branch wins
 
       const propSchema = obj.shape[key];
@@ -290,7 +298,7 @@ export function toParseArgsConfig(
       optionMeta[key] = { type, multiple };
     }
   }
-  const flags = [...declaredKeys].filter(k => !positionalSet.has(k));
+  const flags = [...declaredKeys].filter(k => !positionalSet.has(k) && !ignoreSet.has(k));
 
   const options: Record<string, {
     type: "string" | "boolean";
