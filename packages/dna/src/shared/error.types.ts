@@ -87,7 +87,7 @@ export interface ODnaIssueInvalidStringFormat extends ODnaIssueBase {
 
 export interface ODnaIssueNotMultipleOf<Input extends number | bigint = number | bigint> extends ODnaIssueBase {
   readonly code: "not_multiple_of";
-  readonly divisor: number;
+  readonly divisor: number | bigint;
   readonly input?: Input;
 }
 
@@ -221,7 +221,7 @@ export type tsDnaFormattedError<T, U = string> = {
 export interface IIssue<T> {
   code?: string;
   message?: string;
-  input?: T;
+  input?: $Input<T>;
   inst?: T;
   path?: PropertyKey[];
   [key: string]: unknown;

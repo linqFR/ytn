@@ -957,21 +957,27 @@ _err(ctx: tsJSParentCtx, _inVarName: string, path: string, msg: string, isLitera
 
 ---
 
-## `cli` opcode handler — Maranget decision tree (StepsArray variant)
+## `maranget` opcode handler — Maranget decision tree (StepsArray variant)
 
-The `cli` opcode handler (`dna-js-json.ts > cli()`) is a **StepsArray pattern** variant that builds a decision tree at codegen time. Unlike typical StepsArray handlers that emit a flat sequence of steps, `cli()` recursively builds a nested `switch`/`if` tree from a clause matrix.
+The `maranget` opcode handler (`dna-js-json.ts > maranget()`) is a **StepsArray pattern** variant that builds a decision tree at codegen time. Unlike typical StepsArray handlers that emit a flat sequence of steps, `maranget()` recursively builds a nested `switch`/`if` tree from the clause matrix.
 
 ### Input
 
 ```typescript
-dnaOpt: [string[], (tsPrimitiveLiteral | tsPrimitiveLiteral[])[][], number[], tsDnaInnerMeta]
-// [discriminators, discriminKeys, branchDef, meta]
+dnaOpt: [(string | string[])[], (tsPrimitiveLiteral | tsPrimitiveLiteral[])[][], number[], tsMarangetMode, tsDnaInnerMeta]
+// [discAdn, discriminKeys, branchDef, mode, meta]
 ```
 
 ### Algorithm
 
-1. **Clause matrix construction**: builds `IRow[]` from `discriminKeys` — each row is one branch, each cell is the finite value set for one key.
-2. **Column selection** (q-heuristic): at each tree node, chooses the column with the fewest distinct values that still splits the remaining rows.
+The handler is a pure emitter (DEC-0041 SoC). The clause matrix arrives in the
+opcode args (built by the builder — trailing absent columns stay sparse
+(position beyond the array length = wildcard); a NON-TRAILING absence — a
+wildcard BEFORE a value — is an explicit `WILDCARD_CELL` marker (`"\x00"`) at
+its position, keeping the matrix aligned). The Maranget algorithm lives in
+`algo/maranget.ts`:
+1. **Cell conversion** (handler): each branch array → a row; the `WILDCARD_CELL` marker and positions beyond the array length → WILDCARD; singleton → `[value]`; sub-array → the value set; `undefined` present → `[undefined]` (real value).
+2. **Compilation** (`compile(rows, mode, isOptionalKey)`): builds a `TreeNode` — column selection (q-heuristic), rules 1/2/4, P2'-carrying, row ordering by mode, `optional` per column from the `discAdn` marker.
 3. **Specialization**: groups rows by value on the chosen column. A row with multiple values (e.g. `mode ∈ {dev, staging}`) appears in multiple groups.
 4. **Tree emission**:
    - Required key → `switch(value) { case v: subtree; break; ... default: fail }`
@@ -1004,7 +1010,8 @@ The `cli` handler cannot use `SimpleNodeToJs` because:
 ### See also
 
 - [CLI Union](cli-union.md) — full documentation, API reference, and usage examples
-- [Maranget decision tree codegen (`cli` opcode)](technical.md#maranget-decision-tree-codegen-cli-opcode) in `technical.md`
+- [Maranget decision tree codegen (`maranget` opcode)](technical.md#maranget-decision-tree-codegen-maranget-opcode) in `technical.md` — codegen subset
+- [technical-maranget.md](technical-maranget.md) — full Maranget technical reference (algorithm, heuristics, P2'-carrying, F1 fix)
 - `sandbox/cli-branches-union-dna-format.md` — full design doc with codegen rules and benchmarks
 
 ---

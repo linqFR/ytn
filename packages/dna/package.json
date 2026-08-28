@@ -1,6 +1,6 @@
 {
   "name": "@ytrynot/dna",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "description": "Schema validation that compiles to standalone JS function. Zod-like API, serializable, portable, using DNA bytecodes",
   "author": "linqFR",
   "license": "MIT",
@@ -75,6 +75,10 @@
     "./core": {
       "import": "./dist/core.js",
       "types": "./dist/core.d.ts"
+    },
+    "./fromDna": {
+      "import": "./dist/fromDna.js",
+      "types": "./dist/fromDna.d.ts"
     },
     "./package.json": "./package.json"
   },

@@ -21,17 +21,27 @@ import type {
 
 import { stringify } from "@ytrynot/shared/js/json.js";
 import { isValidRegex } from "@ytrynot/shared/regex/is-valid-regex.js";
-import { externalsMap, metaNormalize } from "../shared/utils.js";
 import type {
   tsPrimitiveLiteral,
   tsStoreMark,
   tsStorePosition,
   tsTmplLitPart
 } from "../shared/base.types.js";
+import { CONSTRUCTOR_PRIORITY, WILDCARD_CELL, type tsMarangetMode } from "../algo/maranget.js";
+import {
+  detectDiscriminators,
+  detectOptionalDiscriminators,
+  detectPositionals,
+  finiteValueSet,
+  isRequiredKey,
+  sortForCli,
+  unwrapToDnaObject,
+} from "../algo/maranget-keys.js";
 import { ABSENT_TOLERANT_WRAPPERS, INT32Bounds, WRAPPERS_KEYOPT, WRAPPERS_XFAULT, isWrapped } from "../shared/const-wrp.js";
 import { convertToStandardFailure } from "../shared/standard-schema-utils.js";
 import type { StandardJSONSchemaV1, StandardSchemaV1, StandardSchemaWithJSONProps } from "../shared/standard-schema.types.js";
 import { STRING_FORMAT_PATTERNS, escReg } from "../shared/string-format.js";
+import { externalsMap, metaNormalize } from "../shared/utils.js";
 import type { tsToJSResult } from "../toJs/dna-to-js.js";
 import { parserBuilder, toJS, validatorBuilder } from "../toJs/dna-to-js.js";
 import { dnaToJsonSchema } from "../toJs/dna-to-json-schema.js";
@@ -200,10 +210,10 @@ export interface DnaSomeType<T = unknown, I = unknown> {
   readonly _core: BaseCore<any>;
   readonly _head: unknown;
   [SymForceCoerce](): DnaSomeType<T, I>;
-  parse(value: unknown, ctx?: tsDnaExternals): T;
-  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult;
-  parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T>;
-  safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult>;
+  parse(value: unknown, ctx?: tsDnaExternals): this["_output"];
+  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]>;
+  parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]>;
+  safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>>;
   validate(value: unknown, ctx?: tsDnaExternals): boolean;
   validateAsync(value: unknown, ctx?: tsDnaExternals): Promise<boolean>;
 
@@ -913,7 +923,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A parser result object.
    */
-  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult {
+  safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]> {
     // Invoke the parser from `_safeParse` (subclass-overridable, e.g. DnaCodec) for
     // the same reason as `validate` above.
     const fn = this._safeParse(ctx);
@@ -934,7 +944,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @throws {DnaError} When validation fails.
    */
   // Additional parsing methods
-  parse(value: unknown, ctx?: tsDnaExternals): T | never {
+  parse(value: unknown, ctx?: tsDnaExternals): this["_output"] {
     const res = this.safeParse(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
@@ -949,7 +959,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @returns The parsed and validated data.
    * @throws {DnaError} When validation fails.
    */
-  async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> {
+  async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]> {
     const res = await this.safeParseAsync(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
@@ -963,7 +973,7 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A parser result object.
    */
-  async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     if (value instanceof Promise) value = await value;
     // Awaiting a plain (non-async) compiled function's return value is a
     // no-op — this works uniformly whether `_safeParse` compiled a sync or
@@ -978,31 +988,31 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
    * @param ctx - Optional externals map for transform/refine functions.
    * @returns A promise resolving to a parser result object.
    */
-  spa(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  spa(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     return this.safeParseAsync(value, ctx);
   }
 
   /** Alias for {@link safeParse} (codec decode direction). */
-  safeDecode(value: unknown, ctx: tsDnaExternals): tsDnaParserResult { return this.safeParse(value, ctx); }
+  safeDecode(value: unknown, ctx: tsDnaExternals): tsDnaParserResult<this["_output"]> { return this.safeParse(value, ctx); }
   /** Alias for {@link spa} (async codec decode direction). */
-  safeDecodeAsync(value: unknown, ctx: tsDnaExternals): Promise<tsDnaParserResult> { return this.spa(value, ctx); }
+  safeDecodeAsync(value: unknown, ctx: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> { return this.spa(value, ctx); }
   /** Alias for {@link parse} (codec decode direction). */
-  decode(value: unknown, ctx: tsDnaExternals): T { return this.parse(value, ctx); }
+  decode(value: unknown, ctx: tsDnaExternals): this["_output"] { return this.parse(value, ctx); }
   /** Alias for {@link parseAsync} (async codec decode direction). */
-  decodeAsync(value: unknown, ctx: tsDnaExternals): Promise<T> { return Promise.resolve(this.parseAsync(value, ctx)); }
+  decodeAsync(value: unknown, ctx: tsDnaExternals): Promise<this["_output"]> { return Promise.resolve(this.parseAsync(value, ctx)); }
 
   /** Alias for {@link safeParse} (codec encode direction). Overridden by {@link DnaCodec}. */
-  safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult { return this.safeParse(value, ctx); }
+  safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_input"]> { return this.safeParse(value, ctx) as tsDnaParserResult<this["_input"]>; }
   /** Alias for {@link spa} (async codec encode direction). */
-  safeEncodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> { return Promise.resolve(this.safeEncode(value, ctx)); }
+  safeEncodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_input"]>> { return Promise.resolve(this.safeEncode(value, ctx)); }
   /** Alias for {@link parse} (codec encode direction). */
-  encode(value: unknown, ctx?: tsDnaExternals): T {
+  encode(value: unknown, ctx?: tsDnaExternals): this["_input"] {
     const res = this.safeEncode(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
   }
   /** Alias for {@link parseAsync} (async codec encode direction). */
-  encodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> { return Promise.resolve(this.encode(value, ctx)); }
+  encodeAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_input"]> { return Promise.resolve(this.encode(value, ctx)); }
 
 
   // Information methods
@@ -1115,7 +1125,9 @@ export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
    * @param value - The default value to use when output is `undefined`.
    * @returns A `DnaDefault` wrapper.
    */
-  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V): DnaDefault<This, V> {
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V): DnaDefault<This, V>;
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: () => V): DnaDefault<This, V>;
+  default<This extends DnaSomeType, V extends This["_output"]>(this: This, value: V | (() => V)): DnaDefault<This, V> {
     return initDna(DnaDefault<This, V>, { inner: this, value })[SymSetHead](this._head);
   }
   /**
@@ -1125,7 +1137,9 @@ export class DnaTypeWithWrappers<T, I = T> extends DnaType<T, I> {
    * @param value - The prefault value to use when input is `undefined`.
    * @returns A `DnaPrefault` wrapper.
    */
-  prefault<This extends DnaSomeType>(this: This, value: This["_input"]): DnaPrefault<This> {
+  prefault<This extends DnaSomeType>(this: This, value: This["_input"]): DnaPrefault<This>;
+  prefault<This extends DnaSomeType>(this: This, value: () => This["_input"]): DnaPrefault<This>;
+  prefault<This extends DnaSomeType>(this: This, value: This["_input"] | (() => This["_input"])): DnaPrefault<This> {
     return initDna(DnaPrefault<This>, { inner: this, value })[SymSetHead](this._head);
   }
   /**
@@ -1304,7 +1318,7 @@ class _DnaWrapper<
   Out = $Output<Inner>,
   In = $Input<Inner>,
 > extends DnaTypeWithWrappers<any, any> {
-  override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In>, valueExternals?: tsDnaExternals }>("wrap");
+  override _core = new BaseCore<{ wrapperType: tsWrpTypes, phase: tsWrpPhase, inner: Inner, value?: Out | In | $CatchValue<Out, In> | (() => Out) | (() => In), valueExternals?: tsDnaExternals }>("wrap");
   declare _input: In;
   declare _output: Out;
   // declare _output: $Output<Inner> & {
@@ -1394,7 +1408,7 @@ class _DnaWrapper<
 export class DnaOptional<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | undefined;
   declare readonly _input: $Input<Inner> | undefined;
-  override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" }).rawMeta({optional:true});
+  override _core = new BaseCore<{ wrapperType: "optional", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "optional", phase: "pre" }).rawMeta({ optional: true });
 }
 
 /**
@@ -1430,63 +1444,50 @@ export class DnaNullable<Inner extends DnaSomeType = DnaSomeType> extends _DnaWr
 export class DnaNullish<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $Output<Inner> | null | undefined;
   declare readonly _input: $Input<Inner> | null | undefined;
-  override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" }).rawMeta({ nullish: true, optional:true, nullable:true });
+  override _core = new BaseCore<{ wrapperType: "nullish", phase: "pre", inner: Inner }>("wrap").preSeed({ wrapperType: "nullish", phase: "pre" }).rawMeta({ nullish: true, optional: true, nullable: true });
 }
+
+/** State shape for DnaDefault._core. */
+type tsDnaDefaultState<Inner extends DnaSomeType> = { wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> | (() => $Output<Inner>) };
 
 /** Default wrapper: substitutes a default value when the output is `undefined`. Created via `.default(value)`. */
 // Default wrapper - provides default value for output
 export class DnaDefault<Inner extends DnaSomeType = DnaSomeType, V = $Output<Inner>> extends _DnaWrapper<Inner, any, any> {
   declare readonly _output: $IsAny<$Output<Inner>> extends true ? V : $RemoveUndefined<$Output<Inner>> | V;
+  declare readonly _input: $Input<Inner> | undefined;
   override _core = Object.defineProperty(
-    new BaseCore<{ wrapperType: "default", phase: "around", inner: Inner, value: $Output<Inner> }>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
+    new BaseCore<tsDnaDefaultState<Inner>>("wrap").preSeed({ wrapperType: "default", phase: "around" }),
     "defaultValue",
-    { get() { return this.seed.value; } }
-  );
+    { get() { const v = this.seed.value; return typeof v === "function" ? v() : v; } }
+  ) as BaseCore<tsDnaDefaultState<Inner>> & { readonly defaultValue: $Output<Inner> };
 }
+
+/** State shape for DnaPrefault._core. */
+type tsDnaPrefaultState<Inner extends DnaSomeType> = { wrapperType: "prefault", phase: "pre", inner: Inner, value: $Input<Inner> | (() => $Input<Inner>) };
 
 /** Prefault wrapper: substitutes a default value when the **input** is `undefined` (before validation). Created via `.prefault(value)`. */
 // Prefault wrapper - provides default value for input
 export class DnaPrefault<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   override _core = Object.defineProperty(
-    new BaseCore<{ wrapperType: "prefault", phase: "pre", inner: Inner, value: $Input<Inner> }>("wrap").preSeed({ wrapperType: "prefault", phase: "pre" }),
+    new BaseCore<tsDnaPrefaultState<Inner>>("wrap").preSeed({ wrapperType: "prefault", phase: "pre" }),
     "prefaultValue",
-    { get() { return this.seed.value; } }
-  );
+    { get() { const v = this.seed.value; return typeof v === "function" ? v() : v; } }
+  ) as BaseCore<tsDnaPrefaultState<Inner>> & { readonly prefaultValue: $Input<Inner> };
 }
+
+/** State shape for DnaCatch._core. */
+type tsDnaCatchState<Inner extends DnaSomeType> = { wrapperType: "catch", phase: "post", inner: Inner, value: $CatchValue<$Output<Inner>, $Input<Inner>>, valueExternals?: tsDnaExternals };
 
 /** Catch wrapper: provides a fallback value (or recovery function) on **any** parsing error. Created via `.catch(value)`. */
 // Catch wrapper - provides fallback value on error
 export class DnaCatch<Inner extends DnaSomeType = DnaSomeType> extends _DnaWrapper<Inner> {
   override _core = Object.defineProperty(
-    new BaseCore<{ wrapperType: "catch", phase: "post", inner: Inner, value: $CatchValue<$Output<Inner>, $Input<Inner>>, valueExternals?: tsDnaExternals }>("wrap").preSeed({ wrapperType: "catch", phase: "post" }),
+    new BaseCore<tsDnaCatchState<Inner>>("wrap").preSeed({ wrapperType: "catch", phase: "post" }),
     "catchValue",
     { get() { return this.seed.value; } }
-  );
+  ) as BaseCore<tsDnaCatchState<Inner>> & { readonly catchValue: $CatchValue<$Output<Inner>, $Input<Inner>> };
 }
 
-
-/**
- * Whether an object key built from `schema` is REQUIRED. Walks the wrapper CHAIN
- * rather than reading `meta()`: chained wrappers collapse into one `wrp` node that
- * carries every modifier, but `meta()` reflects only the outermost — so e.g.
- * `.optional().nullable()` (outer `nullable`) would look required even though the
- * inner `optional` makes an absent key valid. Rules (matching Zod):
- * - `nonoptional` (a meta flag) anywhere -> forces required.
- * - any absent-tolerant wrapper in the chain (`optional`/`nullish`/`catch`/`default`/
- *   `prefault`) -> not required. `nullish` counts (it is optional + nullable); plain
- *   `nullable` does NOT (only an explicit `null` is allowed, not an absent key).
- * - otherwise the leaf's meta decides (e.g. `preprocess`/`exactOptional`).
- */
-function isRequiredKey(schema: DnaSomeType): boolean {
-  if (schema.meta()[WRAPPERS_KEYOPT.nonoptional]) return true;
-  let s: DnaSomeType = schema instanceof DnaLazy ? schema.innerType : schema;
-  while (s instanceof _DnaWrapper) {
-    if (ABSENT_TOLERANT_WRAPPERS.includes(s.wrapperType)) return false;
-    s = s.unwrap();
-  }
-  if (s instanceof DnaLazy) s = s.innerType;
-  return !ABSENT_TOLERANT_WRAPPERS.some(it => s.meta()[it] !== undefined);
-}
 
 /**
  * Literal schema class for a single value or a union of literal values.
@@ -1606,7 +1607,7 @@ export class DnaString extends DnaTypeWithWrappers<string, string> {
           sq1 === "max" ? sq2 : null,
           sq1 === "pattern" ? (sq2 instanceof RegExp ? sq2.source : sq2) : null,
           sq1 === "format" ? sq2 : null,
-        // CAST: the array literal is inferred as a union of element types; TS cannot unify it with the fixed 4-element tuple type
+          // CAST: the array literal is inferred as a union of element types; TS cannot unify it with the fixed 4-element tuple type
         ] as [number | null, number | null, string | null, string | null],
         seqarr[3]]);
     } else if (seqarr[0] === "s") {
@@ -2759,23 +2760,23 @@ export class DnaPromise<T, I = unknown> extends DnaTypeWithWrappers<T, I> {
     return this._core.seed.inner;
   }
 
-  override safeParse(value: unknown, _ctx?: tsDnaExternals): tsDnaParserResult {
+  override safeParse(value: unknown, _ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]> {
     if (!(value instanceof Promise)) return { success: false, errors: [nonPromiseIssue(value)] };
     throw new DnaError([syncPromiseIssue(value)]);
   }
 
-  override parse(value: unknown, ctx?: tsDnaExternals): T {
+  override parse(value: unknown, ctx?: tsDnaExternals): this["_output"] {
     const res = this.safeParse(value, ctx);
     if (res.success) return res.data;
     throw new DnaError(res.errors);
   }
 
-  override async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult> {
+  override async safeParseAsync(value: unknown, ctx?: tsDnaExternals): Promise<tsDnaParserResult<this["_output"]>> {
     const resolved = value instanceof Promise ? await value : value;
     return this._core.seed.inner.safeParseAsync(resolved, ctx);
   }
 
-  override async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<T> {
+  override async parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]> {
     const resolved = value instanceof Promise ? await value : value;
     return this._core.seed.inner.parseAsync(resolved, ctx);
   }
@@ -2917,7 +2918,7 @@ export class DnaTuple<S extends tsDnaTupleSchemaRO, R extends DnaType<any, any> 
  * @typeParam T - The shape type (a record of property name to schema).
  */
 // Object implementation
-export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, DnaSomeType>> extends DnaTypeWithWrappers<any, any> {
+export class DnaObject<T extends Record<string, DnaSomeType> = Record<string, DnaSomeType>> extends DnaTypeWithWrappers<any, any> {
   /** No `out` variance on `T`: the deferred pattern (parent `any, any` + `declare` fields) breaks circular type inference on its own. Adding `out T` triggers a variance check that fails because `$ReadonlyValue` (conditional type) wrapping `$DnaObjectOutput<T>` (mapped type) is not provably covariant. */
   // Deferred output/input: the parent uses `any, any` to break circular type inference
   // (recursive schemas with getters). The actual types are re-declared here via `declare`
@@ -3276,47 +3277,6 @@ export class DnaObject< T extends Record<string, DnaSomeType> = Record<string, D
  *   `nullable` -> null, `nullish` -> both; default/prefault/catch add nothing)
  * - `z.null()` / `z.undefined()` -> `null` / `undefined`
  */
-function finiteValueSet(s: DnaSomeType): tsPrimitiveLiteral[] | undefined {
-  // Unwrap wrappers first so optional/nullable can add their sentinel values.
-  if (s instanceof _DnaWrapper) {
-    const inner = finiteValueSet(s.unwrap());
-    if (!inner) return undefined;
-    switch (s.wrapperType) {
-      case "optional": return [...inner, undefined];
-      case "nullable": return [...inner, null];
-      case "nullish": return [...inner, undefined, null];
-      default: return inner; // default / prefault / catch
-    }
-  }
-  if (s instanceof DnaPipe) {
-    return finiteValueSet(s._core.seed.steps[0]);
-  }
-  // Use the type itself if _head is not explicitly set (e.g. DnaLiteral, DnaNull, DnaUndefined).
-  const head = s._head ?? s;
-  if (head instanceof DnaLiteral) {
-    return head._rawValues;
-  }
-  if (head instanceof DnaEnum) return [...head.values];
-  if (head instanceof DnaLazy) {
-    // Lazy: Zod does not enforce exhaustiveness on lazy schemas
-    return undefined;
-  }
-  if (head instanceof DnaCombinator) {
-    if (head._core.seed.combinatorType !== "anyOf") return undefined; // only unions have a value set
-    const out: tsPrimitiveLiteral[] = [];
-    for (const m of head._core.seed.schemas) {
-      const mv = finiteValueSet(m);
-      if (!mv) return undefined;
-      out.push(...mv);
-    }
-    return out;
-  }
-  if (head instanceof DnaType) {
-    if (head.type === "null") return [null];
-    if (head.type === "undefined") return [undefined];
-  }
-  return undefined;
-}
 
 /**
  * Discriminated union schema: a union of object schemas that share a common
@@ -3391,17 +3351,17 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
 
 
 /**
- * CLI multi-key routing union: a union of object schemas that share multiple
+ * Multi-key routing union: a union of object schemas that share multiple
  * discriminator keys. The parser dispatches to the correct branch based on
  * the values of all discriminator keys, using a Maranget decision tree.
  *
  * Unlike `DnaDiscriminatedUnion` (single-key, OpenAPI-compatible), this class
- * is CLI-specific: it auto-detects discriminators, infers positionals vs flags,
- * and emits the `"cli"` opcode. The codegen generates a switch/if decision tree.
+ * auto-detects discriminators, infers positionals vs flags, and emits the
+ * `"maranget"` opcode. The codegen generates a switch/if decision tree.
  *
  * ## Upstream pipeline (handled by `@ytrynot/cli`, NOT by this class)
  *
- * `DnaCliUnion` receives an already-flattened plain object and does only
+ * `DnaMarangetUnion` receives an already-flattened plain object and does only
  * routing + branch validation + branch mutation. The upstream steps that
  * produce this flat object are the responsibility of `@ytrynot/cli`:
  *
@@ -3470,27 +3430,28 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
  *
  * ## parseArgs config generation
  *
- * `toParseArgsConfig()` derives a `node:util.parseArgs` config from the schema:
- * - Positionals from `this.positionals` (ordered).
- * - Flags from all non-positional keys across branches.
- * - Option types (`"string"` / `"boolean"`) inferred from the leaf schema.
- * - `multiple` detected from `DnaArray` wrappers.
- * - Short aliases auto-generated from the first letter, skip if taken.
- * - Explicit `shorts` mapping overrides auto-generation.
- * - Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers.
+ * `toParseArgsConfig` is NOT a class method (DEC-0041 SoC) — parseArgs needs
+ * no Maranget output. Use the standalone `introspect.toParseArgsConfig(schema,
+ * opts)` helper, which derives a `node:util.parseArgs` config from the schema:
+ * positionals (ordered), flags (non-positional keys), option types
+ * (`"string"` / `"boolean"`) inferred from the leaf schema, `multiple` from
+ * `DnaArray` wrappers, auto short aliases, explicit `shorts` overrides.
+ * Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers.
  *
  * @typeParam S - A tuple of object schema types (the branches).
  */
-// CLI multi-key routing union implementation (cli opcode)
-export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]> extends DnaTypeWithWrappers<any, any> {
+// Multi-key routing union implementation (Maranget decision tree, opcode "maranget").
+// NOTE: this class MUST be declared before its compat alias `DnaCliUnion` below
+// (the alias extends it — class declarations are not hoisted, so ordering matters).
+export class DnaMarangetUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]> extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<S[number]>;
   declare readonly _input: $Input<S[number]>;
   override _core = new BaseCore<{
     schemas: DnaSomeType[],
     discriminators: string[],
-    positionals: string[],
-  }>("cli");
-  override get type() { return "cliUnion"; }
+    mode: tsMarangetMode,
+  }>("maranget");
+  override get type() { return "marangetUnion"; }
 
   /** Returns the branch schemas (Zod v4 parity: `.options`). */
   get options(): S {
@@ -3499,222 +3460,10 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
   }
   /** Returns the discriminator keys (auto-detected or explicit). */
   get discriminators(): string[] { return this._core.seed.discriminators; }
-  /** Returns the positional keys (auto-detected or explicit). */
-  get positionals(): string[] { return this._core.seed.positionals; }
 
-  /**
-   * Returns the flag keys (non-positional keys declared in any branch).
-   * These are the keys that `@ytrynot/cli` maps to `parseArgs` options.
-   */
-  get flags(): string[] {
-    const posSet = new Set(this.positionals);
-    const flagSet = new Set<string>();
-    for (const branch of this._core.seed.schemas) {
-      const obj = DnaCliUnion.unwrapToDnaObject(branch);
-      for (const key of Object.keys(obj.shape)) {
-        if (!posSet.has(key)) flagSet.add(key);
-      }
-    }
-    return [...flagSet];
-  }
-
-  /**
-   * Unwraps a property schema to its leaf type, stripping wrappers
-   * (optional, nullable, default, prefault, etc.) and pipe steps.
-   */
-  private static unwrapToLeaf(s: DnaSomeType): DnaSomeType {
-    let leaf: DnaSomeType = s instanceof DnaLazy ? s.innerType : s;
-    // Strip wrappers (optional, nullable, default, prefault, catch, ...)
-    while (leaf instanceof _DnaWrapper) leaf = leaf.unwrap();
-    // Strip pipe — take the first step
-    if (leaf instanceof DnaPipe) {
-      leaf = leaf._core.seed.steps[0];
-      while (leaf instanceof _DnaWrapper) leaf = leaf.unwrap();
-    }
-    return leaf;
-  }
-
-  /**
-   * Derives the `parseArgs` option type from a leaf schema.
-   * - `DnaBoolean` or `DnaLiteral(true|false)` → `"boolean"`
-   * - `DnaArray` → unwrap item, recurse for type, mark `multiple`
-   * - everything else → `"string"`
-   */
-  private static deriveOptionType(leaf: DnaSomeType): { type: "string" | "boolean"; multiple: boolean } {
-    if (leaf instanceof DnaArray) {
-      const itemLeaf = DnaCliUnion.unwrapToLeaf(leaf._core.seed.itemSchema);
-      const inner = DnaCliUnion.deriveOptionType(itemLeaf);
-      return { type: inner.type, multiple: true };
-    }
-    if (leaf instanceof DnaBoolean) return { type: "boolean", multiple: false };
-    if (leaf instanceof DnaLiteral) {
-      if (typeof leaf._core.seed.value === "boolean") return { type: "boolean", multiple: false };
-    }
-    return { type: "string", multiple: false };
-  }
-
-  /**
-   * Builds a `node:util.parseArgs` config from the cliUnion schema.
-   *
-   * - Positionals are derived from `this.positionals` (ordered).
-   * - Flags are derived from all non-positional keys across branches.
-   * - Option types (`"string"` / `"boolean"`) are inferred from the leaf schema.
-   * - `multiple` is detected from `DnaArray` wrappers.
-   * - Short aliases are auto-generated from the first letter of each flag,
-   *   skipping if the letter is already taken. An explicit `shorts` mapping
-   *   overrides the auto-generation. NOTE: short alias generation (both
-   *   auto-generation and `opts.shorts` override) is deprecated — it is a
-   *   `parseArgs` concern, not a `cliUnion` schema concern (ADMIN decision
-   *   2026-08-15). Will be removed in a future release. Consumers should
-   *   generate their own shorts at the `parseArgs` config level.
-   * - Defaults are NOT injected — DNA owns defaulting via `DnaDefault` wrappers
-   *   in the branch schemas. `parseArgs` is a pure lexical tokenizer.
-   *
-   * @param opts - Optional configuration.
-   * @param opts.strict - Whether `parseArgs` should run in strict mode (default: `false`).
-   * @returns A `ParseArgsConfig`-compatible object for `node:util.parseArgs`.
-   */
-  toParseArgsConfig(opts?: {
-    strict?: boolean;
-  }): {
-    allowPositionals: true;
-    strict: boolean;
-    options: Record<string, {
-      type: "string" | "boolean";
-      multiple: boolean;
-    }>;
-  } {
-    const strict = opts?.strict ?? false;
-    const positionalSet = new Set(this.positionals);
-    const flags = this.flags;
-
-    // Collect option metadata from all branches
-    const optionMeta: Record<string, {
-      type: "string" | "boolean";
-      multiple: boolean;
-    }> = {};
-
-    for (const branch of this._core.seed.schemas) {
-      const obj = DnaCliUnion.unwrapToDnaObject(branch);
-      for (const key of Object.keys(obj.shape)) {
-        if (positionalSet.has(key)) continue;
-        if (optionMeta[key]) continue; // first branch wins
-
-        const propSchema = obj.shape[key];
-        const leaf = DnaCliUnion.unwrapToLeaf(propSchema);
-        const { type, multiple } = DnaCliUnion.deriveOptionType(leaf);
-
-        optionMeta[key] = { type, multiple };
-      }
-    }
-
-    const options: Record<string, {
-      type: "string" | "boolean";
-      multiple: boolean;
-    }> = {};
-
-    for (const key of flags) {
-      const meta = optionMeta[key];
-      if (!meta) continue;
-
-      options[key] = {
-        type: meta.type,
-        multiple: meta.multiple,
-      };
-    }
-
-    return {
-      allowPositionals: true,
-      strict,
-      options,
-    };
-  }
-
-  /**
-   * Unwraps a branch schema (which may be a `DnaPipe`, `_DnaWrapper`, or
-   * `DnaLazy`) down to its underlying `DnaObject`. This is needed because
-   * branches can carry mutations (`.transform()`, `.default()`, `.optional()`,
-   * etc.) that wrap the object — the builder must read the object's `shape`
-   * for discriminator/positional detection while emitting the full wrapper
-   * chain as the branch DNA.
-   */
-  static unwrapToDnaObject(schema: DnaSomeType): DnaObject<any> {
-    let s: DnaSomeType = schema instanceof DnaLazy ? schema.innerType : schema;
-    while (s instanceof _DnaWrapper) s = s.unwrap();
-    if (s instanceof DnaPipe) {
-      s = s._core.seed.steps[0];
-      while (s instanceof _DnaWrapper) s = s.unwrap();
-    }
-    if (!(s instanceof DnaObject)) {
-      throw new Error(
-        `cliUnion branch must be (or unwrap to) a DnaObject, got ${s.constructor.name}`
-      );
-    }
-    return s;
-  }
-
-  /**
-   * Auto-detects discriminator keys: keys where `finiteValueSet` is non-undefined
-   * for ALL branches. Accepts both required and optional keys (an optional key
-   * with a finite literal/enum value routes on both the value and `undefined`).
-   */
-  static detectDiscriminators(schemas: readonly DnaSomeType[]): string[] {
-    if (schemas.length === 0) return [];
-    const first = DnaCliUnion.unwrapToDnaObject(schemas[0]);
-    const candidateKeys = Object.keys(first.shape);
-    return candidateKeys.filter(key =>
-      schemas.every(branch => {
-        const obj = DnaCliUnion.unwrapToDnaObject(branch);
-        const prop = obj.shape[key];
-        return prop && finiteValueSet(prop) !== undefined;
-      })
-    );
-  }
-
-  /**
-   * Auto-detects positional keys using a POSIX-inspired heuristic:
-   * - boolean keys → always flags
-   * - optional keys → flags (positionals are required by nature)
-   * - required + non-boolean keys → positional candidates, scored by 1/distinctValues
-   * - sorted: highest score first (fewest values = most likely subcommand), then declaration order
-   */
-  static detectPositionals(
-    schemas: readonly DnaSomeType[],
-    discriminators: string[]
-  ): string[] {
-    const candidates: Array<{ key: string; score: number; order: number }> = [];
-
-    for (let i = 0; i < discriminators.length; i++) {
-      const key = discriminators[i];
-
-      const isBoolean = schemas.every(branch => {
-        const obj = DnaCliUnion.unwrapToDnaObject(branch);
-        const prop = obj.shape[key];
-        const values = finiteValueSet(prop);
-        return values?.every(v => typeof v === 'boolean');
-      });
-      if (isBoolean) continue;
-
-      const isRequired = schemas.every(branch => {
-        const obj = DnaCliUnion.unwrapToDnaObject(branch);
-        return isRequiredKey(obj.shape[key]);
-      });
-      if (!isRequired) continue;
-
-      const allValues = new Set<unknown>();
-      for (const branch of schemas) {
-        const obj = DnaCliUnion.unwrapToDnaObject(branch);
-        const values = finiteValueSet(obj.shape[key]);
-        if (values) for (const v of values) allValues.add(v);
-      }
-
-      candidates.push({ key, score: 1 / allValues.size, order: i });
-    }
-
-    return candidates
-      .sort((a, b) => b.score - a.score || a.order - b.order)
-      .map(c => c.key);
-  }
+  // NOTE: `toParseArgsConfig` was removed (DEC-0041 SoC) — it is a CLI-facing
+  // schema concern (parseArgs needs NO Maranget output). Use the standalone
+  // `introspect.toParseArgsConfig(schema, opts)` instead.
 
   protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
     const schemas = this._core.seed.schemas;
@@ -3723,12 +3472,18 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
     const nbKeys = discriminators.length;
 
     const branchDef = new Array<tsDnaId | undefined>(1 + nbItems);
+    // Clause matrix: per branch, an ARRAY of values — position i = column i
+    // (order = discriminators). A column the branch does not constrain is
+    // ABSENT (beyond the array length) = wildcard. Cell forms:
+    //   singleton → direct value ("build", true, undefined for dna.undefined())
+    //   multi     → sub-array (["dev","prod"])
     const discriminKeys = new Array<(tsPrimitiveLiteral | tsPrimitiveLiteral[])[]>(nbItems);
     const branchStoreId = coll.setStore(branchDef);
 
     // Collect required keys for prevalidation: a key is required in prevalidation
-    // only if it is required in ALL branches. Keys optional in any branch are
-    // tested by the routing tree (if(key === undefined) first).
+    // only if it is required in ALL branches. Keys optional, absent, or non-finite
+    // in any branch are tested by the routing tree (if(key === undefined) first)
+    // or routed via a wildcard cell — never rejected by prevalidation.
     const prevalidationRequired = new Set<string>();
     const optionalInBranch = new Set<string>();
 
@@ -3736,34 +3491,43 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
       const schema = schemas[i];
       // Unwrap DnaPipe/wrappers to access the underlying DnaObject's shape.
       // The full schema (including transforms/defaults) is emitted as the branch.
-      const obj = DnaCliUnion.unwrapToDnaObject(schema);
+      const obj = unwrapToDnaObject(schema);
       const shape = obj.shape;
-      discriminKeys[i] = new Array<tsPrimitiveLiteral | tsPrimitiveLiteral[]>(nbKeys);
+      const cells: (tsPrimitiveLiteral | tsPrimitiveLiteral[])[] = [];
+
+      // Last column this branch constrains (finite value) — trailing absences
+      // stay SPARSE ("beyond the array length" = wildcard, compact ADN); only
+      // NON-TRAILING absences (a wildcard BEFORE a value) need the explicit
+      // WILDCARD_CELL marker to keep the matrix position-aligned — without it,
+      // the later value silently lands on the wildcard column (misrouting).
+      let lastFinite = -1;
+      for (let j = 0; j < nbKeys; j++) {
+        const propSchema = shape[discriminators[j]];
+        const values = propSchema ? finiteValueSet(propSchema) : undefined;
+        if (propSchema && values && values.length > 0) lastFinite = j;
+      }
 
       for (let j = 0; j < nbKeys; j++) {
         const key = discriminators[j];
         const propSchema = shape[key];
-        if (!propSchema) {
-          throw new Error(
-            `cliUnion: branch ${i} does not declare discriminator key "${key}". ` +
-            `All branches must declare all discriminator keys (required or optional).`
-          );
+        const values = propSchema ? finiteValueSet(propSchema) : undefined;
+        if (!propSchema || !values || values.length === 0) {
+          // Absent / non-finite → wildcard cell (Maranget mixture rule).
+          // Non-trailing → push the marker (alignment); trailing → omit
+          // (sparse). Do not require the key in prevalidation.
+          optionalInBranch.add(key);
+          if (j < lastFinite) cells.push(WILDCARD_CELL);
+          continue;
         }
-        const values = finiteValueSet(propSchema);
-        if (!values || values.length === 0) {
-          throw new Error(
-            `cliUnion: discriminator "${key}" in branch ${i} must be a finite primitive ` +
-            `(literal, enum, null, undefined, or optional/nullable of one of these)`
-          );
-        }
-        // Flatten singletons to match schvalid's const format
-        discriminKeys[i][j] = values.length === 1 ? values[0] : values;
+        // Cell: singleton → direct value, multi → sub-array
+        cells.push(values.length === 1 ? values[0] : values);
 
         // Track keys that are optional in any branch
         if (!isRequiredKey(propSchema)) {
           optionalInBranch.add(key);
         }
       }
+      discriminKeys[i] = cells;
     }
 
     // A key is required in prevalidation only if it's required in ALL branches
@@ -3773,7 +3537,23 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
       }
     }
 
-    this._core.rawDna = ["cli", discriminators, discriminKeys, branchDef];
+    // discriminators ADN format: required columns as strings, optional
+    // columns grouped in a final sub-array (the optionality marker). The
+    // optional columns are detected here from the branch shapes (the builder
+    // knows the declared types) — no public API surface is added.
+    const optionalDiscriminators = detectOptionalDiscriminators(schemas, discriminators);
+    const optionalSet = new Set(optionalDiscriminators);
+    const requiredCols = discriminators.filter(k => !optionalSet.has(k));
+    const discAdn: (string | string[])[] =
+      optionalDiscriminators.length > 0 ? [...requiredCols, optionalDiscriminators] : requiredCols;
+
+    // The builder is the schema → args transformer: it emits the SOURCE data
+    // (discriminator order + optionality marker, the clause matrix, branch
+    // targets, mode). The clause matrix (`discriminKeys`) is the INPUT of the
+    // Maranget algorithm (DEC-0041 Option A). ALL Maranget *compilation*
+    // (matrix → tree) lives in `algo/maranget.ts` + the codegen.
+    const mode = this._core.seed.mode ?? CONSTRUCTOR_PRIORITY;
+    this._core.rawDna = ["maranget", discAdn, discriminKeys, branchDef, mode];
     const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition, branchStoreId);
     this._core.setDnaId(coll, dnaId);
 
@@ -3788,11 +3568,54 @@ export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType
     // branch validates ALL properties (including discriminators) and applies
     // its mutations (.default, .transform, .extend, etc.). Keeping original
     // schemas preserves distinct propSig in the collector → no false dedup.
+    // Emitted in SOURCE order so branchDef[1+i] ↔ matrix row i (the codegen
+    // applies the routing-mode row ordering — not the builder).
     for (let i = 0; i < nbItems; i++) {
       schemas[i].toDna(coll, branchStoreId, 1 + i);
     }
 
     return dnaId;
+  }
+}
+
+/**
+ * The CLI construct (mode `"cli"`): `DnaMarangetUnion` + the CLI-facing views.
+ *
+ * SoC: the generic `DnaMarangetUnion` carries ONLY Maranget routing data
+ * (schemas, discriminators, mode) — the CLI views (positionals / flags) are
+ * NOT its responsibility. `DnaCliUnion` adds those derived views: positionals
+ * and flags are pure functions of the branch schemas + discriminator order
+ * (single source of truth = the Maranget input), never stored in the seed nor
+ * serialized in the ADN — `fromDna` reconstructs this class for mode `"cli"`
+ * and re-derives the same lists. A CLI-level override lives in
+ * `introspect.toParseArgsConfig(schema, { positionals })`.
+ *
+ * @typeParam S - A tuple of object schema types (the branches).
+ */
+export class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]> extends DnaMarangetUnion<S> {
+  /**
+   * Returns the positional keys, DERIVED from the branch schemas + discriminator
+   * order. Positionals are CLI / parseArgs metadata — a CLI-level override lives
+   * in `introspect.toParseArgsConfig(schema, { positionals })`.
+   */
+  get positionals(): string[] {
+    return detectPositionals(this._core.seed.schemas, this._core.seed.discriminators);
+  }
+
+  /**
+   * Returns the flag keys (non-positional keys declared in any branch).
+   * These are the keys that `@ytrynot/cli` maps to `parseArgs` options.
+   */
+  get flags(): string[] {
+    const posSet = new Set(this.positionals);
+    const flagSet = new Set<string>();
+    for (const branch of this._core.seed.schemas) {
+      const obj = unwrapToDnaObject(branch);
+      for (const key of Object.keys(obj.shape)) {
+        if (!posSet.has(key)) flagSet.add(key);
+      }
+    }
+    return [...flagSet];
   }
 }
 
@@ -3931,7 +3754,9 @@ export class DnaCodec<I, O> extends DnaTypeWithWrappers<O, I> {
   // Decode direction (`_validate`/`_safeParse`) is inherited: the base builds from
   // `this.toDna()` and caches in `#state`.
 
-  override safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult {
+  // Encode direction: validates O (output) and produces I (input).
+  // Base signature returns tsDnaParserResult<this["_input"]> = tsDnaParserResult<I> — correct.
+  override safeEncode(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_input"]> {
     if (!this._core.seed.cachedEncodeParserMap) this._core.seed.cachedEncodeParserMap = new WeakMap();
     const key = ctx ?? this;
     const cached = this._core.seed.cachedEncodeParserMap.get(key);
@@ -4016,6 +3841,8 @@ export class DnaFunction<I extends DnaFunctionInput = never, O extends DnaType<a
     } else if (!(input instanceof DnaType)) {
       actualInput = initDna(DnaTuple, { items: input });
     }
+    // CAST: initDna returns DnaFunction<any, any> but the output type O is known from the
+    // generic parameter; the input was just rebuilt via actualInput which widens to any.
     const newSchema = initDna(DnaFunction, { input: actualInput, output: this._core.seed.output }, this._core.meta) as unknown as DnaFunction<any, O>;
     newSchema._core.rawDna = this._core.rawDna;
     return newSchema;
@@ -4051,6 +3878,9 @@ export class DnaFunction<I extends DnaFunctionInput = never, O extends DnaType<a
    */
   private _outputSchema(): O {
     const raw = this._core.seed.output;
+    // CAST: raw is either a DnaType (already typed as O) or undefined (defaulted to
+    // DnaUnknown); both branches produce a value assignable to O but TS cannot narrow
+    // the union through the ternary without an explicit cast.
     return (raw instanceof DnaType ? raw : initDna(DnaUnknown, {})) as unknown as O;
   }
 

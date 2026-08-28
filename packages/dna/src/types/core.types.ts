@@ -51,7 +51,7 @@ export type tsDnaOpcode =
   | "oneOf"
   | "allOf"
   | "discriminator" // discriminated union
-  | "cli"           // CLI multi-key routing union
+  | "maranget"      // multi-key routing union (Maranget decision tree)
 
   // Conditions
   | "not" // schema composition

@@ -23,6 +23,7 @@ export type {
   DnaCidrv6,
   DnaCliUnion,
   DnaCodec,
+  DnaMarangetUnion,
   DnaCoerceBigInt,
   DnaCoerceBoolean,
   DnaCoerceDate,

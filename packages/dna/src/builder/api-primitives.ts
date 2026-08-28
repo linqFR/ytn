@@ -1,4 +1,6 @@
 import type { DnaSomeType } from "@ytrynot/dna/core";
+import { detectDiscriminators, sortForCli } from "@ytrynot/dna/core";
+import { CLI_MODE, CONSTRUCTOR_PRIORITY } from "../algo/maranget.js";
 import {
   DnaAny,
   DnaArray,
@@ -10,6 +12,7 @@ import {
   DnaCidrv4,
   DnaCidrv6,
   DnaCliUnion,
+  DnaMarangetUnion,
   DnaCodec,
   DnaCoerceBigInt,
   DnaCoerceBoolean,
@@ -79,6 +82,7 @@ import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js"
 import type { tsDecodeFn, tsEncodeFn, tsTransformFn } from "../shared/handlers-builder.types.js";
 import type { tsDnaInnerMeta, tsDnaMeta, tsDnaRefineCtx } from "../shared/meta-context.type.js";
 import type { tsDnaExternalsDecl } from "../shared/runtime.types.js";
+import type { tsRefineOptions } from "../shared/error.types.js";
 import { externalsMap } from "../shared/utils.js";
 import type {
   DnaFunctionInput,
@@ -251,18 +255,63 @@ export const intersection = <S1 extends DnaType<any>, S2 extends DnaType<any>>(s
 export const discriminatedUnion = <K extends string, S extends tsDnaDiscriminatedUnionObjects<K>>(discriminator: K, schemas: S, meta?: string | tsDnaMeta) =>
   initDna(DnaDiscriminatedUnion<K, S>, { discriminator, schemas }, meta);
 
-export function cliUnion<const S extends readonly DnaSomeType[]>(
+/**
+ * Multi-key routing union via a Maranget decision tree (opcode `"maranget"`).
+ *
+ * `config.mode` selects the routing semantics when a wildcard (catch-all)
+ * branch overlaps a constructor branch:
+ * - `"constructor-priority"` (default): constructor rows win over wildcard
+ *   rows on the same column — the catch-all acts as a fallback. This is a
+ *   **deliberate deviation** from Maranget strict source order (Gap E /
+ *   DEC-0039, validated by ADMIN).
+ * - `"source-order"`: Maranget strict — the first branch in source order
+ *   that matches wins (a catch-all in position 0 catches everything).
+ * - `"cli"`: the CLI contract marker — routes like `"constructor-priority"`
+ *   and the required discriminator columns are sorted by positional priority
+ *   (positionals first, self-describing in `discAdn`). Positionals are DERIVED
+ *   by the class (never stored / serialized) — `fromDna` roundtrips preserve
+ *   them. A CLI-level override lives in
+ *   `introspect.toParseArgsConfig(schema, { positionals })`.
+ *
+ * The mode is serialized into the DNA node (5th element) so `fromDna`
+ * roundtrips preserve the routing semantics.
+ */
+export function marangetUnion<const S extends readonly DnaSomeType[]>(
   schemas: S,
   config?: ICliUnionConfig,
   meta?: string | tsDnaMeta
+): DnaMarangetUnion<S> {
+  const mode = config?.mode ?? CONSTRUCTOR_PRIORITY;
+  const auto = config?.discriminators ?? detectDiscriminators(schemas);
+  // CLI mode: the required column order is the positional priority (the sort
+  // is routing-invariant — verified empirically; optionals keep declaration
+  // order, they have no order semantics). The CLI mode constructs the
+  // `DnaCliUnion` class (the CLI construct — adds the derived CLI views).
+  const discriminators = mode === CLI_MODE ? sortForCli(schemas, auto) : auto;
+  if (mode === CLI_MODE) {
+    return initDna(DnaCliUnion<S>, { schemas: [...schemas], discriminators, mode }, meta);
+  }
+  return initDna(DnaMarangetUnion<S>, { schemas: [...schemas], discriminators, mode }, meta);
+}
+
+/**
+ * CLI convenience: `cliUnion(schemas, config)` ≡
+ * `marangetUnion(schemas, { ...config, mode: "cli" })` — constructs a real
+ * `DnaCliUnion` instance (mode `"cli"`, opcode `"maranget"`). The `mode`
+ * config is not accepted here (cliUnion IS the cli mode). Positionals / flags
+ * are DERIVED views on `DnaCliUnion` (never stored in the seed nor serialized
+ * in the ADN) — a CLI-level override lives in
+ * `introspect.toParseArgsConfig(schema, { positionals })`.
+ */
+export function cliUnion<const S extends readonly DnaSomeType[]>(
+  schemas: S,
+  config?: Omit<ICliUnionConfig, "mode">,
+  meta?: string | tsDnaMeta
 ): DnaCliUnion<S> {
-  const discriminators = config?.discriminators ?? DnaCliUnion.detectDiscriminators(schemas);
-  const positionals = config?.positionals ?? DnaCliUnion.detectPositionals(schemas, discriminators);
-  return initDna(
-    DnaCliUnion<S>,
-    { schemas: [...schemas], discriminators, positionals },
-    meta
-  );
+  // CAST: marangetUnion's declared return is the base DnaMarangetUnion<S>;
+  // the cli mode constructs the DnaCliUnion subclass — TS cannot narrow the
+  // instance type by the mode value.
+  return marangetUnion(schemas, { ...config, mode: CLI_MODE }, meta) as DnaCliUnion<S>;
 }
 // FIXME : fix typescript
 export const not = (schema: DnaSomeType<unknown, unknown>, meta?: string | tsDnaMeta) =>
@@ -425,9 +474,9 @@ export function preprocess<R, T extends DnaType<any, any>>(fn: tsTransformFn<unk
 export const lazy = <S extends DnaType<any, any>>(getter: () => S) => initDna(DnaLazy<$Output<S>, $Input<S>, S>, { getter });
 
 
-export function custom<T>(fn: (val: any) => val is T, params?: any): DnaCustom<T, any>;
-export function custom<T>(fn: (val: any) => boolean, params?: any): DnaCustom<T, any>;
-export function custom<T>(fn: (val: any) => any, params?: any): DnaCustom<T, any> {
+export function custom<T>(fn: (val: any) => val is T, params?: tsRefineOptions<DnaType<any, any>>): DnaCustom<T, any>;
+export function custom<T>(fn: (val: any) => boolean, params?: tsRefineOptions<DnaType<any, any>>): DnaCustom<T, any>;
+export function custom<T>(fn: (val: any) => any, params?: tsRefineOptions<DnaType<any, any>>): DnaCustom<T, any> {
   return initDna(DnaCustom<T>, { fn }).refine(fn, params);
 }
 

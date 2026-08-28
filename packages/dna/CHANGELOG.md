@@ -1,5 +1,101 @@
 # @ytrynot/dna
 
+## 0.8.0
+
+### Minor Changes
+
+- c06294f: Export `fromDna` as a public subpath entry point
+  
+  - `fromDna` (DNA bytecode → fluent schema reconstruction) is now importable via `@ytrynot/dna/fromDna`.
+  - Previously documented but not packaged — the subpath is now built and shipped.
+- af05353: Maranget union: canonical name and routing modes
+  
+  - `dna.marangetUnion(schemas, config)` is the canonical name for discriminated unions with wildcard branches. `dna.cliUnion` remains available as a CLI convenience that sets `mode: "cli"` automatically.
+  - `config.mode` selects routing semantics when a catch-all branch overlaps a constructor branch:
+    - `"constructor-priority"` (default): constructor rows win over catch-all on the same column; catch-all acts as fallback.
+    - `"source-order"`: first matching branch in declaration order wins (strict decision-tree semantics).
+    - `"cli"`: constructor-priority routing with discriminator columns sorted by positional priority for CLI usage.
+  - `introspect.toParseArgsConfig(schema, { positionals })` accepts a CLI-level positional override.
+
+### Patch Changes
+
+- 4d5aa05: Type safety improvements for public API
+  
+  - `custom()` params now typed as `tsRefineOptions`
+  - `IIssue.input` now typed as `$Input<T>` (distinguishes input from output type)
+  - `ODnaIssueNotMultipleOf.divisor` now accepts `number | bigint`
+  - Add 38 unit tests for `toJs/inline-func.ts` (`FN_fCount`, `FN_dEq`,
+  `FN_cidrV6`, `FN_toBigInt`, `FN_toDate`, `FN_dMerge`)
+
+## 0.7.6
+
+### Patch Changes
+
+- 7b4bcf0: Parser and codec return types: fix to use precise output/input types instead of `any`
+  
+  - `safeParse()`, `safeParseAsync()`, `spa()`, `safeDecode()`, and `safeDecodeAsync()` now return `tsDnaParserResult<this["_output"]>` instead of unparameterized `tsDnaParserResult` (which defaulted to `any`).
+  - `parse()` and `parseAsync()` now return `this["_output"]` / `Promise<this["_output"]>` instead of `T` (which was `any` in deferred subclasses).
+  - `decode()` and `decodeAsync()` now return `this["_output"]` / `Promise<this["_output"]>` instead of `T` (which was `any` in deferred subclasses).
+  - `DnaPromise.safeParseAsync()` override now returns `Promise<tsDnaParserResult<this["_output"]>>` instead of unparameterized `Promise<tsDnaParserResult>`.
+  - `DnaPromise.parse()` and `DnaPromise.parseAsync()` overrides now return `this["_output"]` / `Promise<this["_output"]>` instead of `T`.
+  - `safeEncode()` and `safeEncodeAsync()` now correctly return `tsDnaParserResult<this["_input"]>` (input type) instead of `tsDnaParserResult<this["_output"]>` (output type), matching Zod v4's `ZodSafeParseResult<core.input<this>>`.
+  - `encode()` and `encodeAsync()` now correctly return `this["_input"]` instead of `this["_output"]`.
+  - Added type-regression tests for codec encode/decode return types covering sync, async, identity codec, union types, error branch.
+- 5cf7ad9: Dependency version bumps
+  
+  - Bump `jose` from `^6.2.9` to `^6.2.10` (transitive dep of `@ytrynot/dna`).
+  - Bump `@ytrynot/dna` dependency range from `^0.7.0`/`^0.7.3` to `^0.7.5` in `@ytrynot/schvalid` and `@ytrynot/qb` (peerDependency).
+  - No code changes — version range alignment only.
+- 45711eb: `DnaDefault.defaultValue` / `DnaPrefault.prefaultValue` getters: resolve getter functions; `.default()` / `.prefault()` accept getter functions at the type level
+  
+  - `DnaDefault.defaultValue` getter now calls the function and returns the resolved value when the default was provided as a getter (`dna.x().default(() => value)`), instead of returning the raw function.
+  - `DnaPrefault.prefaultValue` getter applies the same resolution for consistency.
+  - `.default()` and `.prefault()` method signatures now accept both direct values and getter functions (`() => T`), via dual overloads matching Zod v4's API. Previously, passing a getter function was a compile-time error even though the runtime supported it.
+  - `DnaDefault` and `DnaPrefault` BaseCore seed types now include `(() => T)` to reflect that the raw storage may hold a function.
+  - `DnaCatch.catchValue` is unchanged — catch recovery functions take a `ctx` argument and are intentionally not resolved at access time.
+  - `introspect.defaultValue()` now delegates to the schema's `defaultValue` getter instead of resolving separately.
+  - Aligns with Zod v4's `def.defaultValue` getter, which always returns the resolved value.
+  - The runtime parser/codegen is unaffected — it reads `seed.value` (raw storage) directly, not the getter.
+  - Type regression tests added: `default-prefault-types.test.ts` (11 tests) and `infer-surface-types.test.ts` (20 tests) verify `dna.output` / `dna.input` / `dna.infer` parity with `_output` / `_input` across primitives, wrappers, default/prefault, composites, transforms, codecs, and nested objects.
+  - Runtime regression tests added: `default-prefault-runtime.test.ts` (22 tests) verify getter resolution, static value passthrough, non-memoization, Zod v4 parity, codegen integrity (raw function preserved in `seed.value`), and `introspect.defaultValue()` delegation.
+
+## 0.7.5
+
+### Patch Changes
+
+- 8be32ee: Fix `DnaDefault._input` silently typed as `any` and deduplicate type helpers.
+  
+  - Add `declare readonly _input: $Input<Inner> | undefined` on `DnaDefault`
+    (was inherited as `any` from the deferred parent, breaking type inference
+    for `.default()` consumers)
+  - Re-export type helpers (`$IsAny`, `$ReadonlyValue`, `$RemoveUndefined`,
+    `$Flatten`, `$UnionToIntersection`, `$EnumKeys`, `$MaybeAsync`, etc.) from
+    `@ytrynot/shared/types` instead of duplicating them in `helpers.types.ts`
+  - Add `expectTypeOf` regression tests for `_input` on all wrappers
+    (DnaDefault, DnaOptional, DnaNullable, DnaNullish, DnaNonOptional)
+    and for missing output types (nullish, prefault, exactOptional)
+- 8be32ee: @ytrynot/shared: reorganize shared/types into thematic files
+  
+  - Split `modifiers.type.ts` into `structural.type.ts`, `predicates.type.ts`,
+    `enum.type.ts`, `record.type.ts`
+  - Add `$FlattenDistributive<T>` (preserves each union member independently)
+  - Add `$FlattenCombinative<T>` and `$ToRecord<T>` as aliases of `$Flatten`
+  - Add `$MaybeAsync<T>` and `$InferReturnType<F>` to `async.type.ts`
+  - Rename `tsValidJSON` → `$isValidJSON` (predicate, not static type)
+  - Add `README.md` and `wiki.md` with comparison tables and usage examples
+  - Add `types.test.ts` with 43 `expectTypeOf` tests covering all helpers
+  - Update `shared/README.md` with missing namespaces (regex, cli, polyfill)
+  - Fix broken imports in `shared/js/set-ops.ts` and `packages/cli/src/preprocess.ts`
+  
+  Impact: @ytrynot/dna and @ytrynot/cli import from @ytrynot/shared/types.
+  The import paths changed (modifiers.type.ts → structural.type.ts / record.type.ts).
+
+## 0.7.4
+
+### Patch Changes
+
+- e897dff: Bump engines to Node >=26.0.0 across all packages. CI workflows updated to Node 26.
+
 ## 0.7.3
 
 ### Patch Changes

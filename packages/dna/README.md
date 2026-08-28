@@ -8,7 +8,8 @@
 
 > **Looking for testers!** This package is actively seeking early users and feedback. If you try it out, please share your experience — issues, suggestions, or ideas are all welcome.
 >
-> npm: https://www.npmjs.com/package/@ytrynot/dna · GitHub: https://github.com/linqFR/ytn/tree/main/packages/dna
+> npm: https://www.npmjs.com/package/@ytrynot/dna
+> GitHub: https://github.com/linqFR/ytn/tree/main/packages/dna
 
 Zod-like schema API with serializable DNA bytecode and standalone compiled validators.
 
@@ -51,15 +52,16 @@ DNA Schema provides two validation modes:
 2. **Reconstructs** the data into a fresh output object.
 3. **Returns** `{ success: true, data }` on success or `{ success: false, errors }` on failure.
 
-Reconstruction means the parser:
+Reconstruction means the parser builds a **fresh output object** from the validated input — the returned `data` is never the same reference as the input. This is what makes `parser()` slower than `validator()`: it does strictly more work (allocate + copy + transform).
 
-- creates a new output object — `Object.create(null)` for strict/loose objects (no prototype, safe against `__proto__` pollution), or a plain `{}` for standard objects (single-allocation fast path, writes only declared keys); when `__proto__` is a **declared** property, `Object.create(null)` is used so the value is preserved as an own key,
-- copies the input's own properties with `Object.assign` (strict/loose) so unknown properties allowed by `additionalProperties`/`unevaluatedProperties` are preserved; `Object.create(null)` makes `__proto__` a harmless own property (no prototype setter) — no skip needed, unlike Zod/AJV,
-- rebuilds arrays into new arrays,
-- preserves explicitly-present `undefined` values (aligned with Zod v4) — a key present in the input with value `undefined` remains present in the output,
-- keeps arbitrary property names (including `__proto__`, `constructor`, `toString`) as ordinary own keys instead of inherited or magic properties.
+What the parser preserves:
 
-Because of this transformation, `parser()` is necessarily slower than `validator()` — it does strictly more work than a boolean validator. Use `validator()` when you only need a true/false answer. Use `parser()` when you need a guaranteed fresh, isolated output object with detailed errors on failure.
+- **Declared properties**: every property defined in the schema is present in the output.
+- **Extra properties** (strict/loose objects): properties allowed by `additionalProperties` or `unevaluatedProperties` are kept.
+- **Explicitly-present `undefined`**: a key present in the input with value `undefined` remains present in the output (aligned with Zod v4).
+- **Arrays**: rebuilt into new arrays.
+
+Use `validator()` when you only need a true/false answer. Use `parser()` when you need a guaranteed fresh, isolated output object with detailed errors on failure.
 
 Note that class instances and prototype chains are not preserved by `parser()`. If the input must remain an instance of a specific class, use `dna.instanceof()` or keep the object outside of the parser path.
 
@@ -73,6 +75,14 @@ For detailed information about DNA opcodes, architecture, and implementation det
 npm install @ytrynot/dna
 ```
 
+## Agent Skills
+
+Install the [ytn agent skill](../../skills/ytn/SKILL.md) so your AI coding agent knows how to use this package:
+
+```bash
+npx skills add linqFR/ytn
+```
+
 ## Package Exports
 
 `@ytrynot/dna` ships multiple entry points. All non-core entry points import runtime classes from `@ytrynot/dna/core`, ensuring a single class identity for `instanceof` checks and a shared registry Map across bundles (mirrors the `zod/v4/core` pattern).
@@ -83,6 +93,7 @@ npm install @ytrynot/dna
 | `@ytrynot/dna/core` | `import { DnaType } from "@ytrynot/dna/core"` | Runtime classes (`DnaType`, `DnaObject`, ...), `initDna`, `toJS`, `DnaError`, registry |
 | `@ytrynot/dna/toJs` | `import { toJS } from "@ytrynot/dna/toJs"` | Low-level compiler (`toJS`, `validator`, `parser`) |
 | `@ytrynot/dna/introspect` | `import * as introspect from "@ytrynot/dna/introspect"` | Schema introspection utilities (`isOptional`, `isObject`, `unwrap`, ...) |
+| `@ytrynot/dna/fromDna` | `import { fromDna } from "@ytrynot/dna/fromDna"` | DNA bytecode → fluent schema reconstruction (roundtrip) |
 
 **When to use `@ytrynot/dna/core`**: when you need `instanceof DnaType` / `instanceof DnaObject` to work across bundles, or direct access to `initDna`, `BaseCore`, `DnaError`, or the registry. The main `@ytrynot/dna` entry point re-exports everything for everyday usage — you only need `core` for cross-bundle class identity or low-level internals.
 
@@ -205,11 +216,11 @@ const fn = new Function(...result.code)({ /* required externals */ });
 
 ### Round-trip DNA Reconstruction
 
-`@ytrynot/dna` can rebuild a fluent builder schema from its own DNA bytecode. This is used by the `fromDna` roundtrip tests and lets you serialize, transfer, and restore a schema without touching JSON Schema:
+`@ytrynot/dna` can rebuild a fluent builder schema from its own DNA bytecode. This lets you serialize, transfer, and restore a schema without touching JSON Schema:
 
 ```typescript
 import { dna } from "@ytrynot/dna";
-// fromDna is an internal roundtrip utility (not part of the public package exports).
+import { fromDna } from "@ytrynot/dna/fromDna";
 
 const original = dna.object({
   name: dna.string().min(2),
@@ -220,63 +231,21 @@ const bytecode = original.toDna();
 const rebuilt = fromDna(bytecode);
 
 // The rebuilt schema produces the same validation/parse results.
-// The canonical DNA is structurally equivalent; exact numeric IDs may differ.
 const input = { name: "John", tags: ["a"] };
-const originalResult = original.safeParse(input);
-const rebuiltResult = rebuilt.safeParse(input);
-console.log(originalResult.success === rebuiltResult.success);
-if (originalResult.success && rebuiltResult.success) {
-  // The roundtrip tests compare these with toEqual (deep equality, order-agnostic).
-  console.log(rebuiltResult.data); // same parsed value as originalResult.data
-}
+console.log(original.safeParse(input)); // { success: true, data: { name: "John", tags: ["a"] } }
+console.log(rebuilt.safeParse(input));  // same result
 ```
 
-Supported roundtrip families:
-
-- **Primitives**: `string`, `number`, `integer`, `bigint`, `boolean`, `null`, `undefined`, `NaN`, `literal`, `enum`, `any`, `never`, `unknown`, `symbol`, `date`.
-- **Wrappers**: `optional`, `nullable`, `nullish`, `nonoptional`, `default`, `prefault`, `catch`.
-- **Collections**: `object` (`$o`/`o`), `array`/`tuple`, `record` (`rcd`), `Map`/`Set` reconstructed from `pipe`.
-- **Logic**: `anyOf`, `allOf`, `oneOf`, `discriminator`.
-- **Refinements**: `property` checks, `func` checks (`.refine`, `.superRefine`, `.check`), `chkSeq`, `chkList`.
-- **Templates**: `templateLiteral` and `templateLiteralMutate` (via internal `DnaTemplateReconstructed` that bypasses re-escaping).
-- **External / special types**: `instanceOf` (registered constructors), `url` (protocol/hostname regex), `jwt`, `promise`, `cidrv6`.
-- **Pipelines**: `pipe`, `transform`, `coerce`, `codec` when the encode/decode functions are serializable.
-- **Recursion**: `ref` nodes (including `DnaLazy` reconstruction with double-ref collapsing).
-- **Metadata**: `readonly`, `description`, `~inner` constraints are preserved.
-
-Limitations:
-
-- `.transform`, `.preprocess`, `.coerce` and custom codecs can be reconstructed only when their function source is serializable (the builder keeps `fn.toString()`).
-- Fully arbitrary JavaScript functions or closures with captured external variables may not roundtrip.
-- Async `transform` / `pipe` / `codec` roundtrip parity is verified with `safeParseAsync` / `parseAsync`.
-- `safeParse`/`validate` parity for the rebuilt schema still depends on the `toJs` codegen supporting the same opcodes.
-
-### Typing `fromDna` — Type parameter
-
-A `tsDnaSeq` is a flat array of opcodes with no compile-time type information. By default, `fromDna` returns `DnaSomeType<any, any>` — a fully functional schema (`safeParse`, `validate`, `toDna` all work) but with `_output` typed as `any`.
-
-Pass an explicit type argument to get full type safety, including `dna.infer` resolution and schema-specific methods:
+By default, `fromDna` returns a schema with `_output` typed as `any`. Pass an explicit type argument for full type safety:
 
 ```typescript
-// Default: works but _output is any
-const rebuilt = fromDna(bytecode);
-type Out = dna.infer<typeof rebuilt>;           // any
-rebuilt.safeParse(input);                        // ✓
-
-// Typed: full inference
-const rebuiltStr = fromDna<dna.DnaString>(bytecode);
-type OutStr = dna.infer<typeof rebuiltStr>;     // string
-
-const objSchema = dna.object({ name: dna.string(), age: dna.number() });
-const rebuiltObj = fromDna<typeof objSchema>(objSchema.toDna());
-type OutObj = dna.infer<typeof rebuiltObj>;     // { name: string, age: number }
-
-const fnSchema = dna.function().input([dna.string()]).output(dna.number());
-const rebuiltFn = fromDna<ReturnType<typeof dna.function>>(fnSchema.toDna());
-const impl = rebuiltFn.implement((s: string) => s.length);  // ✓ typed
+const rebuilt = fromDna<typeof original>(bytecode);
+type Out = dna.infer<typeof rebuilt>; // { name: string, tags: string[] }
 ```
 
-**Available type arguments**: Any class extending `DnaTypeWithWrappers` (`dna.DnaString`, `dna.DnaNumber`, `dna.DnaObject<...>`, `dna.DnaArray<...>`, `dna.DnaFunction<...>`, etc.). For complex generics, prefer `typeof originalSchema` or `ReturnType<typeof dna.<factory>>`.
+Schemas with `.transform()`, `.refine()`, `.coerce()`, or custom codecs are fully reconstructed — function sources are serialized in the bytecode via `fn.toString()`. Externals (captured values, helpers) are provided at execution time when calling `.safeParse()`, `.validate()`, or `.parse()` on the rebuilt schema.
+
+For the full list of supported schema families, typing details, and roundtrip parity guarantees, see [docs/technical.md](docs/technical.md).
 
 ## Comparison with Zod
 
@@ -303,7 +272,7 @@ Full feature-by-feature comparison: [docs/zod-comparison.md](docs/zod-comparison
 
 ## CLI Union
 
-`dna.cliUnion()` is a multi-key routing union designed for CLI schemas. It unions multiple object schemas (branches) that share discriminator keys, and compiles them into a Maranget decision tree for efficient dispatch — the tree is O(log N) vs O(N) for a flat if-chain, generated at codegen time from a clause matrix (branches × discriminator keys).
+`dna.cliUnion()` is a multi-key routing union designed for CLI schemas. It unions multiple object schemas (branches) that share discriminator keys, with efficient dispatch on N discriminator keys.
 
 Unlike `discriminatedUnion` (single-key, OpenAPI-compatible), `cliUnion` is CLI-specific:
 
@@ -311,7 +280,6 @@ Unlike `discriminatedUnion` (single-key, OpenAPI-compatible), `cliUnion` is CLI-
 - **Auto-detection**: infers discriminators and positionals from branch shapes.
 - **`toParseArgsConfig()`**: generates a `node:util.parseArgs` config from the schema (option types, shorts, multiple flags).
 - **Branch mutations**: `.extend()`, `.default()`, `.transform()` are preserved after routing, allowing metadata injection (e.g. `branchId`).
-- **Portable codegen**: generated parser/validator functions are self-contained (zero externals when no transforms).
 
 ```typescript
 const cli = dna.cliUnion([

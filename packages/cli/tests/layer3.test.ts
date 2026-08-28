@@ -186,7 +186,7 @@ describe("Layer 3 — cliFactory (async, 3 externals)", () => {
         code: string[];
         requiredExternals: string[];
       };
-      expect(compiled.requiredExternals.sort()).toEqual(["formatter", "handlers", "parseArgs"]);
+      expect(compiled.requiredExternals.sort()).toEqual(["dna", "formatter", "handlers", "parseArgs"]);
     });
   });
 });

@@ -305,8 +305,8 @@ This means `.max(5)` on `"🇫🇷"` passes in DNA (2 ≤ 5) but fails in Zod (4
 | `.nullish()` / `z.nullish()` | `.nullish()` / `dna.nullish()` | ✅ |
 | `.nonoptional()` / `z.nonoptional()` | `.nonoptional()` / `dna.nonoptional()` | ✅ |
 | `.exactOptional()` | `.exactOptional()` | ✅ |
-| `.default()` | `.default()` | ✅ |
-| `.prefault()` / `z.prefault()` | `.prefault()` / `dna.prefault()` | ✅ |
+| `.default()` | `.default()` | ✅ (both accept `T` or `() => T`; `defaultValue` getter resolves functions in both) |
+| `.prefault()` / `z.prefault()` | `.prefault()` / `dna.prefault()` | ✅ (both accept `T` or `() => T`; `prefaultValue` getter resolves functions in both) |
 | `.catch()` | `.catch()` | ✅ (value or `(ctx) => R`) |
 | `.unwrap()` | `.unwrap()` | ✅ |
 | `.removeDefault()` (deprecated) | `.removeDefault()` (deprecated) | ✅ (alias for `.unwrap()`) |

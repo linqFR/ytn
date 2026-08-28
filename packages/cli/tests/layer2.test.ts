@@ -248,7 +248,7 @@ describe("Layer 2 — executeContract (async, 2 externals)", () => {
         code: string[];
         requiredExternals: string[];
       };
-      expect(compiled.requiredExternals.sort()).toEqual(["handlers", "parseArgs"]);
+      expect(compiled.requiredExternals.sort()).toEqual(["dna", "handlers", "parseArgs"]);
     });
 
     it("should generate async function (contains 'async function')", () => {

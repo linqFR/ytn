@@ -1,8 +1,14 @@
 # CLI Union (`dna.cliUnion`)
 
-`cliUnion` is a DNA schema primitive for multi-key CLI routing. It unions multiple object schemas (branches) that share discriminator keys, and compiles them into a Maranget decision tree for efficient dispatch.
+> **Renamed (DEC-0041)**: `dna.cliUnion` is now a legacy alias — the canonical
+> name is **`dna.marangetUnion`** (with a `mode` option). This page documents
+> the builder API and usage (still accurate under both names). For the
+> **routing algorithm** (clause matrix, mixture rule, P2'-carrying, modes)
+> with diagrams, see **[maranget.md](maranget.md)**.
 
-Unlike `discriminatedUnion` (single-key, OpenAPI-compatible), `cliUnion` is CLI-specific: it auto-detects discriminators, infers positionals vs flags, emits the `"cli"` opcode, and can generate a `node:util.parseArgs` config from the schema.
+`cliUnion`/`marangetUnion` is a DNA schema primitive for multi-key routing. It unions multiple object schemas (branches) that share discriminator keys, and compiles them into a Maranget decision tree for efficient dispatch.
+
+Unlike `discriminatedUnion` (single-key, OpenAPI-compatible), `marangetUnion` is multi-key: it auto-detects discriminators, infers positionals vs flags, emits the `"maranget"` opcode, and can generate a `node:util.parseArgs` config from the schema.
 
 ## Architecture
 
@@ -38,39 +44,35 @@ Command line tokens
 ### DNA format
 
 ```javascript
-["cli", [discriminators], [discriminKeys], [refs]]
+["maranget", ["cmd", "mode", ["verbose"]], discriminKeys, [prevalidationId, branch0Id, ...], mode]
 ```
 
-- `discriminators`: array of routing key names (e.g. `["cmd", "mode"]`)
-- `discriminKeys`: 2D array — `discriminKeys[branchIndex][keyIndex]` contains the finite values for that branch/key. Singletons are flattened to primitives, multi-values are arrays.
-- `refs`: `refs[0]` is the pre-validation object (type + required keys check), `refs[1..N]` are the branch sub-schemas.
+- `discAdn`: routing key names (e.g. `["cmd", "mode"]`) — required as strings,
+  **optional** columns grouped in a final sub-array (the optionality marker)
+- `discriminKeys`: the **clause matrix** (one array per branch, position = column):
+  singleton → direct value, multi-value → sub-array, `undefined` present → real
+  value, position beyond the array length → wildcard
+- `branchDef`: `[prevalidationId, branch0Id, ...]` — pre-validation object
+  (type + required keys check) then branch sub-schemas
+- `mode`: `"constructor-priority"` (default) | `"source-order"` — routing semantics (DEC-0041)
 
-The decision tree is **not** stored in DNA — it is computed at codegen time from the clause matrix. This keeps DNA compact.
+The clause matrix IS in the DNA (DEC-0041 Option A — it is Maranget's input).
+The builder builds it from the live branch shapes; the pure algorithm
+`algo/maranget.ts > compile(rows, mode, isOptionalKey)` computes the tree; the
+codegen converts absent cells → WILDCARD and emits JS.
 
 ### Codegen: Maranget decision tree
 
-The `cli` opcode handler builds a nested `switch`/`if` tree from the clause matrix. See [Maranget decision tree codegen](technical.md#maranget-decision-tree-codegen-cli-opcode) in the technical reference for the full algorithm, column selection heuristic, and codegen rules.
+The `maranget` opcode handler builds a nested `switch`/`if` tree from the clause matrix. See [technical-maranget.md](technical-maranget.md) for the full algorithm, clause matrix format, compilation rules, heuristics, P2'-carrying, routing modes, wildcard encoding, and F1 fix.
 
 ### Maranget decision tree
 
-The routing code is generated at codegen time from a **clause matrix** — a 2D grid where rows are branches and columns are discriminator keys. Each cell contains the finite value set accepted by that branch for that key.
+The routing code is generated at codegen time from a **clause matrix** — a 2D grid where rows are branches and columns are discriminator keys. The algorithm is an adaptation of Luc Maranget's pattern-matching compilation (*"Compiling Pattern Matching to Good Decision Trees"*, ML'08, 2008).
 
-The algorithm is a simplified adaptation of Luc Maranget's pattern-matching compilation (*"Compiling Pattern Matching to Good Decision Trees"*, ML'08, 2008):
+The tree is computed at codegen time via `algo/maranget.ts`, not stored in DNA — the DNA carries the **clause matrix** (`["maranget", discAdn, discriminKeys, branchDef, mode]`) and the codegen compiles it. The generated JavaScript contains the full nested `switch`/`if` tree.
 
-```
-emitTree(rows, remainingCols):
-  1. If rows is empty → emit fail
-  2. col = chooseColumn(rows, remainingCols)   // fewest distinct values that splits
-  3. If col == -1 → emit branch validation (leaf)
-  4. Group rows by value on column col
-  5. If key is optional: emit if(key === undefined) { subtree } first
-     If key is required: emit switch(key) { case v: subtree; ... default: fail }
-  6. Recurse for each group
-```
-
-The tree is computed at codegen time, not stored in DNA. This keeps the DNA compact (`["cli", discriminators, discriminKeys, refs]`) while the generated JavaScript contains the full nested `switch`/`if` tree.
-
-See [Maranget decision tree codegen](technical.md#maranget-decision-tree-codegen-cli-opcode) in the technical reference for the full algorithm, column selection heuristic, and codegen rules.
+For the full algorithm, compilation rules, column selection heuristic, P2'-carrying scheme, and wildcard handling, see
+[technical-maranget.md](technical-maranget.md).
 
 ### Routing complexity
 
@@ -134,7 +136,7 @@ cli.positionals;    // ["cmd", "mode"] (cmd first: 2 values, mode: 2 values, tie
 cli.flags;          // [] (no non-positional keys)
 ```
 
-### Explicit discriminators and positionals
+### Explicit discriminators
 
 ```typescript
 const cli = dna.cliUnion(
@@ -142,9 +144,13 @@ const cli = dna.cliUnion(
     dna.object({ cmd: dna.literal("build"), mode: dna.literal("dev") }),
     dna.object({ cmd: dna.literal("deploy"), mode: dna.literal("prod") }),
   ],
-  { discriminators: ["cmd"], positionals: ["cmd"] }
+  { discriminators: ["cmd"] }
 );
 ```
+
+Positionals are **derived** from the branch shapes (DEC-0042) — they are not
+accepted in the config. A CLI-level override lives in
+`introspect.toParseArgsConfig(schema, { positionals })`.
 
 ### Optional discriminators
 
@@ -264,40 +270,58 @@ rehydrated({ cmd: "build", mode: "dev" }); // works independently
 
 ## API reference
 
-### `dna.cliUnion(branches, config?)`
+### `dna.marangetUnion(branches, config?)` — canonical
 
-Creates a `DnaCliUnion` schema.
+Creates a `DnaMarangetUnion` (or `DnaCliUnion` when `mode: "cli"`).
 
 **Parameters:**
 - `branches`: array of `DnaObject` (or `DnaPipe`/wrapped) schemas
 - `config.discriminators`: explicit discriminator keys (auto-detected if omitted)
-- `config.positionals`: explicit positional keys (auto-detected if omitted)
+- `config.mode`: `"constructor-priority"` (default) | `"source-order"` | `"cli"`
 
-### `DnaCliUnion` getters
+### `dna.cliUnion(branches, config?)` — legacy alias
+
+Equivalent to `marangetUnion(branches, { ...config, mode: "cli" })`. Constructs
+a `DnaCliUnion` instance. The `mode` config is not accepted here (`cliUnion` IS
+the cli mode).
+
+### `DnaMarangetUnion` getters
 
 | Getter | Returns | Description |
 |---|---|---|
 | `.options` | `S` | Branch schemas (Zod v4 parity: `.options`) |
 | `.discriminators` | `string[]` | Routing key names |
-| `.positionals` | `string[]` | Positional key names (ordered) |
+
+### `DnaCliUnion` additional getters (extends `DnaMarangetUnion`)
+
+| Getter | Returns | Description |
+|---|---|---|
+| `.positionals` | `string[]` | Positional key names (derived, ordered by priority) |
 | `.flags` | `string[]` | Non-positional keys across all branches |
 
-### `DnaCliUnion` methods
+### Methods (on `DnaMarangetUnion`, inherited by `DnaCliUnion`)
 
 | Method | Returns | Description |
 |---|---|---|
-| `.toParseArgsConfig(opts?)` | `ParseArgsConfig` | Generates `node:util.parseArgs` config |
+| `.toParseArgsConfig(opts?)` | `ParseArgsConfig` | Generates `node:util.parseArgs` config (delegate to `introspect.toParseArgsConfig`) |
 | `.safeParse(input)` | `{ success, data } \| { success, errors }` | Parse + transform |
 | `.validate(input)` | `boolean` | Fast boolean validation |
 | `.toDna()` | `tsDnaSeq` | Emits DNA bytecode |
 
-### `DnaCliUnion` static methods
+### Introspection utilities (`@ytrynot/dna/introspect`)
 
-| Method | Description |
+Formerly static methods on `DnaCliUnion` (DEC-0043 moved them to
+`maranget-keys.ts`, exported via `@ytrynot/dna/introspect`):
+
+| Function | Description |
 |---|---|
-| `.detectDiscriminators(schemas)` | Auto-detects discriminator keys |
-| `.detectPositionals(schemas, discriminators)` | Auto-detects positional keys |
-| `.unwrapToDnaObject(schema)` | Unwraps `DnaPipe`/wrapper to `DnaObject` |
+| `detectDiscriminators(schemas)` | Auto-detects discriminator keys |
+| `detectPositionals(schemas, discriminators)` | Auto-detects positional keys |
+| `detectOptionalDiscriminators(...)` | Detects optional discriminator columns |
+| `sortForCli(schemas, discriminators)` | Sorts discriminators by positional priority |
+| `unwrapToDnaObject(schema)` | Unwraps `DnaPipe`/wrapper to `DnaObject` |
+| `finiteValueSet(schema)` | Extracts finite value set from a leaf schema |
+| `isRequiredKey(schema)` | Checks if a key is required |
 
 ## Discriminator rules
 
@@ -308,48 +332,61 @@ Creates a `DnaCliUnion` schema.
 
 ## Relationship with `discriminatedUnion`
 
-| | `discriminatedUnion` | `cliUnion` |
+| | `discriminatedUnion` | `marangetUnion` / `cliUnion` |
 |---|---|---|
 | Discriminator keys | 1 | N |
 | OpenAPI/JSON Schema | yes | no |
-| Opcode | `discriminator` | `cli` |
+| Opcode | `discriminator` | `maranget` |
 | Codegen | `switch` on single key | Maranget decision tree |
 | Positional detection | no | yes |
 | `toParseArgsConfig` | no | yes |
 | Branch mutations | full (`.extend()`, `.transform()`, etc.) | full (`.extend()`, `.transform()`, etc.) |
 
-`cliUnion` is independent from `discriminatedUnion`. They serve different use cases: `discriminatedUnion` for OpenAPI-compatible single-key routing, `cliUnion` for CLI multi-key routing with branch mutations.
+`marangetUnion` is independent from `discriminatedUnion`. They serve different use cases: `discriminatedUnion` for OpenAPI-compatible single-key routing, `marangetUnion` for CLI multi-key routing with branch mutations.
 
 ## Typing model
 
 ### Type parameters
 
 ```typescript
-export function cliUnion<const S extends readonly DnaSomeType[]>(
+// Canonical (DEC-0041)
+export function marangetUnion<const S extends readonly DnaSomeType[]>(
   schemas: S,
   config?: ICliUnionConfig,
+  meta?: string | tsDnaMeta
+): DnaMarangetUnion<S>
+
+// Legacy alias — equivalent to marangetUnion(schemas, { ...config, mode: "cli" })
+export function cliUnion<const S extends readonly DnaSomeType[]>(
+  schemas: S,
+  config?: Omit<ICliUnionConfig, "mode">,
   meta?: string | tsDnaMeta
 ): DnaCliUnion<S>
 ```
 
 - **`S`** (const type parameter): inferred as a **readonly tuple** of branch schema types. The `const` modifier on the type parameter preserves tuple order and length at the call site.
-- **`ICliUnionConfig`**: `{ positionals?: string[]; discriminators?: string[] }` — minimal, runtime-only config. No `shorts` or `strict` (these are `parseArgs`-level concerns, see [ADMIN decision 2026-08-15](#toparseargsconfig)).
+- **`ICliUnionConfig`**: `{ discriminators?: string[]; mode?: tsMarangetMode }` — minimal, runtime-only config. Positionals are derived (DEC-0042), not accepted in config. No `shorts` or `strict` (these are `parseArgs`-level concerns, see [ADMIN decision 2026-08-15](#toparseargsconfig)).
 
 ### `_output` and `_input`
 
 ```typescript
-class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]>
+// Base class (DEC-0041, DEC-0043)
+class DnaMarangetUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]>
   extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<S[number]>;
   declare readonly _input: $Input<S[number]>;
 }
+
+// CLI subclass — adds derived positionals/flags (DEC-0043)
+class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]>
+  extends DnaMarangetUnion<S> {}
 ```
 
 `_output` is the **union of branch outputs** (`$Output<S[number]>`), and `_input` is the **union of branch inputs** (`$Input<S[number]>`). `$Output<S>` extracts `_output` via `S extends { _output: any } ? S["_output"] : unknown` (indexed access — see [technical.md](technical.md#deferred-outputinput-and-recursive-type-inference)).
 
 ### Deferred pattern
 
-`DnaCliUnion` follows the same [deferred pattern](technical.md#deferred-outputinput-and-recursive-type-inference) as `DnaDiscriminatedUnion` and `DnaObject`:
+`DnaMarangetUnion` (and `DnaCliUnion`) follows the same [deferred pattern](technical.md#deferred-outputinput-and-recursive-type-inference) as `DnaDiscriminatedUnion` and `DnaObject`:
 
 1. **Parent uses `any, any`**: `extends DnaTypeWithWrappers<any, any>` — the parent's `readonly declare _output: T` resolves to `any` and does not force eager resolution.
 2. **Re-declare via `declare readonly`**: `_output` and `_input` are re-declared with `declare readonly _output: $Output<S[number]>` / `declare readonly _input: $Input<S[number]>`. `declare` fields are erased at runtime and deferred until explicitly queried (e.g. `dna.infer<typeof cli>`).
@@ -381,7 +418,7 @@ type Routed = dna.infer<typeof cli>;
 // { cmd: "build"; mode: "dev" } | { cmd: "deploy"; mode: "prod" }
 ```
 
-`dna.infer<S>` is an alias for `$Output<S>`, which extracts `_output` from the schema. For `DnaCliUnion<S>`, this resolves to `$Output<S[number]>` — the union of branch outputs.
+`dna.infer<S>` is an alias for `$Output<S>`, which extracts `_output` from the schema. For `DnaMarangetUnion<S>` / `DnaCliUnion<S>`, this resolves to `$Output<S[number]>` — the union of branch outputs.
 
 ### Wrappers on `cliUnion`
 
@@ -395,10 +432,10 @@ const optCli = cli.optional();
 
 ### Type erosion when widened
 
-When a `DnaCliUnion<S>` is widened to `DnaCliUnion<readonly DnaSomeType[]>` (e.g. stored in a generic container), `_output` erodes to `unknown`:
+When a `DnaMarangetUnion<S>` (or `DnaCliUnion<S>`) is widened to `DnaMarangetUnion<readonly DnaSomeType[]>` (e.g. stored in a generic container), `_output` erodes to `unknown`:
 
 ```typescript
-const erased: DnaCliUnion<readonly DnaSomeType[]> = cli;
+const erased: DnaMarangetUnion<readonly DnaSomeType[]> = cli;
 type Out = typeof erased["_output"]; // unknown
 ```
 
@@ -430,14 +467,14 @@ The return type is a **concrete type**, not generic over `S`. This is deliberate
 
 ### Comparison with `DnaUnion` and `DnaDiscriminatedUnion`
 
-| | `DnaUnion<S>` | `DnaDiscriminatedUnion<K, S>` | `DnaCliUnion<S>` |
+| | `DnaUnion<S>` | `DnaDiscriminatedUnion<K, S>` | `DnaMarangetUnion<S>` / `DnaCliUnion<S>` |
 |---|---|---|---|
 | Constraint on `S` | `tsDnaTupleSchemaRO` | `tsDnaDiscriminatedUnionObjects<K>` | `readonly DnaSomeType[]` |
 | `_output` | `$Output<S[number]>` | `$Output<S[number]>` | `$Output<S[number]>` |
 | `extends` | `DnaCombinator<...>` (typed) | `DnaTypeWithWrappers<any, any>` | `DnaTypeWithWrappers<any, any>` |
 | Empty array `_output` | `never` | n/a (requires ≥1 branch with key `K`) | `never` |
 
-**Note on the `S` constraint**: `DnaUnion` uses `tsDnaTupleSchemaRO` (which is `readonly [DnaType, ...DnaType[]] | readonly []`), while `DnaCliUnion` uses the looser `readonly DnaSomeType[]`. The looser constraint means a non-`const` `DnaSomeType[]` array is accepted — in that case `S[number]` resolves to `DnaSomeType` and `_output` erodes to `unknown`. The `const` modifier on the type parameter ensures tuple inference at the call site, so in practice the output is correctly typed when using `dna.cliUnion([...])` directly.
+**Note on the `S` constraint**: `DnaUnion` uses `tsDnaTupleSchemaRO` (which is `readonly [DnaType, ...DnaType[]] | readonly []`), while `DnaMarangetUnion`/`DnaCliUnion` use the looser `readonly DnaSomeType[]`. The looser constraint means a non-`const` `DnaSomeType[]` array is accepted — in that case `S[number]` resolves to `DnaSomeType` and `_output` erodes to `unknown`. The `const` modifier on the type parameter ensures tuple inference at the call site, so in practice the output is correctly typed when using `dna.marangetUnion([...])` / `dna.cliUnion([...])` directly.
 
 ## Object modes in branches
 
@@ -491,7 +528,7 @@ These limitations are inherent to the routing model and cannot be lifted without
 
 6. **DNA `.default()` on a routing key does not help routing.** The default is applied **inside the branch** (after routing), not before. If the key is absent, routing fails before the default is injected. To default a routing key before routing, use `parseArgs` `options[name].default` or a pre-routing transform owned by `@ytrynot/cli`. See [`.default()` on routing keys](#default-on-routing-keys) below.
 
-7. **No JSON Schema / OpenAPI equivalent.** The `cli` opcode is DNA-specific. `toJSONSchema()` does not emit a `cliUnion`; it is only produced by the builder's `dna.cliUnion()`.
+7. **No JSON Schema / OpenAPI equivalent.** The `maranget` opcode is DNA-specific. `toJSONSchema()` does not emit a `marangetUnion`; it is only produced by the builder's `dna.marangetUnion()`/`dna.cliUnion()`.
 
 ### `.default()` on routing keys
 
@@ -573,7 +610,8 @@ This is a known limitation shared with Zod v4's `.passthrough()` / `.strict()` o
 
 ## See also
 
-- [Maranget decision tree codegen](technical.md#maranget-decision-tree-codegen-cli-opcode) — algorithm, heuristics, codegen rules
-- [`cli` opcode handler](opcode-patterns.md#cli-opcode-handler--maranget-decision-tree-stepsarray-variant) — StepsArray pattern variant
+- [Maranget decision tree codegen](technical.md#maranget-decision-tree-codegen-maranget-opcode) — codegen-specific subset (full reference in [technical-maranget.md](technical-maranget.md))
+- [`maranget` opcode handler](opcode-patterns.md#maranget-opcode-handler--maranget-decision-tree-stepsarray-variant) — StepsArray pattern variant
+- [technical-maranget.md](technical-maranget.md) — full algorithm reference (clause matrix, compilation rules, heuristics, P2'-carrying, F1 fix)
 - [CLI union DNA format](../../../sandbox/cli-branches-union-dna-format.md) — design doc with benchmarks
 - [Performance skill](../../.devin/skills/ytn-dna-perf/SKILL.md) — DNA-generated validator/parser performance findings

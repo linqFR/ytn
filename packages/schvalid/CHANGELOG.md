@@ -1,5 +1,36 @@
 # @ytrynot/schvalid
 
+## 0.3.9
+
+### Patch Changes
+
+- Updated dependencies [4d5aa05]
+- Updated dependencies [c06294f]
+- Updated dependencies [af05353]
+  - @ytrynot/dna@0.8.0
+
+## 0.3.8
+
+### Patch Changes
+
+- 5cf7ad9: Dependency version bumps
+  
+  - Bump `jose` from `^6.2.9` to `^6.2.10` (transitive dep of `@ytrynot/dna`).
+  - Bump `@ytrynot/dna` dependency range from `^0.7.0`/`^0.7.3` to `^0.7.5` in `@ytrynot/schvalid` and `@ytrynot/qb` (peerDependency).
+  - No code changes — version range alignment only.
+- Updated dependencies [7b4bcf0]
+- Updated dependencies [5cf7ad9]
+- Updated dependencies [45711eb]
+  - @ytrynot/dna@0.7.6
+
+## 0.3.7
+
+### Patch Changes
+
+- e897dff: Bump engines to Node >=26.0.0 across all packages. CI workflows updated to Node 26.
+- Updated dependencies [e897dff]
+  - @ytrynot/dna@0.7.4
+
 ## 0.3.6
 
 ### Patch Changes

@@ -40,6 +40,14 @@ JSON Schema 2020-12 validation with compiled standalone JS functions.
 npm install @ytrynot/schvalid
 ```
 
+## Agent Skills
+
+Install the [ytn agent skill](../../skills/ytn/SKILL.md) so your AI coding agent knows how to use this package:
+
+```bash
+npx skills add linqFR/ytn
+```
+
 ## Limitations
 
 **External URIs:** This package does not currently handle external JSON Schema references (`$ref` pointing to external files or HTTP URIs). Only internal references within the same schema document are supported.

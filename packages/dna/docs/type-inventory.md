@@ -189,9 +189,9 @@ Created via methods on any `DnaTypeWithWrappers` (e.g. `dna.string().optional()`
 | `.nonoptional()` | `DnaNonOptional<Inner>` | `$Output<Inner>` (stripped `undefined`) | `"nonoptional"` | Marks key as required |
 | `.nullable()` | `DnaNullable<Inner>` | `$Output<Inner> \| null` | `"nullable"` | Allows `null` |
 | `.nullish()` | `DnaNullish<Inner>` | `$Output<Inner> \| null \| undefined` | `"nullish"` | Allows `null` and `undefined` |
-| `.default(value)` | `DnaDefault<Inner>` | `$Output<Inner>` | `"default"` | Supplies default for output |
-| `.prefault(value)` | `DnaPrefault<Inner>` | `$Output<Inner>` | `"prefault"` | Supplies default for input |
-| `.catch(value)` | `DnaCatch<Inner>` | `$Output<Inner>` | `"catch"` | Fallback on validation error |
+| `.default(value)` | `DnaDefault<Inner>` | `$Output<Inner>` | `"default"` | Supplies default for output. Accepts `T` or `() => T`. The `defaultValue` getter resolves functions. |
+| `.prefault(value)` | `DnaPrefault<Inner>` | `$Output<Inner>` | `"prefault"` | Supplies default for input. Accepts `T` or `() => T`. The `prefaultValue` getter resolves functions. |
+| `.catch(value)` | `DnaCatch<Inner>` | `$Output<Inner>` | `"catch"` | Fallback on validation error. Accepts `T` or `(ctx) => R`. The `catchValue` getter does NOT resolve functions (recovery needs `ctx`). |
 
 Top-level wrappers: `dna.optional(s)`, `dna.nonoptional(s)`, `dna.nullable(s)`, `dna.nullish(s)`, `dna.prefault(s, value)`.
 

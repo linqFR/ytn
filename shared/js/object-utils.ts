@@ -71,3 +71,41 @@ export const deepClone = <T>(obj: T): T => {
   if (obj === undefined) return undefined as unknown as T;
   return structuredClone(obj);
 };
+
+/**
+ * @function hasKey
+ * @description Type guard that narrows a parser result (success | failure) to the
+ * success branch AND narrows the data union to members that contain the given key.
+ *
+ * Eliminates catch-all branches (e.g. `{}`) from the data union, enabling safe
+ * property access after `safeParse()` on unions with catch-all members. This is
+ * the standard post-parse narrowing pattern — equivalent to Zod's
+ * `if (result.data.cmd === "build")` but for multi-key unions without a single
+ * discriminant.
+ *
+ * @template O - The data union type (success branch).
+ * @template K - The key that must be present in the data.
+ * @param result - A parser result (success with data, or failure with errors).
+ * @param key - The key that must be present in the data.
+ * @returns `result is { success: true; data: Extract<O, Record<K, unknown>> }`
+ *
+ * @example
+ * ```ts
+ * import { hasKey } from "@ytrynot/shared/js/object-utils";
+ * const r = schema.safeParse(input);
+ * if (hasKey(r, "sub")) {
+ *   console.log(r.data.sub); // narrowed: catch-all {} eliminated
+ * }
+ * ```
+ */
+export const hasKey = <O, K extends string>(
+  result: { success: true; data: O } | { success: false },
+  key: K,
+): result is { success: true; data: Extract<O, Record<K, unknown>> } => {
+  return (
+    result.success &&
+    typeof result.data === "object" &&
+    result.data !== null &&
+    key in result.data
+  );
+};

@@ -22,8 +22,7 @@ Brief title
 ### Frontmatter
 
 - List the affected package(s) with the bump type: `patch`, `minor`, or `major`.
-- Only public packages need changesets: `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`.
-- Private packages (`@ytrynot/wf`, `@ytrynot/shared`) are in the `ignore` list — no changeset needed.
+- Only packages not in the `ignore` list of `.changeset/config.json` need changesets. Check the config for the current list.
 
 ### Bump type
 

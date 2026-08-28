@@ -252,7 +252,7 @@ console.log(parseCode.join("\n"));
 ### Entry point
 
 ```typescript
-import { fromDna } from "@ytrynot/dna";
+import { fromDna } from "@ytrynot/dna/fromDna";
 const schema = fromDna(dnaSeq);
 ```
 

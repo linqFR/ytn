@@ -51,7 +51,7 @@ import { QueryBuilder } from "@ytrynot/qb";
 const UserSchema = z.object({
   id: z.string().uuid().meta({ pk: true }),
   email: z.string().email().meta({ unique: true }),
-  role: z.string().meta({ defaultValue: "'user'" }),
+  role: z.string().default('user'),
   age: z.number().int(),
   created_at: z.date().optional(),
 });
@@ -96,7 +96,7 @@ import { QueryBuilder } from "@ytrynot/qb";
 const UserSchema = dna.object({
   id: dna.string().uuid().meta({ pk: true }),
   email: dna.string().email().meta({ unique: true }),
-  role: dna.string().meta({ defaultValue: "'user'" }),
+  role: dna.string().default('user'),
   age: dna.int(),
   created_at: dna.date().optional(),
 });
@@ -129,7 +129,7 @@ import { QueryBuilder, type qbTable } from "@ytrynot/qb";
 const columns: qbTable = [
   { name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, meta: { pk: true } },
   { name: "email", sqliteType: "TEXT", optional: false, hasDefault: false, unique: true, meta: {} },
-  { name: "role", sqliteType: "TEXT", optional: false, hasDefault: true, defaultValue: "'user'", meta: {} },
+  { name: "role", sqliteType: "TEXT", optional: false, hasDefault: true, defaultValue: { string: "user" }, meta: {} },
   { name: "age", sqliteType: "INTEGER", optional: false, hasDefault: false, meta: {} },
   { name: "created_at", sqliteType: "DATETIME", optional: true, hasDefault: false, meta: {} },
 ];
@@ -151,7 +151,10 @@ CREATE TABLE IF NOT EXISTS users (
 ```
 
 > [!IMPORTANT]
-> For manual `qbColumn[]`, the `UNIQUE` constraint is read from the **top-level `unique` field** (`{ name: "email", unique: true, ... }`), not from `meta.unique`. The `meta` bag is reserved for schema-introspector metadata. The `pk` and `pkauto` keys are read from `meta` because they are the convention shared across all three schema sources.
+> For manual `qbColumn[]`, constraints are declared at specific locations:
+> - **UNIQUE**: top-level `unique` field — `{ name: "email", sqliteType: "TEXT", optional: false, hasDefault: false, unique: true, meta: {} }`
+> - **PRIMARY KEY AUTOINCREMENT**: top-level `pkauto` field — `{ name: "id", sqliteType: "INTEGER", optional: false, hasDefault: false, pkauto: true, meta: {} }`
+> - **PRIMARY KEY**: inside `meta` — `{ name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, meta: { pk: true } }`
 
 ### `qbColumn` fields
 
@@ -161,7 +164,7 @@ CREATE TABLE IF NOT EXISTS users (
 | `sqliteType` | `tsSqliteType` | yes | SQLite type: `"TEXT"`, `"INTEGER"`, `"REAL"`, `"BOOLEAN"`, `"DATETIME"`, `"BLOB"`. |
 | `optional` | `boolean` | yes | If `false`, `NOT NULL` is emitted (unless the column has a default). |
 | `hasDefault` | `boolean` | yes | If `true`, the `DEFAULT` clause is emitted from `defaultValue`. |
-| `defaultValue` | `unknown` | no | SQL literal for the `DEFAULT` clause (e.g. `"'user'"`, `"(CURRENT_TIMESTAMP)"`). |
+| `defaultValue` | `tsDefaultValue` | no | Default value — tagged form `{ string: "user" }` (auto-quoted) or direct form `"CURRENT_TIMESTAMP"` (raw SQL). See `tsDefaultValue` for all options. |
 | `unique` | `boolean` | no | If `true`, adds a `UNIQUE` constraint. |
 | `pkauto` | `boolean` | no | If `true`, adds `PRIMARY KEY AUTOINCREMENT` (valid only for `INTEGER` columns in SQLite). |
 | `fk` | `string \| IForeignKeyDefinition` | no | Foreign key reference. |
@@ -210,7 +213,6 @@ The `.meta()` API (Zod v4 and DNA) supports the following keys:
 | `fk` | `string \| object` | Defines a `FOREIGN KEY`. String `"table(col)"` or object `{ table, col, onDelete?, onUpdate? }`. |
 | `unique` | `boolean` | If `true`, adds a `UNIQUE` constraint to the column. |
 | `default` | `string` | Sets the SQL `DEFAULT` value (e.g. `"'active'"` or `"(CURRENT_TIMESTAMP)"`). |
-| `defaultValue` | `any` | Alias for `default`. |
 
 ### Why `.meta()`?
 
@@ -284,7 +286,7 @@ The `fk` value can be a string `"table(col)"` (shorthand, no actions) or an obje
 const users = QueryBuilder.defTable("users", UserSchema);
 users.req.upsert("email", "name").toSQL();
 // INSERT INTO users (email, name) VALUES (@email, @name)
-// ON CONFLICT(id, email) DO UPDATE SET name = @name
+// ON CONFLICT(id, email) DO UPDATE SET name = excluded.name
 
 // 2. Via table() 2nd arg
 QueryBuilder.table("users", ["email"]).upsert("email", "name").toSQL();
