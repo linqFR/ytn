@@ -79,13 +79,13 @@
     "./package.json": "./package.json"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.4.0",
     "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
     "tsx": "^4.23.12",
     "zod": "^4.4.3"
   },
   "dependencies": {
-    "jose": "^6.2.9"
+    "jose": "^6.2.10"
   }
 }
