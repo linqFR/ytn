@@ -191,7 +191,6 @@ export class DnaCollector implements IDnaCollector {
 // ============================================
 
 const SymSetHead = Symbol("setHead");
-const SymForceCoerce = Symbol("forceCoerce");
 
 /**
  * Structural interface shared by all DNA schema instances. Defines the
@@ -209,7 +208,7 @@ export interface DnaSomeType<T = unknown, I = unknown> {
   readonly templateRegex: string;
   readonly _core: BaseCore<any>;
   readonly _head: unknown;
-  [SymForceCoerce](): DnaSomeType<T, I>;
+  coerced(): DnaSomeType<T, I>;
   parse(value: unknown, ctx?: tsDnaExternals): this["_output"];
   safeParse(value: unknown, ctx?: tsDnaExternals): tsDnaParserResult<this["_output"]>;
   parseAsync(value: unknown, ctx?: tsDnaExternals): Promise<this["_output"]>;
@@ -252,6 +251,27 @@ export function cloner<T extends DnaType<any, any>>(schema: T, fn: (cl: T) => vo
   if (schema._head) clHeaded[SymSetHead](schema._head);
   fn(clHeaded);
   return clHeaded;
+}
+
+/**
+ * Walks a schema to its leaf and sets `coerce = true` on the leaf's core.
+ * Handles wrappers and pipes with the same asymmetric logic as `isCoercible`
+ * (in `introspect.ts`): regular pipe → first step (input), preprocess → last
+ * step (target). The `coerce` setter on `BaseCore` is a no-op when no
+ * `coerceCode` is defined (e.g. `dna.date()`), making this safe to call on
+ * any schema.
+ */
+function forceCoerceLeaf(s: DnaSomeType): void {
+  let leaf: DnaSomeType = s instanceof DnaLazy ? s.innerType : s;
+  while (leaf instanceof _DnaWrapper) leaf = leaf.unwrap();
+  if (leaf instanceof DnaPipe) {
+    const isPreprocess = leaf.meta().preprocess === true;
+    const steps = leaf._core.seed.steps;
+    const step = isPreprocess ? steps[steps.length - 1] : steps[0];
+    forceCoerceLeaf(step);
+    return;
+  }
+  leaf._core.coerce = true;
 }
 
 // ============================================
@@ -332,15 +352,19 @@ export class DnaType<T = unknown, I = unknown> implements DnaSomeType<T, I> {
 
   /**
    * Force coercion on this schema, walking through wrappers to the leaf.
-   * Used internally for record keys which must be coerced to strings.
    * Returns a cloned schema with coercion enabled to avoid mutating the original.
+   *
+   * Pipe handling is asymmetric (same logic as `isCoercible` in `introspect.ts`):
+   * - Regular pipe (`a.pipe(b)`): coerces the first step (the input/source).
+   * - Preprocess (`preprocess(fn, target)`): coerces the last step (the target/output),
+   *   because the first step is a black-box transform.
+   *
+   * Silently no-ops on types without `coerceCode` (the `coerce` setter on `BaseCore`
+   * only activates when a `coerceCode` is defined).
    */
-  [SymForceCoerce]() {
-    // Clone the schema to avoid mutating the original
+  coerced(): this {
     const cloned = this.clone();
-    let leaf = cloned;
-    while (leaf instanceof _DnaWrapper) leaf = leaf.unwrap();
-    leaf._core.coerce = true;
+    forceCoerceLeaf(cloned);
     return cloned;
   }
 
@@ -3720,7 +3744,7 @@ export class DnaRecord<K extends DnaType<any, any>, V extends DnaType<any, any>>
     this._core.rawDna = ["rcd", constraints];
     const dnaId = coll.storeDNA(this._core.dnaWithMeta, storeMark, storePosition);
 
-    const coercedKeySchema = keySchema[SymForceCoerce]();
+    const coercedKeySchema = keySchema.coerced();
     coercedKeySchema.toDna(coll, keyStoreId, 1);
 
     this._core.seed.valueSchema.toDna(coll, valueStoreId, 1);

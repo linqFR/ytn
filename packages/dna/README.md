@@ -292,6 +292,25 @@ isCoercible(dna.preprocess(fn, dna.coerce.number()));   // true (checks target s
 isCoercible(dna.date());                                 // false (no coerceCode — by design)
 ```
 
+### `.coerced()` — force coercion on any schema
+
+The `.coerced()` method clones a schema and enables coercion on its leaf, walking through wrappers and pipes with the same asymmetric logic as `isCoercible`. This is the complement to `isCoercible`: check first, then coerce.
+
+```typescript
+import { dna } from "@ytrynot/dna";
+import { isCoercible } from "@ytrynot/dna/introspect";
+
+const s = dna.number();
+if (isCoercible(s)) {
+  // already coercible
+} else {
+  const coerced = s.coerced();
+  coerced.safeParse("42"); // { success: true, data: 42 }
+}
+```
+
+Silently no-ops on types without `coerceCode` (e.g. `dna.date()` — validates `Date` objects, no string coercion available).
+
 ## Comparison with Zod
 
 @ytrynot/dna covers ~95% of the Zod v4 API with full parity — all primitives, string formats,
