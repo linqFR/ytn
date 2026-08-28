@@ -1,8 +1,8 @@
 # CLI Union (`dna.cliUnion`)
 
-> **Renamed (DEC-0041)**: `dna.cliUnion` is now a legacy alias — the canonical
+> **Renamed**: `dna.cliUnion` is a legacy alias — the canonical
 > name is **`dna.marangetUnion`** (with a `mode` option). This page documents
-> the builder API and usage (still accurate under both names). For the
+> the builder API and usage (accurate under both names). For the
 > **routing algorithm** (clause matrix, mixture rule, P2'-carrying, modes)
 > with diagrams, see **[maranget.md](maranget.md)**.
 
@@ -54,9 +54,9 @@ Command line tokens
   value, position beyond the array length → wildcard
 - `branchDef`: `[prevalidationId, branch0Id, ...]` — pre-validation object
   (type + required keys check) then branch sub-schemas
-- `mode`: `"constructor-priority"` (default) | `"source-order"` — routing semantics (DEC-0041)
+- `mode`: `"constructor-priority"` (default) | `"source-order"` — routing semantics
 
-The clause matrix IS in the DNA (DEC-0041 Option A — it is Maranget's input).
+The clause matrix IS in the DNA (it is Maranget's input).
 The builder builds it from the live branch shapes; the pure algorithm
 `algo/maranget.ts > compile(rows, mode, isOptionalKey)` computes the tree; the
 codegen converts absent cells → WILDCARD and emits JS.
@@ -148,7 +148,7 @@ const cli = dna.cliUnion(
 );
 ```
 
-Positionals are **derived** from the branch shapes (DEC-0042) — they are not
+Positionals are **derived** from the branch shapes — they are not
 accepted in the config. A CLI-level override lives in
 `introspect.toParseArgsConfig(schema, { positionals })`.
 
@@ -310,7 +310,7 @@ the cli mode).
 
 ### Introspection utilities (`@ytrynot/dna/introspect`)
 
-Formerly static methods on `DnaCliUnion` (DEC-0043 moved them to
+Formerly static methods on `DnaCliUnion` (moved to
 `maranget-keys.ts`, exported via `@ytrynot/dna/introspect`):
 
 | Function | Description |
@@ -349,7 +349,7 @@ Formerly static methods on `DnaCliUnion` (DEC-0043 moved them to
 ### Type parameters
 
 ```typescript
-// Canonical (DEC-0041)
+// Canonical
 export function marangetUnion<const S extends readonly DnaSomeType[]>(
   schemas: S,
   config?: ICliUnionConfig,
@@ -365,19 +365,19 @@ export function cliUnion<const S extends readonly DnaSomeType[]>(
 ```
 
 - **`S`** (const type parameter): inferred as a **readonly tuple** of branch schema types. The `const` modifier on the type parameter preserves tuple order and length at the call site.
-- **`ICliUnionConfig`**: `{ discriminators?: string[]; mode?: tsMarangetMode }` — minimal, runtime-only config. Positionals are derived (DEC-0042), not accepted in config. No `shorts` or `strict` (these are `parseArgs`-level concerns, see [ADMIN decision 2026-08-15](#toparseargsconfig)).
+- **`ICliUnionConfig`**: `{ discriminators?: string[]; mode?: tsMarangetMode }` — minimal, runtime-only config. Positionals are derived, not accepted in config. No `shorts` or `strict` (these are `parseArgs`-level concerns, see [ADMIN decision 2026-08-15](#toparseargsconfig)).
 
 ### `_output` and `_input`
 
 ```typescript
-// Base class (DEC-0041, DEC-0043)
+// Base class
 class DnaMarangetUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]>
   extends DnaTypeWithWrappers<any, any> {
   declare readonly _output: $Output<S[number]>;
   declare readonly _input: $Input<S[number]>;
 }
 
-// CLI subclass — adds derived positionals/flags (DEC-0043)
+// CLI subclass — adds derived positionals/flags
 class DnaCliUnion<S extends readonly DnaSomeType[] = readonly DnaSomeType[]>
   extends DnaMarangetUnion<S> {}
 ```

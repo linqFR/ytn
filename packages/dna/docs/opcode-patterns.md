@@ -970,7 +970,7 @@ dnaOpt: [(string | string[])[], (tsPrimitiveLiteral | tsPrimitiveLiteral[])[][],
 
 ### Algorithm
 
-The handler is a pure emitter (DEC-0041 SoC). The clause matrix arrives in the
+The handler is a pure emitter (separation of concerns). The clause matrix arrives in the
 opcode args (built by the builder — trailing absent columns stay sparse
 (position beyond the array length = wildcard); a NON-TRAILING absence — a
 wildcard BEFORE a value — is an explicit `WILDCARD_CELL` marker (`"\x00"`) at

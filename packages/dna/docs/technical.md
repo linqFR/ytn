@@ -331,9 +331,9 @@ Underscore prefix (e.g., `"_o"`, `"_s"`, `"_n"`) indicates unconstrained types. 
 - `["maranget", discAdn, discriminKeys, branchDef, mode]` - multi-key routing union (Maranget)
 
   - `discAdn`: `(string | string[])[]` — routing key names (column order). Required columns are strings; optional columns are grouped in a **final sub-array** (the optionality marker), e.g. `["cmd", "mode", ["verbose"]]`. Unlike `discriminator` (single-key), `maranget` supports multiple keys.
-  - `discriminKeys`: the **clause matrix** (DEC-0041 Option A) — one array per branch, position = column. Singleton → direct value; multi-value → sub-array (`["dev","prod"]`); `undefined` PRESENT → real value (`dna.undefined()`, `.optional()`, `.nullish()`); a position beyond the array length → wildcard (trailing absences stay sparse); a **non-trailing** absence (a wildcard BEFORE a value, e.g. a branch routing on a different key) → the explicit `WILDCARD_CELL` marker `"\x00"` at its position (keeps the matrix aligned — NUL is JSON-safe and impossible as a CLI input).
+  - `discriminKeys`: the **clause matrix** — one array per branch, position = column. Singleton → direct value; multi-value → sub-array (`["dev","prod"]`); `undefined` PRESENT → real value (`dna.undefined()`, `.optional()`, `.nullish()`); a position beyond the array length → wildcard (trailing absences stay sparse); a **non-trailing** absence (a wildcard BEFORE a value, e.g. a branch routing on a different key) → the explicit `WILDCARD_CELL` marker `"\x00"` at its position (keeps the matrix aligned — NUL is JSON-safe and impossible as a CLI input).
   - `branchDef`: Array of DNA index references — `branchDef[0]` is the pre-validation object (checks `type: "object"` + required key presence), `branchDef[1..N]` are the branch sub-schemas.
-  - `mode`: `"constructor-priority"` (default) | `"source-order"` — routing semantics (DEC-0041).
+  - `mode`: `"constructor-priority"` (default) | `"source-order"` — routing semantics.
   - **Codegen**: the matrix arrives in the opcode args (zero generic plumbing — no `utils.dna`). The handler converts ADN cells (`WILDCARD_CELL` marker `"\x00"` and beyond-length positions → WILDCARD), calls `algo/maranget.ts > compile(rows, mode, isOptionalKey)` (pure matrix → tree, see [Maranget decision tree codegen](#maranget-decision-tree-codegen-cli-opcode) below), then emits JS. The tree is computed at codegen time, not stored in the DNA.
   - Branch sub-schemas are emitted **as-is** (same as `discriminator`): routing keys retain their original schema. Redundant `hasOwn` and const-check on routing keys are elided via `parentCtx.testedProp` (see [§5bis](#5bis-discriminatorcli-routing-key-redundancy-elision-parentctxtestedprop)). Branch mutations (`.extend()`, `.transform()`, `.default()`) are preserved naturally.
   - **No JSON Schema equivalent**: `maranget` is a DNA-specific opcode with no OpenAPI/JSON Schema counterpart. It is emitted only by the builder's `dna.marangetUnion()`/`dna.cliUnion()`.
@@ -564,9 +564,9 @@ dna.discriminatedUnion("kind", [
 
 **Detection difference:** `jschemaToDna` only emits the `discriminator` opcode when strict conditions hold (`type: "object"`, `discriminator.propertyName` is a string, every branch has a `const` for the discriminator, and the discriminator property is in `required`). The builder's `dna.discriminatedUnion` always emits the discriminated-union opcode regardless of whether branches use `literal` for the discriminator — the contract is enforced by TypeScript types (`tsDnaDiscriminatedUnionObjects<K>`), not by runtime detection.
 
-**DNA bytecode parity — `discriminKeys` format.** Both paths now emit `discriminKeys` in the same format: a **primitive** (raw value) for single-value discriminators (`const: "build"` / `dna.literal("build")` → `"build"`), and an **array** for multi-value discriminators (`enum: ["a","b"]` / `dna.literal(["a","b"])` → `["a","b"]`). The builder's `finiteValueSet()` always returns an array; singletons are flattened at emission time (`values.length === 1 ? values[0] : values`) to match schvalid's `const` format.
+**DNA bytecode parity — `discriminKeys` format.** Both paths emit `discriminKeys` in the same format: a **primitive** (raw value) for single-value discriminators (`const: "build"` / `dna.literal("build")` → `"build"`), and an **array** for multi-value discriminators (`enum: ["a","b"]` / `dna.literal(["a","b"])` → `["a","b"]`). The builder's `finiteValueSet()` always returns an array; singletons are flattened at emission time (`values.length === 1 ? values[0] : values`) to match schvalid's `const` format.
 
-**DNA bytecode parity — branch emission.** Both paths now emit branch sub-schemas **as-is** (the builder no longer clones branches with the discriminator replaced by `DnaAny`). Redundant `hasOwn` and const-check on routing keys are elided at codegen time via `parentCtx.testedProp` (see [§5bis](#5bis-discriminatorcli-routing-key-redundancy-elision-parentctxtestedprop)), preserving transforms/pipes on the routing key. The builder emits properties in their declaration order; schvalid reorders via object spread (`{ [discriminator]: true, ...requiredKeys, ...optionalKeys }`).
+**DNA bytecode parity — branch emission.** Both paths emit branch sub-schemas **as-is** (the builder does not clone branches with the discriminator replaced by `DnaAny`). Redundant `hasOwn` and const-check on routing keys are elided at codegen time via `parentCtx.testedProp` (see [§5bis](#5bis-discriminatorcli-routing-key-redundancy-elision-parentctxtestedprop)), preserving transforms/pipes on the routing key. The builder emits properties in their declaration order; schvalid reorders via object spread (`{ [discriminator]: true, ...requiredKeys, ...optionalKeys }`).
 
 **Remaining structural diffs (no functional impact).** The generated `validate`/`parse` functions are functionally identical, but the DNA bytecode still differs in three cosmetic aspects:
 1. **Constraint order inside `o`**: builder emits `properties` → `required` → `additionalProperties`; schvalid emits `required` → `properties` → `additionalProperties`. Both produce the same runtime checks.
@@ -979,7 +979,7 @@ The `chkSeq` opcode carries the schema's accumulated `refinerList`. `fromDna` su
 - `["property", propertyName, schema]` → rebuilds a property-level check.
 - `["func", fnStr, arity, errorOpt?]` → pushes the function string directly back into the cloned schema's `refinerList` so that `toDna()` emits the same entry.
 
-`refine()` / `superRefine()` / `.check()` all now emit `func` entries, so `fromDna` does not need to distinguish them at reconstruction time.
+`refine()` / `superRefine()` / `.check()` all emit `func` entries, so `fromDna` does not need to distinguish them at reconstruction time.
 
 ### `template` reconstruction
 
@@ -1103,7 +1103,7 @@ This follows the DNA fast-fail discipline: no `else` chains, each successful pat
 - **No overlap detection**: if two branches have overlapping cells, the tree generates two paths for the same input. The first match wins (determined by tree structure), but this is implicit. Overlap validation should be done at construction time (`cliUnion` factory), not in the codegen.
 - **No branch shape recovery**: `fromDna` rebuilds the schema from `branchDef` (the branches are emitted as-is); the matrix is preserved in the ADN (roundtrip verified).
 
-### Wildcard handling (F1 fix, ACT-0028)
+### Wildcard handling (F1 fix — sentinel leak prevention)
 
 The codegen handles **two kinds of wildcard cells** in the ADN matrix:
 
@@ -1375,7 +1375,7 @@ transform applies on the pre-bound value).
 `allOf`/`oneOf` must **not** forward `testedProp` to their members: those are
 branching applicators (several simultaneous or alternative sub-schemas), and
 the router's `switch` does not necessarily validate all of them as a whole.
-This is currently moot — `finiteValueSet` rejects any `allOf`/`oneOf`-shaped
+This is moot — `finiteValueSet` rejects any `allOf`/`oneOf`-shaped
 routing key before a `discriminatedUnion`/`cliUnion` can even be constructed
 — but keep the invariant if that restriction is ever relaxed. `anyOf`
 coincidentally already doesn't leak `testedProp` (its `childrenCtx` is built
@@ -1440,7 +1440,7 @@ The base `DnaType.get type()` returns `this._core.state.kind` as-is. Classes whe
 
 ### `_core` is public (no more `SymCore`)
 
-The `_core` field on `DnaType` was previously `protected` and accessed externally via a `SymCore` symbol. This indirection was removed: `_core` is now `public` on `DnaType` and all subclasses. The `SymCore` symbol declaration has been deleted. The `DnaSomeType` interface declares `readonly _core: BaseCore<any>` directly.
+The `_core` field on `DnaType` is `public` on `DnaType` and all subclasses. The `DnaSomeType` interface declares `readonly _core: BaseCore<any>` directly. (The field was previously `protected` and accessed externally via a `SymCore` symbol; that indirection has been removed and the symbol declaration deleted.)
 
 This simplifies internal access patterns (e.g. `schema._core.seed` instead of `schema[SymCore].seed`) and eliminates the symbol-based escape hatch.
 ```
