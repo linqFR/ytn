@@ -13,7 +13,7 @@ describe("cliUnion — builder", () => {
 			dna.object({ cmd: dna.literal("build"), mode: dna.literal("prod") }),
 			dna.object({ cmd: dna.literal("deploy"), mode: dna.enum(["dev", "staging"]) }),
 		]);
-		expect(cli.type).toBe("marangetUnion"); // DEC-0041: type renamed
+		expect(cli.type).toBe("marangetUnion"); // type renamed from "cliUnion"
 		expect(cli.discriminators).toEqual(["cmd", "mode"]);
 	});
 
@@ -85,7 +85,7 @@ describe("cliUnion — builder", () => {
 	});
 
 	it("discriminator override — key not declared in any branch becomes a wildcard column (variable rule)", () => {
-		// DEC-0039: an absent discriminator key no longer throws — every branch
+		// An absent discriminator key no longer throws — every branch
 		// produces a wildcard cell on that column, which the variable rule skips.
 		const cli = dna.cliUnion([
 			dna.object({ cmd: dna.literal("build"), mode: dna.literal("dev") }),
@@ -465,7 +465,7 @@ describe("cliUnion — toDna / fromDna roundtrip", () => {
 		]);
 		const seq = cli.toDna();
 		const firstNode = seq[0];
-		expect(firstNode[0]).toBe("maranget"); // DEC-0041: opcode renamed from "cli"
+		expect(firstNode[0]).toBe("maranget"); // opcode renamed from "cli"
 	});
 
 	it("should preserve discriminators in DNA", () => {
@@ -480,7 +480,7 @@ describe("cliUnion — toDna / fromDna roundtrip", () => {
 });
 
 // ============================================================
-// marangetUnion (canonical factory, DEC-0041) — routing, modes, ADN, roundtrip
+// marangetUnion (canonical factory) — routing, modes, ADN, roundtrip
 // ============================================================
 
 describe("marangetUnion — canonical factory", () => {
@@ -647,7 +647,7 @@ describe("marangetUnion — canonical factory", () => {
 	});
 
 	it("D5: detectDiscriminators uses some (not required) — optional key with finite values is discriminator", () => {
-		// DEC-0039 amendement: detectDiscriminators uses schemas.some(...)
+		// detectDiscriminators uses schemas.some(...)
 		// not schemas.every(...). A key that is optional in one branch but
 		// has a finite value set is still a discriminator.
 		const m = dna.marangetUnion([
@@ -1293,7 +1293,7 @@ describe("cliUnion — DNA structure with mutations", () => {
 		]);
 		const seq = cli.toDna();
 		const firstNode = seq[0] as any;
-		expect(firstNode[0]).toBe("maranget"); // DEC-0041: opcode renamed from "cli"
+		expect(firstNode[0]).toBe("maranget"); // opcode renamed from "cli"
 		expect(firstNode[1]).toEqual(["cmd", "mode"]);
 		expect(firstNode[1]).not.toContain("tag");
 	});
@@ -1311,10 +1311,10 @@ describe("cliUnion — DNA structure with mutations", () => {
 });
 
 // ============================================================
-// DEC-0039 — mixture rule (Maranget §3.3 rule 4): catch-all branches
+// mixture rule (Maranget §3.3 rule 4): catch-all branches
 // ============================================================
 
-describe("cliUnion — DEC-0039 mixture rule (catch-all)", () => {
+describe("cliUnion — mixture rule (catch-all)", () => {
 	// Test 1: absolute catch-all LAST — fallback for unknown/missing values
 	it("Test 1: catch-all last — fallback for unknown cmd", () => {
 		const cli = dna.cliUnion([
@@ -1483,12 +1483,12 @@ describe("cliUnion — DEC-0039 mixture rule (catch-all)", () => {
 		]);
 		// prevalidationRequired must NOT include cmd (absent in catch-all branch)
 		const r = cli.safeParse({});
-		expect(r.success).toBe(true); // would fail pre-DEC-0039 (Gap D)
+		expect(r.success).toBe(true); // would fail before mixture rule (Gap D)
 		if (r.success) expect(r.data).toEqual({});
 	});
 
-	// Test 10: enum alias (orpat — DEC-0040 non-regression) combined with catch-all
-	it("Test 10: enum alias + catch-all combine (DEC-0039 × DEC-0040)", () => {
+	// Test 10: enum alias (orpat — non-regression) combined with catch-all
+	it("Test 10: enum alias + catch-all combine (mixture × orpat)", () => {
 		const cli = dna.cliUnion([
 			dna.object({ cmd: dna.enum(["build", "b"]), files: dna.string().optional() }),
 			dna.object({ cmd: dna.literal("deploy"), target: dna.string() }),
@@ -1585,10 +1585,10 @@ describe("cliUnion — DEC-0039 mixture rule (catch-all)", () => {
 });
 
 // ============================================================
-// DEC-0039 — type-level regression (catch-all in _output)
+// type-level regression (catch-all in _output)
 // ============================================================
 
-describe("cliUnion — DEC-0039 type-level", () => {
+describe("cliUnion — mixture rule type-level", () => {
 	it("type-level: catch-all widens _output union with the loose branch (empty object type)", () => {
 		const cli = dna.cliUnion([
 			dna.object({ cmd: dna.literal("build"), files: dna.string().optional() }),
@@ -1613,7 +1613,7 @@ describe("cliUnion — DEC-0039 type-level", () => {
 		>();
 	});
 
-	it("type-level: enum alias output is a union of literals (DEC-0040)", () => {
+	it("type-level: enum alias output is a union of literals (orpat)", () => {
 		const cli = dna.cliUnion([
 			dna.object({ cmd: dna.enum(["build", "b"]), files: dna.string().optional() }),
 			dna.object({ cmd: dna.literal("deploy"), target: dna.string() }),

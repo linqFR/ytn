@@ -108,8 +108,8 @@ an or-pattern `{ kind: "or", alts: [{kind:"ctor",ctor:"build",args:[]}, {kind:"c
 
 ## ADN format
 
-The DNA carries the clause matrix as an opcode argument (DEC-0041 Option A —
-the matrix is Maranget's INPUT, the tree is its OUTPUT):
+The DNA carries the clause matrix as an opcode argument (the matrix is
+Maranget's INPUT, the tree is its OUTPUT):
 
 ```js
 ["maranget",
@@ -478,13 +478,11 @@ emitted code.
 - Prototype: [`packages/cli/sandbox/maranget-prototype.ts`](../../cli/sandbox/maranget-prototype.ts)
 - Oracle differential test:
   [`packages/dna/tests/maranget-oracle-differential.test.ts`](../tests/maranget-oracle-differential.test.ts)
-- DEC-0039 (mixture rule, Accepted with amendements),
-  DEC-0040 (orpat rule, Accepted — algo deployed, canonical API `dna.enum([...])`),
-  DEC-0041 (rename + mode + SoC),
-  DEC-0042 (cli mode, derived positionals),
-  DEC-0043 (SoC statics → utils/introspect):
-  [`mailbox/mailbox-decisions.md`](../../../mailbox/mailbox-decisions.md)
-- ACT-0028 (F1 fix), ACT-0030 (oracle non-trailing extension):
-  [`mailbox/mailbox-actions.md`](../../../mailbox/mailbox-actions.md)
+- Mixture rule (catch-all branches, Maranget §3.3 rule 4), orpat rule
+  (`dna.enum([...])`), rename + mode + separation of concerns, CLI mode
+  with derived positionals, statics moved to `utils/introspect`:
+  see the project's decision log for the full history.
+- F1 fix (wildcard sentinel) and oracle non-trailing extension:
+  see the project's action log for the full history.
 - User-facing explanation: [maranget.md](maranget.md)
 - Builder API and usage: [cli-union.md](cli-union.md)

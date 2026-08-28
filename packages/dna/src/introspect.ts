@@ -185,7 +185,7 @@ function unwrapToLeaf(s: DnaSomeType): DnaSomeType {
   // Strip wrappers (optional, nullable, default, prefault, catch, ...)
   // Uses the public `isWrapper` guard (checks `s.type` against wrapper names)
   // rather than accessing `_core.seed.wrapperType` directly — single source
-  // of truth for wrapper detection (maranget-keys.ts, SoC DEC-0043).
+  // of truth for wrapper detection (maranget-keys.ts, separation of concerns).
   while (isWrapper(leaf)) {
     const inner = unwrap(leaf);
     if (!inner) break;

@@ -1,5 +1,6 @@
 // ============================================================
-// Oracle differential testing — Maranget marangetUnion (DEC-0039/DEC-0041)
+// Oracle differential testing — Maranget marangetUnion
+// (mixture rule + rename/mode/SoC)
 // ============================================================
 // Compares the compiled DNA decision tree against an independent
 // reference compiler (same spec: Maranget rules 1/2/4 + Option B
@@ -15,7 +16,7 @@
 // The reference compiler is written as a clean recursive TS tree
 // (not JS step emission) so codegen bugs surface as divergences.
 //
-// Terminology (DEC-0041, F1 fix ACT-0028):
+// Terminology (rename/mode/SoC, F1 fix):
 // - **trailing-wildcard row**: wildcards appear ONLY at the end (after all
 //   values). The ADN encodes these as sparse arrays (absent = beyond length).
 // - **non-trailing-wildcard row**: a wildcard appears BEFORE a declared value
@@ -28,7 +29,7 @@
 //    the original oracle, exercises the sparse-encoding path.
 // 2. Arbitrary-wildcard (200 seeds × 60 inputs = 12,000 comparisons) —
 //    wildcards at ANY position, exercises the WILDCARD_CELL marker path
-//    (F1 fix, ACT-0030). Both modes (source-order, constructor-priority).
+//    (F1 fix — sentinel leak prevention). Both modes (source-order, constructor-priority).
 import { describe, it, expect } from "vitest";
 import { dna } from "../src/index.js";
 import { toJS } from "../src/toJs/dna-to-js.js";
@@ -270,7 +271,7 @@ function runCase(seed: number): { divergences: string[]; sentinelLeak: boolean }
   return { divergences, sentinelLeak };
 }
 
-// --- Non-trailing-wildcard fuzz loop (F1 fix coverage, ACT-0030) ---
+// --- Non-trailing-wildcard fuzz loop (F1 fix coverage) ---
 // Same as runCase but generates rows with wildcards at ARBITRARY positions
 // (not just trailing). This exercises the WILDCARD_CELL marker path in the
 // builder (_emitSelf) and the codegen (WILDCARD_CELL → WILDCARD).

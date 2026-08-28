@@ -3430,7 +3430,7 @@ export class DnaDiscriminatedUnion<K extends string, S extends tsDnaDiscriminate
  *
  * ## parseArgs config generation
  *
- * `toParseArgsConfig` is NOT a class method (DEC-0041 SoC) — parseArgs needs
+ * `toParseArgsConfig` is NOT a class method (separation of concerns) — parseArgs needs
  * no Maranget output. Use the standalone `introspect.toParseArgsConfig(schema,
  * opts)` helper, which derives a `node:util.parseArgs` config from the schema:
  * positionals (ordered), flags (non-positional keys), option types
@@ -3461,7 +3461,7 @@ export class DnaMarangetUnion<S extends readonly DnaSomeType[] = readonly DnaSom
   /** Returns the discriminator keys (auto-detected or explicit). */
   get discriminators(): string[] { return this._core.seed.discriminators; }
 
-  // NOTE: `toParseArgsConfig` was removed (DEC-0041 SoC) — it is a CLI-facing
+  // NOTE: `toParseArgsConfig` was removed (separation of concerns) — it is a CLI-facing
   // schema concern (parseArgs needs NO Maranget output). Use the standalone
   // `introspect.toParseArgsConfig(schema, opts)` instead.
 
@@ -3550,7 +3550,7 @@ export class DnaMarangetUnion<S extends readonly DnaSomeType[] = readonly DnaSom
     // The builder is the schema → args transformer: it emits the SOURCE data
     // (discriminator order + optionality marker, the clause matrix, branch
     // targets, mode). The clause matrix (`discriminKeys`) is the INPUT of the
-    // Maranget algorithm (DEC-0041 Option A). ALL Maranget *compilation*
+    // Maranget algorithm (clause matrix is its input). ALL Maranget *compilation*
     // (matrix → tree) lives in `algo/maranget.ts` + the codegen.
     const mode = this._core.seed.mode ?? CONSTRUCTOR_PRIORITY;
     this._core.rawDna = ["maranget", discAdn, discriminKeys, branchDef, mode];

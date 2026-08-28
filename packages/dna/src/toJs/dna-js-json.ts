@@ -2119,7 +2119,7 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta],
  *     required columns are strings, optional columns are grouped in a final
  *     sub-array (the optionality marker, decided by the builder from the
  *     live branch types).
- *   - discriminKeys: the clause matrix (DEC-0041 Option A) — one array per
+ *   - discriminKeys: the clause matrix — one array per
  *     branch, position = column; singleton → direct value, multi → sub-array,
  *     `undefined` present → real value, position beyond length → wildcard.
  *   - branchDef: number[] — [prevalidationId, branch0Id, branch1Id, ...] (targets)
@@ -2127,11 +2127,11 @@ export const discriminator = (dnaOpt: [string, any[], number[], tsDnaInnerMeta],
  *     a wildcard (catch-all) row overlaps a constructor row:
  *       - "constructor-priority" (default): constructor rows win over wildcard
  *         rows on the same column (P1_match ∪ P2' — deliberate deviation from
- *         Maranget strict source order, DEC-0039 Gap E / Option B).
+ *         Maranget strict source order, Gap E / Option B).
  *       - "source-order": Maranget strict — the first row in matrix order that
  *         matches wins.
  *
- * This handler is a PURE EMITTER (DEC-0041 SoC): it converts the ADN cells
+ * This handler is a PURE EMITTER (separation of concerns): it converts the ADN cells
  * (absent → WILDCARD), calls the pure Maranget algorithm
  * `algo/maranget.ts > compile(rows, mode, isOptionalKey)` (q-heuristic,
  * rules 1/2/4, P2'-carrying, row ordering by mode — matrix → tree), then
@@ -2182,7 +2182,7 @@ export const maranget = (
 			// later values are not shifted onto the wrong column.
 			if (v === WILDCARD_CELL) continue;
 			// Flat value set → generic pattern: singleton → constructor,
-			// multi-value → or-pattern (DEC-0040: or-patterns of finite values).
+			// multi-value → or-pattern (or-patterns of finite values).
 			patterns[j] = Array.isArray(v)
 				? { kind: "or", alts: v.map(val => ({ kind: "ctor", ctor: val, args: [] })) }
 				: { kind: "ctor", ctor: v, args: [] };
