@@ -26,6 +26,7 @@ Zod-like schema API with serializable DNA bytecode and standalone compiled valid
   - [Compiling DNA to JavaScript Validators (Advanced)](#compiling-dna-to-javascript-validators-advanced)
   - [Using the Low-Level toJS Compiler](#using-the-low-level-tojs-compiler)
   - [Round-trip DNA Reconstruction](#round-trip-dna-reconstruction)
+- [Introspection](#introspection)
 - [CLI Union](#cli-union)
 - [Externals Mechanism](#externals-mechanism)
 - [Development](#development)
@@ -92,7 +93,7 @@ npx skills add linqFR/ytn
 | `@ytrynot/dna` | `import { dna } from "@ytrynot/dna"` | Main API: builder factory, types, `registerConstructor` |
 | `@ytrynot/dna/core` | `import { DnaType } from "@ytrynot/dna/core"` | Runtime classes (`DnaType`, `DnaObject`, ...), `initDna`, `toJS`, `DnaError`, registry |
 | `@ytrynot/dna/toJs` | `import { toJS } from "@ytrynot/dna/toJs"` | Low-level compiler (`toJS`, `validator`, `parser`) |
-| `@ytrynot/dna/introspect` | `import * as introspect from "@ytrynot/dna/introspect"` | Schema introspection utilities (`isOptional`, `isObject`, `unwrap`, ...) |
+| `@ytrynot/dna/introspect` | `import * as introspect from "@ytrynot/dna/introspect"` | Schema introspection utilities (`isOptional`, `isNullable`, `isNullish`, `isCoercible`, `isObject`, `unwrap`, `unwrapDeep`, `defaultValue`, `getClassName`) |
 | `@ytrynot/dna/fromDna` | `import { fromDna } from "@ytrynot/dna/fromDna"` | DNA bytecode → fluent schema reconstruction (roundtrip) |
 
 **When to use `@ytrynot/dna/core`**: when you need `instanceof DnaType` / `instanceof DnaObject` to work across bundles, or direct access to `initDna`, `BaseCore`, `DnaError`, or the registry. The main `@ytrynot/dna` entry point re-exports everything for everyday usage — you only need `core` for cross-bundle class identity or low-level internals.
@@ -246,6 +247,50 @@ type Out = dna.infer<typeof rebuilt>; // { name: string, tags: string[] }
 Schemas with `.transform()`, `.refine()`, `.coerce()`, or custom codecs are fully reconstructed — function sources are serialized in the bytecode via `fn.toString()`. Externals (captured values, helpers) are provided at execution time when calling `.safeParse()`, `.validate()`, or `.parse()` on the rebuilt schema.
 
 For the full list of supported schema families, typing details, and roundtrip parity guarantees, see [docs/technical.md](docs/technical.md).
+
+## Introspection
+
+The `@ytrynot/dna/introspect` entry point provides utilities to query schema properties without importing internal classes:
+
+```typescript
+import { isOptional, isNullable, isNullish, isCoercible, isObject, unwrap, unwrapDeep, defaultValue, prefaultValue, getClassName } from "@ytrynot/dna/introspect";
+```
+
+| Function | Description |
+|---|---|
+| `isOptional(schema)` | `true` if the schema accepts `undefined` (walks wrappers, handles `nonoptional` cancellation) |
+| `isNullable(schema)` | `true` if the schema accepts `null` (walks wrappers) |
+| `isNullish(schema)` | `true` if the schema accepts both `null` and `undefined` (walks wrappers) |
+| `isCoercible(schema)` | `true` if the schema has coercion enabled at its leaf (walks wrappers, handles pipes) |
+| `isObject(schema)` | Type guard: `true` if the schema is a `DnaObject` (has `.shape`) |
+| `wrapperType(schema)` | Returns the wrapper type string (`"optional"`, `"nullable"`, ...) or `undefined` |
+| `unwrap(schema)` | Returns the inner schema if `schema` is a wrapper, otherwise `null` |
+| `unwrapDeep(schema)` | Unwraps all wrapper layers, returns the innermost schema (stops at `DnaPipe`) |
+| `defaultValue(schema)` | Returns the resolved default value, or `undefined` |
+| `prefaultValue(schema)` | Returns the resolved prefault value, or `undefined` |
+| `getClassName(schema)` | Returns the constructor name (e.g. `"DnaObject"`, `"DnaString"`) |
+| `toParseArgsConfig(schema, opts?)` | Generates a `node:util.parseArgs` config from a CLI union schema |
+
+### `isCoercible` — coercion detection
+
+Unlike `isOptional`/`isNullable`/`isNullish` which delegate to native `DnaType` methods, `isCoercible` walks the wrapper chain itself — `_coerce` is a flat flag on the leaf, not propagated by wrappers.
+
+Pipe handling is asymmetric:
+
+- **Regular pipe** (`a.pipe(b)`): checks the **first step** (the input/source).
+- **Preprocess** (`preprocess(fn, target)`): checks the **last step** (the target/output), because the first step is a black-box transform.
+
+```typescript
+import { dna } from "@ytrynot/dna";
+import { isCoercible } from "@ytrynot/dna/introspect";
+
+isCoercible(dna.coerce.number());                       // true
+isCoercible(dna.number());                               // false
+isCoercible(dna.coerce.number().optional());            // true (walks through wrapper)
+isCoercible(dna.coerce.number().pipe(dna.string()));    // true (checks input step)
+isCoercible(dna.preprocess(fn, dna.coerce.number()));   // true (checks target step)
+isCoercible(dna.date());                                 // false (no coerceCode — by design)
+```
 
 ## Comparison with Zod
 

@@ -61,6 +61,67 @@ export function isNullish(schema: DnaSomeType): boolean {
 }
 
 /**
+ * Walks a schema to its leaf, handling wrappers and pipes, then checks
+ * if the leaf has coercion enabled.
+ *
+ * Pipe handling is asymmetric:
+ * - Regular pipe (`a.pipe(b)`): checks the first step (the input/source).
+ * - Preprocess (`preprocess(fn, target)`): checks the last step (the target/output),
+ *   because the first step is a black-box transform.
+ *
+ * The distinction is made via `pipe.meta()?.preprocess === true`.
+ *
+ * @param s - The schema to check.
+ * @returns `true` if the leaf schema has coercion enabled.
+ */
+function checkCoercibleLeaf(s: DnaSomeType): boolean {
+  let leaf = s instanceof DnaLazy ? s.innerType : s;
+  while (isWrapper(leaf)) {
+    const inner = unwrap(leaf);
+    if (!inner) break;
+    leaf = inner;
+  }
+  if (leaf instanceof DnaPipe) {
+    const isPreprocess = leaf.meta()?.preprocess === true;
+    const steps = leaf._core.seed.steps;
+    const step = isPreprocess ? steps[steps.length - 1] : steps[0];
+    return checkCoercibleLeaf(step);
+  }
+  return leaf._core.coerce;
+}
+
+/**
+ * Checks if a schema has coercion enabled (e.g. `dna.coerce.number()`,
+ * `dna.int({ coerce: true })`).
+ *
+ * Unlike `isOptional`/`isNullable` which delegate to native `DnaType` methods
+ * that walk the wrapper chain, there is no native `isCoercible()` method —
+ * `_coerce` is a flat flag on the leaf schema, not propagated by wrappers.
+ * This function walks the wrapper chain and handles pipes explicitly.
+ *
+ * Pipe handling is asymmetric:
+ * - Regular pipe (`a.pipe(b)`): checks the first step (the input/source).
+ * - Preprocess (`preprocess(fn, target)`): checks the last step (the target/output).
+ *
+ * @param schema - Any DNA schema.
+ * @returns `true` if the schema has coercion enabled at its leaf.
+ *
+ * @example
+ * ```ts
+ * import { dna } from "@ytrynot/dna";
+ * import { isCoercible } from "@ytrynot/dna/introspect";
+ * isCoercible(dna.coerce.number());              // true
+ * isCoercible(dna.number());                      // false
+ * isCoercible(dna.coerce.number().optional());   // true (walks through wrapper)
+ * isCoercible(dna.preprocess(fn, dna.coerce.number())); // true (checks target)
+ * ```
+ */
+export function isCoercible(schema: DnaSomeType): boolean {
+  if (!(schema instanceof DnaType)) return false;
+  return checkCoercibleLeaf(schema);
+}
+
+/**
  * Type guard: checks if a schema is a DnaObject (has a `.shape` property).
  *
  * @param schema - Any DNA schema.
