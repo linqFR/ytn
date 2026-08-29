@@ -7,8 +7,7 @@ import {
   deployBranch,
   helpBranch,
   versionBranch,
-  targets,
-  fallbacks,
+  routes,
 } from "./fixtures.js";
 
 /**
@@ -23,8 +22,7 @@ import {
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 
@@ -35,12 +33,12 @@ const cli = (argv: string[]) => execute(processed, argv);
 const numericBranch = dna.object({
   cmd: dna.literal("calc"),
   values: dna.array(dna.coerce.number()),
-}).meta({ cli: { routeId: "calc" } });
+});
 
 const numericContract = createContract({
   name: "calc",
   description: "Calculator",
-  targets: [numericBranch] as const,
+  routes: { calc: numericBranch },
   cli: { positionals: ["cmd", "values"] },
 });
 
@@ -52,12 +50,12 @@ const negatableBranch = dna.object({
   cmd: dna.literal("run"),
   color: dna.boolean().default(true),
   verbose: dna.boolean().default(false),
-}).meta({ cli: { routeId: "run" } });
+});
 
 const negatableContract = createContract({
   name: "runner",
   description: "Runner with negatable flags",
-  targets: [negatableBranch] as const,
+  routes: { run: negatableBranch },
   cli: { positionals: ["cmd"] },
 });
 
@@ -69,12 +67,12 @@ const allowNegBranch = dna.object({
   cmd: dna.literal("run"),
   color: dna.boolean().default(true),
   verbose: dna.boolean().default(false),
-}).meta({ cli: { routeId: "run" } });
+});
 
 const allowNegContract = createContract({
   name: "runner-neg",
   description: "Runner with allowNegative enabled",
-  targets: [allowNegBranch] as const,
+  routes: { run: allowNegBranch },
   cli: { positionals: ["cmd"], allowNegative: true },
 });
 
@@ -85,12 +83,12 @@ const allowNegCli = (argv: string[]) => execute(allowNegContract, argv);
 const nonStrictBranch = dna.object({
   cmd: dna.literal("build"),
   files: dna.array(dna.string()).optional(),
-}).meta({ cli: { routeId: "build" } });
+});
 
 const nonStrictContract = createContract({
   name: "non-strict",
   description: "Non-strict CLI",
-  targets: [nonStrictBranch] as const,
+  routes: { build: nonStrictBranch },
   cli: { positionals: ["cmd", "files"], strict: false },
 });
 
@@ -100,13 +98,18 @@ const nonStrictCli = (argv: string[]) => execute(nonStrictContract, argv);
 
 const catchAllBranch = dna.looseObject({
   cmd: dna.literal("__unknown__"),
-}).catchall(dna.unknown()).meta({ cli: { hidden: "all", routeId: "__unknown__" }, description: "Unknown command" });
+}).catchall(dna.unknown()).meta({ cli: { hidden: "all" }, description: "Unknown command" });
 
 const fallbackContract = createContract({
   name: "with-catchall",
   description: "CLI with catch-all fallback",
-  targets: [buildBranch, deployBranch] as const,
-  fallbacks: [helpBranch, versionBranch, catchAllBranch] as const,
+  routes: {
+    build: buildBranch,
+    deploy: deployBranch,
+    help: helpBranch,
+    version: versionBranch,
+    __unknown__: catchAllBranch,
+  },
   cli: { positionals: ["cmd", "files"] },
 });
 
@@ -481,24 +484,23 @@ describe("edge cases", () => {
       const minimal = createContract({
         name: "test",
         description: "test",
-        targets: [
-          dna.object({
+        routes: {
+          ping: dna.object({
             cmd: dna.literal("ping"),
-          }).meta({ cli: { routeId: "ping" } }),
-        ] as const,
+          }),
+        },
       });
       expect(minimal).toBeDefined();
     });
 
-    it("should throw when targets is empty tuple", () => {
-      // createContract validates that at least one target branch is provided.
-      // An empty tuple throws at construction time, not at safeParse time.
+    it("should throw when routes is empty record", () => {
+      // createContract validates that at least one route is provided.
+      // An empty record throws at construction time, not at safeParse time.
       expect(() =>
         createContract({
           name: "test",
           description: "test",
-          // CAST: empty tuple is intentionally invalid — testing the error path
-          targets: [] as unknown as readonly [typeof buildBranch, ...typeof buildBranch[]],
+          routes: {},
         }),
       ).toThrow(/at least one route/);
     });

@@ -3,8 +3,8 @@ import { dna } from "@ytrynot/dna";
 /**
  * Shared test fixtures — routes and contract used across all test files.
  *
- * DEC-0027: No `_branchId` field — routeId is declared in `.meta().cli`
- * and injected as `\x00ID` by `apply` in `createContract()`.
+ * Route IDs come from the record key in `routes`, no longer from
+ * `.meta().cli.routeId`. `\x00ID` is injected by `apply` in `createContract()`.
  */
 
 // --- Routes ---
@@ -13,40 +13,43 @@ export const buildBranch = dna.object({
   cmd: dna.literal("build"),
   files: dna.array(dna.string()).optional().meta({ description: "Files to build" }),
   output: dna.string().optional().meta({ description: "Output directory" }),
-}).meta({ cli: { routeId: "build" }, description: "Build the project" });
+}).meta({ description: "Build the project" });
 
 export const deployBranch = dna.object({
   cmd: dna.literal("deploy"),
   target: dna.string().optional().meta({ description: "Deployment target" }),
   port: dna.coerce.number().optional().meta({ description: "Port number" }),
-}).meta({ cli: { routeId: "deploy" }, description: "Deploy the project" });
+}).meta({ description: "Deploy the project" });
 
 export const helpBranch = dna.looseObject({
   cmd: dna.literal("help"),
   files: dna.array(dna.string()).optional(),
-}).catchall(dna.unknown()).meta({ cli: { flag: true, short: "h", routeId: "help" }, description: "Show help" });
+}).catchall(dna.unknown()).meta({ cli: { flag: true, short: "h" }, description: "Show help" });
 
 export const versionBranch = dna.looseObject({
   cmd: dna.literal("version"),
-}).catchall(dna.unknown()).meta({ cli: { flag: true, short: "v", routeId: "version" }, description: "Show version" });
+}).catchall(dna.unknown()).meta({ cli: { flag: true, short: "v" }, description: "Show version" });
 
-// --- Contract config ---
+// --- Contract config (named routes record) ---
 
-export const targets = [buildBranch, deployBranch] as const;
-export const fallbacks = [helpBranch, versionBranch] as const;
+export const routes = {
+  build: buildBranch,
+  deploy: deployBranch,
+  help: helpBranch,
+  version: versionBranch,
+} as const;
 
-// --- Minimal contract (no interceptor, no fallbacks) ---
+// --- Minimal contract (no interceptor) ---
 
-export const minimalTargets = [
-  dna.object({
+export const minimalRoutes = {
+  build: dna.object({
     cmd: dna.literal("build"),
     files: dna.array(dna.string()).optional(),
-  }).meta({ cli: { routeId: "build" } }),
-] as const;
+  }),
+} as const;
 
-// --- Branch without routeId (for validation error tests) ---
+// --- Branch without cmd (for validation error tests) ---
 
-export const branchWithoutRouteId = dna.object({
-  cmd: dna.literal("test"),
+export const branchWithoutCmd = dna.object({
   value: dna.string().optional(),
 });

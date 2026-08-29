@@ -5,8 +5,7 @@ import { execute } from "../src/factory.js";
 import { buildHelp } from "../src/help.js";
 import { formatCliError } from "../src/error.js";
 import {
-  targets,
-  fallbacks
+  routes
 } from "./fixtures.js";
 
 /**
@@ -18,8 +17,7 @@ describe("end-to-end integration", () => {
   const processed = createContract({
     name: "mycli",
     description: "A demo CLI built with @ytrynot/cli",
-    targets,
-    fallbacks,
+    routes,
     cli: { positionals: ["cmd", "files"] },
   });
 

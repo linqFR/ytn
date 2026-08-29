@@ -1,5 +1,5 @@
 /**
- * @ytrynot/cli — CLI factory (DEC-0029: 5-layer architecture).
+ * @ytrynot/cli — CLI factory (5-layer architecture).
  *
  * Layer 1: createContract()          → IProcessedContract   (1 external: parseArgs)
  * Layer 2: executeContract()         → IExecutableContract  (2 externals: parseArgs, handlers)

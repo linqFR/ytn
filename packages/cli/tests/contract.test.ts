@@ -1,10 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { createContract } from "../src/contract.js";
 import {
-  targets,
-  fallbacks,
-  branchWithoutRouteId,
-  minimalTargets
+  routes,
+  minimalRoutes,
+  branchWithoutCmd
 } from "./fixtures.js";
 
 describe("createContract", () => {
@@ -12,8 +11,7 @@ describe("createContract", () => {
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets,
-      fallbacks,
+      routes,
       cli: { positionals: ["cmd", "files"] },
     });
 
@@ -33,7 +31,11 @@ describe("createContract", () => {
     });
 
     it("should detect positionals ['cmd', 'files']", () => {
-      expect(processed.cliUnion.positionals).toEqual(["cmd", "files"]);
+      // cliUnion.positionals only contains DETECTED positionals (discriminator).
+      // The 'files' positional override goes into toParseArgsConfig, not dna.cliUnion.
+      // Effective positionals are reflected in positionalMeta.
+      expect(processed.cliUnion.positionals).toEqual(["cmd"]);
+      expect(processed.positionalMeta.map((m) => m.name)).toEqual(["cmd", "files"]);
     });
 
     it("should compute positionalMeta with variadic detection", () => {
@@ -49,7 +51,7 @@ describe("createContract", () => {
       expect(processed.flagMap.version).toBe("version");
     });
 
-    it("should have only parseArgs as external (1 external, no routeKey) — DEC-0027 new architecture", () => {
+    it("should have only parseArgs as external (1 external, no routeKey) — new architecture", () => {
       expect(processed.externals.parseArgs).toBeDefined();
       expect(processed.externals.parseArgsConfig).toBeUndefined();
       expect(processed.externals.positionalMeta).toBeUndefined();
@@ -58,7 +60,7 @@ describe("createContract", () => {
     });
 
     it("should include all branches (targets + fallbacks)", () => {
-      expect(processed.routes.length).toBe(4); // build, deploy, help, version
+      expect(Object.keys(processed.routes).length).toBe(4); // build, deploy, help, version
     });
 
     it("should filter \\x00ID from parseArgsConfig options", () => {
@@ -70,7 +72,7 @@ describe("createContract", () => {
     const processed = createContract({
       name: "minimal",
       description: "Minimal CLI",
-      targets: minimalTargets,
+      routes: minimalRoutes,
     });
 
     it("should have empty flagMap when no flags declared", () => {
@@ -78,7 +80,7 @@ describe("createContract", () => {
       expect(Object.keys(processed.flagMap).length).toBe(0);
     });
 
-    it("should have only parseArgs as external (1 external) — DEC-0027 new architecture", () => {
+    it("should have only parseArgs as external (1 external) — new architecture", () => {
       expect(processed.externals.parseArgs).toBeDefined();
       expect(processed.externals.parseArgsConfig).toBeUndefined();
       expect(processed.externals.positionalMeta).toBeUndefined();
@@ -87,16 +89,15 @@ describe("createContract", () => {
     });
   });
 
-  describe("routeId validation", () => {
-    it("should throw when a target branch lacks routeId in .meta().cli", () => {
+  describe("cmd validation", () => {
+    it("should throw when a route lacks required cmd field", () => {
       expect(() =>
         createContract({
           name: "test",
           description: "test",
-          // CAST: branchWithoutRouteId is a single DnaObject, spread into a tuple type for the test
-        targets: [branchWithoutRouteId] as unknown as readonly [typeof branchWithoutRouteId, ...typeof branchWithoutRouteId[]],
+          routes: { broken: branchWithoutCmd },
         }),
-      ).toThrow(/routeId/);
+      ).toThrow(/cmd/);
     });
   });
 
@@ -105,7 +106,7 @@ describe("createContract", () => {
       const processed = createContract({
         name: "strict-cli",
         description: "Strict CLI",
-        targets: minimalTargets,
+        routes: minimalRoutes,
         cli: { strict: true },
       });
       // toParseArgsConfig with strict:true should reject unknown flags

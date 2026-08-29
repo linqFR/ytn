@@ -5,7 +5,7 @@ import type {
 } from "@ytrynot/dna/core";
 import type {
   ROUTE_ID_KEY,
-  InjectedRoutes,
+  $InjectedRoutesRecord,
 } from "../routeId.js";
 
 // ============================================================
@@ -59,8 +59,6 @@ export interface ICliMeta {
   short?: string;
   /** Hide the route from help output. `"cmd"` = hide from Commands, `"flag"` = hide from Options, `"all"` = hide everywhere. Automatically `"cmd"` when `flag: true`. */
   hidden?: "cmd" | "flag" | "all";
-  /** Route-level: internal route identifier, injected as `\x00ID` by `apply`. */
-  routeId?: string;
 }
 
 // ============================================================
@@ -79,11 +77,10 @@ export type IFlagMap = Record<string, string>;
 // IContract — user input
 // ============================================================
 
-export interface IContract<T extends readonly [DnaObject, ...DnaObject[]] = readonly [DnaObject, ...DnaObject[]]> {
+export interface IContract<T extends Record<string, DnaObject> = Record<string, DnaObject>> {
   name: string;
   description: string;
-  targets: T;
-  fallbacks?: readonly DnaObject[];
+  routes: T;
   cli?: ICliOptions;
 }
 
@@ -119,12 +116,12 @@ export interface OFormattedResult {
 // ============================================================
 
 export interface IProcessedContract<
-  T extends readonly [DnaObject, ...DnaObject[]] = readonly [DnaObject, ...DnaObject[]]
+  T extends Record<string, DnaObject> = Record<string, DnaObject>
 > {
   name: string;
   description: string;
   pipeline: DnaType<{ route: string; payload: Record<string, unknown> }>;
-  cliUnion: DnaCliUnion<InjectedRoutes<T, typeof ROUTE_ID_KEY>>;
+  cliUnion: DnaCliUnion<$InjectedRoutesRecord<T>[keyof T][]>;
   routes: T;
   parseArgsConfig: OParseArgsConfig;
   positionalMeta: OPositionalMeta[];

@@ -3,10 +3,7 @@ import { createContract } from "../src/contract.js";
 import { executeContract, cliFactory } from "../src/factory.js";
 import type { IHandlers, OFormattedResult, FormatterFn } from "../src/types/contract.types.js";
 import { toJS } from "@ytrynot/dna/toJs";
-import {
-  targets,
-  fallbacks
-} from "./fixtures.js";
+import { routes } from "./fixtures.js";
 
 /**
  * Layer 3 tests — cliFactory()
@@ -18,8 +15,7 @@ import {
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 

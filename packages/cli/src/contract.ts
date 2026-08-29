@@ -1,9 +1,10 @@
 ﻿import { dna } from "@ytrynot/dna";
 import { DnaLiteral, DnaCliUnion, DnaObject } from "@ytrynot/dna/core";
+import { toParseArgsConfig } from "@ytrynot/dna/introspect";
 import { parseArgs as nodeParseArgs } from "node:util";
 
 import { buildPipeline } from "./preprocess.js";
-import type { InjectedRoutes } from "./routeId.js";
+import type { $InjectedRoutesRecord } from "./routeId.js";
 import { ROUTE_ID_KEY } from "./routeId.js";
 import type {
   ICliMeta,
@@ -31,36 +32,30 @@ export function getCliMeta(schema: { meta?: () => unknown }): ICliMeta | undefin
   return cli;
 }
 
-/**
- * Extracts the `cmd` literal value from a route (e.g. `dna.literal("build")` â†’ `"build"`).
- * Used to build the `flagMap` entry for flag-interceptor routes.
- */
-function getCmdValue(route: DnaObject): string | undefined {
-  const cmdField = route.shape.cmd;
-  if (cmdField instanceof DnaLiteral) {
-    return cmdField.value as string;
-  }
-  return undefined;
-}
-
 export function createContract<
-  T extends readonly [DnaObject, ...DnaObject[]],
+  T extends Record<string, DnaObject>,
 >(
   contract: IContract<T>,
   options?: IContractOptions,
 ): IProcessedContract<T> {
-  const allRoutes = contract.fallbacks
-    ? [...contract.targets, ...contract.fallbacks]
-    : [...contract.targets];
+  const entries = Object.entries(contract.routes) as [string, T[keyof T]][];
+  const routeValues = Object.values(contract.routes) as T[keyof T][];
 
-  if (allRoutes.length === 0) {
+  if (entries.length === 0) {
     throw new Error(
-      `createContract: "targets" must contain at least one route.`,
+      `createContract: "routes" must contain at least one route.`,
     );
   }
 
-  // Validate cmd presence and read routeId from .meta().cli
-  for (const route of allRoutes) {
+  // Read `.meta().cli` from routes and fields to build
+  // flagMap (flag → subcommand) and parseArgsConfig.options automatically.
+  // Also validates cmd presence on each route — routeId is the record key,
+  // no separate routeId metadata is needed.
+  const flagMap: IFlagMap = {};
+  const interceptorOptions: Record<string, { type: "boolean"; multiple: boolean; short?: string }> = {};
+  const shortOverrides: Record<string, string> = {};
+
+  for (const route of routeValues) {
     const cmdField = route.shape.cmd;
     if (!(cmdField instanceof DnaLiteral)) {
       throw new Error(
@@ -68,34 +63,12 @@ export function createContract<
           `Found keys: [${Object.keys(route.shape).join(", ")}]`,
       );
     }
-    const routeMeta = getCliMeta(route);
-    if (!routeMeta?.routeId) {
-      throw new Error(
-        `createContract: route with cmd "${cmdField.value}" is missing \`cli: { routeId: "..." }\` in its .meta(). ` +
-          `Example: .meta({ cli: { routeId: "${cmdField.value}" } })`,
-      );
-    }
-  }
 
-  // DEC-0026: Read `.meta().cli` from routes and fields to build
-  // flagMap (flag â†’ subcommand) and parseArgsConfig.options automatically.
-  // DEC-0027: Read routeId from .meta().cli, inject \x00ID via apply.
-  const flagMap: IFlagMap = {};
-  const interceptorOptions: Record<string, { type: "boolean"; multiple: boolean; short?: string }> = {};
-  const shortOverrides: Record<string, string> = {};
-
-  for (const route of allRoutes) {
     const routeMeta = getCliMeta(route);
 
     // Route-level: flag interceptor
     if (routeMeta?.flag === true) {
-      const cmdValue = getCmdValue(route);
-      if (cmdValue === undefined) {
-        throw new Error(
-          `createContract: route with \`cli: { flag: true }\` must have a \`cmd: dna.literal(...)\` field. ` +
-            `Could not extract cmd value from route.`,
-        );
-      }
+      const cmdValue = cmdField.value as string;
       flagMap[cmdValue] = cmdValue;
       interceptorOptions[cmdValue] = {
         type: "boolean",
@@ -124,43 +97,21 @@ export function createContract<
     }
   }
 
-  // DEC-0027: Inject \x00ID (route header) via apply from .meta().cli.routeId.
-  // DNA transports \x00ID opaquely (validated as DnaDefault<DnaString>, route-agnostic).
-  // The extractStep (preprocess.ts) strips \x00ID → { route, payload }.
-  // CAST: .map() widens the tuple to DnaObject[]; InjectedRoutes<T, K> restores the
-  // tuple type with \x00ID injected per route (type-level map, same shape as runtime).
-  // Double cast via unknown: .map() returns array, InjectedRoutes is a fixed-length tuple.
-  const injectedRoutes = allRoutes.map((route) =>
-    route.apply((schema) => {
-      const meta = getCliMeta(schema);
-      const routeId = meta?.routeId;
-      if (!routeId) {
-        throw new Error(
-          `createContract: route is missing \`cli: { routeId: "..." }\` in its .meta().`,
-        );
-      }
-      return schema.extend({ [ROUTE_ID_KEY]: dna.string().default(routeId) });
-    }),
-  ) as unknown as InjectedRoutes<T, typeof ROUTE_ID_KEY>;
+  // Build cliUnion on CLEAN routes (no \x00ID) first,
+  // so toParseArgsConfig does not see the internal route key.
+  const cliUnionClean = dna.cliUnion(routeValues);
 
-  // CAST: allRoutes spread widens to DnaObject[]; T is the static tuple type and TS
-  // cannot verify the array-to-tuple correspondence (same pattern as DnaCliUnion.options getter).
-  // Cast to DnaCliUnion<InjectedRoutes<T, K>> — the injected type includes \x00ID per route,
-  // matching the runtime injection done above and the constraint in buildPipeline.
-  const cliUnion = dna.cliUnion(
-    injectedRoutes,
-    contract.cli?.positionals
-      ? { positionals: contract.cli.positionals }
-      : undefined,
-  ) as unknown as DnaCliUnion<InjectedRoutes<T, typeof ROUTE_ID_KEY>>;
+  // toParseArgsConfig is standalone: positionals override goes here,
+  // not into dna.cliUnion. ignoreKeys not needed because clean routes have no \x00ID.
+  const dnaConfig = toParseArgsConfig(cliUnionClean, {
+    strict: contract.cli?.strict,
+    ...(contract.cli?.positionals ? { positionals: contract.cli.positionals } : {}),
+  });
 
-  // parseArgsConfig â€” build from DNA config + meta-derived flags
-  const dnaConfig = cliUnion.toParseArgsConfig({ strict: contract.cli?.strict });
-
-  // Build options: DNA config â†’ add shorts from .meta().cli â†’ add interceptor flags â†’ filter \x00ID
+  // Build options: DNA config → add shorts from .meta().cli → add interceptor flags
   const mergedOptions: OParseArgsConfig["options"] = {};
   for (const [name, opt] of Object.entries(dnaConfig.options)) {
-    if (name === ROUTE_ID_KEY) continue; // filter \x00ID (internal, not a user flag)
+    if (name === ROUTE_ID_KEY) continue; // defensive: clean routes should not have \x00ID
     mergedOptions[name] = {
       ...opt,
       ...(shortOverrides[name] !== undefined ? { short: shortOverrides[name] } : {}),
@@ -187,22 +138,45 @@ export function createContract<
     }
   }
 
-  // positionalMeta â€” use provided or compute via no-pos technique
+  // Inject \x00ID via DnaObject.apply — routeId is the record key.
+  // DNA transports \x00ID opaquely; the extractStep (preprocess.ts) strips it
+  // into { route, payload }.
+  // CAST: .map() returns DnaObject[]; $InjectedRoutesRecord<T>[keyof T][] is the
+  // record-mapped injected type. TS cannot verify the array-to-record correspondence.
+  const injectedRoutes = entries.map(([routeId, dnaObj]) =>
+    dnaObj.apply((schema) =>
+      schema.extend({ [ROUTE_ID_KEY]: dna.string().default(routeId) }),
+    ),
+  ) as unknown as $InjectedRoutesRecord<T>[keyof T][];
+
+  // CAST: injectedRoutes is DnaObject[] at runtime; the injected type includes
+  // \x00ID per route, matching buildPipeline's constraint.
+  const cliUnion = dna.cliUnion(injectedRoutes) as unknown as DnaCliUnion<
+    $InjectedRoutesRecord<T>[keyof T][]
+  >;
+
+  // positionalMeta — use provided or compute from effective positionals.
+  // Positionals override goes into toParseArgsConfig, NOT dna.cliUnion,
+  // so cliUnion.positionals only contains DETECTED positionals (discriminator).
+  // Effective positionals = override (if provided) or detected.
+  // For the `multiple` check, call toParseArgsConfig with positionals:[] so all
+  // declared keys appear in options (positional keys are normally excluded).
   let positionalMeta: OPositionalMeta[];
   if (options?.positionalMeta) {
     positionalMeta = options.positionalMeta;
   } else {
-    const cliNoPos = dna.cliUnion(
-      injectedRoutes,
-    );
-    const configNoPos = cliNoPos.toParseArgsConfig();
-    positionalMeta = cliUnion.positionals.map((name) => ({
+    const effectivePositionals = contract.cli?.positionals ?? cliUnionClean.positionals;
+    const configNoPos = toParseArgsConfig(cliUnionClean, {
+      positionals: [],
+      ignoreKeys: [ROUTE_ID_KEY],
+    });
+    positionalMeta = effectivePositionals.map((name) => ({
       name,
       variadic: configNoPos.options[name]?.multiple ?? false,
     }));
   }
 
-  // DEC-0027: Pipeline built in preprocess.ts — isolated for clarity.
+  // Pipeline built in preprocess.ts — isolated for clarity.
   // Only 1 external: parseArgs. Config objects are DNA defaults (inlined by toJS).
   const pipeline = buildPipeline(cliUnion, parseArgsConfig, positionalMeta, flagMap);
 
@@ -217,8 +191,7 @@ export function createContract<
     description: contract.description,
     pipeline,
     cliUnion,
-    // CAST: allRoutes spread widens to DnaObject[]; T is the static tuple type
-    routes: allRoutes as unknown as T,
+    routes: contract.routes,
     parseArgsConfig,
     positionalMeta,
     externals,
@@ -226,4 +199,3 @@ export function createContract<
     flagMap,
   };
 }
-

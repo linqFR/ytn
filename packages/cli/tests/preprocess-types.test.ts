@@ -27,7 +27,6 @@ const buildRoute = dna
     cmd: dna.literal("build"),
     files: dna.array(dna.string()).optional(),
   })
-  .meta({ cli: { routeId: "build" } })
   .apply((schema) =>
     schema.extend({ [ROUTE_ID_KEY]: dna.string().default("build") }),
   );
@@ -37,7 +36,6 @@ const deployRoute = dna
     cmd: dna.literal("deploy"),
     target: dna.string().optional(),
   })
-  .meta({ cli: { routeId: "deploy" } })
   .apply((schema) =>
     schema.extend({ [ROUTE_ID_KEY]: dna.string().default("deploy") }),
   );
