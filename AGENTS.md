@@ -69,7 +69,8 @@ This is a monorepo for the **ytrynot project**, maintained by **linqFR**. It con
 - **Shell**: Use **PowerShell** for all commands. Avoid using `sh` or `bash` scripts unless they are ran through a compatibility layer.
 - **Command Suffixes**: ALWAYS use **`npm.cmd`** and **`npx.cmd`** explicitly on Windows to ensure correct path resolution.
 - **Paths**: Use standard forward slashes `/` in code and configuration (Node.js handles this). Use backslashes `\` ONLY when interacting directly with Windows-native CLI tools if required.
-- **Line Endings**: The project uses **LF**. Ensure your editor is configured to use LF.
+- **File Encoding**: All files MUST be encoded in **UTF-8 without BOM** (no Byte Order Mark). Never write files in Windows-1252, Latin-1, or any other encoding. When writing files programmatically (e.g., via PowerShell `[System.IO.File]::WriteAllText`), explicitly use `UTF8Encoding($false)` to avoid the BOM.
+- **Line Endings**: The project uses **CRLF** (`\r\n`). Ensure your editor is configured to use CRLF.
 - **Execution Policy**: If you encounter script permission errors, run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`.
 
 ## Global Commands
