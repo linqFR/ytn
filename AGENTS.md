@@ -116,6 +116,7 @@ Not all actions require the same level of validation. Use the correct level:
 - **English Language Requirement**: All READMEs, HOWTOs, AGENTS.md files, as well as JSDocs and inline code comments MUST ALWAYS be written in **English**.
 - **JSDoc is Code**: Every public method, class, and exported type MUST be documented with comprehensive JSDocs.
 - **Preserve JSDocs**: Ensure build tools (like `tsup`) are configured to preserve JSDocs in the output.
+- **No mailbox references in code or docs**: NEVER reference mailbox-internal identifiers (`DEC-NNNN`, `ACT-NNNN`, `IDEA-NNN`, or any future registry prefix such as `ISS`, `PB`, `SPEC`, etc.) in source code, code comments, JSDoc, test descriptions, READMEs, or any user-facing documentation. These are internal coordination artifacts that may be superseded, cancelled, or reorganized. Code comments and documentation MUST explain the *what* and *why* in self-contained terms. The only place these references are allowed is inside mailbox files.
 
 ### 3. Sandbox Usage
 

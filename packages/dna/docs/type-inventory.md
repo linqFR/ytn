@@ -31,7 +31,7 @@ Complete catalog of all DNA schema types, their factory functions, output types,
 
 | Class | Description |
 |---|---|
-| `DnaType<T, I>` | Root class. `_output: T`, `_input: I`. |
+| `DnaType<T, I>` | Root class. `_output: T`, `_input: I`. Methods: `.coerced()`, `.isOptional()`, `.isNullable()`, `.isNullish()`, `.clone()`, `.meta()`, `.parse()`, `.safeParse()`, `.validate()`, `.toDna()`. |
 | `DnaTypeWithWrappers<T, I>` | Adds wrapper methods (`.optional()`, `.nullable()`, `.default()`, `.catch()`, `.pipe()`, `.refine()`, `.check()`, `.transform()`, `.meta()`). |
 | `DnaSomeType<T, I>` | Structural interface (union of all concrete DNA types). |
 

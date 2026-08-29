@@ -102,6 +102,7 @@ property-level checks, and more.
 | `z.coerce.date()` | `dna.coerce.date()` | ✅ |
 | — | `dna.int({ coerce: true })` | 🟢 DNA advantage (Zod only has coerce for string/number/boolean/bigint/date; DNA also supports coerce on int/int32 via the `{ coerce: true }` parameter) |
 | — | `dna.int32({ coerce: true })` | 🟢 DNA advantage |
+| — | `.coerced()` | 🟢 DNA advantage (force-coerce any schema by walking wrappers/pipes to the leaf; Zod has no equivalent) |
 
 ### 3. String Formats
 

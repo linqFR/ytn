@@ -1,5 +1,24 @@
 # @ytrynot/dna
 
+## 0.8.1
+
+### Patch Changes
+
+- 62d8bd3: Add public `.coerced()` method on DnaType
+  
+  - New `.coerced()` instance method clones a schema and enables coercion on its leaf, walking through wrappers and pipes.
+  - Pipe handling is asymmetric (same logic as `isCoercible`): regular pipe coerces the first step (input), preprocess coerces the last step (target).
+  - Silently no-ops on types without `coerceCode` (e.g. `dna.date()`).
+- d7f6cbf: Introspect: add `isCoercible` utility
+  
+  - New `isCoercible(schema)` function in `@ytrynot/dna/introspect` checks whether a schema has coercion enabled at its leaf.
+  - Walks wrapper chains (optional, nullable, default, ...) to find the leaf, unlike a flat `_coerce` check.
+  - Handles pipes asymmetrically: regular pipe checks the first step (input), preprocess checks the last step (target).
+- 4bfff90: Introspect `toParseArgsConfig`: single-pass option collection
+  
+  - `toParseArgsConfig` now collects declared keys and option metadata in a single loop over branches instead of two separate passes.
+  - No behavior change — output is identical for all positional/strict configurations.
+
 ## 0.8.0
 
 ### Minor Changes

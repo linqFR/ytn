@@ -94,7 +94,7 @@ export type tsWildcard = typeof WILDCARD;
  *
  * `"\x00"` (NUL) is JSON-safe (`"\u0000"` roundtrips) and collision-free in
  * practice: NUL cannot be a CLI input (Node rejects null bytes in
- * child_process args — the DEC-0027 `\x00ID` convention). A schema
+ * child_process args — the `\x00ID` convention). A schema
  * `dna.literal("\x00")` is a reserved/pathological definition.
  */
 export const WILDCARD_CELL = "\x00" as const;
@@ -151,7 +151,7 @@ export type tsTreeNode =
  * - `CONSTRUCTOR_PRIORITY` (default for the DNA compat entry point):
  *   constructor rows beat wildcard rows on the same column (P1_match ∪ P2'
  *   orders constructors first). The catch-all is a fallback. This is a
- *   **deliberate deviation** from Maranget strict source order (DEC-0039 Gap E).
+ *   **deliberate deviation** from Maranget strict source order (Gap E).
  * - `CLI_MODE` ("cli"): the CLI contract marker — routes like
  *   `CONSTRUCTOR_PRIORITY`, and the required discriminator columns are sorted
  *   by positional priority (positionals first — the order is self-describing

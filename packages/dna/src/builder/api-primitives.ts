@@ -262,8 +262,8 @@ export const discriminatedUnion = <K extends string, S extends tsDnaDiscriminate
  * branch overlaps a constructor branch:
  * - `"constructor-priority"` (default): constructor rows win over wildcard
  *   rows on the same column — the catch-all acts as a fallback. This is a
- *   **deliberate deviation** from Maranget strict source order (Gap E /
- *   DEC-0039, validated by ADMIN).
+ *   **deliberate deviation** from Maranget strict source order (Gap E,
+ *   validated by ADMIN).
  * - `"source-order"`: Maranget strict — the first branch in source order
  *   that matches wins (a catch-all in position 0 catches everything).
  * - `"cli"`: the CLI contract marker — routes like `"constructor-priority"`

@@ -61,6 +61,67 @@ export function isNullish(schema: DnaSomeType): boolean {
 }
 
 /**
+ * Walks a schema to its leaf, handling wrappers and pipes, then checks
+ * if the leaf has coercion enabled.
+ *
+ * Pipe handling is asymmetric:
+ * - Regular pipe (`a.pipe(b)`): checks the first step (the input/source).
+ * - Preprocess (`preprocess(fn, target)`): checks the last step (the target/output),
+ *   because the first step is a black-box transform.
+ *
+ * The distinction is made via `pipe.meta()?.preprocess === true`.
+ *
+ * @param s - The schema to check.
+ * @returns `true` if the leaf schema has coercion enabled.
+ */
+function checkCoercibleLeaf(s: DnaSomeType): boolean {
+  let leaf = s instanceof DnaLazy ? s.innerType : s;
+  while (isWrapper(leaf)) {
+    const inner = unwrap(leaf);
+    if (!inner) break;
+    leaf = inner;
+  }
+  if (leaf instanceof DnaPipe) {
+    const isPreprocess = leaf.meta()?.preprocess === true;
+    const steps = leaf._core.seed.steps;
+    const step = isPreprocess ? steps[steps.length - 1] : steps[0];
+    return checkCoercibleLeaf(step);
+  }
+  return leaf._core.coerce;
+}
+
+/**
+ * Checks if a schema has coercion enabled (e.g. `dna.coerce.number()`,
+ * `dna.int({ coerce: true })`).
+ *
+ * Unlike `isOptional`/`isNullable` which delegate to native `DnaType` methods
+ * that walk the wrapper chain, there is no native `isCoercible()` method —
+ * `_coerce` is a flat flag on the leaf schema, not propagated by wrappers.
+ * This function walks the wrapper chain and handles pipes explicitly.
+ *
+ * Pipe handling is asymmetric:
+ * - Regular pipe (`a.pipe(b)`): checks the first step (the input/source).
+ * - Preprocess (`preprocess(fn, target)`): checks the last step (the target/output).
+ *
+ * @param schema - Any DNA schema.
+ * @returns `true` if the schema has coercion enabled at its leaf.
+ *
+ * @example
+ * ```ts
+ * import { dna } from "@ytrynot/dna";
+ * import { isCoercible } from "@ytrynot/dna/introspect";
+ * isCoercible(dna.coerce.number());              // true
+ * isCoercible(dna.number());                      // false
+ * isCoercible(dna.coerce.number().optional());   // true (walks through wrapper)
+ * isCoercible(dna.preprocess(fn, dna.coerce.number())); // true (checks target)
+ * ```
+ */
+export function isCoercible(schema: DnaSomeType): boolean {
+  if (!(schema instanceof DnaType)) return false;
+  return checkCoercibleLeaf(schema);
+}
+
+/**
  * Type guard: checks if a schema is a DnaObject (has a `.shape` property).
  *
  * @param schema - Any DNA schema.
@@ -185,7 +246,7 @@ function unwrapToLeaf(s: DnaSomeType): DnaSomeType {
   // Strip wrappers (optional, nullable, default, prefault, catch, ...)
   // Uses the public `isWrapper` guard (checks `s.type` against wrapper names)
   // rather than accessing `_core.seed.wrapperType` directly — single source
-  // of truth for wrapper detection (maranget-keys.ts, SoC DEC-0043).
+  // of truth for wrapper detection (maranget-keys.ts, separation of concerns).
   while (isWrapper(leaf)) {
     const inner = unwrap(leaf);
     if (!inner) break;
@@ -244,14 +305,20 @@ function deriveOptionType(leaf: DnaSomeType): { type: "string" | "boolean"; mult
  */
 export function toParseArgsConfig(
   schema: DnaMarangetUnion<any>,
-  opts?: {
+  {
+    strict = false,
+    positionals,
+    ignoreKeys = [],
+  }: {
     strict?: boolean;
     /** CLI-level positional override — keys consumed positionally, in order.
      *  Absent → the class-derived positionals (detectPositionals). Never
      *  stored in the seed nor the ADN: this override lives where parseArgs is
      *  configured. */
     positionals?: string[];
-  }
+    /** Keys to ignore when building the parse args config. */
+    ignoreKeys?: string[];
+  } = {},
 ): {
   allowPositionals: true;
   strict: boolean;
@@ -260,23 +327,18 @@ export function toParseArgsConfig(
     multiple: boolean;
   }>;
 } {
-  const strict = opts?.strict ?? false;
   // Effective positional set: CLI override ?? derived (the generic
   // `DnaMarangetUnion` carries no positionals — derivation lives here).
   const positionalSet = new Set(
-    opts?.positionals ?? detectPositionals(schema.options, schema.discriminators)
+    positionals ?? detectPositionals(schema.options, schema.discriminators)
   );
+  // Keys to ignore (caller-specified — e.g. CLI passes "\x00ID").
+  const ignoreSet = new Set<string>(ignoreKeys);
+  // Single pass: collect declared keys AND option metadata.
   // Flags = declared keys NOT positional — recomputed from the EFFECTIVE set so
   // a CLI-level override stays consistent (the class getter uses the derived
   // set; with no override this equals schema.flags, same insertion order).
   const declaredKeys = new Set<string>();
-  for (const branch of schema.options) {
-    const obj = unwrapToDnaObject(branch);
-    for (const key of Object.keys(obj.shape)) declaredKeys.add(key);
-  }
-  const flags = [...declaredKeys].filter(k => !positionalSet.has(k));
-
-  // Collect option metadata from all branches
   const optionMeta: Record<string, {
     type: "string" | "boolean";
     multiple: boolean;
@@ -285,7 +347,9 @@ export function toParseArgsConfig(
   for (const branch of schema.options) {
     const obj = unwrapToDnaObject(branch);
     for (const key of Object.keys(obj.shape)) {
+      declaredKeys.add(key);
       if (positionalSet.has(key)) continue;
+      if (ignoreSet.has(key)) continue;
       if (optionMeta[key]) continue; // first branch wins
 
       const propSchema = obj.shape[key];
@@ -295,6 +359,7 @@ export function toParseArgsConfig(
       optionMeta[key] = { type, multiple };
     }
   }
+  const flags = [...declaredKeys].filter(k => !positionalSet.has(k) && !ignoreSet.has(k));
 
   const options: Record<string, {
     type: "string" | "boolean";
