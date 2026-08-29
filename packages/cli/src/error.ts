@@ -3,7 +3,7 @@ import type { tsCliErrorInput } from "./types/contract.types.js";
 /**
  * Formats CLI errors into a human-readable string.
  *
- * Phase 1: passthrough (DEC-0018). Each error is formatted as
+ * Phase 1: passthrough. Each error is formatted as
  * `"Error: <message> at <path>"` (or just `"Error: <message>"`
  * if the path is empty). Multiple errors are joined with newlines.
  *

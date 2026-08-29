@@ -2,10 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { createContract } from "../src/contract.js";
 import { executeContract, cliFactory, fullCli } from "../src/factory.js";
 import type { IHandlers, FormatterFn } from "../src/types/contract.types.js";
-import {
-  targets,
-  fallbacks
-} from "./fixtures.js";
+import { routes } from "./fixtures.js";
 
 /**
  * Layer 4 tests — fullCli()
@@ -17,8 +14,7 @@ import {
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 

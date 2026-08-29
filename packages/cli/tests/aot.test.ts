@@ -5,15 +5,13 @@ import { createContract } from "../src/contract.js";
 import { compile } from "../src/compile.js";
 import { execute } from "../src/factory.js";
 import {
-  targets,
-  fallbacks
+  routes
 } from "./fixtures.js";
 
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 
@@ -40,7 +38,7 @@ describe("AOT compilation", () => {
       expect(compiled.code[1]).toContain("return function");
     });
 
-    it("should list parseArgs and dna as requiredExternals (DEC-0027 new architecture)", () => {
+    it("should list parseArgs and dna as requiredExternals (new architecture)", () => {
       expect(compiled.requiredExternals).toHaveLength(2);
       expect(compiled.requiredExternals).toContain("parseArgs");
       expect(compiled.requiredExternals).toContain("dna");

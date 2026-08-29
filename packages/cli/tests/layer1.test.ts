@@ -3,10 +3,7 @@ import { createContract } from "../src/contract.js";
 import { execute } from "../src/factory.js";
 import { toJS } from "@ytrynot/dna/toJs";
 import { compile } from "../src/compile.js";
-import {
-  targets,
-  fallbacks
-} from "./fixtures.js";
+import { routes } from "./fixtures.js";
 
 /**
  * Layer 1 tests — createContract() + execute()
@@ -18,8 +15,7 @@ import {
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 

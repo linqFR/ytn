@@ -3,7 +3,7 @@ import { expectTypeOf, test } from "vitest";
 import { execute, executeContract } from "../src/factory.js";
 import { createContract } from "../src/contract.js";
 import type { IHandlers, OExecuteResult, OHandlerResult } from "../src/types/contract.types.js";
-import { targets, fallbacks } from "./fixtures.js";
+import { routes } from "./fixtures.js";
 
 // Type-regression tests locking in the discriminated-union narrowing of
 // execute() and executeContract(). Both build their `success` discriminant
@@ -17,8 +17,7 @@ import { targets, fallbacks } from "./fixtures.js";
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 

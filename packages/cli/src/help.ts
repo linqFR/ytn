@@ -7,7 +7,7 @@
  *
  * Help is generated from:
  * - `DnaObject.shape.cmd` → `DnaLiteral.value` for the command name
- * - `cliUnion.toParseArgsConfig().options` for flag `type` and `multiple`
+ * - `parseArgsConfig.options` for flag `type` and `multiple`
  * - Flags filtered per-route via `key in shape` (excludes flags from
  *   other routes)
  * - `\x00ID` excluded from help output
@@ -37,10 +37,10 @@ export function buildHelp(processed: IProcessedContract, forCommand?: string): s
     "",
     "Commands:",
   ];
-  const config = processed.cliUnion.toParseArgsConfig();
+  const config = processed.parseArgsConfig;
   const posNames = processed.cliUnion.positionals;
 
-  for (const route of processed.routes) {
+  for (const route of Object.values(processed.routes)) {
     const shape = route.shape;
     const cmdSchema = shape.cmd;
     const cmdValue = cmdSchema instanceof DnaLiteral ? cmdSchema.value : undefined;

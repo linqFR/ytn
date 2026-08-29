@@ -1,16 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { buildHelp, printHelp } from "../src/help.js";
 import { createContract } from "../src/contract.js";
-import {
-  targets,
-  fallbacks
-} from "./fixtures.js";
+import { routes } from "./fixtures.js";
 
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI built with @ytrynot/cli",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 

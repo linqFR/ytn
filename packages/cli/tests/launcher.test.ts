@@ -3,15 +3,13 @@ import { cliFactory, executeContract, fullCli } from "../src/factory.js";
 import { createContract } from "../src/contract.js";
 import type { IHandlers, OHandlerResult, FormatterFn } from "../src/types/contract.types.js";
 import {
-  targets,
-  fallbacks
+  routes
 } from "./fixtures.js";
 
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 
@@ -30,7 +28,7 @@ afterEach(() => {
   errSpy.mockClear();
 });
 
-// DEC-0029 formatter: takes OHandlerResult → OFormattedResult
+// formatter: takes OHandlerResult → OFormattedResult
 const testFormatter: FormatterFn = (result) => {
   if (result.success) {
     return { exit: 0, message: String(result.data ?? "") };
@@ -42,7 +40,7 @@ const testFormatter: FormatterFn = (result) => {
 const formatDnaErrors = (errors: { message: string }[]): string =>
   errors.map((e) => e.message).join("\n");
 
-describe("cliFactory (with handlers + formatter) — DEC-0029 5-layer architecture", () => {
+describe("cliFactory (with handlers + formatter) — 5-layer architecture", () => {
   describe("dispatch + exit(0)", () => {
     it("should dispatch to build handler and exit(0)", async () => {
       const handlers: IHandlers = {
@@ -228,7 +226,7 @@ describe("cliFactory (with handlers + formatter) — DEC-0029 5-layer architectu
     });
   });
 
-  describe("handler result contract (DEC-0029)", () => {
+  describe("handler result contract", () => {
     it("should return error when handler returns nothing", async () => {
       const handlers: IHandlers = {
         // CAST: intentionally returns undefined to test the default error

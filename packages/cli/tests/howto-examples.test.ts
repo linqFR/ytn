@@ -9,6 +9,7 @@ import {
   buildHelp,
 } from "../src/index.js";
 import type { ts } from "../src/index.js";
+import { branchWithoutCmd } from "./fixtures.js";
 
 /**
  * Validates every example from docs/how-to-define-a-cli-contract.md.
@@ -25,12 +26,12 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
   describe("Recipe 1 — Single subcommand", () => {
     const buildRoute = dna.object({
       cmd: dna.literal("build"),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute],
+      routes: { build: buildRoute },
     });
 
     it("should route build and return {cmd: 'build'}", () => {
@@ -49,17 +50,17 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
   describe("Recipe 2 — Multiple subcommands", () => {
     const buildRoute = dna.object({
       cmd: dna.literal("build"),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const deployRoute = dna.object({
       cmd: dna.literal("deploy"),
       target: dna.string().optional().meta({ description: "Deployment target" }),
-    }).meta({ cli: { routeId: "deploy" }, description: "Deploy the project" });
+    }).meta({ description: "Deploy the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute, deployRoute],
+      routes: { build: buildRoute, deploy: deployRoute },
     });
 
     it("should route build", () => {
@@ -90,12 +91,12 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
         .meta({ description: "Files to build" }),
       output: dna.string().optional()
         .meta({ description: "Output directory" }),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute],
+      routes: { build: buildRoute },
       cli: { positionals: ["cmd", "files"] },
     });
 
@@ -136,12 +137,12 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
       cmd: dna.literal("build"),
       files: dna.array(dna.string())
         .meta({ description: "Files to build" }),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute],
+      routes: { build: buildRoute },
     });
 
     it("should collect files via repeated --files flag", () => {
@@ -160,27 +161,26 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
   describe("Recipe 5 — --help / -h / --version / -v", () => {
     const buildRoute = dna.object({
       cmd: dna.literal("build"),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const helpRoute = dna.looseObject({
       cmd: dna.literal("help"),
     }).catchall(dna.unknown()).meta({
-      cli: { flag: true, short: "h", routeId: "help" },
+      cli: { flag: true, short: "h" },
       description: "Show help",
     });
 
     const versionRoute = dna.looseObject({
       cmd: dna.literal("version"),
     }).catchall(dna.unknown()).meta({
-      cli: { flag: true, short: "v", routeId: "version" },
+      cli: { flag: true, short: "v" },
       description: "Show version",
     });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute],
-      fallbacks: [helpRoute, versionRoute],
+      routes: { build: buildRoute, help: helpRoute, version: versionRoute },
     });
 
     it("should route --help to help", () => {
@@ -219,12 +219,12 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
           cli: { short: "o" },
           description: "Output directory",
         }),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute],
+      routes: { build: buildRoute },
     });
 
     it("should accept --output dist/", () => {
@@ -248,18 +248,18 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
       cmd: dna.literal("build"),
       watch: dna.boolean().optional()
         .meta({ description: "Watch for changes" }),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const deployRoute = dna.object({
       cmd: dna.literal("deploy"),
       dryRun: dna.boolean().optional()
         .meta({ description: "Dry run" }),
-    }).meta({ cli: { routeId: "deploy" }, description: "Deploy the project" });
+    }).meta({ description: "Deploy the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute, deployRoute],
+      routes: { build: buildRoute, deploy: deployRoute },
     });
 
     it("should set watch=true with --watch", () => {
@@ -289,12 +289,12 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
       cmd: dna.literal("deploy"),
       port: dna.coerce.number().optional()
         .meta({ description: "Port number" }),
-    }).meta({ cli: { routeId: "deploy" }, description: "Deploy the project" });
+    }).meta({ description: "Deploy the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [deployRoute],
+      routes: { deploy: deployRoute },
     });
 
     it("should coerce '3000' to number 3000", () => {
@@ -315,19 +315,19 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
   describe("Recipe 9 — Hidden routes", () => {
     const buildRoute = dna.object({
       cmd: dna.literal("build"),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const internalRoute = dna.object({
       cmd: dna.literal("internal-cmd"),
     }).meta({
-      cli: { routeId: "internal-cmd", hidden: "all" },
+      cli: { hidden: "all" },
       description: "Internal command",
     });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute, internalRoute],
+      routes: { build: buildRoute, "internal-cmd": internalRoute },
     });
 
     it("should route to internal-cmd", () => {
@@ -355,19 +355,18 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
       cmd: dna.literal("help"),
       topic: dna.string().optional(),
     }).catchall(dna.unknown()).meta({
-      cli: { flag: true, short: "h", routeId: "help" },
+      cli: { flag: true, short: "h" },
       description: "Show help",
     });
 
     const buildRoute = dna.object({
       cmd: dna.literal("build"),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute],
-      fallbacks: [helpRoute],
+      routes: { build: buildRoute, help: helpRoute },
       cli: { positionals: ["cmd", "topic"] },
     });
 
@@ -389,20 +388,19 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
       cmd: dna.literal("build"),
       files: dna.array(dna.string()).optional()
         .meta({ description: "Files to build" }),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const helpRoute = dna.looseObject({
       cmd: dna.literal("help"),
     }).catchall(dna.unknown()).meta({
-      cli: { flag: true, short: "h", routeId: "help" },
+      cli: { flag: true, short: "h" },
       description: "Show help",
     });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute],
-      fallbacks: [helpRoute],
+      routes: { build: buildRoute, help: helpRoute },
       cli: { positionals: ["cmd", "files"] },
     });
 
@@ -459,12 +457,12 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
       cmd: dna.literal("build"),
       files: dna.array(dna.string()).optional()
         .meta({ description: "Files to build" }),
-    }).meta({ cli: { routeId: "build" }, description: "Build the project" });
+    }).meta({ description: "Build the project" });
 
     const processed = createContract({
       name: "mycli",
       description: "A demo CLI",
-      targets: [buildRoute],
+      routes: { build: buildRoute },
       cli: { positionals: ["cmd", "files"] },
     });
 
@@ -492,11 +490,11 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
     const route = dna.object({
       cmd: dna.literal("build"),
       files: dna.array(dna.string()).optional(),
-    }).meta({ cli: { routeId: "build" } });
+    });
 
     it("without cli.positionals: files is undefined (treated as flag)", () => {
       const processed = createContract({
-        name: "mycli", description: "...", targets: [route],
+        name: "mycli", description: "...", routes: { build: route },
       });
       const result = execute(processed, ["build", "a.ts"]);
       expect(result.success).toBe(true);
@@ -505,7 +503,7 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
 
     it("with cli.positionals: files is [a.ts]", () => {
       const processed = createContract({
-        name: "mycli", description: "...", targets: [route],
+        name: "mycli", description: "...", routes: { build: route },
         cli: { positionals: ["cmd", "files"] },
       });
       const result = execute(processed, ["build", "a.ts"]);
@@ -515,14 +513,12 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
   });
 
   // ============================================================
-  // Pitfall 2 — Missing routeId
+  // Pitfall 2 — Missing cmd field
   // ============================================================
-  describe("Pitfall 2 — Missing routeId", () => {
-    it("should throw when routeId is missing", () => {
-      const route = dna.object({ cmd: dna.literal("build") })
-        .meta({ description: "Build" });
+  describe("Pitfall 2 — Missing cmd field", () => {
+    it("should throw when cmd field is missing", () => {
       expect(() =>
-        createContract({ name: "mycli", description: "...", targets: [route] })
+        createContract({ name: "mycli", description: "...", routes: { build: branchWithoutCmd } })
       ).toThrow();
     });
   });
@@ -535,9 +531,9 @@ describe("how-to-define-a-cli-contract.md — example validation", () => {
       const route = dna.object({
         cmd: dna.literal("build"),
         output: dna.string().optional().meta({ cli: { flag: true } }),
-      }).meta({ cli: { routeId: "build" } });
+      });
       expect(() =>
-        createContract({ name: "mycli", description: "...", targets: [route] })
+        createContract({ name: "mycli", description: "...", routes: { build: route } })
       ).toThrow();
     });
   });

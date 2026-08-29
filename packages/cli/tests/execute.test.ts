@@ -2,15 +2,13 @@ import { describe, it, expect } from "vitest";
 import { execute } from "../src/factory.js";
 import { createContract } from "../src/contract.js";
 import {
-  targets,
-  fallbacks
+  routes
 } from "./fixtures.js";
 
 const processed = createContract({
   name: "mycli",
   description: "A demo CLI",
-  targets,
-  fallbacks,
+  routes,
   cli: { positionals: ["cmd", "files"] },
 });
 
