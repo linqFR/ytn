@@ -1,5 +1,17 @@
 # @ytrynot/cli
 
+## 0.0.6
+
+### Patch Changes
+
+- 71b6383: Adapt to DNA introspect API for parseArgs config
+  
+  - `createContract` and help generation use `introspect.toParseArgsConfig(schema, { positionals })` from `@ytrynot/dna/introspect` instead of the schema method.
+- Updated dependencies [62d8bd3]
+- Updated dependencies [d7f6cbf]
+- Updated dependencies [4bfff90]
+  - @ytrynot/dna@0.8.1
+
 ## 0.0.5
 
 ### Patch Changes
