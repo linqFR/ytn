@@ -87,7 +87,7 @@ import { externalsMap } from "../shared/utils.js";
 import type {
   DnaFunctionInput,
   DnaFunctionOptions,
-  ICliUnionConfig,
+  IMarangetUnionConfig,
   tsDnaDescribeCheck,
   tsDnaDiscriminatedUnionObjects,
   tsDnaEnumInput,
@@ -278,7 +278,7 @@ export const discriminatedUnion = <K extends string, S extends tsDnaDiscriminate
  */
 export function marangetUnion<const S extends readonly DnaSomeType[]>(
   schemas: S,
-  config?: ICliUnionConfig,
+  config?: IMarangetUnionConfig,
   meta?: string | tsDnaMeta
 ): DnaMarangetUnion<S> {
   const mode = config?.mode ?? CONSTRUCTOR_PRIORITY;
@@ -305,7 +305,7 @@ export function marangetUnion<const S extends readonly DnaSomeType[]>(
  */
 export function cliUnion<const S extends readonly DnaSomeType[]>(
   schemas: S,
-  config?: Omit<ICliUnionConfig, "mode">,
+  config?: Omit<IMarangetUnionConfig, "mode">,
   meta?: string | tsDnaMeta
 ): DnaCliUnion<S> {
   // CAST: marangetUnion's declared return is the base DnaMarangetUnion<S>;
