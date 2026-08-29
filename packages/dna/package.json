@@ -87,7 +87,7 @@
     "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
     "tsx": "^4.23.12",
-    "zod": "^4.4.3"
+    "zod": "~4.4.3"
   },
   "dependencies": {
     "jose": "^6.2.10"
