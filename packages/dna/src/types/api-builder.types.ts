@@ -64,7 +64,7 @@ export type tsDnaCliUnionObjects<
   S extends DnaSomeType = DnaSomeType
 > = [S, ...S[]];
 
-export interface ICliUnionConfig {
+export interface IMarangetUnionConfig {
   /** Override auto-detected discriminators. */
   discriminators?: string[];
   /**
