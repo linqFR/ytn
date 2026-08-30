@@ -97,7 +97,7 @@ import type {
   tsDnaTupleSchemaRO,
   tsDnaValidationCheck
 } from "../types/api-builder.types.js";
-import type { $Input, $Output, $TemplateLiteral, $ToEnum } from "../types/helpers.types.js";
+import type { $Input, $Last, $Output, $TemplateLiteral, $ToEnum, $ValidChainRest } from "../types/helpers.types.js";
 
 // DNA compatibility: error codes (from DNA error-types.ts)
 
@@ -458,6 +458,40 @@ export const transform = <T, R>(fn: tsTransformFn<T, R>, meta?: string | tsDnaMe
   initDna(DnaTransform<T,R>, { fnStr: fn.toString().trim(), arity: fn.length }, meta);
 
 export const pipe = <S extends DnaType<any, any> = DnaType<any, any>, T extends DnaType<any, any> = DnaType<any, any>>(src: S, target: T, meta?: string | tsDnaMeta) => initDna(DnaPipe<S, T>, { steps: [src, target] }, meta);
+
+/**
+ * Variadic pipe: chains N schemas into a single {@link DnaPipe}. Unlike
+ * {@link pipe} (2 args) and `.pipe()` (fluent, 2 args), `chain` accepts any
+ * number of steps (≥2) and emits a flat `["pipe", [id0, ...idN]]` ADN node.
+ *
+ * Chain coherence is enforced at the type level: the output of each step
+ * must be assignable to the input of the next (`$Output<step[n-1]> extends
+ * $Input<step[n]>`). A mismatched step produces a compile-time error.
+ *
+ * The `step0`/`step1` naming mirrors {@link pipe}'s `src`/`target` for
+ * API continuity: `pipe(src, target)` and `chain(step0, step1, ...rest)`
+ * share the same 2-arg prefix, with `...otherSteps` extending to N.
+ *
+ * @typeParam S - First step (source).
+ * @typeParam T - Second step.
+ * @typeParam R - Remaining steps (0 or more).
+ * @param step0 - Source schema.
+ * @param step1 - Second schema (must accept `step0`'s output).
+ * @param otherSteps - Additional schemas (each must accept the previous step's output).
+ * @returns A `DnaPipe` whose source is `step0` and target is the last step.
+ */
+export const chain = <
+  S extends DnaType<any, any>,
+  T extends DnaType<any, any>,
+  R extends readonly DnaType<any, any>[]
+>(
+  step0: S,
+  step1: T & ($Output<S> extends $Input<T> ? unknown : never),
+  ...otherSteps: R & $ValidChainRest<$Output<T>, R>
+) => initDna(
+  DnaPipe<S, R extends readonly [] ? T : $Last<R>>,
+  { steps: [step0, step1, ...otherSteps] }
+);
 
 export function preprocess<R, T extends DnaType<any, any>>(fn: (value: unknown, ctx: tsDnaRefineCtx<unknown>) => R, target: T, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaPipe<DnaTransform<unknown, R>, T>;
 export function preprocess<R, T extends DnaType<any, any>>(fn: (value: unknown) => R, target: T, externals?: tsDnaExternalsDecl, meta?: string | tsDnaMeta): DnaPipe<DnaTransform<unknown, R>, T>;
