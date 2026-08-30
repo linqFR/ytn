@@ -1,5 +1,12 @@
 # @ytrynot/schvalid
 
+## 0.3.11
+
+### Patch Changes
+
+- Updated dependencies [c6d294e]
+  - @ytrynot/dna@0.9.0
+
 ## 0.3.10
 
 ### Patch Changes
