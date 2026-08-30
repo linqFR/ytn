@@ -44,6 +44,48 @@ export type { $UnionToIntersection } from "@ytrynot/shared/types/record.type.js"
 // correctly resolves the `declare` override.
 export type $Output<S> = S extends { _output: any } ? S["_output"] : unknown;
 export type $Input<S> = S extends { _input: any } ? S["_input"] : unknown;
+
+/**
+ * Extracts the last element type of a tuple. Used by `dna.chain(step0, step1, ...otherSteps)`
+ * to derive the `DnaPipe` target type parameter from the variadic steps tuple.
+ * Returns `never` for an empty tuple (a `chain()` with no steps is rejected
+ * at the type level by the `readonly [DnaType, ...DnaType[]]` constraint).
+ */
+export type $Last<T extends readonly any[]> =
+  T extends readonly [...any[], infer L] ? L : never;
+
+/**
+ * Validates that a tuple tail of {@link DnaType} forms a coherent chain
+ * after the first two steps: the output of each step is assignable to the
+ * input of the next (`$Output<step[n-1]> extends $Input<step[n]>`).
+ * Returns the tuple unchanged if valid, otherwise `never` (the constraint
+ * fails at the call site via `R & $ValidChainRest<...>`).
+ *
+ * Used by `dna.chain(step0, step1, ...otherSteps)` — the first transition
+ * (`step0 → step1`) is validated inline in the `chain` signature via
+ * `T & ($Output<S> extends $Input<T> ? unknown : never)`, and this type
+ * handles the remaining `...otherSteps` recursively.
+ *
+ * Recurses on the tuple tail (`Rest`), not on `T` itself — this avoids
+ * the TS2313 "circular constraint" that a self-referential
+ * `T extends ...<T>` triggers. Proven in `packages/dna/sandbox/test-chain-types-v2.ts`.
+ *
+ * The compatibility check uses `Out extends $Input<First>` (output of the
+ * previous step assignable to input of the current step), matching the
+ * assignability direction of `pipe(src, target)`. A constraint
+ * `infer First extends DnaType<any, Out>` would check the inverse
+ * (`First._input extends Out`) and reject valid chains where `_input` is
+ * wider than `_output` (e.g. `DnaNumber._input = unknown`).
+ */
+export type $ValidChainRest<Out, T extends readonly DnaType<any, any>[]> =
+  T extends readonly [infer First extends DnaType<any, any>, ...infer Rest extends DnaType<any, any>[]]
+    ? Out extends $Input<First>
+      ? readonly [First, ...$ValidChainRest<$Output<First>, Rest>]
+      : never
+    : T extends readonly []
+      ? readonly []
+      : never;
+
 export type $InputHead<T> = T extends { _head: infer H }
   ? unknown extends H
   ? $Input<T>

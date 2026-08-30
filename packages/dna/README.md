@@ -28,6 +28,7 @@ Zod-like schema API with serializable DNA bytecode and standalone compiled valid
   - [Round-trip DNA Reconstruction](#round-trip-dna-reconstruction)
 - [Introspection](#introspection)
 - [CLI Union](#cli-union)
+- [Composition](#composition)
 - [Externals Mechanism](#externals-mechanism)
 - [Development](#development)
 - [Technical Documentation](#technical-documentation)
@@ -123,6 +124,7 @@ Supported builder methods:
 - **Formats**: `dna.email()`, `dna.uuid()`, `dna.url()` (top-level functions; the `.email()`, `.uuid()`, `.url()` string constraints are deprecated)
 - **Compound**: `dna.object()`, `dna.array()`, `dna.optional()`, `dna.nullable()`
 - **Logic**: `dna.union()`, `dna.intersection()`, `dna.xor()`
+- **Composition**: `.pipe(target)`, `dna.pipe(src, target)`, `dna.chain(step0, step1, ...otherSteps)` — see [Composition](#composition)
 
 ### Validating and Parsing with Schema Methods
 
@@ -364,6 +366,44 @@ const config = cli.toParseArgsConfig();
 ```
 
 For the full documentation — architecture, API reference, discriminator rules, codegen details — see [docs/cli-union.md](docs/cli-union.md).
+
+## Composition
+
+DNA provides three ways to chain schemas into a pipeline:
+
+### `.pipe(target)` / `dna.pipe(src, target)`
+
+The canonical 2-step composition. Validates `src` first, then pipes its output into `target`.
+
+```typescript
+const schema = dna.string().pipe(dna.string().toUpperCase());
+// or: dna.pipe(dna.string(), dna.string().toUpperCase());
+```
+
+### `dna.chain(step0, step1, ...otherSteps)`
+
+Variadic pipe — chains N schemas (≥2) into a single flat `DnaPipe`. The runtime, codegen, and `fromDna` already support N-step pipes natively; `chain` is the public API that exposes this capability. `pipe` and `.pipe()` remain the canonical 2-step constructors.
+
+Chain coherence is enforced at the type level: the output of each step must be assignable to the input of the next. A mismatched step produces a compile-time error.
+
+```typescript
+const schema = dna.chain(
+  dna.string(),
+  dna.coerce.number(),
+  dna.number().min(0),
+);
+// DnaPipe<source: DnaString, target: DnaNumber (min 0)>
+
+// Type transitions are supported — not just string → string:
+const multi = dna.chain(
+  dna.string(),
+  dna.coerce.number(),
+  dna.number().transform((n) => ({ n })),
+  dna.object({ n: dna.number() }).transform((o) => String(o.n)),
+  dna.coerce.number(),
+);
+// DnaPipe<source: DnaString, target: DnaNumber>
+```
 
 ## Externals Mechanism
 

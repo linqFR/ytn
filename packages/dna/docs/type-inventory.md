@@ -226,7 +226,8 @@ Top-level wrappers: `dna.optional(s)`, `dna.nonoptional(s)`, `dna.nullable(s)`, 
 
 | Factory | Class | `_output` | DNA opcode | Description |
 |---|---|---|---|---|
-| `dna.pipe(src, target)` | `DnaPipe<S, T>` | `$Output<T>` | `"pipe"` | Sequential validation pipeline |
+| `dna.pipe(src, target)` | `DnaPipe<S, T>` | `$Output<T>` | `"pipe"` | Sequential validation pipeline (2 steps) |
+| `dna.chain(step0, step1, ...otherSteps)` | `DnaPipe<S, R extends readonly [] ? T : $Last<R>>` | `$Output<last step>` | `"pipe"` | Variadic pipe (≥2 steps, flat ADN, type-level coherence via `$ValidChainRest`) |
 | `dna.transform(fn)` | `DnaTransform<T, R>` | `R` | `"transform"` | Transform step (function source serialized) |
 | `dna.preprocess(fn, target)` | `DnaPipe<DnaTransform, Target>` | `$Output<Target>` | `"pipe"` | Preprocess input before validation |
 | `dna.codec(in, out, opts)` | `DnaCodec<I, O>` | `O` | (emits decode twin) | Bidirectional encode/decode |
