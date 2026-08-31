@@ -79,7 +79,7 @@ export function createContract<
 
     // Field-level: short overrides + flag validation
     for (const fieldName of Object.keys(route.shape)) {
-      if (fieldName === "cmd") continue; // cmd is a positional, not an option
+      if (fieldName === "cmd") continue; // cmd is a positional, not an option - // BUG: "cmd" is property key nam; it should not be hardcoded
 
       const field = route.shape[fieldName];
       const fieldMeta = getCliMeta(field);
