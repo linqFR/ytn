@@ -1,6 +1,6 @@
 {
   "name": "@ytrynot/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DNA-validated CLI router with Maranget decision trees and automatic help generation",
   "author": "linqFR",
   "license": "MIT",
@@ -52,7 +52,7 @@
     }
   },
   "dependencies": {
-    "@ytrynot/dna": "^0.9.0"
+    "@ytrynot/dna": "^0.10.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",

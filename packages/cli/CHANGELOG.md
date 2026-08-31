@@ -1,5 +1,13 @@
 # @ytrynot/cli
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [75cc021]
+- Updated dependencies [8505d77]
+  - @ytrynot/dna@0.10.0
+
 ## 0.1.1
 
 ### Patch Changes
