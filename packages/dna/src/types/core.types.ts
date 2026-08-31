@@ -50,6 +50,7 @@ export type tsDnaOpcode =
   | "anyOf"
   | "oneOf"
   | "allOf"
+  | "type" // compact union of naked primitives (["type", ["string","number"], meta])
   | "discriminator" // discriminated union
   | "maranget"      // multi-key routing union (Maranget decision tree)
 
@@ -89,4 +90,4 @@ export type tsDna = [...tsDnaNoMeta, tsDnaInnerMeta];
 export type tsDnaSeq = [...tsDna[], number[]];
 
 export type tsDnaObjectType = 'strict' | 'loose' | 'standard' | 'object' | 'plainObject';
-export type tsDnaCombinatorType = "anyOf" | "allOf" | "oneOf";
+export type tsDnaCombinatorType = "anyOf" | "allOf" | "oneOf" | "type";

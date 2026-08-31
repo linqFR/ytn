@@ -1,6 +1,6 @@
 {
   "name": "@ytrynot/dna",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "Schema validation that compiles to standalone JS function. Zod-like API, serializable, portable, using DNA bytecodes",
   "author": "linqFR",
   "license": "MIT",
@@ -86,8 +86,8 @@
     "@types/node": "^26.4.0",
     "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.12",
-    "zod": "~4.4.3"
+    "tsx": "^4.23.13",
+    "zod": "^4.5.4"
   },
   "dependencies": {
     "jose": "^6.2.10"

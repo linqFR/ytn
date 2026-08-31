@@ -110,6 +110,8 @@ function convertDnaNode(dna: tsDna, dnaSeq: tsDnaSeq, refs: number[]): JSONSchem
 			return convertOneOf(params, dnaSeq, refs);
 		case "allOf":
 			return convertAllOf(params, dnaSeq, refs);
+		case "type":
+			return { type: params[0] as string[] };
 
 		// Wrappers
 		case "wrp":
@@ -328,6 +330,11 @@ function convertArray(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta?
 		schema.maxItems = meta.maxItems;
 	}
 
+	// Tuples: if prefixItems is set and items is false
+	if (schema.prefixItems !== undefined && schema.items === false && schema.maxItems === undefined) {
+		schema.maxItems = (schema.prefixItems as unknown[]).length;
+	}
+
 	return schema;
 }
 
@@ -392,19 +399,46 @@ function convertOneOf(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSON
 }
 
 /**
- * Converts allOf (intersection) DNA to JSON Schema
+ * Converts allOf (intersection) DNA to JSON Schema.
+ * When all members are objects, merges them into a single `type: "object"`
+ * (aligning with Zod 4.5's compact intersection output). Otherwise, emits
+ * `allOf` as-is.
  */
 function convertAllOf(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
 	const schemas = (params[0] as unknown[]).slice(1);
-	return {
-		allOf: schemas.map(refId => {
-			const dna = dnaSeq[refId as number];
-			if (Array.isArray(dna) && dna.length > 0 && typeof dna[0] === 'string') {
-				return convertDnaNode(dna as tsDna, dnaSeq, refs);
+	const converted = schemas.map(refId => {
+		const dna = dnaSeq[refId as number];
+		if (Array.isArray(dna) && dna.length > 0 && typeof dna[0] === 'string') {
+			return convertDnaNode(dna as tsDna, dnaSeq, refs);
+		}
+		return {};
+	});
+
+	// Try to merge if all members are objects
+	if (converted.length >= 2 && converted.every(s =>
+		s !== null && typeof s === 'object' && !Array.isArray(s) &&
+		(s as Record<string, unknown>).type === "object"
+	)) {
+		const merged: Record<string, unknown> = { type: "object" };
+		const properties: Record<string, unknown> = {};
+		const required: string[] = [];
+		let additionalProperties: unknown;
+
+		for (const s of converted) {
+			const obj = s as Record<string, unknown>;
+			if (obj.properties) Object.assign(properties, obj.properties);
+			if (Array.isArray(obj.required)) required.push(...obj.required as string[]);
+			if (obj.additionalProperties !== undefined) {
+				additionalProperties = obj.additionalProperties;
 			}
-			return {};
-		})
-	};
+		}
+		merged.properties = properties;
+		merged.required = [...new Set(required)];
+		if (additionalProperties !== undefined) merged.additionalProperties = additionalProperties;
+		return merged as JSONSchema;
+	}
+
+	return { allOf: converted };
 }
 
 /**
@@ -498,13 +532,23 @@ function convertOptional(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): J
 }
 
 /**
- * Converts nullable wrapper DNA to JSON Schema
+ * Converts nullable wrapper DNA to JSON Schema.
+ * When the inner schema is a naked type (only has `type` key, no constraints),
+ * compacts to `type: ["X", "null"]` (aligning with Zod 4.5). Otherwise, emits
+ * `anyOf: [innerSchema, { type: "null" }]`.
  */
 function convertNullable(params: unknown[], dnaSeq: tsDnaSeq, refs: number[]): JSONSchema {
 	const innerRef = params[0] as number;
 	const innerDna = dnaSeq[innerRef];
 	if (Array.isArray(innerDna) && innerDna.length > 0 && typeof innerDna[0] === 'string') {
 		const innerSchema = convertDnaNode(innerDna as tsDna, dnaSeq, refs);
+		// Compact if inner is a naked type: { type: "X" } with no other keys
+		if (innerSchema !== null && typeof innerSchema === 'object' && !Array.isArray(innerSchema)) {
+			const keys = Object.keys(innerSchema);
+			if (keys.length === 1 && keys[0] === "type" && typeof (innerSchema as Record<string, unknown>).type === "string") {
+				return { type: [(innerSchema as Record<string, string>).type, "null"] };
+			}
+		}
 		return {
 			anyOf: [innerSchema, { type: "null" }]
 		};

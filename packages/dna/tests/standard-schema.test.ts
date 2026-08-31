@@ -223,9 +223,8 @@ describe("Standard Schema Protocol V1", () => {
 			const schema = dna.string().nullable();
 			const jsonSchema = schema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
 			
-			// ERROR: DNA generates T opcode instead of 'nullable' opcode
-			// TODO: Fix DnaNullable DNA generation to generate proper wrapper opcode
-			expect(jsonSchema.anyOf).toBeDefined();
+			// Naked primitive nullable compacts to type: ["string", "null"]
+			expect(jsonSchema.type).toEqual(["string", "null"]);
 		});
 	});
 

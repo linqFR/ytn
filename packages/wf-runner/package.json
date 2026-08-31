@@ -34,13 +34,13 @@
     }
   },
   "peerDependencies": {
-    "zod": "~4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
     "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.12",
-    "zod": "~4.4.3"
+    "tsx": "^4.23.13",
+    "zod": "^4.5.4"
   }
 }

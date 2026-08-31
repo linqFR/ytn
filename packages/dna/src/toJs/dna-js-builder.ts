@@ -323,7 +323,7 @@ export const check = (dnaOpt: [[string, any?, any?], tsDnaInnerMeta], _inVarName
 
 // `sym`: matches only Symbol values. Zod's `z.symbol()`.
 export const sym = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, utils: tsUtils, parentCtx: tsJSParentCtx): tsJSStepString => {
-	const { labelId } = utils;
+	// const { labelId } = utils;
 	const test = parentCtx.typeChecked === "symbol" ? "" : "typeof " + _inVarName + '==="symbol"';
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/symbol", "Symbol is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "symbol";
@@ -333,7 +333,7 @@ export const sym = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: s
 // `date`: matches a real `Date` instance (Zod's `z.date()`). Excludes invalid
 // dates (`new Date("nope")` whose `.getTime()` is NaN), aligning with Zod V4.
 export const date = (dnaOpt: [[Date | null, Date | null], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, utils: tsUtils, parentCtx: tsJSParentCtx): tsJSStepString => {
-	const { labelId } = utils;
+	// const { labelId } = utils;
 	const [minDate, maxDate] = dnaOpt[0];
 	// `t===t` is true unless `t` is NaN (NaN is the only value not equal to
 	// itself), so `getTime()===getTime()` rejects invalid dates without an
@@ -357,7 +357,7 @@ export const date = (dnaOpt: [[Date | null, Date | null], tsDnaInnerMeta], _inVa
 // browsers and in Node.js >= 20. Read via `globalThis` so the generated code
 // works without an explicit `File` reference in the calling scope.
 export const file = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, utils: tsUtils, parentCtx: tsJSParentCtx): tsJSStepString => {
-	const { labelId } = utils;
+	// const { labelId } = utils;
 	const test = _inVarName + " instanceof globalThis.File";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/file", "File is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "file";
@@ -369,7 +369,6 @@ export const file = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: 
 // Uses simple closure pattern (C captured in preBody for optimal performance).
 // `symbol`: validates that the input is a primitive symbol
 export const symbol = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, utils: tsUtils, parentCtx: tsJSParentCtx): tsJSStepString => {
-	const { labelId } = utils;
 	const test = "typeof " + _inVarName + "===\"symbol\"";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/symbol", "Symbol is required") + ERR_UNDEF;
 	parentCtx.typeChecked = "symbol";
@@ -379,27 +378,52 @@ export const symbol = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName
 // `url`: validates URL strings using URL (Node >= 19)
 // Trims whitespace; normalizes via `new URL(...).href` when `normalize` is set;
 // optionally enforces protocol/hostname regex constraints.
-// Delegates success/failure wiring to `simpleNodeToJs` so parent `counter` and `failCase` are honored.
-export const url = (dnaOpt: [[string | null, string | null, boolean], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, utils: tsUtils, parentCtx: tsJSParentCtx): tsJSStepString => {
+// Separation of concerns: `test` handles type check (string + URL.canParse) and
+// caches the URL object via comma operator; `body` holds protocol/hostname
+// constraints wrapped with `_errMode` (same pattern as `date` min/max).
+// `STEP.LET` declares the URL cache variable at function top so it is
+// accessible in both test and body regardless of execution order.
+export const url = (dnaOpt: [[string | null, string | null, boolean], tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, utils: tsUtils, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
 	const { labelId } = utils;
 	const [protocolRegex, hostnameRegex, normalize] = dnaOpt[0];
 	parentCtx.typeChecked = "string";
 	const trimExpr = _inVarName + ".trim()";
-	const targetExpr = normalize ? "new URL(" + trimExpr + ").href" : trimExpr;
-	const preBody = _inVarName + "=(typeof " + _inVarName + "===\"string\" && URL.canParse(" + trimExpr + ")?" + targetExpr + ":" + _inVarName + ");";
-	let test = 'typeof ' + _inVarName + '==="string" && URL.canParse(' + trimExpr + ')';
-	const urlObj = "new URL(" + trimExpr + ")";
-	if (protocolRegex) test += " && (" + protocolRegex + ").test(" + urlObj + ".protocol)";
-	if (hostnameRegex) test += " && (" + hostnameRegex + ").test(" + urlObj + ".hostname)";
+	const hasConstraints = !!(protocolRegex || hostnameRegex);
+	const needsParse = normalize || hasConstraints;
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/url", "Invalid URL") + ERR_UNDEF;
-	parentCtx.typeChecked = "string";
 
-	return simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, preBody, "true", true);
+	if (!needsParse) {
+		// No constraints, no normalize: type check + canParse + trim for output
+		const test = 'typeof ' + _inVarName + '==="string" && URL.canParse(' + trimExpr + ") && (" + _inVarName + "=" + trimExpr + ",true)";
+		return [[STEP.BODY, simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", "", true)]];
+	}
+
+	// Cache the URL object once via comma operator in test; `STEP.LET` declares
+	// `let _uN;` at function top so urlVar is accessible in body regardless of
+	// execution order (validate: test→body, parser: test→body).
+	const urlVar = "url" + labelId();
+	const assignExpr = normalize ? _inVarName + "=" + urlVar + ".href" : _inVarName + "=" + trimExpr;
+	const test = 'typeof ' + _inVarName + '==="string" && URL.canParse(' + trimExpr + ") && (" + urlVar + "=new URL(" + trimExpr + ")," + assignExpr + ",true)";
+
+	const body: string[] = [];
+	if (protocolRegex) body.push(_errMode(parentCtx.isCond,
+		"(" + protocolRegex + ").test(" + urlVar + ".protocol)",
+		_err(parentCtx, _inVarName, pathVar + "/url/protocol", "Invalid protocol") + ERR_UNDEF
+	));
+	if (hostnameRegex) body.push(_errMode(parentCtx.isCond,
+		"(" + hostnameRegex + ").test(" + urlVar + ".hostname)",
+		_err(parentCtx, _inVarName, pathVar + "/url/hostname", "Invalid hostname") + ERR_UNDEF
+	));
+
+	return [
+		[STEP.LET, urlVar],
+		[STEP.BODY, simpleNodeToJs(parentCtx, _inVarName, _outVarName, condErr, test, "", body, true)]
+	];
 };
 
 // `cidrv6`: validates IPv6 CIDR notation (address/prefix) via the shared `cV6` helper
 export const cidrv6 = (dnaOpt: [tsDnaInnerMeta], _inVarName: string, _outVarName: string, pathVar: string, utils: tsUtils, parentCtx: tsJSParentCtx): tsJSStepAct[] => {
-	const { labelId } = utils;
+	// const { labelId } = utils;
 	parentCtx.typeChecked = "string";
 	const condErr = _err(parentCtx, _inVarName, pathVar + "/cidrv6", "Invalid CIDR v6") + ERR_UNDEF;
 	const test = 'typeof ' + _inVarName + '==="string" && ' + FN_cidrV6.apply(_inVarName);
