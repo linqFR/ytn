@@ -250,7 +250,7 @@ export const union = <S extends tsDnaTupleSchemaRO>(schemas: S, meta?: string | 
   const allNaked = schemas.every(s => nakedTypeOf(s) !== null);
   if (allNaked) return initDna(DnaUnionType<S>, { schemas }, meta);
   return initDna(DnaUnion<S>, { schemas }, meta);
-}
+};
 
 export const xor = <T extends DnaType<any, any>, U extends DnaType<any, any>>(schemas: readonly [T, U], meta?: string | tsDnaMeta) =>
   initDna(DnaXorUnion<$Output<T>, $Output<U>>, { schemas: [...schemas] }, meta);
