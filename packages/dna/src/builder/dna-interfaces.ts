@@ -1226,6 +1226,7 @@ class DnaCombinator<T, I = T, S extends readonly DnaSomeType[] = readonly DnaSom
       case "anyOf": return "union";
       case "allOf": return "intersection";
       case "oneOf": return "xor";
+      case "type": return "union";
       default: return this._core.state.kind;
     }
   }
@@ -1259,6 +1260,88 @@ export class DnaUnion<S extends tsDnaTupleSchemaRO> extends DnaCombinator<$Outpu
     return this._core.seed.schemas as unknown as S;
   }
 }
+
+/**
+ * Union schema with type-compactable emission. When all members are naked
+ * primitives (no constraints, no wrappers, no format), emits a compact
+ * `["type", ["string", "number"], meta]` opcode instead of `anyOf`. This
+ * aligns DNA's `toJSONSchema()` output with Zod 4.5's compact
+ * `type: ["string", "number"]` form. Falls back to `DnaUnion` (`anyOf`)
+ * when any member has constraints, wrappers, or is not a simple primitive.
+ *
+ * @typeParam S - A readonly tuple of member schema types.
+ */
+export class DnaUnionType<S extends tsDnaTupleSchemaRO> extends DnaCombinator<$Output<S[number]>, $Output<S[number]>, S> {
+  override _core = new BaseCore<{ schemas: DnaSomeType[], combinatorType: tsDnaCombinatorType }>("type")
+    .preSeed({ combinatorType: "type" });
+
+  /** Returns the union's option schemas (Zod v4 parity: `.options`). */
+  get options(): S {
+    // CAST: _core.seed.schemas is DnaSomeType[] (erased at runtime); S is the static tuple type and TS cannot verify the array-to-tuple correspondence
+    return this._core.seed.schemas as unknown as S;
+  }
+
+  protected override _emitSelf(coll: IDnaCollector, storeMark?: tsStoreMark, storePosition?: tsStorePosition): tsDnaId {
+    const types: string[] = [];
+    for (const member of this._core.seed.schemas) {
+      const t = nakedTypeOf(member);
+      if (t === null) {
+        // Not all members are naked primitives — fall back to anyOf
+        this._core.seed.combinatorType = "anyOf";
+        return super._emitSelf(coll, storeMark, storePosition);
+      }
+      types.push(t);
+    }
+    // Empty union rejects all input — must use anyOf (the "type" handler
+    // returns "" for an empty types array, which would never reject).
+    if (types.length === 0) {
+      this._core.seed.combinatorType = "anyOf";
+      return super._emitSelf(coll, storeMark, storePosition);
+    }
+    const selfDna: tsDna = ["type", types, this.meta()];
+    return coll.storeDNA(selfDna, storeMark, storePosition);
+  }
+}
+
+/**
+ * Returns the JSON Schema type name if the schema is a naked primitive
+ * (no constraints, no wrappers, no format, no coercion), or `null` if the
+ * schema has constraints or is not a simple primitive.
+ */
+export function nakedTypeOf(schema: DnaSomeType): string | null {
+  // No wrappers allowed
+  if (schema instanceof DnaOptional || schema instanceof DnaNullable ||
+      schema instanceof DnaNullish || schema instanceof DnaDefault ||
+      schema instanceof DnaPrefault || schema instanceof DnaCatch ||
+      schema instanceof DnaNonOptional) return null;
+
+  // No refiners/checks allowed (e.g. .refine(), .check(), .superRefine())
+  if (schema._core.refinerList.length > 0) return null;
+
+  const t = schema.type;
+
+  if (t === "string") {
+    if (!(schema instanceof DnaString)) return null;
+    const s = schema._core.seed;
+    if (s.min !== null || s.max !== null || s.pattern !== null ||
+        s.format || s.startsWith || s.endsWith || s.includes ||
+        s.sequence.length > 0) return null;
+    return "string";
+  }
+  if (t === "number" || t === "bigint") {
+    if (!(schema instanceof NumberImpl)) return null;
+    const s = schema._core.seed;
+    if (s.min !== null || s.max !== null || s.multOf !== null) return null;
+    return t;
+  }
+  if (t === "boolean") return "boolean";
+  if (t === "null") return "null";
+  if (t === "symbol") return "symbol";
+  if (t === "undefined") return "undefined";
+
+  return null;
+}
+
 
 /**
  * Intersection schema (`allOf`): requires values valid against **both**
