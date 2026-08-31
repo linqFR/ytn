@@ -355,6 +355,23 @@ function buildNode(node: tsDna, build: (id: number) => c.DnaTypeWithWrappers<any
       return initDna(c.DnaXorUnion, { schemas, combinatorType: 'oneOf' }, meta);
     }
 
+    case 'type': {
+      // Compact union of naked primitives: ["type", ["string","number"], meta]
+      const types = paramsFor(opcode, node) as string[];
+      const schemas = types.map((t) => {
+        switch (t) {
+          case 'string': return initDna(c.DnaString);
+          case 'number': return initDna(c.DnaNumber);
+          case 'boolean': return initDna(c.DnaBoolean);
+          case 'null': return initDna(c.DnaNull);
+          case 'symbol': return initDna(c.DnaSymbol);
+          case 'undefined': return initDna(c.DnaUndefined);
+          default: throw new Error(`fromDna: unsupported type "${t}" in compact union`);
+        }
+      });
+      return initDna(c.DnaUnionType, { schemas, combinatorType: 'type' }, meta);
+    }
+
     case 'rcd': {
       const constraints = paramsFor(opcode, node);
       const patternProperties = constraints.find(([name]) => name === 'patternProperties');

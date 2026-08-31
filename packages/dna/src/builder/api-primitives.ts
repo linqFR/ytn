@@ -70,12 +70,13 @@ import {
   DnaUlid,
   DnaUndefined,
   DnaUnion,
+  DnaUnionType,
   DnaUnknown,
   DnaUrl,
   DnaUUID,
   DnaVoid,
   DnaXid,
-  DnaXorUnion, initDna, Iso,
+  DnaXorUnion, initDna, Iso, nakedTypeOf,
   type DnaJson, type DnaJsonRaw
 } from "@ytrynot/dna/core";
 import type { tsPrimitiveLiteral, tsTmplLitPart } from "../shared/base.types.js";
@@ -243,8 +244,13 @@ function _enum<const T extends tsDnaEnumInput>(values: T, error?: string | tsDna
   return initDna(DnaEnum<T extends tsDnaEnumValues ? $ToEnum<T[number]> : T>, { enumObj }, error);
 }
 
-export const union = <S extends tsDnaTupleSchemaRO>(schemas: S, meta?: string | tsDnaMeta) =>
-  initDna(DnaUnion<S>, { schemas }, meta);
+export const union = <S extends tsDnaTupleSchemaRO>(schemas: S, meta?: string | tsDnaMeta) => {
+  // Use compact DnaUnionType (opcode "type") only when all members are naked
+  // primitives — otherwise fall back to DnaUnion (opcode "anyOf").
+  const allNaked = schemas.every(s => nakedTypeOf(s) !== null);
+  if (allNaked) return initDna(DnaUnionType<S>, { schemas }, meta);
+  return initDna(DnaUnion<S>, { schemas }, meta);
+};
 
 export const xor = <T extends DnaType<any, any>, U extends DnaType<any, any>>(schemas: readonly [T, U], meta?: string | tsDnaMeta) =>
   initDna(DnaXorUnion<$Output<T>, $Output<U>>, { schemas: [...schemas] }, meta);
