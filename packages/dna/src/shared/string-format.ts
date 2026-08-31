@@ -54,7 +54,7 @@ export const STRING_FORMAT_PATTERNS: Record<string,string> = {
   "json-pointer": "^(?:\\/(?:[^~\\/]|~0|~1)*)*$", // JSON Pointers (RFC 6901) - pattern from ajv-formats
   "relative-json-pointer": "^(?:0|[1-9][0-9]*)(?:#|(?:\\/(?:[^~\\/]|~0|~1)*)*)$", // Relative JSON Pointers - pattern from ajv-formats
   // regex: undefined, // Regular expressions (ECMA-262) - requires actual RegExp validation
-  "date-time": `^${ISO_DATE_PART}T(?:${ISO_TIME_PART}(?:Z))$`, // Date and time (RFC 3339) - used by dna.iso.datetime
+  "date-time": `^${ISO_DATE_PART}T(?:${ISO_HOUR}:${ISO_MINUTE}:${ISO_SECOND}(?:\\.\\d+)?(?:Z))$`, // Date and time (RFC 3339) - seconds required with Z, used by dna.iso.datetime
   date: `^${ISO_DATE_PART}$`, // Full date (RFC 3339) - used by dna.iso.date
   time: `^${ISO_TIME_PART}$`, // Full time (RFC 3339) - used by dna.iso.time
   duration: "^P(?:(\\d+W)|(?!.*W)(?=\\d|T\\d)(\\d+Y)?(\\d+M)?(\\d+D)?(T(?=\\d)(\\d+H)?(\\d+M)?(\\d+([.,]\\d+)?S)?)?)$", // Duration (ISO 8601) - used by dna.iso.duration
@@ -90,24 +90,38 @@ function buildIsoDatetimePattern(format: string): string {
   const minute = ISO_MINUTE;
   const second = ISO_SECOND;
 
-  let timePart: string;
+  // Qualified time part: seconds required (RFC 3339 mandates seconds when Z/offset is present)
+  let qualifiedTimePart: string;
   if (precision === undefined || Number.isNaN(precision)) {
-    timePart = hour + ":" + minute + "(?::" + second + "(?:\\.\\d+)?)?";
+    qualifiedTimePart = hour + ":" + minute + ":" + second + "(?:\\.\\d+)?";
   } else if (precision < 0) {
-    timePart = hour + ":" + minute;
+    qualifiedTimePart = hour + ":" + minute;
   } else if (precision === 0) {
-    timePart = hour + ":" + minute + ":" + second;
+    qualifiedTimePart = hour + ":" + minute + ":" + second;
   } else {
-    timePart = hour + ":" + minute + ":" + second + "\\.\\d{" + precision + "}";
+    qualifiedTimePart = hour + ":" + minute + ":" + second + "\\.\\d{" + precision + "}";
   }
 
-  let tzPart: string;
-  if (hasLocal && hasOffset) tzPart = "(?:(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d))?";
-  else if (hasLocal) tzPart = "(Z)?";
-  else if (hasOffset) tzPart = "(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)";
-  else tzPart = "(?:Z)";
+  // Local time part: seconds optional (only differs from qualified when precision is undefined)
+  let localTimePart: string;
+  if (precision === undefined || Number.isNaN(precision)) {
+    localTimePart = hour + ":" + minute + "(?::" + second + "(?:\\.\\d+)?)?";
+  } else {
+    localTimePart = qualifiedTimePart;
+  }
 
-  return "^" + datePart + "T" + timePart + tzPart + "$";
+  // TZ options for qualified forms
+  const tzOpts: string[] = ["Z"];
+  if (hasOffset) tzOpts.push("[+-](?:[01]\\d|2[0-3]):[0-5]\\d");
+  const tzPart = "(?:" + tzOpts.join("|") + ")";
+
+  // Qualified = time with seconds + TZ
+  const qualified = qualifiedTimePart + tzPart;
+
+  // Full time regex: qualified | local (when local is enabled)
+  const timeRegex = hasLocal ? "(?:" + qualified + "|" + localTimePart + ")" : qualified;
+
+  return "^" + datePart + "T" + timeRegex + "$";
 }
 
 function buildIsoTimePattern(format: string): string {

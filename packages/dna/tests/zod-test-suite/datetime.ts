@@ -180,9 +180,9 @@ export const datetimeTests = [
     tests: [
       { description: "valid HH:MM:SS", data: "2022-10-13T12:52:00", valid: true },
       { description: "valid with Z", data: "2022-10-13T12:52:00Z", valid: true },
-      { description: "valid HH:MM with Z", data: "2022-10-13T12:52Z", valid: true },
-      { description: "valid HH:MM", data: "2022-10-13T12:52", valid: true },
-      { description: "valid with offset", data: "2022-10-13T12:52+02:00", valid: true },
+      { description: "invalid HH:MM with Z (seconds required)", data: "2022-10-13T12:52Z", valid: false },
+      { description: "valid HH:MM (local only)", data: "2022-10-13T12:52", valid: true },
+      { description: "invalid HH:MM with offset (seconds required)", data: "2022-10-13T12:52+02:00", valid: false },
       { description: "invalid offset no colon", data: "2022-10-13T12:52:00+02", valid: false },
     ],
   },
