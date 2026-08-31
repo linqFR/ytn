@@ -1,5 +1,33 @@
 # @ytrynot/dna
 
+## 0.11.0
+
+### Minor Changes
+
+- 1e7de18: Compact JSON Schema output for unions, nullable, and intersections
+  
+  - `dna.union()` of naked primitives (no constraints, no wrappers, no refinements) now emits `type: ["string", "number", ...]` instead of `anyOf: [...]` from `toJSONSchema()`, matching Zod 4.5's compact form.
+  - `dna.string().nullable()` (and other naked primitive nullables) now emits `type: ["string", "null"]` instead of `anyOf: [{type: "string"}, {type: "null"}]`.
+  - `dna.intersection()` of two objects now emits a single merged `type: "object"` schema instead of `allOf: [...]`, avoiding the `allOf` + `additionalProperties: false` trap that made valid intersections unvalidatable.
+  - Unions with constraints, wrappers, refinements, or non-primitive members still emit `anyOf` — only naked primitive unions are compacted.
+  
+  BREAKING CHANGE: `toJSONSchema()` output for naked primitive unions, naked nullable primitives, and object intersections now uses Zod 4.5's compact forms (`type: [...]` and merged objects) instead of `anyOf`/`allOf`. Consumers that compared DNA's JSON Schema output structurally against the previous `anyOf`/`allOf` forms must update their comparisons.
+- 75cc021: ISO datetime: align with Zod 4.5 soundness fixes
+  
+  - `dna.iso.datetime()` now rejects `HH:MMZ` and `HH:MM+HH:MM` formats — seconds are mandatory when a `Z` or offset qualifier is present, matching RFC 3339 and Zod 4.5.
+  - `dna.iso.datetime({ local: true })` still accepts `HH:MM` without seconds (no qualifier).
+  - `dna.iso.datetime({ local: true, offset: true })` accepts `HH:MM` only in the local (unqualified) branch; `HH:MMZ` and `HH:MM+02:00` are rejected.
+  
+  BREAKING CHANGE: `dna.iso.datetime()` and `dna.iso.datetime({ offset: true })` now reject minute-precision datetimes with a `Z` or offset qualifier. Code that relied on `2022-10-13T12:52Z` being valid must use `2022-10-13T12:52:00Z` instead, or use `dna.iso.datetime({ local: true })` for unqualified local times.
+
+### Patch Changes
+
+- 8505d77: URL validation: single `new URL()` parse and granular error messages
+  
+  - `dna.url()` now parses the URL exactly once per validation instead of up to three times, improving performance on URL-heavy workloads.
+  - Protocol and hostname constraint failures now produce distinct error messages (`Invalid protocol`, `Invalid hostname`) instead of a generic `Invalid URL`, making it easier to identify which constraint was violated.
+  - URL normalization (`dna.url({ normalize: true })`) no longer re-parses the URL when constraints are also present.
+
 ## 0.10.0
 
 ### Minor Changes
