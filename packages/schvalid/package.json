@@ -1,6 +1,6 @@
 {
   "name": "@ytrynot/schvalid",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "description": "JSON Schema 2020-12 validator with compiled standalone JS function using DNA bytecodes. OpenAPI 3.1 discriminator support. Close to AJV's speed.",
   "author": "linqFR",
   "license": "MIT",
@@ -59,13 +59,13 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@ytrynot/dna": "^0.8.2"
+    "@ytrynot/dna": "^0.9.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
     "@ytrynot/shared": "*",
     "ajv": "^8.20.0",
     "tsup": "^8.5.1",
-    "zod": "~4.4.3"
+    "zod": "^4.5.4"
   }
 }

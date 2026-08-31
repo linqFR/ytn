@@ -1,5 +1,12 @@
 # @ytrynot/qb
 
+## 1.1.3
+
+### Patch Changes
+
+- Updated dependencies [c6d294e]
+  - @ytrynot/dna@0.9.0
+
 ## 1.1.2
 
 ### Patch Changes
