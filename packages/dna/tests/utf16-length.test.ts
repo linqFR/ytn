@@ -480,3 +480,48 @@ describe("Counting behavior documentation", () => {
     expect(dna.string().length(5).safeParse(zwj).success).toBe(false);   // 3 points ≠ 5
   });
 });
+
+// =============================================================================
+// Zod 4.5 alignment regression — when Zod counts code points (≥4.5),
+// DNA and Zod must agree on every .min()/.max()/.length() result.
+// This section explicitly asserts agreement, not just "both fail/pass".
+// =============================================================================
+
+describe("Zod 4.5 alignment — DNA and Zod agree on code-point counting", () => {
+  // Skip the entire suite if Zod counts code units (≤4.4)
+  const suite = ZOD_CODE_POINTS ? describe : describe.skip;
+  suite("Zod ≥4.5 code-point alignment", () => {
+    const cases: Array<[string, number, number]> = [
+      // [input, codePointCount, utf16UnitCount]
+      ["😀", 1, 2],
+      ["😀😀", 2, 4],
+      ["🇫🇷", 2, 4],
+      ["👩‍🚀", 3, 5],
+      ["a😀b", 3, 4],
+      ["Hello 🌍!", 8, 9],
+      ["𝔻𝔼𝔽", 3, 6],
+      ["abc", 3, 3],
+      ["", 0, 0],
+    ];
+
+    for (const [input, cpCount] of cases) {
+      test(`.length(${cpCount}) on "${input.replace(/\n/g, "\\n")}" — DNA and Zod agree`, () => {
+        const zResult = z.string().length(cpCount).safeParse(input).success;
+        const dResult = dna.string().length(cpCount).safeParse(input).success;
+        expect(dResult).toBe(zResult);
+      });
+
+      test(`.min(${cpCount}) on "${input.replace(/\n/g, "\\n")}" — DNA and Zod agree`, () => {
+        const zResult = z.string().min(cpCount).safeParse(input).success;
+        const dResult = dna.string().min(cpCount).safeParse(input).success;
+        expect(dResult).toBe(zResult);
+      });
+
+      test(`.max(${cpCount}) on "${input.replace(/\n/g, "\\n")}" — DNA and Zod agree`, () => {
+        const zResult = z.string().max(cpCount).safeParse(input).success;
+        const dResult = dna.string().max(cpCount).safeParse(input).success;
+        expect(dResult).toBe(zResult);
+      });
+    }
+  });
+});

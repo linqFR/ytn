@@ -328,6 +328,11 @@ function convertArray(params: unknown[], dnaSeq: tsDnaSeq, refs: number[], meta?
 		schema.maxItems = meta.maxItems;
 	}
 
+	// Tuples: if prefixItems is set and items is false
+	if (schema.prefixItems !== undefined && schema.items === false && schema.maxItems === undefined) {
+		schema.maxItems = (schema.prefixItems as unknown[]).length;
+	}
+
 	return schema;
 }
 
