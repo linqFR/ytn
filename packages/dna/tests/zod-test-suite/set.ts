@@ -20,6 +20,9 @@ const nonEmptyDna = dna.set(dna.string()).nonempty();
 const nonEmptyMaxZod = z.set(z.string()).nonempty().max(2);
 const nonEmptyMaxDna = dna.set(dna.string()).nonempty().max(2);
 
+const minMaxSetZod = z.set(z.string()).min(4).max(5);
+const minMaxSetDna = dna.set(dna.string()).min(4).max(5);
+
 export const setTests = [
   {
     description: "valid parse",
@@ -75,6 +78,65 @@ export const setTests = [
     dnaSchema: nonEmptyMaxDna,
     tests: [
       { description: "valid nonempty at max", data: new Set(["a"]), valid: true },
+    ],
+  },
+  {
+    description: "valid parse: size-related methods (maxTwo, justTwo, nonEmpty, nonEmptyMax, sizeZeroResult)",
+    zodSchema: stringSetZod,
+    dnaSchema: stringSetDna,
+    tests: [
+      { description: "valid empty set (sizeZeroResult)", data: new Set(), valid: true },
+    ],
+  },
+  {
+    description: "failing when set does not match size()",
+    zodSchema: justTwoZod,
+    dnaSchema: justTwoDna,
+    tests: [
+      { description: "invalid below size", data: new Set(["one"]), valid: false },
+      { description: "invalid above size", data: new Set(["one", "two", "three"]), valid: false },
+    ],
+  },
+  {
+    description: "doesn't throw when an empty set is given",
+    zodSchema: stringSetZod,
+    dnaSchema: stringSetDna,
+    tests: [
+      { description: "valid empty set", data: new Set([]), valid: true },
+    ],
+  },
+  {
+    description: "throws when a Map is given",
+    zodSchema: stringSetZod,
+    dnaSchema: stringSetDna,
+    tests: [
+      { description: "invalid Map instead of Set", data: new Map([]), valid: false },
+    ],
+  },
+  {
+    description: "throws when the given set has invalid input",
+    zodSchema: stringSetZod,
+    dnaSchema: stringSetDna,
+    tests: [
+      { description: "invalid symbol in set", data: new Set([Symbol()]), valid: false },
+    ],
+  },
+  {
+    description: "throws when the given set has multiple invalid entries",
+    zodSchema: stringSetZod,
+    dnaSchema: stringSetDna,
+    tests: [
+      { description: "invalid numbers in set", data: new Set([1, 2]), valid: false },
+    ],
+  },
+  {
+    description: "min/max",
+    zodSchema: minMaxSetZod,
+    dnaSchema: minMaxSetDna,
+    tests: [
+      { description: "valid at min", data: new Set(["a", "b", "c", "d"]), valid: true },
+      { description: "invalid below min", data: new Set(["a", "b", "c"]), valid: false },
+      { description: "invalid above max", data: new Set(["a", "b", "c", "d", "e", "f"]), valid: false },
     ],
   },
 ];

@@ -29,6 +29,13 @@ const nonpositiveDna = dna.bigint().nonpositive();
 const multipleOfFiveZod = z.bigint().multipleOf(BigInt(5));
 const multipleOfFiveDna = dna.bigint().multipleOf(BigInt(5));
 
+// Additional schemas for expanded test groups
+const multipleOfZeroZod = z.bigint().multipleOf(BigInt(0));
+const multipleOfZeroDna = dna.bigint().multipleOf(BigInt(0));
+
+const multipleOfZeroObjZod = z.object({ a: z.bigint().multipleOf(BigInt(0)), b: z.bigint() });
+const multipleOfZeroObjDna = dna.object({ a: dna.bigint().multipleOf(BigInt(0)), b: dna.bigint() });
+
 export const bigintTests = [
   {
     description: "passing validations",
@@ -125,6 +132,24 @@ export const bigintTests = [
     tests: [
       { description: "valid multiple", data: BigInt(15), valid: true },
       { description: "invalid not multiple", data: BigInt(13), valid: false },
+    ],
+  },
+  {
+    description: "multipleOf(0n) does not throw from safeParse",
+    zodSchema: multipleOfZeroZod,
+    dnaSchema: multipleOfZeroDna,
+    tests: [
+      { description: "invalid 10n (not multiple of 0n)", data: BigInt(10), valid: false },
+      { description: "invalid 0n (not multiple of 0n)", data: BigInt(0), valid: false },
+    ],
+  },
+  {
+    description: "multipleOf(0n) nested in object does not break surrounding parse",
+    zodSchema: multipleOfZeroObjZod,
+    dnaSchema: multipleOfZeroObjDna,
+    tests: [
+      { description: "invalid object with bad multipleOf", data: { a: BigInt(1), b: BigInt(2) }, valid: false },
+      { description: "invalid object with bad b type", data: { a: BigInt(1), b: 2 }, valid: false },
     ],
   },
 ];

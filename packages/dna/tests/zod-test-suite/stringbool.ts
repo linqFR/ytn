@@ -209,4 +209,107 @@ export const stringboolTests = [
       },
     ],
   },
+  {
+    description: "z.stringbool codec encoding (default encode true/false)",
+    zodSchema: z.stringbool(),
+    dnaSchema: dna.stringbool(),
+    tests: [
+      {
+        description: "valid true decodes to boolean",
+        data: "true",
+        valid: true,
+      },
+      {
+        description: "valid false decodes to boolean",
+        data: "false",
+        valid: true,
+      },
+      {
+        description: "valid yes decodes to boolean",
+        data: "yes",
+        valid: true,
+      },
+      {
+        description: "valid no decodes to boolean",
+        data: "no",
+        valid: true,
+      },
+    ],
+  },
+  {
+    description: "z.stringbool codec encoding with custom values",
+    zodSchema: z.stringbool({
+      truthy: ["yes", "on", "1"],
+      falsy: ["no", "off", "0"],
+    }),
+    dnaSchema: dna.stringbool({
+      truthy: ["yes", "on", "1"],
+      falsy: ["no", "off", "0"],
+    }),
+    tests: [
+      {
+        description: "valid yes (first truthy)",
+        data: "yes",
+        valid: true,
+      },
+      {
+        description: "valid no (first falsy)",
+        data: "no",
+        valid: true,
+      },
+      {
+        description: "valid on",
+        data: "on",
+        valid: true,
+      },
+      {
+        description: "valid off",
+        data: "off",
+        valid: true,
+      },
+      {
+        description: "invalid true (not in custom values)",
+        data: "true",
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "z.stringbool codec round trip",
+    zodSchema: z.stringbool({
+      truthy: ["enabled", "active"],
+      falsy: ["disabled", "inactive"],
+    }),
+    dnaSchema: dna.stringbool({
+      truthy: ["enabled", "active"],
+      falsy: ["disabled", "inactive"],
+    }),
+    tests: [
+      {
+        description: "valid enabled (first truthy)",
+        data: "enabled",
+        valid: true,
+      },
+      {
+        description: "valid active (second truthy)",
+        data: "active",
+        valid: true,
+      },
+      {
+        description: "valid disabled (first falsy)",
+        data: "disabled",
+        valid: true,
+      },
+      {
+        description: "valid inactive (second falsy)",
+        data: "inactive",
+        valid: true,
+      },
+      {
+        description: "invalid other string",
+        data: "other",
+        valid: false,
+      },
+    ],
+  },
 ];

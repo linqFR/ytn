@@ -171,4 +171,70 @@ export const pickomitTests = [
       { description: "valid with picked key only", data: { name: "asdf" }, valid: true },
     ],
   },
+  {
+    description: "pick parse - fail (strict mode rejects unknown keys)",
+    zodSchema: z
+      .object({
+        name: z.string(),
+        age: z.number(),
+        nested: z.object({}),
+      })
+      .pick({ name: true })
+      .strict(),
+    dnaSchema: dna
+      .object({
+        name: dna.string(),
+        age: dna.number(),
+        nested: dna.object({}),
+      })
+      .pick({ name: true })
+      .strict(),
+    tests: [
+      { description: "invalid wrong type for name", data: { name: 12 }, valid: false },
+      { description: "invalid unknown key age", data: { name: "bob", age: 12 }, valid: false },
+      { description: "invalid missing name", data: { age: 12 }, valid: false },
+    ],
+  },
+  {
+    description: "omit parse - fail",
+    zodSchema: z
+      .object({
+        name: z.string(),
+        age: z.number(),
+        nested: z.object({}),
+      })
+      .omit({ name: true }),
+    dnaSchema: dna
+      .object({
+        name: dna.string(),
+        age: dna.number(),
+        nested: dna.object({}),
+      })
+      .omit({ name: true }),
+    tests: [
+      { description: "invalid wrong type for age", data: { name: 12 }, valid: false },
+      { description: "invalid wrong type - string age", data: { age: "12" }, valid: false },
+      { description: "invalid empty object", data: {}, valid: false },
+    ],
+  },
+  {
+    description: "nonstrict parsing - fail (missing required key)",
+    zodSchema: z
+      .looseObject({
+        name: z.string(),
+        age: z.number(),
+      })
+      .passthrough()
+      .pick({ name: true }),
+    dnaSchema: dna
+      .looseObject({
+        name: dna.string(),
+        age: dna.number(),
+      })
+      .passthrough()
+      .pick({ name: true }),
+    tests: [
+      { description: "invalid missing required name key", data: { whatever: "asdf" }, valid: false },
+    ],
+  },
 ];

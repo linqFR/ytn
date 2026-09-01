@@ -161,4 +161,14 @@ export const unionTests = [
       { description: "invalid string (matches both string and any)", data: "hello", valid: false },
     ],
   },
+  {
+    description: "z.xor() with custom error message",
+    zodSchema: z.xor([z.string(), z.number()], "Expected exactly one of string or number"),
+    dnaSchema: dna.xor([dna.string(), dna.number()], "Expected exactly one of string or number"),
+    tests: [
+      { description: "valid string", data: "hello", valid: true },
+      { description: "valid number", data: 42, valid: true },
+      { description: "invalid boolean (zero matches)", data: true, valid: false },
+    ],
+  },
 ];

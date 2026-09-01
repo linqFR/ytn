@@ -48,6 +48,30 @@ const diagonalKeysZod = z.enum({
 });
 const diagonalKeysDna = dna.enum([1, "A"]);
 
+// Additional schemas for expanded test groups
+const MixedFruits = { Apple: "apple", Banana: "banana", Orange: 3 } as const;
+const mixedFruitEnumZod = z.nativeEnum(MixedFruits);
+const mixedFruitEnumDna = dna.enum(["apple", "banana", 3]);
+
+const optionsEnumZod = z.enum(["tuna", "trout"]);
+const optionsEnumDna = dna.enum(["tuna", "trout"]);
+
+const italianFoodsZod = foodsZod.extract(["Pasta", "Pizza"]);
+const italianFoodsDna = foodsDna.extract(["Pasta", "Pizza"]);
+
+const unhealthyFoodsZod = foodsZod.exclude(["Salad"]);
+const unhealthyFoodsDna = foodsDna.exclude(["Salad"]);
+
+const emptyFoodsZod = foodsZod.exclude(["Pasta", "Pizza", "Tacos", "Burgers", "Salad"]);
+const emptyFoodsDna = foodsDna.exclude(["Pasta", "Pizza", "Tacos", "Burgers", "Salad"]);
+
+const emptyEnumZod = z.enum([]);
+const emptyEnumDna = dna.enum([]);
+
+const Fish = { Tuna: "Tuna", Trout: "Trout" } as const;
+const fishEnumZod = z.nativeEnum(Fish);
+const fishEnumDna = dna.enum(["Tuna", "Trout"]);
+
 export const enumTests = [
   {
     description: "enum from string array",
@@ -148,6 +172,71 @@ export const enumTests = [
     dnaSchema: diagonalKeysDna,
     tests: [
       { description: "valid A", data: "A", valid: true },
+    ],
+  },
+  {
+    description: "enum from native enum (mixed string/numeric)",
+    zodSchema: mixedFruitEnumZod,
+    dnaSchema: mixedFruitEnumDna,
+    tests: [
+      { description: "valid apple", data: "apple", valid: true },
+      { description: "valid banana", data: "banana", valid: true },
+      { description: "valid from object Apple", data: MixedFruits.Apple, valid: true },
+      { description: "valid from object Banana", data: MixedFruits.Banana, valid: true },
+      { description: "invalid Apple (key name)", data: "Apple", valid: false },
+      { description: "invalid Cantaloupe", data: "Cantaloupe", valid: false },
+    ],
+  },
+  {
+    description: "get options",
+    zodSchema: optionsEnumZod,
+    dnaSchema: optionsEnumDna,
+    tests: [
+      { description: "valid tuna", data: "tuna", valid: true },
+      { description: "valid trout", data: "trout", valid: true },
+    ],
+  },
+  {
+    description: "extract",
+    zodSchema: italianFoodsZod,
+    dnaSchema: italianFoodsDna,
+    tests: [
+      { description: "valid Pasta", data: "Pasta", valid: true },
+      { description: "invalid Tacos", data: "Tacos", valid: false },
+    ],
+  },
+  {
+    description: "exclude",
+    zodSchema: unhealthyFoodsZod,
+    dnaSchema: unhealthyFoodsDna,
+    tests: [
+      { description: "valid Pasta", data: "Pasta", valid: true },
+      { description: "invalid Salad", data: "Salad", valid: false },
+    ],
+  },
+  {
+    description: "exclude all values (empty enum)",
+    zodSchema: emptyFoodsZod,
+    dnaSchema: emptyFoodsDna,
+    tests: [
+      { description: "invalid Pasta", data: "Pasta", valid: false },
+    ],
+  },
+  {
+    description: "empty enum matches nothing",
+    zodSchema: emptyEnumZod,
+    dnaSchema: emptyEnumDna,
+    tests: [
+      { description: "invalid empty string", data: "", valid: false },
+      { description: "invalid non-empty string", data: "anything", valid: false },
+    ],
+  },
+  {
+    description: "nativeEnum default error message",
+    zodSchema: fishEnumZod,
+    dnaSchema: fishEnumDna,
+    tests: [
+      { description: "invalid Salmon", data: "Salmon", valid: false },
     ],
   },
 ];

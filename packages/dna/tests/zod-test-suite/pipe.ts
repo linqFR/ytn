@@ -58,7 +58,7 @@ export const pipeTests = [
       .refine((c) => c === 1234, "B"),
     dnaSchema: dna
       .string()
-      .refine((c: string) => c === "1234", "A")
+      .refine((c: string) => c === "1234", { message: "A", abort: true })
       .transform((val: string) => Number(val))
       .refine((c: number) => c === 1234, "B"),
     tests: [{ description: "4321 reports only A", data: "4321", valid: false }],

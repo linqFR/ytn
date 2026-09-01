@@ -233,4 +233,72 @@ export const detachedMethodsTests = [
       },
     ],
   },
+  {
+    description: "broad sweep: detaching builder methods does not throw or produce corrupt schema",
+    zodSchema: z.string(),
+    dnaSchema: dna.string(),
+    tests: [
+      {
+        description: "valid string after broad sweep of detached methods",
+        data: "x",
+        valid: true,
+        customCheck: () => {
+          const probeArgs: Record<string, unknown[]> = {
+            optional: [],
+            nullable: [],
+            array: [],
+            describe: ["x"],
+            brand: [],
+            readonly: [],
+            default: ["fallback"],
+            catch: ["fallback"],
+            min: [1],
+            max: [10],
+            length: [5],
+            nonempty: [],
+            trim: [],
+            toLowerCase: [],
+            toUpperCase: [],
+            email: [],
+            url: [],
+            uuid: [],
+            base64: [],
+            int: [],
+            positive: [],
+            negative: [],
+            finite: [],
+          };
+          const stringSchema = z.string();
+          const numberSchema = z.number();
+          const broken: Array<string> = [];
+          for (const [methodName, args] of Object.entries(probeArgs)) {
+            const target = methodName in stringSchema ? stringSchema : methodName in numberSchema ? numberSchema : null;
+            if (!target) continue;
+            const detached = (target as any)[methodName] as Function | undefined;
+            if (typeof detached !== "function") continue;
+            try {
+              detached(...args);
+            } catch {
+              broken.push(methodName);
+            }
+          }
+          const dnaStringSchema = dna.string();
+          const dnaNumberSchema = dna.number();
+          const dnaBroken: Array<string> = [];
+          for (const [methodName, args] of Object.entries(probeArgs)) {
+            const target = methodName in dnaStringSchema ? dnaStringSchema : methodName in dnaNumberSchema ? dnaNumberSchema : null;
+            if (!target) continue;
+            const detached = (target as any)[methodName] as Function | undefined;
+            if (typeof detached !== "function") continue;
+            try {
+              detached(...args);
+            } catch {
+              dnaBroken.push(methodName);
+            }
+          }
+          return broken.length === 0 && dnaBroken.length === 0;
+        },
+      },
+    ],
+  },
 ];

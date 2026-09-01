@@ -90,4 +90,134 @@ export const codecTests = [
       { description: "valid string to int", data: "123", valid: true },
     ],
   },
+  {
+    description: "mutating refinements (codec with trim output)",
+    zodSchema: z.codec(z.string(), z.string().trim(), {
+      decode: (val) => val,
+      encode: (val) => val,
+    }),
+    dnaSchema: dna.codec(dna.string(), dna.string().trim(), {
+      decode: (val) => val,
+      encode: (val) => val,
+    }),
+    tests: [
+      { description: "valid string with surrounding spaces (trimmed by output)", data: " asdf ", valid: true },
+    ],
+  },
+  {
+    description: "mutating refinements (codec with check trim and maxLength)",
+    zodSchema: z
+      .codec(z.string(), z.string(), {
+        decode: (val) => val,
+        encode: (val) => val,
+      })
+      .check(z.trim(), z.maxLength(4)),
+    dnaSchema: dna
+      .codec(dna.string(), dna.string().trim(), {
+        decode: (val) => val,
+        encode: (val) => val,
+      })
+      .refine((val) => val.length <= 4),
+    tests: [
+      { description: "valid string trimmed to 4 chars", data: " asdf ", valid: true },
+      { description: "invalid string trimmed too long", data: " asdfasdf ", valid: false },
+    ],
+  },
+  {
+    description: "async codec functionality",
+    zodSchema: z.codec(z.string(), z.number(), {
+      decode: async (str) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return Number.parseFloat(str);
+      },
+      encode: async (num) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return num.toString();
+      },
+    }),
+    dnaSchema: dna.codec(dna.string(), dna.number(), {
+      decode: async (str) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return Number.parseFloat(str);
+      },
+      encode: async (num) => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return num.toString();
+      },
+    }),
+    tests: [
+      { description: "valid async decode string to number", data: "42.5", valid: true },
+      { description: "valid async decode integer string", data: "123", valid: true },
+    ],
+  },
+  {
+    description: "codec input validation - invalid base64",
+    zodSchema: z.codec(z.base64(), z.instanceof(Uint8Array), {
+      decode: (base64String) => z.util.base64ToUint8Array(base64String),
+      encode: (bytes) => z.util.uint8ArrayToBase64(bytes),
+    }),
+    dnaSchema: dna.codec(dna.base64(), dna.instanceof(Uint8Array), {
+      decode: (base64String) => dna.util.base64ToUint8Array(base64String),
+      encode: (bytes) => dna.util.uint8ArrayToBase64(bytes),
+    }),
+    tests: [
+      { description: "invalid base64 string", data: "invalid!@#", valid: false },
+      { description: "valid base64 string", data: "SGVsbG8=", valid: true },
+    ],
+  },
+  {
+    description: "codec input validation - invalid http URL",
+    zodSchema: z.codec(z.httpUrl(), z.instanceof(URL), {
+      decode: (urlString) => new URL(urlString),
+      encode: (url) => url.href,
+    }),
+    dnaSchema: dna.codec(dna.httpUrl(), dna.instanceof(URL), {
+      decode: (urlString) => new URL(urlString),
+      encode: (url) => url.href,
+    }),
+    tests: [
+      { description: "invalid ftp URL (not http/https)", data: "ftp://example.com", valid: false },
+      { description: "valid https URL", data: "https://example.com/path", valid: true },
+      { description: "valid http URL", data: "http://example.com/path", valid: true },
+    ],
+  },
+  {
+    description: "codec transform error handling - JSON codec with z.json() output",
+    zodSchema: z.codec(z.string(), z.json(), {
+      decode: (jsonString, ctx) => {
+        try {
+          return JSON.parse(jsonString);
+        } catch (err: any) {
+          ctx.issues.push({
+            code: "invalid_format",
+            format: "json",
+            input: jsonString,
+            message: err.message,
+          });
+          return z.NEVER;
+        }
+      },
+      encode: (value) => JSON.stringify(value),
+    }),
+    dnaSchema: dna.codec(dna.string(), dna.json(), {
+      decode: (jsonString, ctx) => {
+        try {
+          return JSON.parse(jsonString);
+        } catch (err: any) {
+          ctx.issues.push({
+            code: "invalid_format",
+            format: "json",
+            input: jsonString,
+            message: err.message,
+          });
+          return dna.NEVER;
+        }
+      },
+      encode: (value) => JSON.stringify(value),
+    }),
+    tests: [
+      { description: "valid JSON string", data: '{"valid":"json"}', valid: true },
+      { description: "invalid JSON string", data: '{"invalid":,}', valid: false },
+    ],
+  },
 ];

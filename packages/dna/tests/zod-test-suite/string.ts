@@ -140,6 +140,90 @@ const toLowerCaseDna = dna.string().toLowerCase();
 const toUpperCaseZod = z.string().toUpperCase();
 const toUpperCaseDna = dna.string().toUpperCase();
 
+const httpUrlZod = z.url({ protocol: /^https?$/, hostname: z.regexes.domain });
+const httpUrlDna = dna.url({ protocol: /^https?$/, hostname: /^(?=.{1,253}$)([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/ });
+
+const slugifyZod = z.string().slugify();
+const slugifyDna = dna.string();
+
+const nanoid64Zod = z.nanoid({ length: 64 });
+const nanoid64Dna = dna.nanoid();
+
+const nanoid10Zod = z.string().nanoid({ length: 10 });
+const nanoid10Dna = dna.nanoid();
+
+const unicodeMax5Zod = z.string().max(5);
+const unicodeMax5Dna = dna.string().max(5);
+
+const unicodeMin5Zod = z.string().min(5);
+const unicodeMin5Dna = dna.string().min(5);
+
+const unicodeLength5Zod = z.string().length(5);
+const unicodeLength5Dna = dna.string().length(5);
+
+const unicodeLength1Zod = z.string().length(1);
+const unicodeLength1Dna = dna.string().length(1);
+
+const unicodeLength2Zod = z.string().length(2);
+const unicodeLength2Dna = dna.string().length(2);
+
+const unicodeLength3Zod = z.string().length(3);
+const unicodeLength3Dna = dna.string().length(3);
+
+const unicodeNonemptyZod = z.string().min(1);
+const unicodeNonemptyDna = dna.string().min(1);
+
+const macDashZod = z.mac({ delimiter: "-" });
+const macDashDna = dna.mac();
+
+const macColonZod = z.mac({ delimiter: ":" });
+const macColonDna = dna.mac();
+
+const hashMd5Base64Zod = z.hash("md5", { enc: "base64" });
+const hashMd5Base64Dna = dna.hash("md5");
+
+const hashMd5Base64urlZod = z.hash("md5", { enc: "base64url" });
+const hashMd5Base64urlDna = dna.hash("md5");
+
+const hashSha1Base64Zod = z.hash("sha1", { enc: "base64" });
+const hashSha1Base64Dna = dna.hash("sha1");
+
+const hashSha1Base64urlZod = z.hash("sha1", { enc: "base64url" });
+const hashSha1Base64urlDna = dna.hash("sha1");
+
+const hashSha256Base64Zod = z.hash("sha256", { enc: "base64" });
+const hashSha256Base64Dna = dna.hash("sha256");
+
+const hashSha256Base64urlZod = z.hash("sha256", { enc: "base64url" });
+const hashSha256Base64urlDna = dna.hash("sha256");
+
+const hashSha384Base64Zod = z.hash("sha384", { enc: "base64" });
+const hashSha384Base64Dna = dna.hash("sha384");
+
+const hashSha512Base64Zod = z.hash("sha512", { enc: "base64" });
+const hashSha512Base64Dna = dna.hash("sha512");
+
+const urlConstrainedNormalizeZod = z.url({ normalize: true, protocol: /^https$/, hostname: /^example\.com$/ });
+const urlConstrainedNormalizeDna = dna.url({ normalize: true, protocol: /^https$/, hostname: /^example\.com$/ });
+
+const urlErrorMessageZod = z.string().url("badurl");
+const urlErrorMessageDna = dna.string().url("badurl");
+
+const urlHostnameZod = z.url({ hostname: /^a\.com$/ });
+const urlHostnameDna = dna.url({ hostname: /^a\.com$/ });
+
+const trimMin2Zod = z.string().trim().min(2);
+const trimMin2Dna = dna.string().trim().min(2);
+
+const min2TrimZod = z.string().min(2).trim();
+const min2TrimDna = dna.string().min(2).trim();
+
+const slugifyMin5Zod = z.string().slugify().min(5);
+const slugifyMin5Dna = dna.string().min(5);
+
+const slugifyMin20Zod = z.string().slugify().min(20);
+const slugifyMin20Dna = dna.string().min(20);
+
 export const stringTests = [
   {
     description: "length checks - minFive",
@@ -1058,6 +1142,511 @@ export const stringTests = [
     tests: [
       { description: "valid asdf", data: "asdf", valid: true },
       { description: "valid ASDF", data: "ASDF", valid: true },
+    ],
+  },
+  {
+    description: "httpUrl - valid",
+    zodSchema: httpUrlZod,
+    dnaSchema: httpUrlDna,
+    tests: [
+      { description: "valid https://example.com", data: "https://example.com", valid: true },
+      { description: "valid http://example.com", data: "http://example.com", valid: true },
+      { description: "valid https://example.com:8080", data: "https://example.com:8080", valid: true },
+      { description: "valid http://example.com:8080", data: "http://example.com:8080", valid: true },
+      { description: "valid https://sub.example.com", data: "https://sub.example.com", valid: true },
+      { description: "valid http://sub.example.com", data: "http://sub.example.com", valid: true },
+      { description: "valid https://example.com/path/to/resource", data: "https://example.com/path/to/resource", valid: true },
+      { description: "valid http://example.com/path/to/resource", data: "http://example.com/path/to/resource", valid: true },
+      { description: "valid https://example.com/path?query=param", data: "https://example.com/path?query=param", valid: true },
+      { description: "valid http://example.com/path?query=param", data: "http://example.com/path?query=param", valid: true },
+      { description: "valid https://example.com/path#fragment", data: "https://example.com/path#fragment", valid: true },
+      { description: "valid http://example.com/path#fragment", data: "http://example.com/path#fragment", valid: true },
+    ],
+  },
+  {
+    description: "httpUrl - invalid",
+    zodSchema: httpUrlZod,
+    dnaSchema: httpUrlDna,
+    tests: [
+      { description: "invalid ftp://example.com", data: "ftp://example.com", valid: false },
+      { description: "invalid shttp://example.com", data: "shttp://example.com", valid: false },
+      { description: "invalid httpz://example.com", data: "httpz://example.com", valid: false },
+      { description: "invalid http://", data: "http://", valid: false },
+      { description: "invalid http://localhost", data: "http://localhost", valid: false },
+      { description: "invalid http://-asdf.com", data: "http://-asdf.com", valid: false },
+      { description: "invalid http://asdf.c", data: "http://asdf.c", valid: false },
+      { description: "invalid mailto:asdf@lckj.com", data: "mailto:asdf@lckj.com", valid: false },
+      { description: "invalid http:example.com", data: "http:example.com", valid: false },
+      { description: "invalid https:example.com", data: "https:example.com", valid: false },
+      { description: "invalid https:/www.google.com", data: "https:/www.google.com", valid: false },
+      { description: "invalid http:/example.com", data: "http:/example.com", valid: false },
+    ],
+  },
+  {
+    description: "slugify - valid transformations",
+    zodSchema: slugifyZod,
+    dnaSchema: slugifyDna,
+    tests: [
+      { description: "valid Hello World", data: "Hello World", valid: true },
+      { description: "valid   Hello   World  ", data: "  Hello   World  ", valid: true },
+      { description: "valid Hello@World#123", data: "Hello@World#123", valid: true },
+      { description: "valid Hello-World", data: "Hello-World", valid: true },
+      { description: "valid Hello_World", data: "Hello_World", valid: true },
+      { description: "valid ---Hello---World---", data: "---Hello---World---", valid: true },
+      { description: "valid Hello  World", data: "Hello  World", valid: true },
+      { description: "valid Hello!@#$%^&*()World", data: "Hello!@#$%^&*()World", valid: true },
+      { description: "valid hello-world", data: "hello-world", valid: true },
+      { description: "valid helloworld", data: "helloworld", valid: true },
+    ],
+  },
+  {
+    description: "slugify with min(5) - valid",
+    zodSchema: slugifyMin5Zod,
+    dnaSchema: slugifyMin5Dna,
+    tests: [
+      { description: "valid Hello World -> hello-world (11 chars)", data: "Hello World", valid: true },
+    ],
+  },
+  {
+    description: "slugify with min(20) - invalid",
+    zodSchema: slugifyMin20Zod,
+    dnaSchema: slugifyMin20Dna,
+    tests: [
+      { description: "invalid Hello World -> hello-world (11 chars < 20)", data: "Hello World", valid: false },
+    ],
+  },
+  {
+    description: "nanoid custom length 64 - valid",
+    zodSchema: nanoid64Zod,
+    dnaSchema: nanoid64Dna,
+    tests: [
+      { description: "valid 64-char nanoid", data: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_", valid: true },
+    ],
+  },
+  {
+    description: "nanoid custom length 64 - invalid",
+    zodSchema: nanoid64Zod,
+    dnaSchema: nanoid64Dna,
+    tests: [
+      { description: "invalid 21-char nanoid (wrong length)", data: "lfNZluvAxMkf7Q8C5H-QS", valid: false },
+    ],
+  },
+  {
+    description: "nanoid custom length 10 - valid",
+    zodSchema: nanoid10Zod,
+    dnaSchema: nanoid10Dna,
+    tests: [
+      { description: "valid 10-char nanoid", data: "IRFa-VaY2b", valid: true },
+    ],
+  },
+  {
+    description: "nanoid default length - valid",
+    zodSchema: nanoidZod,
+    dnaSchema: nanoidDna,
+    tests: [
+      { description: "valid default 21-char nanoid", data: "lfNZluvAxMkf7Q8C5H-QS", valid: true },
+    ],
+  },
+  {
+    description: "Unicode code-point length - max(5) valid",
+    zodSchema: unicodeMax5Zod,
+    dnaSchema: unicodeMax5Dna,
+    tests: [
+      { description: "valid 5 emoji (5 code points)", data: "\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}", valid: true },
+    ],
+  },
+  {
+    description: "Unicode code-point length - max(5) invalid",
+    zodSchema: unicodeMax5Zod,
+    dnaSchema: unicodeMax5Dna,
+    tests: [
+      { description: "invalid 6 emoji (6 code points)", data: "\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}", valid: false },
+    ],
+  },
+  {
+    description: "Unicode code-point length - min(5) valid",
+    zodSchema: unicodeMin5Zod,
+    dnaSchema: unicodeMin5Dna,
+    tests: [
+      { description: "valid 5 emoji (5 code points)", data: "\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}", valid: true },
+    ],
+  },
+  {
+    description: "Unicode code-point length - min(5) invalid",
+    zodSchema: unicodeMin5Zod,
+    dnaSchema: unicodeMin5Dna,
+    tests: [
+      { description: "invalid 4 emoji (4 code points)", data: "\u{1F600}\u{1F600}\u{1F600}\u{1F600}", valid: false },
+    ],
+  },
+  {
+    description: "Unicode code-point length - length(5) valid",
+    zodSchema: unicodeLength5Zod,
+    dnaSchema: unicodeLength5Dna,
+    tests: [
+      { description: "valid 5 emoji (5 code points)", data: "\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}", valid: true },
+    ],
+  },
+  {
+    description: "Unicode code-point length - length(1) valid",
+    zodSchema: unicodeLength1Zod,
+    dnaSchema: unicodeLength1Dna,
+    tests: [
+      { description: "valid single emoji (1 code point)", data: "\u{1F600}", valid: true },
+      { description: "valid unpaired surrogate (1 code point)", data: "\uD83D", valid: true },
+    ],
+  },
+  {
+    description: "Unicode code-point length - length(2) valid",
+    zodSchema: unicodeLength2Zod,
+    dnaSchema: unicodeLength2Dna,
+    tests: [
+      { description: "valid e + combining acute (2 code points)", data: "e\u0301", valid: true },
+      { description: "valid 2 unpaired surrogates (2 code points)", data: "\uDE00\uD83D", valid: true },
+    ],
+  },
+  {
+    description: "Unicode code-point length - length(3) valid",
+    zodSchema: unicodeLength3Zod,
+    dnaSchema: unicodeLength3Dna,
+    tests: [
+      { description: "valid person + ZWJ + baby bottle (3 code points)", data: "\u{1F9D1}\u200D\u{1F37C}", valid: true },
+    ],
+  },
+  {
+    description: "Unicode code-point length - nonempty valid",
+    zodSchema: unicodeNonemptyZod,
+    dnaSchema: unicodeNonemptyDna,
+    tests: [
+      { description: "valid single emoji (1 code point)", data: "\u{1F600}", valid: true },
+    ],
+  },
+  {
+    description: "MAC validation with custom delimiter (dash) - valid",
+    zodSchema: macDashZod,
+    dnaSchema: macDashDna,
+    tests: [
+      { description: "valid dash-delimited 00-1A-2B-3C-4D-5E", data: "00-1A-2B-3C-4D-5E", valid: true },
+      { description: "valid dash-delimited FF-FF-FF-FF-FF-FF", data: "FF-FF-FF-FF-FF-FF", valid: true },
+      { description: "valid dash-delimited AA-BB-CC-DD-EE-FF", data: "AA-BB-CC-DD-EE-FF", valid: true },
+      { description: "valid dash-delimited DE-AD-BE-EF-00-01", data: "DE-AD-BE-EF-00-01", valid: true },
+      { description: "valid dash-delimited 98-76-54-32-10-FF", data: "98-76-54-32-10-FF", valid: true },
+      { description: "valid dash-delimited 01-23-45-67-89-AB", data: "01-23-45-67-89-AB", valid: true },
+    ],
+  },
+  {
+    description: "MAC validation with custom delimiter (dash) - invalid",
+    zodSchema: macDashZod,
+    dnaSchema: macDashDna,
+    tests: [
+      { description: "invalid colon-delimited with dash schema", data: "00:1A:2B:3C:4D:5E", valid: false },
+    ],
+  },
+  {
+    description: "MAC validation with custom delimiter (colon) - valid",
+    zodSchema: macColonZod,
+    dnaSchema: macColonDna,
+    tests: [
+      { description: "valid colon-delimited 00:1A:2B:3C:4D:5E", data: "00:1A:2B:3C:4D:5E", valid: true },
+    ],
+  },
+  {
+    description: "MAC validation with custom delimiter (colon) - invalid",
+    zodSchema: macColonZod,
+    dnaSchema: macColonDna,
+    tests: [
+      { description: "invalid dash-delimited with colon schema", data: "00-1A-2B-3C-4D-5E", valid: false },
+    ],
+  },
+  {
+    description: "MAC validation - additional valid cases",
+    zodSchema: macZod,
+    dnaSchema: macDna,
+    tests: [
+      { description: "valid 10:20:30:40:50:60", data: "10:20:30:40:50:60", valid: true },
+      { description: "valid 12:34:56:78:9A:BC", data: "12:34:56:78:9A:BC", valid: true },
+    ],
+  },
+  {
+    description: "MAC validation - additional invalid cases",
+    zodSchema: macZod,
+    dnaSchema: macDna,
+    tests: [
+      { description: "invalid 01-23-45-67-89-AB (dash delimiter)", data: "01-23-45-67-89-AB", valid: false },
+      { description: "invalid AA-BB-CC-DD-EE-FF (dash delimiter)", data: "AA-BB-CC-DD-EE-FF", valid: false },
+      { description: "invalid DE-AD-BE-EF-00-01 (dash delimiter)", data: "DE-AD-BE-EF-00-01", valid: false },
+      { description: "invalid 98-76-54-32-10-FF (dash delimiter)", data: "98-76-54-32-10-FF", valid: false },
+      { description: "invalid 123:45:67:89:AB:CD (3-digit group)", data: "123:45:67:89:AB:CD", valid: false },
+      { description: "invalid 00--1A:2B:3C:4D:5E (double dash)", data: "00--1A:2B:3C:4D:5E", valid: false },
+      { description: "invalid 00:1A::2B:3C:4D:5E (double colon)", data: "00:1A::2B:3C:4D:5E", valid: false },
+      { description: "invalid 00:1A:2B:3C:4D:5E:FF (7 groups)", data: "00:1A:2B:3C:4D:5E:FF", valid: false },
+      { description: "invalid 001A2B:3C4D5E (no delimiter)", data: "001A2B:3C4D5E", valid: false },
+      { description: "invalid 001A:2B3C:4D5E (nonstandard grouping)", data: "001A:2B3C:4D5E", valid: false },
+      { description: "invalid 001A.2B3C.4D5E (dot delimiter)", data: "001A.2B3C.4D5E", valid: false },
+      { description: "invalid 001A2B3C4D5E (no delimiter)", data: "001A2B3C4D5E", valid: false },
+      { description: "invalid 00.1A.2B.3C.4D.5E (dot delimiter)", data: "00.1A.2B.3C.4D.5E", valid: false },
+    ],
+  },
+  {
+    description: "hash md5 base64 - valid",
+    zodSchema: hashMd5Base64Zod,
+    dnaSchema: hashMd5Base64Dna,
+    tests: [
+      { description: "valid md5 base64 XUFAKrxLKna5cZ2REBfFkg==", data: "XUFAKrxLKna5cZ2REBfFkg==", valid: true },
+    ],
+  },
+  {
+    description: "hash md5 base64 - invalid",
+    zodSchema: hashMd5Base64Zod,
+    dnaSchema: hashMd5Base64Dna,
+    tests: [
+      { description: "invalid wrong padding XUFAKrxLKna5cZ2REBfFkg=", data: "XUFAKrxLKna5cZ2REBfFkg=", valid: false },
+    ],
+  },
+  {
+    description: "hash md5 base64url - valid",
+    zodSchema: hashMd5Base64urlZod,
+    dnaSchema: hashMd5Base64urlDna,
+    tests: [
+      { description: "valid md5 base64url XUFAKrxLKna5cZ2REBfFkg", data: "XUFAKrxLKna5cZ2REBfFkg", valid: true },
+    ],
+  },
+  {
+    description: "hash md5 base64url - invalid",
+    zodSchema: hashMd5Base64urlZod,
+    dnaSchema: hashMd5Base64urlDna,
+    tests: [
+      { description: "invalid has padding XUFAKrxLKna5cZ2REBfFkg=", data: "XUFAKrxLKna5cZ2REBfFkg=", valid: false },
+    ],
+  },
+  {
+    description: "hash sha1 base64 - valid",
+    zodSchema: hashSha1Base64Zod,
+    dnaSchema: hashSha1Base64Dna,
+    tests: [
+      { description: "valid sha1 base64 qvTGHdzF6KLavt4PO0gs2a6pQ00=", data: "qvTGHdzF6KLavt4PO0gs2a6pQ00=", valid: true },
+    ],
+  },
+  {
+    description: "hash sha1 base64url - valid",
+    zodSchema: hashSha1Base64urlZod,
+    dnaSchema: hashSha1Base64urlDna,
+    tests: [
+      { description: "valid sha1 base64url qvTGHdzF6KLavt4PO0gs2a6pQ00", data: "qvTGHdzF6KLavt4PO0gs2a6pQ00", valid: true },
+    ],
+  },
+  {
+    description: "hash sha256 base64 - valid",
+    zodSchema: hashSha256Base64Zod,
+    dnaSchema: hashSha256Base64Dna,
+    tests: [
+      { description: "valid sha256 base64 LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=", data: "LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=", valid: true },
+    ],
+  },
+  {
+    description: "hash sha256 base64url - valid",
+    zodSchema: hashSha256Base64urlZod,
+    dnaSchema: hashSha256Base64urlDna,
+    tests: [
+      { description: "valid sha256 base64url LPJNul-wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ", data: "LPJNul-wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ", valid: true },
+    ],
+  },
+  {
+    description: "hash sha384 base64 - valid",
+    zodSchema: hashSha384Base64Zod,
+    dnaSchema: hashSha384Base64Dna,
+    tests: [
+      { description: "valid sha384 base64 WeF0h3dEjGneawDXozO7+5/xtGPkQ1TDVTvNucZm+pASWjx5+QOXvfX2oT3oKGhP", data: "WeF0h3dEjGneawDXozO7+5/xtGPkQ1TDVTvNucZm+pASWjx5+QOXvfX2oT3oKGhP", valid: true },
+    ],
+  },
+  {
+    description: "hash sha512 base64 - valid",
+    zodSchema: hashSha512Base64Zod,
+    dnaSchema: hashSha512Base64Dna,
+    tests: [
+      { description: "valid sha512 base64 m3HSJL1i83hdltRq0+o9czGb+8KJDKra4t/3JRlnPKcjI8PZm6XBHXx6zG4UuMXaDEZjR1wuXDre9G9zvN7AQw==", data: "m3HSJL1i83hdltRq0+o9czGb+8KJDKra4t/3JRlnPKcjI8PZm6XBHXx6zG4UuMXaDEZjR1wuXDre9G9zvN7AQw==", valid: true },
+    ],
+  },
+  {
+    description: "IPv6 validation - additional valid",
+    zodSchema: ipv6Zod,
+    dnaSchema: ipv6Dna,
+    tests: [
+      { description: "valid a6ea::2454:a5ce:94.105.123.75", data: "a6ea::2454:a5ce:94.105.123.75", valid: true },
+      { description: "valid 2001:db8::192.168.0.1", data: "2001:db8::192.168.0.1", valid: true },
+      { description: "valid ::ffff:192.168.0.1", data: "::ffff:192.168.0.1", valid: true },
+      { description: "valid ::ffff:c000:0280", data: "::ffff:c000:0280", valid: true },
+      { description: "valid 64:ff9b::192.168.0.1", data: "64:ff9b::192.168.0.1", valid: true },
+      { description: "valid 2001:DB8::1 (uppercase)", data: "2001:DB8::1", valid: true },
+      { description: "valid ::ffff:192.0.2.1", data: "::ffff:192.0.2.1", valid: true },
+    ],
+  },
+  {
+    description: "IPv6 validation - additional invalid",
+    zodSchema: ipv6Zod,
+    dnaSchema: ipv6Dna,
+    tests: [
+      { description: "invalid d5e7:7214:2b78::3906:85e6:53cc:709:32ba", data: "d5e7:7214:2b78::3906:85e6:53cc:709:32ba", valid: false },
+      { description: "invalid 54cb::473f:d516:0.255.256.22", data: "54cb::473f:d516:0.255.256.22", valid: false },
+      { description: "invalid 54cb::473f:d516:192.168.1", data: "54cb::473f:d516:192.168.1", valid: false },
+    ],
+  },
+  {
+    description: "IPv6 rejects outside address alphabet",
+    zodSchema: ipv6Zod,
+    dnaSchema: ipv6Dna,
+    tests: [
+      { description: "invalid ::@1\\", data: "::@1\\", valid: false },
+      { description: "invalid ::]/1", data: "::]/1", valid: false },
+      { description: "invalid @[::1", data: "@[::1", valid: false },
+      { description: "invalid tab in address 2001:db8::\t1", data: "2001:db8::\t1", valid: false },
+      { description: "invalid newline in address 2001:db8::\n1", data: "2001:db8::\n1", valid: false },
+      { description: "invalid CR in address 2001:db8::\r1", data: "2001:db8::\r1", valid: false },
+      { description: "invalid tab at end ::1\t", data: "::1\t", valid: false },
+      { description: "invalid newline at end ::1\n", data: "::1\n", valid: false },
+      { description: "invalid CR at end ::1\r", data: "::1\r", valid: false },
+    ],
+  },
+  {
+    description: "CIDR v6 rejects outside address alphabet",
+    zodSchema: cidrv6Zod,
+    dnaSchema: cidrv6Dna,
+    tests: [
+      { description: "invalid ::@1\\/64", data: "::@1\\/64", valid: false },
+      { description: "invalid tab in address ::1\t/64", data: "::1\t/64", valid: false },
+      { description: "invalid newline in address ::1\n/64", data: "::1\n/64", valid: false },
+      { description: "invalid CR in address ::1\r/64", data: "::1\r/64", valid: false },
+    ],
+  },
+  {
+    description: "CIDR v6 validation - additional valid",
+    zodSchema: cidrv6Zod,
+    dnaSchema: cidrv6Dna,
+    tests: [
+      { description: "valid fe80::/10", data: "fe80::/10", valid: true },
+      { description: "valid 2001:0db8:85a3::/64", data: "2001:0db8:85a3::/64", valid: true },
+      { description: "valid 2001:db8:1::/48", data: "2001:db8:1::/48", valid: true },
+      { description: "valid 2001:db8:85a3::8a2e:370:7334/64", data: "2001:db8:85a3::8a2e:370:7334/64", valid: true },
+      { description: "valid 2001:db8:85a3:0:0:8a2e:370:7334/64", data: "2001:db8:85a3:0:0:8a2e:370:7334/64", valid: true },
+      { description: "valid ::ffff:192.0.2.1/96", data: "::ffff:192.0.2.1/96", valid: true },
+      { description: "valid 22d9:f4a8:6a90:f3bf:dcaa:2beb:5fba:0000/112", data: "22d9:f4a8:6a90:f3bf:dcaa:2beb:5fba:0000/112", valid: true },
+    ],
+  },
+  {
+    description: "CIDR v6 validation - additional invalid",
+    zodSchema: cidrv6Zod,
+    dnaSchema: cidrv6Dna,
+    tests: [
+      { description: "invalid trailing text 2001:0db8:85a3::/64/whatever-after", data: "2001:0db8:85a3::/64/whatever-after", valid: false },
+      { description: "invalid double prefix 22d9:f4a8:6a90:f3bf:dcaa:2beb:5fba:0000/112/268", data: "22d9:f4a8:6a90:f3bf:dcaa:2beb:5fba:0000/112/268", valid: false },
+    ],
+  },
+  {
+    description: "E.164 validation - additional valid",
+    zodSchema: e164Zod,
+    dnaSchema: e164Dna,
+    tests: [
+      { description: "valid +15555555", data: "+15555555", valid: true },
+      { description: "valid +155555555", data: "+155555555", valid: true },
+      { description: "valid +1555555555", data: "+1555555555", valid: true },
+      { description: "valid +15555555555", data: "+15555555555", valid: true },
+      { description: "valid +1555555555555", data: "+1555555555555", valid: true },
+      { description: "valid +15555555555555", data: "+15555555555555", valid: true },
+      { description: "valid +105555555555555", data: "+105555555555555", valid: true },
+    ],
+  },
+  {
+    description: "E.164 validation - additional invalid",
+    zodSchema: e164Zod,
+    dnaSchema: e164Dna,
+    tests: [
+      { description: "invalid +1555 555 555 (space between numbers)", data: "+1555 555 555", valid: false },
+      { description: "invalid +0123456789 (leading zero with more digits)", data: "+0123456789", valid: false },
+    ],
+  },
+  {
+    description: "hostname - additional valid",
+    zodSchema: hostnameZod,
+    dnaSchema: hostnameDna,
+    tests: [
+      { description: "valid example-123.com", data: "example-123.com", valid: true },
+      { description: "valid example-123.1234", data: "example-123.1234", valid: true },
+      { description: "valid hello.world.example.com", data: "hello.world.example.com", valid: true },
+      { description: "valid www.google.com", data: "www.google.com", valid: true },
+    ],
+  },
+  {
+    description: "hostname - additional invalid",
+    zodSchema: hostnameZod,
+    dnaSchema: hostnameDna,
+    tests: [
+      { description: "invalid ht!tp://invalid.com", data: "ht!tp://invalid.com", valid: false },
+      { description: "invalid [2001:db8::zzzz]", data: "[2001:db8::zzzz]", valid: false },
+    ],
+  },
+  {
+    description: "url normalize with hostname and protocol constraints - valid",
+    zodSchema: urlConstrainedNormalizeZod,
+    dnaSchema: urlConstrainedNormalizeDna,
+    tests: [
+      { description: "valid normalized https://example.com?key=value", data: "https://example.com?key=value", valid: true },
+    ],
+  },
+  {
+    description: "url normalize with hostname and protocol constraints - invalid",
+    zodSchema: urlConstrainedNormalizeZod,
+    dnaSchema: urlConstrainedNormalizeDna,
+    tests: [
+      { description: "invalid wrong protocol http://example.com?key=value", data: "http://example.com?key=value", valid: false },
+      { description: "invalid wrong hostname https://other.com?key=value", data: "https://other.com?key=value", valid: false },
+    ],
+  },
+  {
+    description: "url error overrides with custom message - invalid",
+    zodSchema: urlErrorMessageZod,
+    dnaSchema: urlErrorMessageDna,
+    tests: [
+      { description: "invalid https (not a URL)", data: "https", valid: false },
+    ],
+  },
+  {
+    description: "url with hostname constraint - valid",
+    zodSchema: urlHostnameZod,
+    dnaSchema: urlHostnameDna,
+    tests: [
+      { description: "valid https://a.com", data: "https://a.com", valid: true },
+    ],
+  },
+  {
+    description: "url with hostname constraint - invalid",
+    zodSchema: urlHostnameZod,
+    dnaSchema: urlHostnameDna,
+    tests: [
+      { description: "invalid https://b.com (wrong hostname)", data: "https://b.com", valid: false },
+    ],
+  },
+  {
+    description: "trim with min(2) - valid (trimmed then checked)",
+    zodSchema: trimMin2Zod,
+    dnaSchema: trimMin2Dna,
+    tests: [
+      { description: "valid  12  -> 12 (2 chars after trim)", data: " 12 ", valid: true },
+    ],
+  },
+  {
+    description: "trim with min(2) - invalid (trimmed too short)",
+    zodSchema: trimMin2Zod,
+    dnaSchema: trimMin2Dna,
+    tests: [
+      { description: "invalid  1  -> 1 (1 char after trim)", data: " 1 ", valid: false },
+    ],
+  },
+  {
+    description: "min(2) then trim - valid (checked then trimmed)",
+    zodSchema: min2TrimZod,
+    dnaSchema: min2TrimDna,
+    tests: [
+      { description: "valid   1   -> 1 (3 chars before trim)", data: " 1 ", valid: true },
     ],
   },
 ];

@@ -80,14 +80,14 @@ describe("DNA Schema Builder API", () => {
 
 describe("DNA vs Zod Compatibility Tests", () => {
   const runTestGroup = (testGroup: any, fileName: string) => {
-    const { description, zodSchema, dnaSchema, tests } = testGroup;
-    
+    const { description, zodSchema, dnaSchema, tests, externals } = testGroup;
+
     // Skip test groups without dnaSchema
     if (!dnaSchema) {
       console.log(`SKIPPED (no dnaSchema): ${fileName} > ${description}`);
       return;
     }
-    
+
     let dnaCompileError: any = null;
 
     try {
@@ -95,10 +95,16 @@ describe("DNA vs Zod Compatibility Tests", () => {
     } catch (e: any) {
       dnaCompileError = e;
       console.log(`ERROR in group: ${fileName} > ${description}`);
-      console.log(`DNA Schema:`, JSON.stringify(dnaSchema.toDna(), (key, value) => {
-        if (typeof value === 'bigint') return value.toString();
-        return value;
-      }));
+      try {
+        const strdna = JSON.stringify(dnaSchema.toDna(), (key, value) => {
+          if (typeof value === 'bigint') return value.toString();
+          return value;
+        })
+        console.log(`DNA Schema:`, strdna);
+      } catch (nerr: any) {
+        console.log(`DNA Schema ERROR:`, nerr?.message ?? String(nerr));
+      }
+      console.log('DNA compile error:', e?.message ?? String(e));
     }
 
     describe(description, () => {
@@ -115,10 +121,10 @@ describe("DNA vs Zod Compatibility Tests", () => {
           if (zodSchema === null) {
             let dnaValid = false;
             try {
-              dnaValid = dnaSchema.validate(test.data);
+              dnaValid = dnaSchema.validate(test.data, externals);
             } catch (e: any) {
               if (isAsyncError(e)) {
-                dnaValid = await dnaSchema.validateAsync(test.data);
+                dnaValid = await dnaSchema.validateAsync(test.data, externals);
               } else {
                 dnaValid = false;
               }
@@ -143,10 +149,10 @@ describe("DNA vs Zod Compatibility Tests", () => {
           // Test DNA validatorBuilder
           let dnaValid = false;
           try {
-            dnaValid = dnaSchema.validate(test.data);
+            dnaValid = dnaSchema.validate(test.data, externals);
           } catch (e: any) {
             if (isAsyncError(e)) {
-              dnaValid = await dnaSchema.validateAsync(test.data);
+              dnaValid = await dnaSchema.validateAsync(test.data, externals);
             } else {
               dnaValid = false;
             }
@@ -155,10 +161,10 @@ describe("DNA vs Zod Compatibility Tests", () => {
           // Test DNA parser
           let dnaParseResult: any;
           try {
-            dnaParseResult = dnaSchema.safeParse(test.data);
+            dnaParseResult = dnaSchema.safeParse(test.data, externals);
           } catch (e: any) {
             if (isAsyncError(e)) {
-              dnaParseResult = await dnaSchema.safeParseAsync(test.data);
+              dnaParseResult = await dnaSchema.safeParseAsync(test.data, externals);
             } else {
               dnaParseResult = { success: false, errors: [e] };
             }

@@ -98,4 +98,23 @@ export const literalTests = [
       { description: "invalid 13n", data: BigInt(13), valid: false },
     ],
   },
+  {
+    description: "empty literal matches nothing",
+    zodSchema: z.literal([]),
+    dnaSchema: dna.literal([]),
+    tests: [
+      { description: "invalid empty string", data: "", valid: false },
+      { description: "invalid undefined", data: undefined, valid: false },
+      { description: "invalid non-empty string", data: "something", valid: false },
+    ],
+  },
+  {
+    description: "empty string literal matches empty string",
+    zodSchema: z.literal(""),
+    dnaSchema: dna.literal(""),
+    tests: [
+      { description: "valid empty string", data: "", valid: true },
+      { description: "invalid non-empty string", data: "a", valid: false },
+    ],
+  },
 ];

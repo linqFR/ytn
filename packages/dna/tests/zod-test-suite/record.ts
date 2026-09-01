@@ -82,6 +82,128 @@ const anyValueRecordDna = dna.record(dna.string(), dna.any());
 const undefinedValueRecordZod = z.record(z.string(), z.undefined());
 const undefinedValueRecordDna = dna.record(dna.string(), dna.undefined());
 
+// optional-in value type schemas
+const defaultedValueRecordZod = z.record(z.enum(["Tuna", "Salmon"]), z.string().default("unknown"));
+const defaultedValueRecordDna = dna.record(dna.enum(["Tuna", "Salmon"]), dna.string().default("unknown"));
+
+const prefaultedValueRecordZod = z.record(z.enum(["Tuna", "Salmon"]), z.string().prefault("unknown"));
+const prefaultedValueRecordDna = dna.record(dna.enum(["Tuna", "Salmon"]), dna.string().prefault("unknown"));
+
+const optionalValueRecordZod = z.record(z.enum(["Tuna", "Salmon"]), z.string().optional());
+const optionalValueRecordDna = dna.record(dna.enum(["Tuna", "Salmon"]), dna.string().optional());
+
+const caughtValueRecordZod = z.record(z.enum(["Tuna", "Salmon"]), z.string().catch("unknown"));
+const caughtValueRecordDna = dna.record(dna.enum(["Tuna", "Salmon"]), dna.string().catch("unknown"));
+
+const preprocessedValueRecordZod = z.record(
+  z.enum(["Tuna", "Salmon"]),
+  z.preprocess((v) => v, z.string())
+);
+const preprocessedValueRecordDna = dna.record(
+  dna.enum(["Tuna", "Salmon"]),
+  dna.preprocess((v) => v, dna.string())
+);
+
+// typescript enum exhaustiveness - extra key and missing key
+const tsEnumExtraKeyZod = z.record(z.enum(Enum), z.string());
+const tsEnumExtraKeyDna = dna.record(dna.enum([Enum.Tuna, Enum.Salmon]), dna.string());
+
+// key and value getters
+const keyValueTypeRecordZod = z.record(z.string(), z.number());
+const keyValueTypeRecordDna = dna.record(dna.string(), dna.number());
+
+// prototype pollution
+const protoPollutionRecordZod = z.record(z.string(), z.object({ a: z.string() }));
+const protoPollutionRecordDna = dna.record(dna.string(), dna.object({ a: dna.string() }));
+
+// key schema cannot normalize into __proto__
+const protoKeyToLowerZod = z.record(z.string().toLowerCase(), z.object({ a: z.string() }));
+const protoKeyToLowerDna = dna.record(dna.string().toLowerCase(), dna.object({ a: dna.string() }));
+
+const protoKeyTrimZod = z.record(z.string().trim(), z.object({ a: z.string() }));
+const protoKeyTrimDna = dna.record(dna.string().trim(), dna.object({ a: dna.string() }));
+
+const protoKeyTransformZod = z.record(
+  z.string().transform((s) => s.slice(2)),
+  z.object({ a: z.string() })
+);
+const protoKeyTransformDna = dna.record(
+  dna.string().transform((s) => s.slice(2)),
+  dna.object({ a: dna.string() })
+);
+
+// async parsing - valid
+const asyncRecordValidZod = z
+  .record(
+    z.string(),
+    z
+      .string()
+      .optional()
+      .refine(async () => true)
+  )
+  .refine(async () => true);
+const asyncRecordValidDna = dna
+  .record(
+    dna.string(),
+    dna
+      .string()
+      .optional()
+      .refine(async () => true)
+  )
+  .refine(async () => true);
+
+// async parsing - invalid
+const asyncRecordInvalidZod = z
+  .record(
+    z.string(),
+    z
+      .string()
+      .optional()
+      .refine(async () => false)
+  )
+  .refine(async () => false);
+const asyncRecordInvalidDna = dna
+  .record(
+    dna.string(),
+    dna
+      .string()
+      .optional()
+      .refine(async () => false)
+  )
+  .refine(async () => false);
+
+// partialRecord with z.literal([key, ...])
+const partialRecordLiteralZod = z.partialRecord(z.literal(["id", "name", "email"]), z.string());
+const partialRecordLiteralDna = dna.partialRecord(dna.literal(["id", "name", "email"]), dna.string());
+
+// partialRecord with numeric literal keys
+const partialRecordNumericZod = z.partialRecord(z.literal([1, 2, 3]), z.string());
+const partialRecordNumericDna = dna.partialRecord(dna.literal([1, 2, 3]), dna.string());
+
+// partialRecord with union of string and numeric literal keys
+const partialRecordUnionZod = z.partialRecord(
+  z.union([z.literal(["a", "b", "c"]), z.literal([1, 2, 3])]),
+  z.string()
+);
+const partialRecordUnionDna = dna.partialRecord(
+  dna.union([dna.literal(["a", "b", "c"]), dna.literal([1, 2, 3])]),
+  dna.string()
+);
+
+// looseRecord with closed key schema
+const looseRecordEnumAnyZod = z.looseRecord(z.enum(["foo", "bar"]), z.any());
+const looseRecordEnumAnyDna = dna.looseRecord(dna.enum(["foo", "bar"]), dna.any());
+
+const looseRecordLiteralAnyZod = z.looseRecord(z.literal(["foo", "bar"]), z.any());
+const looseRecordLiteralAnyDna = dna.looseRecord(dna.literal(["foo", "bar"]), dna.any());
+
+const looseRecordEnumStringZod = z.looseRecord(z.enum(["foo", "bar"]), z.string());
+const looseRecordEnumStringDna = dna.looseRecord(dna.enum(["foo", "bar"]), dna.string());
+
+// record with closed key schema rejects unrecognized keys
+const recordClosedKeyZod = z.record(z.enum(["foo", "bar"]), z.any());
+const recordClosedKeyDna = dna.record(dna.enum(["foo", "bar"]), dna.any());
+
 export const recordTests = [
   {
     description: "type inference - boolean record",
@@ -222,6 +344,181 @@ export const recordTests = [
     dnaSchema: undefinedValueRecordDna,
     tests: [
       { description: "valid undefined value", data: { _test: undefined }, valid: true },
+    ],
+  },
+  {
+    description: "optional-in value type - default",
+    zodSchema: defaultedValueRecordZod,
+    dnaSchema: defaultedValueRecordDna,
+    tests: [
+      { description: "valid partial with default fill", data: { Tuna: "asdf" }, valid: true },
+    ],
+  },
+  {
+    description: "optional-in value type - prefault",
+    zodSchema: prefaultedValueRecordZod,
+    dnaSchema: prefaultedValueRecordDna,
+    tests: [
+      { description: "valid partial with prefault fill", data: { Tuna: "asdf" }, valid: true },
+    ],
+  },
+  {
+    description: "optional-in value type - optional",
+    zodSchema: optionalValueRecordZod,
+    dnaSchema: optionalValueRecordDna,
+    tests: [
+      { description: "valid partial with optional", data: { Tuna: "asdf" }, valid: true },
+    ],
+  },
+  {
+    description: "optional-in value type - catch",
+    zodSchema: caughtValueRecordZod,
+    dnaSchema: caughtValueRecordDna,
+    tests: [
+      { description: "valid all keys", data: { Tuna: "asdf", Salmon: "asdf" }, valid: true },
+      { description: "invalid missing key (catch does not make key optional)", data: { Tuna: "asdf" }, valid: false },
+    ],
+  },
+  {
+    description: "optional-in value type - preprocess",
+    zodSchema: preprocessedValueRecordZod,
+    dnaSchema: preprocessedValueRecordDna,
+    tests: [
+      { description: "valid all keys", data: { Tuna: "asdf", Salmon: "asdf" }, valid: true },
+      { description: "invalid missing key (preprocess does not make key optional)", data: { Tuna: "asdf" }, valid: false },
+    ],
+  },
+  {
+    description: "typescript enum exhaustiveness - extra key and missing key",
+    zodSchema: tsEnumExtraKeyZod,
+    dnaSchema: tsEnumExtraKeyDna,
+    tests: [
+      { description: "invalid extra key", data: { [Enum.Tuna]: "asdf", [Enum.Salmon]: "asdf", Trout: "asdf" }, valid: false },
+      { description: "invalid missing Salmon key", data: { [Enum.Tuna]: "asdf" }, valid: false },
+      { description: "invalid missing Tuna key", data: { [Enum.Salmon]: "asdf" }, valid: false },
+    ],
+  },
+  {
+    description: "key and value getters",
+    zodSchema: keyValueTypeRecordZod,
+    dnaSchema: keyValueTypeRecordDna,
+    tests: [
+      { description: "valid record", data: { a: 1, b: 2 }, valid: true },
+    ],
+  },
+  {
+    description: "is not vulnerable to prototype pollution",
+    zodSchema: protoPollutionRecordZod,
+    dnaSchema: protoPollutionRecordDna,
+    tests: [
+      { description: "valid with __proto__ key (not polluted)", data: JSON.parse('{ "__proto__": { "a": "evil" }, "b": { "a": "good" } }'), valid: true },
+    ],
+  },
+  {
+    description: "key schema cannot normalize an input key into __proto__ - toLowerCase",
+    zodSchema: protoKeyToLowerZod,
+    dnaSchema: protoKeyToLowerDna,
+    tests: [
+      { description: "valid __PROTO__ normalized to __proto__ (skipped)", data: JSON.parse(JSON.stringify({ __PROTO__: { a: "evil" } })), valid: true },
+    ],
+  },
+  {
+    description: "key schema cannot normalize an input key into __proto__ - trim",
+    zodSchema: protoKeyTrimZod,
+    dnaSchema: protoKeyTrimDna,
+    tests: [
+      { description: "valid ' __proto__ ' trimmed to __proto__ (skipped)", data: JSON.parse(JSON.stringify({ " __proto__ ": { a: "evil" } })), valid: true },
+    ],
+  },
+  {
+    description: "key schema cannot normalize an input key into __proto__ - transform slice",
+    zodSchema: protoKeyTransformZod,
+    dnaSchema: protoKeyTransformDna,
+    tests: [
+      { description: "valid 'x:__proto__' sliced to __proto__ (skipped)", data: JSON.parse(JSON.stringify({ "x:__proto__": { a: "evil" } })), valid: true },
+    ],
+  },
+  {
+    description: "async parsing - valid",
+    zodSchema: asyncRecordValidZod,
+    dnaSchema: asyncRecordValidDna,
+    tests: [
+      { description: "valid async record", data: { foo: "bar", baz: "qux" }, valid: true },
+    ],
+  },
+  {
+    description: "async parsing - invalid",
+    zodSchema: asyncRecordInvalidZod,
+    dnaSchema: asyncRecordInvalidDna,
+    tests: [
+      { description: "invalid async record (refine fails)", data: { foo: "bar", baz: "qux" }, valid: false },
+    ],
+  },
+  {
+    description: "partialRecord with z.literal([key, ...])",
+    zodSchema: partialRecordLiteralZod,
+    dnaSchema: partialRecordLiteralDna,
+    tests: [
+      { description: "valid empty", data: {}, valid: true },
+      { description: "valid single key", data: { id: "1" }, valid: true },
+      { description: "valid multiple keys", data: { name: "n", email: "e@example.com" }, valid: true },
+      { description: "invalid unrecognized key", data: { foo: "bar" }, valid: false },
+    ],
+  },
+  {
+    description: "partialRecord with numeric literal keys",
+    zodSchema: partialRecordNumericZod,
+    dnaSchema: partialRecordNumericDna,
+    tests: [
+      { description: "valid empty", data: {}, valid: true },
+      { description: "valid single numeric key", data: { 1: "one" }, valid: true },
+      { description: "valid multiple numeric keys", data: { 2: "two", 3: "three" }, valid: true },
+      { description: "invalid unrecognized numeric key", data: { 4: "four" }, valid: false },
+    ],
+  },
+  {
+    description: "partialRecord with union of string and numeric literal keys",
+    zodSchema: partialRecordUnionZod,
+    dnaSchema: partialRecordUnionDna,
+    tests: [
+      { description: "valid empty", data: {}, valid: true },
+      { description: "valid mixed keys", data: { a: "1", 2: "4" }, valid: true },
+      { description: "valid all keys", data: { a: "a", b: "b", 1: "1", 2: "2" }, valid: true },
+      { description: "invalid unrecognized string key", data: { d: "d" }, valid: false },
+      { description: "invalid unrecognized numeric key", data: { 4: "4" }, valid: false },
+    ],
+  },
+  {
+    description: "looseRecord with closed key schema (enum) passes through unrecognized keys",
+    zodSchema: looseRecordEnumAnyZod,
+    dnaSchema: looseRecordEnumAnyDna,
+    tests: [
+      { description: "valid with unrecognized key", data: { foo: 123, bar: {}, baz: null }, valid: true },
+    ],
+  },
+  {
+    description: "looseRecord with closed key schema (literal) passes through unrecognized keys",
+    zodSchema: looseRecordLiteralAnyZod,
+    dnaSchema: looseRecordLiteralAnyDna,
+    tests: [
+      { description: "valid with unrecognized key", data: { foo: 123, bar: {}, baz: null }, valid: true },
+    ],
+  },
+  {
+    description: "looseRecord with closed key schema (enum, string values) passes through unrecognized keys",
+    zodSchema: looseRecordEnumStringZod,
+    dnaSchema: looseRecordEnumStringDna,
+    tests: [
+      { description: "valid with unrecognized key passing through", data: { foo: "ok", bar: "ok", baz: 123 }, valid: true },
+      { description: "invalid wrong value type for recognized key", data: { foo: 123 }, valid: false },
+    ],
+  },
+  {
+    description: "record with closed key schema still rejects unrecognized keys",
+    zodSchema: recordClosedKeyZod,
+    dnaSchema: recordClosedKeyDna,
+    tests: [
+      { description: "invalid unrecognized key", data: { foo: 123, bar: {}, baz: null }, valid: false },
     ],
   },
 ];

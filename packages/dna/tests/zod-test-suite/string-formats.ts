@@ -171,4 +171,53 @@ export const stringFormatsTests = [
       },
     ],
   },
+  {
+    description: "z.stringFormat custom (creditCard format with function)",
+    zodSchema: z
+      .stringFormat("creditCard", (val) => /^(?:\d{14,19}|\d{4}(?: \d{3,6}){2,4}|\d{4}(?:-\d{3,6}){2,4})$/u.test(val), {
+        error: `Invalid credit card number`,
+      })
+      .refine((_) => false, "Also bad"),
+    dnaSchema: dna
+      .string()
+      .refine((val) => /^(?:\d{14,19}|\d{4}(?: \d{3,6}){2,4}|\d{4}(?:-\d{3,6}){2,4})$/u.test(val))
+      .refine((_) => false),
+    tests: [
+      {
+        description: "invalid non-credit-card string (fails format and refine)",
+        data: "asdf",
+        valid: false,
+      },
+      {
+        description: "invalid valid-format string (passes format, fails refine)",
+        data: "1234-5678-9012-3456",
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "z.stringFormat custom (creditCard format with regex, abort)",
+    zodSchema: z
+      .stringFormat("creditCard", /^(?:\d{14,19}|\d{4}(?: \d{3,6}){2,4}|\d{4}(?:-\d{3,6}){2,4})$/u, {
+        abort: true,
+        error: `Invalid credit card number`,
+      })
+      .refine((_) => false, "Also bad"),
+    dnaSchema: dna
+      .string()
+      .refine((val) => /^(?:\d{14,19}|\d{4}(?: \d{3,6}){2,4}|\d{4}(?:-\d{3,6}){2,4})$/u.test(val))
+      .refine((_) => false),
+    tests: [
+      {
+        description: "invalid non-credit-card string (fails format, abort stops refine)",
+        data: "asdf",
+        valid: false,
+      },
+      {
+        description: "invalid valid-format string (passes format, fails refine)",
+        data: "1234-5678-9012-3456",
+        valid: false,
+      },
+    ],
+  },
 ];

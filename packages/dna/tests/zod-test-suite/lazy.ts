@@ -143,6 +143,13 @@ const complicatedCategoryDna = dna.object({
   }),
 });
 
+// Cycle-broken internal schemas (runtime parse portion)
+const cycleLazyRefZod: any = z.lazy(() => cycleRecZod);
+const cycleRecZod: any = z.union([z.string().optional(), cycleLazyRefZod]);
+
+const cycleLazyRefDna: DnaLazy = dna.lazy(() => cycleRecDna);
+const cycleRecDna = dna.union([dna.string().optional(), cycleLazyRefDna]);
+
 export const lazyTests = [
   {
     description: "opt passthrough",
@@ -280,6 +287,14 @@ export const lazyTests = [
         },
         valid: true,
       },
+    ],
+  },
+  {
+    description: "a cycle-broken internal is not memoized (runtime parse)",
+    zodSchema: z.object({ x: cycleRecZod, y: cycleLazyRefZod }),
+    dnaSchema: dna.object({ x: cycleRecDna, y: cycleLazyRefDna }),
+    tests: [
+      { description: "valid parse with x only", data: { x: "a" }, valid: true },
     ],
   },
 ];

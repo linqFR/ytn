@@ -1,6 +1,8 @@
 import * as z from "zod";
 import { dna } from "../../src/index.js";
 
+class IndexTestClass {}
+
 export const indexTests = [
   {
     description: "boolean parsing",
@@ -905,6 +907,435 @@ export const indexTests = [
       {
         description: "invalid nested undefined",
         data: { a: undefined },
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "record with literal union keys",
+    zodSchema: z.record(z.union([z.literal("a"), z.literal(0)]), z.string()),
+    dnaSchema: dna.record(dna.union([dna.literal("a"), dna.literal(0)]), dna.string()),
+    tests: [
+      {
+        description: "valid all keys",
+        data: { a: "hello", 0: "world" },
+        valid: true,
+      },
+    ],
+  },
+  {
+    description: "map with BigInt key (invalid key type)",
+    zodSchema: z.map(z.string(), z.number()),
+    dnaSchema: dna.map(dna.string(), dna.number()),
+    tests: [
+      {
+        description: "invalid BigInt key",
+        data: new Map([[BigInt(123), 123]]),
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "map invalid_element (bigint value with number value schema)",
+    zodSchema: z.map(z.bigint(), z.number()),
+    dnaSchema: dna.map(dna.bigint(), dna.number()),
+    tests: [
+      {
+        description: "invalid element value type",
+        data: new Map([[BigInt(123), BigInt(123)]]),
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "map async validation",
+    zodSchema: z.map(z.string().check(z.refine(async () => true)), z.number().check(z.refine(async () => true))),
+    dnaSchema: dna.map(dna.string().refine(async () => true), dna.number().refine(async () => true)),
+    tests: [
+      {
+        description: "valid async map",
+        data: new Map([["hello", 123]]),
+        valid: true,
+      },
+      {
+        description: "invalid async map key type",
+        data: new Map([[123, 123]]),
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "set with number elements",
+    zodSchema: z.set(z.number()),
+    dnaSchema: dna.set(dna.number()),
+    tests: [
+      {
+        description: "valid number set",
+        data: new Set([1, 2, 3]),
+        valid: true,
+      },
+      {
+        description: "invalid string elements",
+        data: new Set(["hello"]),
+        valid: false,
+      },
+      {
+        description: "invalid array (not a Set)",
+        data: [1, 2, 3],
+        valid: false,
+      },
+      {
+        description: "invalid number (not a Set)",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "file parsing",
+    zodSchema: z.file(),
+    dnaSchema: dna.file(),
+    tests: [
+      {
+        description: "valid File object",
+        data: new File(["content"], "filename.txt", { type: "text/plain" }),
+        valid: true,
+      },
+      {
+        description: "invalid string",
+        data: "file",
+        valid: false,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "transform (pipe string to uppercase)",
+    zodSchema: z.pipe(z.string(), z.transform((val) => val.toUpperCase())),
+    dnaSchema: dna.pipe(dna.string(), dna.transform((val) => val.toUpperCase())),
+    tests: [
+      {
+        description: "valid string transformed to uppercase",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "preprocess (pipe transform to string)",
+    zodSchema: z.pipe(z.transform((val) => String(val).toUpperCase()), z.string()),
+    dnaSchema: dna.pipe(dna.transform((val) => String(val).toUpperCase()), dna.string()),
+    tests: [
+      {
+        description: "valid number preprocessed to string",
+        data: 123,
+        valid: true,
+      },
+      {
+        description: "valid boolean preprocessed to string",
+        data: true,
+        valid: true,
+      },
+      {
+        description: "valid bigint preprocessed to string",
+        data: BigInt(1234),
+        valid: true,
+      },
+    ],
+  },
+  {
+    description: "optional standalone",
+    zodSchema: z.optional(z.string()),
+    dnaSchema: dna.optional(dna.string()),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "valid undefined",
+        data: undefined,
+        valid: true,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "nullable standalone",
+    zodSchema: z.nullable(z.string()),
+    dnaSchema: dna.nullable(dna.string()),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "valid null",
+        data: null,
+        valid: true,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "default standalone",
+    zodSchema: z._default(z.string(), "default"),
+    dnaSchema: dna.string().default("default"),
+    tests: [
+      {
+        description: "valid undefined uses default",
+        data: undefined,
+        valid: true,
+      },
+      {
+        description: "valid string value",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "catch standalone",
+    zodSchema: z.catch(z.string(), "default"),
+    dnaSchema: dna.string().catch("default"),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "valid number caught to default",
+        data: 123,
+        valid: true,
+      },
+    ],
+  },
+  {
+    description: "pipe (string -> length -> number)",
+    zodSchema: z.pipe(z.pipe(z.string(), z.transform((val) => val.length)), z.number()),
+    dnaSchema: dna.pipe(dna.pipe(dna.string(), dna.transform((val) => val.length)), dna.number()),
+    tests: [
+      {
+        description: "valid string '123' -> 3",
+        data: "123",
+        valid: true,
+      },
+      {
+        description: "valid string 'hello' -> 5",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "readonly",
+    zodSchema: z.readonly(z.string()),
+    dnaSchema: dna.string().readonly(),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "templateLiteral (string + number)",
+    zodSchema: z.templateLiteral([z.string(), z.number()]),
+    dnaSchema: dna.templateLiteral([dna.string(), dna.number()]),
+    tests: [
+      {
+        description: "valid string followed by number",
+        data: "hello123",
+        valid: true,
+      },
+      {
+        description: "invalid string only",
+        data: "hello",
+        valid: false,
+      },
+      {
+        description: "invalid number only",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "templateLiteral (literal prefix + number)",
+    zodSchema: z.templateLiteral([z.literal("hello"), z.number()]),
+    dnaSchema: dna.templateLiteral([dna.literal("hello"), dna.number()]),
+    tests: [
+      {
+        description: "valid hello123",
+        data: "hello123",
+        valid: true,
+      },
+      {
+        description: "invalid number only",
+        data: 123,
+        valid: false,
+      },
+      {
+        description: "invalid wrong prefix",
+        data: "world123",
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "templateLiteral (literal union + number)",
+    zodSchema: z.templateLiteral([z.literal(["aa", "bb"]), z.number()]),
+    dnaSchema: dna.templateLiteral([dna.literal(["aa", "bb"]), dna.number()]),
+    tests: [
+      {
+        description: "valid aa123",
+        data: "aa123",
+        valid: true,
+      },
+      {
+        description: "valid bb123",
+        data: "bb123",
+        valid: true,
+      },
+      {
+        description: "invalid cc123",
+        data: "cc123",
+        valid: false,
+      },
+      {
+        description: "invalid number only",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "custom schema",
+    zodSchema: z.custom((val) => typeof val === "string"),
+    dnaSchema: dna.custom((val) => typeof val === "string"),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "instanceof",
+    zodSchema: z.instanceof(IndexTestClass),
+    dnaSchema: dna.instanceof(IndexTestClass),
+    tests: [
+      {
+        description: "valid instance",
+        data: new IndexTestClass(),
+        valid: true,
+      },
+      {
+        description: "invalid object",
+        data: {},
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "refine (number with multiple refines)",
+    zodSchema: z.number().check(z.refine((val) => val > 3), z.refine((val) => val < 10)),
+    dnaSchema: dna.number().refine((val) => val > 3).refine((val) => val < 10),
+    tests: [
+      {
+        description: "valid number in range",
+        data: 5,
+        valid: true,
+      },
+      {
+        description: "invalid too small",
+        data: 2,
+        valid: false,
+      },
+      {
+        description: "invalid too large",
+        data: 11,
+        valid: false,
+      },
+      {
+        description: "invalid string",
+        data: "hi",
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "lazy",
+    zodSchema: z.lazy(() => z.string()),
+    dnaSchema: dna.lazy(() => dna.string()),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid number",
+        data: 123,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "promise (string)",
+    zodSchema: z.promise(z.string()),
+    dnaSchema: dna.promise(dna.string()),
+    tests: [
+      {
+        description: "valid promise resolving to string",
+        data: Promise.resolve("hello"),
+        valid: true,
+      },
+      {
+        description: "invalid promise resolving to number",
+        data: Promise.resolve(123),
         valid: false,
       },
     ],

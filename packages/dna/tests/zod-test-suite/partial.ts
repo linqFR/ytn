@@ -249,4 +249,302 @@ export const partialTests = [
       },
     ],
   },
+  {
+    description: "handleOptionalObjectResult branches",
+    zodSchema: z.object({
+      caughtMissing: z.string().catch("caught").optional(),
+      caughtUndefined: z.string().catch("caught").optional(),
+      issueMissing: z.string().min(5).optional(),
+      issueUndefined: z.string().min(5).optional(),
+      validUndefined: z.string().optional(),
+      defaultValue: z.string().default("default").optional(),
+      caughtDefined: z.string().catch("caught").optional(),
+      issueDefined: z.string().min(5).optional(),
+      validDefinedUndefined: z
+        .string()
+        .transform(() => undefined)
+        .optional(),
+      validDefined: z.string().optional(),
+    }),
+    dnaSchema: dna.object({
+      caughtMissing: dna.string().catch("caught").optional(),
+      caughtUndefined: dna.string().catch("caught").optional(),
+      issueMissing: dna.string().min(5).optional(),
+      issueUndefined: dna.string().min(5).optional(),
+      validUndefined: dna.string().optional(),
+      defaultValue: dna.string().default("default").optional(),
+      caughtDefined: dna.string().catch("caught").optional(),
+      issueDefined: dna.string().min(5).optional(),
+      validDefinedUndefined: dna
+        .string()
+        .transform(() => undefined)
+        .optional(),
+      validDefined: dna.string().optional(),
+    }),
+    tests: [
+      {
+        description: "valid with undefined-key branches",
+        data: {
+          caughtUndefined: undefined,
+          issueUndefined: undefined,
+          validUndefined: undefined,
+        },
+        valid: true,
+      },
+      {
+        description: "valid with defined-key branches",
+        data: {
+          caughtDefined: 123,
+          validDefinedUndefined: "test",
+          validDefined: "valid",
+        },
+        valid: true,
+      },
+      {
+        description: "invalid issueDefined too short",
+        data: {
+          issueDefined: "abc",
+        },
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "fastpass vs non-fastpass consistency",
+    zodSchema: z.object({
+      caughtMissing: z.string().catch("caught").optional(),
+      caughtUndefined: z.string().catch("caught").optional(),
+      issueMissing: z.string().min(5).optional(),
+      issueUndefined: z.string().min(5).optional(),
+      validUndefined: z.string().optional(),
+      defaultValue: z.string().default("default").optional(),
+      caughtDefined: z.string().catch("caught").optional(),
+      validDefinedUndefined: z
+        .string()
+        .transform(() => undefined)
+        .optional(),
+      validDefined: z.string().optional(),
+    }),
+    dnaSchema: dna.object({
+      caughtMissing: dna.string().catch("caught").optional(),
+      caughtUndefined: dna.string().catch("caught").optional(),
+      issueMissing: dna.string().min(5).optional(),
+      issueUndefined: dna.string().min(5).optional(),
+      validUndefined: dna.string().optional(),
+      defaultValue: dna.string().default("default").optional(),
+      caughtDefined: dna.string().catch("caught").optional(),
+      validDefinedUndefined: dna
+        .string()
+        .transform(() => undefined)
+        .optional(),
+      validDefined: dna.string().optional(),
+    }),
+    tests: [
+      {
+        description: "valid mixed input (fastpath consistency)",
+        data: {
+          caughtUndefined: undefined,
+          issueUndefined: undefined,
+          validUndefined: undefined,
+          caughtDefined: 123,
+          validDefinedUndefined: "test",
+          validDefined: "valid",
+        },
+        valid: true,
+      },
+    ],
+  },
+  {
+    description: "optional with check",
+    zodSchema: z
+      .string()
+      .optional()
+      .check(({ value, ...ctx }) => {
+        ctx.issues.push({
+          code: "custom",
+          input: value,
+          message: "message",
+        });
+      }),
+    dnaSchema: dna
+      .string()
+      .optional()
+      .check(
+        dna.check((value, ctx) => {
+          ctx.addIssue({
+            code: "custom",
+            input: value,
+            message: "message",
+          });
+        })
+      ),
+    tests: [
+      { description: "invalid undefined with check (top-level)", data: undefined, valid: false },
+    ],
+  },
+  {
+    description: "optional with check inside object",
+    zodSchema: z.object({
+      date: z
+        .string()
+        .optional()
+        .check(({ value, ...ctx }) => {
+          ctx.issues.push({
+            code: "custom",
+            input: value,
+            message: "message",
+          });
+        }),
+    }),
+    dnaSchema: dna.object({
+      date: dna
+        .string()
+        .optional()
+        .check(
+          dna.check((value, ctx) => {
+            ctx.addIssue({
+              code: "custom",
+              input: value,
+              message: "message",
+            });
+          })
+        ),
+    }),
+    tests: [
+      { description: "invalid undefined with check (object key)", data: { date: undefined }, valid: false },
+    ],
+  },
+  {
+    description: "required preserves refinements",
+    zodSchema: z
+      .object({
+        name: z.string().optional(),
+        age: z.number().optional(),
+      })
+      .superRefine((val, ctx) => {
+        if (val.name === "admin") {
+          ctx.addIssue({
+            message: "Name cannot be admin",
+            code: "custom",
+            path: ["name"],
+          });
+        }
+      })
+      .required(),
+    dnaSchema: dna
+      .object({
+        name: dna.string().optional(),
+        age: dna.number().optional(),
+      })
+      .superRefine((val, ctx) => {
+        if (val.name === "admin") {
+          ctx.addIssue({
+            message: "Name cannot be admin",
+            code: "custom",
+            path: ["name"],
+          });
+        }
+      })
+      .required(),
+    tests: [
+      { description: "invalid name is admin (refinement preserved)", data: { name: "admin", age: 25 }, valid: false },
+      { description: "valid normal name", data: { name: "user", age: 25 }, valid: true },
+    ],
+  },
+  {
+    description: "required refinement is executed",
+    zodSchema: z
+      .object({
+        password: z.string().optional(),
+        confirmPassword: z.string().optional(),
+      })
+      .refine((data) => data.password === data.confirmPassword, {
+        message: "Passwords must match",
+      })
+      .required(),
+    dnaSchema: dna
+      .object({
+        password: dna.string().optional(),
+        confirmPassword: dna.string().optional(),
+      })
+      .refine((data) => data.password === data.confirmPassword, {
+        message: "Passwords must match",
+      })
+      .required(),
+    tests: [
+      { description: "invalid mismatched passwords", data: { password: "abc", confirmPassword: "xyz" }, valid: false },
+      { description: "valid matching passwords", data: { password: "abc", confirmPassword: "abc" }, valid: true },
+    ],
+  },
+  {
+    description: "exactPartial shallow",
+    zodSchema: z
+      .object({
+        name: z.string(),
+        age: z.number(),
+        outer: z.object({
+          inner: z.string(),
+        }),
+        array: z.array(z.object({ asdf: z.string() })),
+      })
+      .exactPartial(),
+    dnaSchema: dna.object({
+      name: dna.string().exactOptional(),
+      age: dna.number().exactOptional(),
+      outer: dna.object({
+        inner: dna.string(),
+      }).exactOptional(),
+      array: dna.array(dna.object({ asdf: dna.string() })).exactOptional(),
+    }),
+    tests: [
+      { description: "valid empty object", data: {}, valid: true },
+      {
+        description: "valid with partial fields",
+        data: {
+          name: "asdf",
+          age: 23143,
+        },
+        valid: true,
+      },
+      {
+        description: "valid with all fields",
+        data: {
+          name: "John",
+          age: 30,
+          outer: { inner: "value" },
+          array: [{ asdf: "test" }],
+        },
+        valid: true,
+      },
+    ],
+  },
+  {
+    description: "exactPartial absent keys pass, explicit undefined rejected",
+    zodSchema: z.object({ name: z.string(), age: z.number() }).exactPartial(),
+    dnaSchema: dna.object({
+      name: dna.string().exactOptional(),
+      age: dna.number().exactOptional(),
+    }),
+    tests: [
+      { description: "valid empty object", data: {}, valid: true },
+      { description: "valid with name only", data: { name: "asdf" }, valid: true },
+      { description: "invalid explicit undefined for name", data: { name: undefined }, valid: false },
+    ],
+  },
+  {
+    description: "exactPartial with mask",
+    zodSchema: z
+      .object({ name: z.string(), age: z.number(), country: z.string() })
+      .exactPartial({ name: true, age: true }),
+    dnaSchema: dna.object({
+      name: dna.string().exactOptional(),
+      age: dna.number().exactOptional(),
+      country: dna.string(),
+    }),
+    tests: [
+      { description: "valid with only country", data: { country: "US" }, valid: true },
+      { description: "invalid explicit undefined for masked name", data: { country: "US", name: undefined }, valid: false },
+      { description: "invalid missing required country", data: { name: "John" }, valid: false },
+    ],
+  },
 ];

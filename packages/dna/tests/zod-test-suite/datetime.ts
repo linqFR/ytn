@@ -2,8 +2,8 @@ import { z } from "zod";
 import { dna } from "../../src/index.js";
 
 // Reusable schemas matching Zod official tests
-const datetimeZod = z.iso.datetime();
-const datetimeDna = dna.iso.datetime();
+const datetimeZod = z.string().datetime();
+const datetimeDna = dna.string().datetime();
 
 const datetimePrecisionMinus1Zod = z.string().datetime({ precision: -1, offset: true, local: true });
 const datetimePrecisionMinus1Dna = dna.string().datetime({ precision: -1, offset: true, local: true });
@@ -41,8 +41,20 @@ const timePrecision2Dna = dna.string().time({ precision: 2 });
 const timePrecisionMinuteZod = z.string().time({ precision: z.TimePrecision.Minute });
 const timePrecisionMinuteDna = dna.string().time({ precision: z.TimePrecision.Minute });
 
-// const durationZod = z.string().duration();
-// const durationDna = dna.string().duration();
+const isoDatetimeZod = z.iso.datetime();
+const isoDatetimeDna = dna.iso.datetime();
+
+const isoDatetimeOffsetZod = z.iso.datetime({ offset: true });
+const isoDatetimeOffsetDna = dna.iso.datetime({ offset: true });
+
+const isoDatetimePrecisionMinus1Zod = z.iso.datetime({ precision: -1 });
+const isoDatetimePrecisionMinus1Dna = dna.iso.datetime({ precision: -1 });
+
+const migrationUnionZod = z.union([z.iso.datetime(), z.iso.datetime({ precision: -1 })]);
+const migrationUnionDna = dna.union([dna.iso.datetime(), dna.iso.datetime({ precision: -1 })]);
+
+const durationZod = z.string().duration();
+const durationDna = dna.iso.duration();
 
 export const datetimeTests = [
   {
@@ -291,33 +303,81 @@ export const datetimeTests = [
       { description: "invalid with seconds", data: "00:00:00", valid: false },
     ],
   },
-  // {
-  //   description: "duration",
-  //   zodSchema: durationZod,
-  //   dnaSchema: durationDna,
-  //   tests: [
-  //     { description: "valid", data: "P3Y6M4DT12H30M5S", valid: true },
-  //     { description: "valid", data: "P2Y9M3DT12H31M8.001S", valid: true },
-  //     { description: "valid comma decimal", data: "PT0,001S", valid: true },
-  //     { description: "valid", data: "PT12H30M5S", valid: true },
-  //     { description: "valid", data: "P1Y", valid: true },
-  //     { description: "valid", data: "P2MT30M", valid: true },
-  //     { description: "valid", data: "PT6H", valid: true },
-  //     { description: "valid", data: "P5W", valid: true },
-  //     { description: "invalid string", data: "foo bar", valid: false },
-  //     { description: "invalid empty", data: "", valid: false },
-  //     { description: "invalid space", data: " ", valid: false },
-  //     { description: "invalid P only", data: "P", valid: false },
-  //     { description: "invalid PT only", data: "PT", valid: false },
-  //     { description: "invalid T in middle", data: "P1Y2MT", valid: false },
-  //     { description: "invalid T without P", data: "T1H", valid: false },
-  //     { description: "invalid decimal in designator", data: "P0.5Y1D", valid: false },
-  //     { description: "invalid comma decimal in designator", data: "P0,5Y6M", valid: false },
-  //     { description: "invalid T at end", data: "P1YT", valid: false },
-  //     { description: "invalid negative designator", data: "P-2M-1D", valid: false },
-  //     { description: "invalid negative designator", data: "P-5DT-10H", valid: false },
-  //     { description: "invalid week with day", data: "P1W2D", valid: false },
-  //     { description: "invalid negative", data: "-P1D", valid: false },
-  //   ],
-  // },
+  {
+    description: "datetime offset normalization",
+    zodSchema: isoDatetimeOffsetZod,
+    dnaSchema: isoDatetimeOffsetDna,
+    tests: [
+      { description: "invalid offset without colon", data: "2020-10-14T17:42:29+02", valid: false },
+      { description: "invalid offset without colon", data: "2020-10-14T17:42:29+0200", valid: false },
+      { description: "valid offset with colon", data: "2020-10-14T17:42:29+02:00", valid: true },
+    ],
+  },
+  {
+    description: "datetime requires seconds once a Z or offset is present",
+    zodSchema: isoDatetimeZod,
+    dnaSchema: isoDatetimeDna,
+    tests: [
+      { description: "invalid no seconds with Z", data: "2022-10-13T12:52Z", valid: false },
+      { description: "valid with seconds and Z", data: "2022-10-13T12:52:00Z", valid: true },
+      { description: "valid with seconds ms and Z", data: "2022-10-13T12:52:00.123Z", valid: true },
+    ],
+  },
+  {
+    description: "datetime requires seconds with offset",
+    zodSchema: isoDatetimeOffsetZod,
+    dnaSchema: isoDatetimeOffsetDna,
+    tests: [
+      { description: "invalid no seconds with offset", data: "2022-10-13T12:52+02:00", valid: false },
+      { description: "valid with seconds and offset", data: "2022-10-13T12:52:00+02:00", valid: true },
+    ],
+  },
+  {
+    description: "datetime with precision -1 allows no seconds with Z",
+    zodSchema: isoDatetimePrecisionMinus1Zod,
+    dnaSchema: isoDatetimePrecisionMinus1Dna,
+    tests: [
+      { description: "valid no seconds with Z", data: "2022-10-13T12:52Z", valid: true },
+    ],
+  },
+  {
+    description: "the documented migration union reproduces the old default",
+    zodSchema: migrationUnionZod,
+    dnaSchema: migrationUnionDna,
+    tests: [
+      { description: "valid no seconds with Z", data: "2020-01-01T06:15Z", valid: true },
+      { description: "valid with seconds and Z", data: "2020-01-01T06:15:00Z", valid: true },
+      { description: "valid with seconds ms and Z", data: "2020-01-01T06:15:00.123Z", valid: true },
+      { description: "invalid local only no Z", data: "2020-01-01T06:15", valid: false },
+    ],
+  },
+  {
+    description: "duration",
+    zodSchema: durationZod,
+    dnaSchema: durationDna,
+    tests: [
+      { description: "valid", data: "P3Y6M4DT12H30M5S", valid: true },
+      { description: "valid", data: "P2Y9M3DT12H31M8.001S", valid: true },
+      { description: "valid comma decimal", data: "PT0,001S", valid: true },
+      { description: "valid", data: "PT12H30M5S", valid: true },
+      { description: "valid", data: "P1Y", valid: true },
+      { description: "valid", data: "P2MT30M", valid: true },
+      { description: "valid", data: "PT6H", valid: true },
+      { description: "valid", data: "P5W", valid: true },
+      { description: "invalid string", data: "foo bar", valid: false },
+      { description: "invalid empty", data: "", valid: false },
+      { description: "invalid space", data: " ", valid: false },
+      { description: "invalid P only", data: "P", valid: false },
+      { description: "invalid PT only", data: "PT", valid: false },
+      { description: "invalid T in middle", data: "P1Y2MT", valid: false },
+      { description: "invalid T without P", data: "T1H", valid: false },
+      { description: "invalid decimal in designator", data: "P0.5Y1D", valid: false },
+      { description: "invalid comma decimal in designator", data: "P0,5Y6M", valid: false },
+      { description: "invalid T at end", data: "P1YT", valid: false },
+      { description: "invalid negative designator", data: "P-2M-1D", valid: false },
+      { description: "invalid negative designator", data: "P-5DT-10H", valid: false },
+      { description: "invalid week with day", data: "P1W2D", valid: false },
+      { description: "invalid negative", data: "-P1D", valid: false },
+    ],
+  },
 ];

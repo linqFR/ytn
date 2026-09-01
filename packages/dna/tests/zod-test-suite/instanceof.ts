@@ -22,8 +22,6 @@ const instanceofBarZod = z.instanceof(Bar);
 const instanceofBarDna = dna.instanceof(Bar);
 
 const instanceofFatalZod = z.instanceof(Date).refine((d) => d.toString());
-
-// @ts-ignore - Zod test has incorrect refine (returns string instead of boolean)
 const instanceofFatalDna = dna.instanceof(Date).refine((d) => d.toString());
 
 export const instanceofTests = [
@@ -68,6 +66,17 @@ export const instanceofTests = [
     zodSchema: instanceofFatalZod,
     dnaSchema: instanceofFatalDna,
     tests: [
+      { description: "invalid null", data: null, valid: false },
+    ],
+  },
+  {
+    description: "z.properties - instanceof URL with property checks",
+    zodSchema: z.instanceof(URL).refine((url) => url.protocol === "https:"),
+    dnaSchema: dna.instanceof(URL).refine((url) => url.protocol === "https:"),
+    tests: [
+      { description: "valid https URL", data: new URL("https://example.com"), valid: true },
+      { description: "invalid http URL (protocol check fails)", data: new URL("http://localhost"), valid: false },
+      { description: "invalid string (not a URL)", data: "not a url", valid: false },
       { description: "invalid null", data: null, valid: false },
     ],
   },

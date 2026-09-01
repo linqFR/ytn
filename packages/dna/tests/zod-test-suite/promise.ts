@@ -77,4 +77,12 @@ export const promiseTests = [
       { description: "valid promise", data: Promise.resolve("foo"), valid: true },
     ],
   },
+  {
+    description: "promise parsing fail - non-promise object with then/catch",
+    zodSchema: promSchemaZod,
+    dnaSchema: promSchemaDna,
+    tests: [
+      { description: "invalid thenable object", data: { then: () => {}, catch: {} }, valid: false },
+    ],
+  },
 ];
