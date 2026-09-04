@@ -35,6 +35,92 @@ export class QueryBuilder {
   }
 
   /**
+   * **Entry Point**: Combine multiple queries with `UNION` (deduplicates rows).
+   * Each sub-query must be a fully built `Builder` (call `.select()` etc. before combining).
+   * `orderBy`, `orderByRaw`, `limit`, and `offset` can be chained on the result.
+   * @param {...Builder} builders - Two or more query builders to combine.
+   * @returns {Builder} A new Builder in compound mode.
+   * @usage `QueryBuilder.union(q1, q2, q3).orderBy('id').limit(50)`
+   */
+  public static union(...builders: Builder[]): Builder {
+    return Builder.union(builders);
+  }
+
+  /**
+   * **Entry Point**: Combine multiple queries with `UNION ALL` (keeps duplicates).
+   * Each sub-query must be a fully built `Builder` (call `.select()` etc. before combining).
+   * `orderBy`, `orderByRaw`, `limit`, and `offset` can be chained on the result.
+   * @param {...Builder} builders - Two or more query builders to combine.
+   * @returns {Builder} A new Builder in compound mode.
+   * @usage `QueryBuilder.unionAll(q1, q2, q3).orderBy('type').limit(50)`
+   */
+  public static unionAll(...builders: Builder[]): Builder {
+    return Builder.unionAll(builders);
+  }
+
+  /**
+   * **Entry Point**: Combine multiple queries with `INTERSECT` (common rows only).
+   * @param {...Builder} builders - Two or more query builders to combine.
+   * @returns {Builder} A new Builder in compound mode.
+   * @usage `QueryBuilder.intersect(q1, q2)`
+   */
+  public static intersect(...builders: Builder[]): Builder {
+    return Builder.intersect(builders);
+  }
+
+  /**
+   * **Entry Point**: Combine multiple queries with `EXCEPT` (rows in first but not in others).
+   * @param {...Builder} builders - Two or more query builders to combine.
+   * @returns {Builder} A new Builder in compound mode.
+   * @usage `QueryBuilder.except(q1, q2)`
+   */
+  public static except(...builders: Builder[]): Builder {
+    return Builder.except(builders);
+  }
+
+  /**
+   * @function createTableAs
+   * @description Generates a `CREATE TABLE name AS SELECT ...` statement.
+   * Creates a new table populated with the rows returned by the query.
+   * @param {string} tableName - Name of the new table.
+   * @param {Builder} query - SELECT query to populate the table from.
+   * @returns {string} Compiled SQL DDL.
+   * @usage `QueryBuilder.createTableAs('active_users', QueryBuilder.table('users').select('id', 'name').whereRaw('active = 1'))`
+   */
+  public static createTableAs(tableName: string, query: Builder): string {
+    validateIdentifier(tableName, "createTableAs");
+    return `CREATE TABLE ${tableName} AS ${query.toSQL()};`;
+  }
+
+  /**
+   * @function createTrigger
+   * @description Generates a `CREATE TRIGGER IF NOT EXISTS` statement.
+   * The trigger body and WHEN clause are raw SQL — SQLite trigger bodies contain
+   * imperative multi-statement logic (INSERT...SELECT, UPDATE with NEW/OLD refs,
+   * EXISTS subqueries) that cannot be expressed by the fluent Builder.
+   * @param {string} triggerName - Name of the trigger.
+   * @param {ITriggerDefinition} def - Trigger configuration (timing, event, table, when, body).
+   * @returns {string} Compiled SQL DDL.
+   * @usage
+   * ```ts
+   * QueryBuilder.createTrigger('trg_act_done_pb', {
+   *   timing: 'AFTER',
+   *   event: 'UPDATE',
+   *   of: ['status'],
+   *   table: 'actions',
+   *   when: "NEW.status = 'done' AND OLD.status != 'done'",
+   *   body: `INSERT INTO log (msg) VALUES ('done'); UPDATE stats SET count = count + 1;`,
+   * })
+   * ```
+   */
+  public static createTrigger(
+    triggerName: string,
+    def: import("./types.js").ITriggerDefinition,
+  ): string {
+    return DDLEngine.createTrigger(triggerName, def);
+  }
+
+  /**
    * **Entry Point**: Start building SQLite PRAGMA statements.
    * @returns {PragmaBuilder}
    * @usage `QueryBuilder.pragma().foreignKeys(true).toSQL()`
@@ -218,6 +304,8 @@ export class QueryBuilder {
       .map((c) => c.name);
 
     return {
+      name: tableName,
+      cols: keys,
       createTable: DDLEngine.createTable(tableName, columns, options),
       getAll: QueryBuilder.table(tableName).select().toSQL(),
       getById: QueryBuilder.table(tableName).select().where(pkCols).toSQL(),

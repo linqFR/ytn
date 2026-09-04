@@ -23,6 +23,13 @@ This guide covers building data-manipulation SQL strings with the fluent `Builde
 - [Text search](#text-search)
 - [Cloning queries](#cloning-queries)
 - [Table aliases](#table-aliases)
+- [Compound SELECT (UNION)](#compound-select-union)
+- [CTE (WITH)](#cte-with)
+- [Raw escape hatches](#raw-escape-hatches)
+- [INSERT OR (conflict resolution)](#insert-or-conflict-resolution)
+- [UPDATE FROM](#update-from)
+- [Subquery in SET (updateRaw)](#subquery-in-set-updateraw)
+- [EXPLAIN](#explain)
 - [Where to go next](#where-to-go-next)
 
 ## Start a query
@@ -407,10 +414,146 @@ QueryBuilder.table("users").as("u").select("u.name").toSQL();
 // SELECT u.name FROM users u
 ```
 
+## Compound SELECT (UNION)
+
+Combine multiple queries with `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT`. Use instance methods or static factories:
+
+```typescript
+// Instance method
+const sql = QueryBuilder.table("actions").select("id", "title")
+  .unionAll(QueryBuilder.table("problems").select("id", "title"))
+  .toSQL();
+// SELECT id, title FROM actions
+// UNION ALL
+// SELECT id, title FROM problems
+
+// Static factory (3+ queries)
+const sql = QueryBuilder.unionAll(
+  QueryBuilder.table("actions").select("id", "type").whereRaw("to_test = 1"),
+  QueryBuilder.table("problems").select("id", "type").whereRaw("to_test = 1"),
+  QueryBuilder.table("ideas").select("id", "type").whereRaw("to_test = 1"),
+).orderBy("type", "ASC").limit(50).toSQL();
+// SELECT id, type FROM actions WHERE to_test = 1
+// UNION ALL
+// SELECT id, type FROM problems WHERE to_test = 1
+// UNION ALL
+// SELECT id, type FROM ideas WHERE to_test = 1
+// ORDER BY type ASC
+// LIMIT 50
+```
+
+`orderBy`, `orderByRaw`, `limit`, and `offset` apply to the compound as a whole. Methods like `where()`, `joinInner()`, `insert()` throw on compound queries — build each sub-query before combining.
+
+## CTE (WITH)
+
+Add Common Table Expressions with `.with(name, query)` (non-recursive) or `.withRecursive(name, query)` (recursive):
+
+```typescript
+// Non-recursive CTE
+const cte = QueryBuilder.table("users").select("id", "name").whereRaw("active = 1");
+const sql = QueryBuilder.table("active_users")
+  .with("active_users", cte)
+  .select("*")
+  .toSQL();
+// WITH active_users AS (SELECT id, name FROM users WHERE active = 1)
+// SELECT * FROM active_users
+
+// Recursive CTE
+const seed = QueryBuilder.table("nodes").select("id", "parent").whereRaw("parent IS NULL");
+const recur = QueryBuilder.table("nodes n").select("n.id", "n.parent").joinInner("tree", "n.parent = tree.id");
+const sql = QueryBuilder.table("tree")
+  .withRecursive("tree", seed.unionAll(recur))
+  .select("*")
+  .toSQL();
+// WITH RECURSIVE tree AS (SELECT id, parent FROM nodes WHERE parent IS NULL
+// UNION ALL
+// SELECT n.id, n.parent FROM nodes n INNER JOIN tree ON n.parent = tree.id)
+// SELECT * FROM tree
+```
+
+Multiple CTEs can be chained. `WITH RECURSIVE` is emitted if any CTE uses `.withRecursive()`.
+
+## Raw escape hatches
+
+For expressions the fluent API can't express, use the raw methods:
+
+- `.whereRaw(condition)` — injects into WHERE clause
+- `.selectRaw(sql)` — injects as a selected column
+- `.orderByRaw(expression)` — injects into ORDER BY (e.g. `CASE`, function calls)
+- `.updateRaw({ col: 'expr' })` — injects into UPDATE SET (see below)
+
+```typescript
+const sql = QueryBuilder.table("actions")
+  .select("id", "title")
+  .orderByRaw("CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END, seq ASC")
+  .toSQL();
+// SELECT id, title FROM actions ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END, seq ASC
+```
+
+## INSERT OR (conflict resolution)
+
+Use `.or(action)` after `.insert()` to generate `INSERT OR <action> INTO`:
+
+```typescript
+const sql = QueryBuilder.table("users")
+  .insert("id", "name")
+  .or("REPLACE")
+  .toSQL();
+// INSERT OR REPLACE INTO users (id, name) VALUES (@id, @name)
+
+const sql2 = QueryBuilder.table("users")
+  .insert("id", "name")
+  .or("IGNORE")
+  .toSQL();
+// INSERT OR IGNORE INTO users (id, name) VALUES (@id, @name)
+```
+
+Supported actions: `ROLLBACK`, `ABORT`, `FAIL`, `IGNORE`, `REPLACE`. Works with `insert()`, `insertMulti()`, and `insertDefaultValues()`.
+
+## UPDATE FROM
+
+Add a `FROM` clause to an `UPDATE` statement (SQLite 3.33+):
+
+```typescript
+const sql = QueryBuilder.table("users")
+  .update("status")
+  .from("orders")
+  .whereRaw("users.id = orders.user_id AND orders.total > 100")
+  .toSQL();
+// UPDATE users SET status = @status FROM orders WHERE users.id = orders.user_id AND orders.total > 100
+```
+
+## Subquery in SET (updateRaw)
+
+Use `.updateRaw({ col: 'expr' })` for subqueries, arithmetic, or function calls in the SET clause:
+
+```typescript
+const sql = QueryBuilder.table("orders")
+  .updateRaw({
+    total: "(SELECT SUM(amount) FROM items WHERE items.order_id = orders.id)",
+    updated_at: "CURRENT_TIMESTAMP",
+  })
+  .where(["id"])
+  .toSQL();
+// UPDATE orders SET total = (SELECT SUM(amount) FROM items WHERE items.order_id = orders.id), updated_at = CURRENT_TIMESTAMP WHERE id = @id
+```
+
+## EXPLAIN
+
+Prefix a query with `EXPLAIN` or `EXPLAIN QUERY PLAN` for analysis:
+
+```typescript
+const sql = QueryBuilder.table("users").select("id", "name").where(["status"]).explain();
+// EXPLAIN SELECT id, name FROM users WHERE status = @status
+
+const sql2 = QueryBuilder.table("users").select("id").explainQueryPlan();
+// EXPLAIN QUERY PLAN SELECT id FROM users
+```
+
 ## Where to go next
 
-- **[How-to: Advanced patterns](./how-to-advanced.md)** — EXISTS, CASE WHEN, correlated subqueries, window functions, PragmaBuilder.
-- **[How-to: DDL & schema generation](./how-to-ddl.md)** — `defTable`, Zod/DNA/manual schemas, metadata keys, foreign keys, indexes.
+- **[How-to: Advanced patterns](./how-to-advanced.md)** — EXISTS, CASE WHEN, correlated subqueries, window functions, window frames, PragmaBuilder.
+- **[How-to: DDL & schema generation](./how-to-ddl.md)** — `defTable`, Zod/DNA/manual schemas, metadata keys, foreign keys, indexes, generated columns, triggers.
 - **[Quick start](./quick-start.md)** — end-to-end tutorial from install to execution.
 - **[Feature reference](./feature-reference.md)** — complete method-by-method inventory, type system, SQLite version matrix.
 - **[README](../README.md)** — overview, installation, feature list.

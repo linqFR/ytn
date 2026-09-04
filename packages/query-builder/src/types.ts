@@ -41,6 +41,8 @@ export interface qbTableOptions {
   uniqueConstraints?: IUniqueConstraint[];
   /** Table-level CHECK constraints (e.g. `["age >= 18", "status IN ('active', 'inactive')"]`). */
   checks?: string[];
+  /** Create a temporary table (`CREATE TEMP TABLE`). Temp tables are session-scoped. */
+  temporary?: boolean;
 }
 
 /**
@@ -76,7 +78,25 @@ export type tsQueryMode =
   | "DELETE"
   | "UPSERT"
   | "COUNT"
-  | "CREATE_INDEX";
+  | "CREATE_INDEX"
+  | "COMPOUND";
+
+/**
+ * @type tsCompoundOp
+ * @description Supported compound SELECT operators.
+ */
+export type tsCompoundOp = "UNION" | "UNION ALL" | "INTERSECT" | "EXCEPT";
+
+/**
+ * @interface ICteDefinition
+ * @description Internal structure for CTE (Common Table Expression) clauses.
+ */
+export interface ICteDefinition {
+  /** CTE name (used as table alias in the main query). */
+  name: string;
+  /** Compiled SQL of the CTE sub-query. */
+  query: string;
+}
 
 /**
  * @interface IJoinDefinition
@@ -140,6 +160,28 @@ export interface ICaseBranch {
 }
 
 /**
+ * @interface IWindowFrame
+ * @description Frame specification for window functions (ROWS/RANGE/GROUPS BETWEEN).
+ * See: https://www.sqlite.org/syntax/frame-spec.html
+ */
+export interface IWindowFrame {
+  /** Frame type: ROWS (row offset), RANGE (value range), or GROUPS (peer group offset). */
+  type: "ROWS" | "RANGE" | "GROUPS";
+  /** Frame start boundary. */
+  start:
+    | "UNBOUNDED PRECEDING"
+    | "CURRENT ROW"
+    | string; // e.g. "1 PRECEDING", "5 PRECEDING"
+  /** Frame end boundary. Defaults to "CURRENT ROW". */
+  end?:
+    | "CURRENT ROW"
+    | "UNBOUNDED FOLLOWING"
+    | string; // e.g. "1 FOLLOWING", "5 FOLLOWING"
+  /** Optional EXCLUDE clause. */
+  exclude?: "CURRENT ROW" | "GROUP" | "TIES" | "NO OTHERS";
+}
+
+/**
  * @interface IWindowDefinition
  * @description Configuration for Window Functions (OVER clause).
  */
@@ -150,6 +192,8 @@ export interface IWindowDefinition {
   partitionBy?: string[];
   /** Optional ordering within the window. */
   orderBy?: IOrderByDefinition[];
+  /** Optional window frame specification (ROWS/RANGE/GROUPS BETWEEN). */
+  frame?: IWindowFrame;
 }
 
 /**
@@ -234,8 +278,48 @@ export interface qbColumn {
   fk?: string | IForeignKeyDefinition;
   /** Column-level CHECK constraint (e.g. `"age >= 0"`). */
   check?: string;
+  /** Generated column definition (`GENERATED ALWAYS AS (expr) STORED|VIRTUAL`). */
+  generated?: {
+    /** SQL expression for the generated column. */
+    expr: string;
+    /** Storage type: `STORED` (takes space) or `VIRTUAL` (computed on read). */
+    type: "STORED" | "VIRTUAL";
+  };
   /** Raw metadata bag from the source schema (for advanced overrides). Defaults to `{}`. */
   meta?: Record<string, unknown>;
+}
+
+/**
+ * @type tsInsertOrAction
+ * @description INSERT OR conflict resolution actions (SQLite-specific).
+ * See: https://www.sqlite.org/lang_conflict.html
+ */
+export type tsInsertOrAction = "ROLLBACK" | "ABORT" | "FAIL" | "IGNORE" | "REPLACE";
+
+/**
+ * @interface ITriggerDefinition
+ * @description Configuration for CREATE TRIGGER statements (SQLite).
+ * The body and when clause are raw SQL strings — SQLite trigger bodies contain
+ * imperative multi-statement logic (INSERT...SELECT, UPDATE with NEW/OLD refs,
+ * EXISTS subqueries) that cannot be expressed by the fluent Builder.
+ * This follows the same pattern as Drizzle ORM's pgTrigger: typed structure,
+ * raw body.
+ */
+export interface ITriggerDefinition {
+  /** Trigger timing: BEFORE, AFTER, or INSTEAD OF. */
+  timing: "BEFORE" | "AFTER" | "INSTEAD OF";
+  /** Trigger event: INSERT, UPDATE, or DELETE. */
+  event: "INSERT" | "UPDATE" | "DELETE";
+  /** For UPDATE events: columns that fire the trigger (`UPDATE OF col1, col2`). */
+  of?: string[];
+  /** Target table name. */
+  table: string;
+  /** Optional WHEN clause (raw SQL, may use NEW/OLD references). */
+  when?: string;
+  /** Trigger body: raw SQL statements between BEGIN...END. */
+  body: string;
+  /** Optional: use FOR EACH ROW (default: true, SQLite only supports row-level triggers). */
+  forEachRow?: boolean;
 }
 
 /**
@@ -257,6 +341,10 @@ export interface ISchemaIntrospector<S = unknown> {
  * that returns a fresh Builder pre-configured with the table name and uniqueKeys.
  */
 export interface TableDef {
+  /** Table name. */
+  readonly name: string;
+  /** Column names extracted from the schema definition. */
+  readonly cols: string[];
   /** DDL: CREATE TABLE IF NOT EXISTS statement. */
   createTable: string;
   /** DML: SELECT * FROM <table>. */

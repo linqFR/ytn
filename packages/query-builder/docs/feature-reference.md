@@ -74,7 +74,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | IF NOT EXISTS | ✅ | Always generated |
 | Column-level CHECK | ✅ | `qbColumn.check: "expr"` |
 | COLLATE | ❌ | Out of scope (niche) |
-| Generated columns | ❌ | Future idea |
+| Generated columns (STORED/VIRTUAL) | ✅ | `qbColumn.generated: { expr, type }` |
 
 ### Table-level features
 | Feature | Support | How |
@@ -87,12 +87,23 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | FK ON UPDATE (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION) | ✅ | `IForeignKeyDefinition.onUpdate` |
 | WITHOUT ROWID | ❌ | Out of scope (niche) |
 | STRICT tables | ❌ | Out of scope (complex + niche) |
-| CREATE TEMP TABLE | ❌ | Future idea |
-| CREATE TABLE AS SELECT | ❌ | Future idea |
+| CREATE TEMP TABLE | ✅ | `options.temporary: true` → `CREATE TEMP TABLE` |
+| CREATE TABLE AS SELECT | ✅ | `QueryBuilder.createTableAs(name, builder)` |
 
 ### DROP TABLE / DROP INDEX
 - `DROP TABLE IF EXISTS` — `QueryBuilder.dropTable(name)`
 - `DROP INDEX IF EXISTS` — `QueryBuilder.dropIndex(name)`
+
+### Triggers
+| Feature | Support | Method |
+|---------|---------|--------|
+| CREATE TRIGGER | ✅ | `QueryBuilder.createTrigger(name, def)` — typed structure (timing, event, table, OF, WHEN, FOR EACH ROW), raw body |
+| Timing (BEFORE/AFTER/INSTEAD OF) | ✅ | `def.timing` |
+| Event (INSERT/UPDATE/DELETE) | ✅ | `def.event` |
+| UPDATE OF columns | ✅ | `def.of: string[]` |
+| WHEN clause | ✅ | `def.when: string` (raw SQL, NEW/OLD refs) |
+| FOR EACH ROW | ✅ | `def.forEachRow` (default: true) |
+| Multi-statement body | ✅ | `def.body: string` (raw SQL between BEGIN...END) |
 
 ---
 
@@ -117,15 +128,22 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | GROUP BY | ✅ | `.groupBy(fields)` |
 | HAVING | ✅ | `.having(conditions)` |
 | ORDER BY | ✅ | `.orderBy(field, dir)` |
+| ORDER BY (raw expression) | ✅ | `.orderByRaw(expression)` — `CASE`, function calls, mixed-direction |
 | LIMIT / OFFSET | ✅ | `.limit(n)`, `.offset(n)` |
 | DISTINCT | ✅ | `.distinct()` |
 | CASE WHEN | ✅ | `.selectCase(alias, branches, else?)` |
 | Window functions (OVER) | ✅ | `.selectWindow(alias, def)` |
+| Window frames (ROWS/RANGE/GROUPS BETWEEN) | ✅ | `.selectWindow(alias, { frame: { type, start, end?, exclude? } })` |
 | Raw SELECT expression | ✅ | `.selectRaw(sql)` |
+| CTE (WITH) | ✅ | `.with(name, builderOrSql)` — non-recursive CTE prefix |
+| CTE (WITH RECURSIVE) | ✅ | `.withRecursive(name, builderOrSql)` — recursive CTE prefix |
+| Compound SELECT (UNION) | ✅ | `.union(other)`, `QueryBuilder.union(...builders)` |
+| Compound SELECT (UNION ALL) | ✅ | `.unionAll(other)`, `QueryBuilder.unionAll(...builders)` |
+| Compound SELECT (INTERSECT) | ✅ | `.intersect(other)`, `QueryBuilder.intersect(...builders)` |
+| Compound SELECT (EXCEPT) | ✅ | `.except(other)`, `QueryBuilder.except(...builders)` |
 | Window frames (ROWS BETWEEN) | ❌ | Out of scope (niche) |
-| CTE (WITH) | ❌ | Out of scope (ORM territory) |
-| Compound SELECT (UNION etc.) | ❌ | Out of scope (ORM territory) |
-| EXPLAIN | ❌ | Future idea |
+| EXPLAIN | ✅ | `.explain()` → `EXPLAIN SELECT ...` |
+| EXPLAIN QUERY PLAN | ✅ | `.explainQueryPlan()` → `EXPLAIN QUERY PLAN SELECT ...` |
 
 ---
 
@@ -136,7 +154,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | Single-row INSERT | ✅ | `.insert(fields)` → `INSERT INTO t (cols) VALUES (@cols)` |
 | Multi-row INSERT | ✅ | `.insertMulti(fields, rowCount)` → `VALUES (@col_0, ...), (@col_1, ...)` |
 | INSERT DEFAULT VALUES | ✅ | `.insertDefaultValues()` → `INSERT INTO t DEFAULT VALUES` |
-| INSERT OR ROLLBACK/ABORT/FAIL/REPLACE | ❌ | Future idea |
+| INSERT OR ROLLBACK/ABORT/FAIL/IGNORE/REPLACE | ✅ | `.insert(...).or('REPLACE')` — conflict resolution |
 | RETURNING | ✅ | `.returning(fields)` (SQLite 3.35+) |
 
 ---
@@ -164,8 +182,8 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | Basic DELETE WHERE | ✅ | `.delete().where(conditions)` |
 | DELETE without WHERE | ✅ | `.delete()` |
 | RETURNING | ✅ | `.returning(fields)` |
-| UPDATE FROM | ❌ | Future idea |
-| Subquery in SET | ❌ | Future idea |
+| UPDATE FROM (SQLite 3.33+) | ✅ | `.update(fields).from(table).where(conditions)` |
+| Subquery / raw expression in SET | ✅ | `.updateRaw({ col: 'expr' }).where(conditions)` |
 
 ---
 
@@ -215,14 +233,18 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 ## Type System (`src/types.ts`)
 
-- `qbColumn` — column definition (name, sqliteType, optional, hasDefault, defaultValue, pkauto, unique, fk, check, meta)
-- `qbTableOptions` — table-level options (primaryKey, foreignKeys, defaults, unique, uniqueConstraints, checks)
+- `qbColumn` — column definition (name, sqliteType, optional, hasDefault, defaultValue, pkauto, unique, fk, check, generated, meta)
+- `qbTableOptions` — table-level options (primaryKey, foreignKeys, defaults, unique, uniqueConstraints, checks, temporary)
 - `IForeignKeyDefinition` — `{ table, col, onDelete?, onUpdate? }` (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION)
 - `IUniqueConstraint` — `{ columns: string[], name?: string }`
 - `IOnConflictConfig` — `{ target, targetWhere?, action, updateFields?, updateRaw?, updateWhere? }`
 - `tsSqliteType` — `"TEXT" | "INTEGER" | "REAL" | "BOOLEAN" | "DATETIME" | "BLOB"`
-- `tsQueryMode` — `"SELECT" | "INSERT" | "INSERT_MULTI" | "INSERT_DEFAULT" | "UPDATE" | "DELETE" | "UPSERT" | "COUNT" | "CREATE_INDEX"`
+- `tsQueryMode` — `"SELECT" | "INSERT" | "INSERT_MULTI" | "INSERT_DEFAULT" | "UPDATE" | "DELETE" | "UPSERT" | "COUNT" | "CREATE_INDEX" | "COMPOUND"`
+- `tsCompoundOp` — `"UNION" | "UNION ALL" | "INTERSECT" | "EXCEPT"`
+- `tsInsertOrAction` — `"ROLLBACK" | "ABORT" | "FAIL" | "IGNORE" | "REPLACE"`
 - `tsWhereDefinition` — `string | { col: string, param: string }`
+- `ICteDefinition` — `{ name: string, query: string }`
+- `ITriggerDefinition` — `{ timing, event, of?, table, when?, body, forEachRow? }`
 - `IJoinDefinition`, `IOrderByDefinition`, `IWhereInDefinition`, `IWindowDefinition`, `ICaseBranch`
 
 ---
@@ -230,7 +252,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 ## Testing
 
 - **Framework**: Vitest 4 (pure ESM)
-- **Total tests**: 300
+- **Total tests**: 396
 - **Run**: `npm.cmd test -w @ytrynot/qb`
 - **Typecheck**: `npm.cmd test -- --typecheck`
 
@@ -250,6 +272,10 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | `tests/dist.test.ts` | 2 | Dist bundle operational |
 | `tests/min.test.ts` | 2 | Minified bundle operational |
 | `tests/bundle-smoke.test.ts` | 1 | Exports exist |
+| `tests/compound-cte.test.ts` | 35 | Compound SELECT (UNION/UNION ALL/INTERSECT/EXCEPT), CTE (WITH/WITH RECURSIVE), guards, clone |
+| `tests/advanced-features.test.ts` | 28 | Generated columns, TEMP tables, CREATE TABLE AS SELECT, EXPLAIN, INSERT OR, UPDATE FROM, subquery in SET |
+| `tests/trigger.test.ts` | 13 | CREATE TRIGGER (BEFORE/AFTER/INSTEAD OF, UPDATE OF, WHEN, multi-statement body), TableDef.cols/name |
+| `tests/window-frames.test.ts` | 11 | Window frames (ROWS/RANGE/GROUPS BETWEEN, EXCLUDE, offsets, backward compat) |
 
 ---
 
@@ -257,15 +283,10 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 qb is a simple string builder for common SQLite operations. These features are **not** planned:
 
-**Query composition (ORM territory)**:
-- **CTE** (`.with()` / `.withRecursive()`) — changes Builder structure
-- **Compound SELECT** (UNION / UNION ALL / INTERSECT / EXCEPT) — composes multiple queries
-
 **Niche DDL optimizations**:
 - **WITHOUT ROWID** — storage optimization, users can append manually to DDL
 - **STRICT tables** — requires type mapping (`BOOLEAN → INTEGER`, `DATETIME → TEXT`), complex + niche
 - **COLLATE on columns** — very niche (`NOCASE` is the only realistic use case)
-- **Window frames** (ROWS/RANGE BETWEEN) — niche, requires `tsSqlFrameBound` type algebra
 - **CREATE/DROP VIEW** — users create views via migrations, not via qb
 
 **Validation (out of scope for a string builder)**:
@@ -279,9 +300,4 @@ qb is a simple string builder for common SQLite operations. These features are *
 
 - Schema-aware generics (`Builder<TTable, TColumns>`) — Phase 2
 - Expression DSL for `excluded.*` validation
-- Generated columns (`GENERATED ALWAYS AS (...) STORED`)
-- INSERT OR variants (ROLLBACK/ABORT/FAIL/REPLACE)
-- UPDATE FROM
-- CREATE TABLE AS SELECT, TEMP tables
 - ALTER TABLE (RENAME, ADD/DROP COLUMN)
-- CREATE TRIGGER

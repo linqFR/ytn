@@ -334,6 +334,7 @@ Pass table-level constraints through the `options` argument (`qbTableOptions`):
 | `unique` | `string[]` | List of columns with a single-column UNIQUE constraint. |
 | `uniqueConstraints` | `IUniqueConstraint[]` | Composite UNIQUE constraints: `{ columns: string[], name?: string }`. |
 | `checks` | `string[]` | Table-level CHECK constraints (e.g. `["age >= 18", "status IN ('active', 'inactive')"]`). |
+| `temporary` | `boolean` | If `true`, emits `CREATE TEMP TABLE` (session-scoped table). |
 
 ## Index management
 
@@ -369,6 +370,85 @@ QueryBuilder.dropIndex("idx_users_email");
 const dropSql = QueryBuilder.dropTable("users");
 console.log(dropSql);
 // DROP TABLE IF EXISTS users;
+```
+
+## Generated columns
+
+Define generated columns with `qbColumn.generated: { expr, type }`. SQLite 3.31+ required.
+
+```typescript
+const columns: qbColumn[] = [
+  { name: "id", sqliteType: "INTEGER", pkauto: true },
+  { name: "first_name", sqliteType: "TEXT" },
+  { name: "last_name", sqliteType: "TEXT" },
+  { name: "full_name", sqliteType: "TEXT", generated: { expr: "first_name || ' ' || last_name", type: "STORED" } },
+];
+
+const sql = QueryBuilder.createTable("users", columns);
+// CREATE TABLE IF NOT EXISTS users (
+//   id INTEGER PRIMARY KEY AUTOINCREMENT,
+//   first_name TEXT NOT NULL,
+//   last_name TEXT NOT NULL,
+//   full_name TEXT GENERATED ALWAYS AS (first_name || ' ' || last_name) STORED
+// );
+```
+
+Use `type: "VIRTUAL"` for computed-on-read columns (no storage). Generated columns skip `NOT NULL` and `DEFAULT` constraints.
+
+## TEMP tables
+
+Pass `temporary: true` in options to create a session-scoped temporary table:
+
+```typescript
+const sql = QueryBuilder.createTable("temp_cache", columns, { temporary: true });
+// CREATE TEMP TABLE IF NOT EXISTS temp_cache (...)
+```
+
+## CREATE TABLE AS SELECT
+
+Create a table populated from a query:
+
+```typescript
+const sql = QueryBuilder.createTableAs("active_users",
+  QueryBuilder.table("users").select("id", "name").whereRaw("active = 1")
+);
+// CREATE TABLE active_users AS SELECT id, name FROM users WHERE active = 1;
+```
+
+## CREATE TRIGGER
+
+`QueryBuilder.createTrigger(name, def)` generates a `CREATE TRIGGER IF NOT EXISTS` statement with typed structure and a raw SQL body. The body and WHEN clause are raw SQL — SQLite trigger bodies contain imperative multi-statement logic (INSERT...SELECT, UPDATE with NEW/OLD refs, EXISTS subqueries) that cannot be expressed by the fluent Builder.
+
+```typescript
+const sql = QueryBuilder.createTrigger("trg_act_done_pb", {
+  timing: "AFTER",
+  event: "UPDATE",
+  of: ["status"],
+  table: "actions",
+  when: "NEW.status = 'done' AND OLD.status != 'done'",
+  body: `UPDATE problems SET status = 'partial' WHERE linked_act = NEW.id;`,
+});
+// CREATE TRIGGER IF NOT EXISTS trg_act_done_pb
+// AFTER UPDATE OF status ON actions FOR EACH ROW WHEN NEW.status = 'done' AND OLD.status != 'done'
+// BEGIN
+// UPDATE problems SET status = 'partial' WHERE linked_act = NEW.id;
+// END;
+```
+
+Supported: `BEFORE` / `AFTER` / `INSTEAD OF` timing, `INSERT` / `UPDATE` / `DELETE` events, `UPDATE OF` columns, `WHEN` clause, `FOR EACH ROW` (default), multi-statement body.
+
+Use `TableDef.cols` and `TableDef.name` for refactor-safe trigger definitions:
+
+```typescript
+const t = QueryBuilder.defTable("actions", ActionSchema);
+QueryBuilder.createTrigger("trg_act_done_pb", {
+  timing: "AFTER",
+  event: "UPDATE",
+  of: [t.cols[1]],   // 'status' via cols
+  table: t.name,     // 'actions' via name
+  when: `NEW.${t.cols[1]} = 'done'`,
+  body: `SELECT 1;`,
+});
 ```
 
 ## Where to go next

@@ -970,4 +970,42 @@ describe('QueryBuilder - Fixes and New Features', () => {
     });
   });
 
+  describe('13. orderByRaw()', () => {
+    it('orderByRaw() generates raw ORDER BY clause', () => {
+      const sql = QueryBuilder.table('actions')
+        .select()
+        .whereIn('status', ['pending', 'in_progress', 'blocked'])
+        .orderByRaw("CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 ELSE 3 END, seq ASC")
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM actions WHERE status IN ('pending', 'in_progress', 'blocked') ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 ELSE 3 END, seq ASC");
+    });
+
+    it('orderByRaw() overrides prior orderBy() calls', () => {
+      const sql = QueryBuilder.table('actions')
+        .select()
+        .orderBy('seq', 'ASC')
+        .orderByRaw("CASE priority WHEN 'P0' THEN 0 END")
+        .toSQL();
+      expect(sql).toContain('ORDER BY CASE priority WHEN \'P0\' THEN 0 END');
+      expect(sql).not.toContain('seq ASC');
+    });
+
+    it('orderByRaw() is preserved by clone()', () => {
+      const original = QueryBuilder.table('actions')
+        .select()
+        .orderByRaw("CASE priority WHEN 'P0' THEN 0 END");
+      const cloned = original.clone();
+      expect(cloned.toSQL()).toBe(original.toSQL());
+    });
+
+    it('orderByRaw() with LIMIT', () => {
+      const sql = QueryBuilder.table('actions')
+        .select()
+        .orderByRaw("length(title) DESC")
+        .limit(10)
+        .toSQL();
+      expect(sql).toBe('SELECT * FROM actions ORDER BY length(title) DESC LIMIT 10');
+    });
+  });
+
 });

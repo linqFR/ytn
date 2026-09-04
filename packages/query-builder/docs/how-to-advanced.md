@@ -117,10 +117,10 @@ The inner `Builder` is compiled automatically when the outer query calls `.toSQL
 
 ## Window functions
 
-`.selectWindow(alias, definition)` adds a window function expression (`OVER (...)`). The `IWindowDefinition` accepts a function call, optional `PARTITION BY`, and optional `ORDER BY` within the window.
+`.selectWindow(alias, definition)` adds a window function expression (`OVER (...)`). The `IWindowDefinition` accepts a function call, optional `PARTITION BY`, optional `ORDER BY`, and an optional `frame` specification.
 
 > [!NOTE]
-> Window functions require SQLite 3.25+. Window frames (`ROWS BETWEEN ...`) are not supported.
+> Window functions require SQLite 3.25+. Window frames (`ROWS BETWEEN ...`) are supported via the `frame` option.
 
 ```typescript
 const sql = QueryBuilder.table("events")
@@ -135,6 +135,26 @@ const sql = QueryBuilder.table("events")
 console.log(sql);
 // SELECT type, ROW_NUMBER() OVER(PARTITION BY type ORDER BY created_at DESC) as rn FROM events
 ```
+
+### Window frames (ROWS / RANGE / GROUPS BETWEEN)
+
+Use the `frame` option to specify a window frame:
+
+```typescript
+const sql = QueryBuilder.table("sales")
+  .select(["month", "amount"])
+  .selectWindow("moving_avg", {
+    func: "AVG(amount)",
+    orderBy: [{ field: "month", dir: "ASC" }],
+    frame: { type: "ROWS", start: "1 PRECEDING", end: "1 FOLLOWING" },
+  })
+  .toSQL();
+
+console.log(sql);
+// SELECT month, amount, AVG(amount) OVER(ORDER BY month ASC ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) as moving_avg FROM sales
+```
+
+Supported frame types: `ROWS`, `RANGE`, `GROUPS`. Boundaries: `UNBOUNDED PRECEDING`, `CURRENT ROW`, `N PRECEDING`, `N FOLLOWING`, `UNBOUNDED FOLLOWING`. Optional `exclude`: `CURRENT ROW`, `GROUP`, `TIES`, `NO OTHERS`.
 
 ## SQLite configuration (Pragmas)
 

@@ -154,10 +154,19 @@ CREATE TABLE IF NOT EXISTS users (
 - **Fluent DML**: SELECT, INSERT, UPDATE, DELETE, UPSERT with method chaining and safe named parameters.
 - **Schema-First DDL**: Generate `CREATE TABLE` and a full CRUD set from **Zod v4** or **@ytrynot/dna** schemas — or use the fluent API standalone.
 - **Three schema sources, one API**: `defTable(name, def)` accepts Zod, DNA, or manual `qbColumn[]` and returns the same `TableDef` shape.
-- **Advanced Queries**: JOINs (INNER, LEFT, RIGHT), subqueries, `EXISTS`, `CASE WHEN`, window functions, `DISTINCT`, `HAVING`, `RETURNING`.
+- **Advanced Queries**: JOINs (INNER, LEFT, RIGHT), subqueries, `EXISTS`, `CASE WHEN`, window functions (with frame specs), `DISTINCT`, `HAVING`, `RETURNING`.
+- **Compound SELECT**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT` via instance methods (`.union()`, `.unionAll()`, etc.) and static factories (`QueryBuilder.unionAll(...)`).
+- **CTE**: `.with(name, query)` and `.withRecursive(name, query)` for `WITH` / `WITH RECURSIVE` clauses.
+- **Raw escape hatches**: `whereRaw()`, `selectRaw()`, `orderByRaw()`, `updateRaw()` for expressions the fluent API can't express.
 - **ON CONFLICT**: `.onConflict(cols).doNothing()/.doUpdate()/.doUpdateRaw()` for fine-grained upsert control.
+- **INSERT OR**: `.insert(...).or("REPLACE"|"IGNORE"|"ROLLBACK"|"ABORT"|"FAIL")` for conflict resolution.
+- **UPDATE FROM**: `.update(fields).from(table)` for cross-table updates (SQLite 3.33+).
 - **Multi-row INSERT**: `.insertMulti(fields, rowCount)` with indexed placeholders.
-- **DDL Constraints**: Composite UNIQUE, CHECK (column + table level), FK actions (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION).
+- **DDL Constraints**: Composite UNIQUE, CHECK (column + table level), FK actions (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION), generated columns (`GENERATED ALWAYS AS ... STORED|VIRTUAL`).
+- **TEMP tables**: `options.temporary: true` for `CREATE TEMP TABLE`.
+- **CREATE TABLE AS SELECT**: `QueryBuilder.createTableAs(name, builder)`.
+- **CREATE TRIGGER**: `QueryBuilder.createTrigger(name, def)` — typed structure (timing, event, table, WHEN, FOR EACH ROW), raw body.
+- **EXPLAIN**: `.explain()` and `.explainQueryPlan()` for query analysis.
 - **Index Management**: `createIndex()` with partial WHERE and expression columns, `dropIndex()`.
 - **SQLite Pragmas**: Fluent `PragmaBuilder` for `foreign_keys`, `journal_mode`, `synchronous`, and more.
 
@@ -195,6 +204,10 @@ CREATE TABLE IF NOT EXISTS users (
 | UPSERT / ON CONFLICT | 3.24.0 | `.onConflict()`, `.upsert()` |
 | RIGHT JOIN | 3.39.0 | `.joinRight()` |
 | Window functions | 3.25.0 | `.selectWindow()` |
+| Window frames (ROWS BETWEEN) | 3.25.0 | `.selectWindow(alias, { frame })` |
+| UPDATE FROM | 3.33.0 | `.update(fields).from(table)` |
+| CTE (WITH RECURSIVE) | 3.8.3 | `.withRecursive(name, query)` |
+| Generated columns | 3.31.0 | `qbColumn.generated: { expr, type }` |
 
 **Runtime notes**:
 - `node:sqlite` (Node.js 22+) ships SQLite 3.46+ — all features available.
@@ -205,7 +218,7 @@ You must read the documentation of your SQLite database and check which paramete
 
 ## Testing
 
-The package includes a comprehensive suite of 300 tests covering source logic, Zod v4 and DNA compliance, distribution bundles, and minification.
+The package includes a comprehensive suite of 396 tests covering source logic, Zod v4 and DNA compliance, distribution bundles, and minification.
 
 ```bash
 # Run the full suite
