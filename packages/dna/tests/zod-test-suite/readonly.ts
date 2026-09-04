@@ -32,6 +32,24 @@ const readonlyStringRecordDna = dna.record(dna.string(), dna.string()).readonly(
 const readonlyObjectZod = z.object({ a: z.string(), 1: z.number() }).readonly();
 const readonlyObjectDna = dna.object({ a: dna.string(), 1: dna.number() }).readonly();
 
+const readonlyBigIntZod = z.bigint().readonly();
+const readonlyBigIntDna = dna.bigint().readonly();
+
+const readonlyUndefinedZod = z.undefined().readonly();
+const readonlyUndefinedDna = dna.undefined().readonly();
+
+const readonlyNullZod = z.null().readonly();
+const readonlyNullDna = dna.null().readonly();
+
+const readonlyAnyZod = z.any().readonly();
+const readonlyAnyDna = dna.any().readonly();
+
+const readonlyUnknownZod = z.unknown().readonly();
+const readonlyUnknownDna = dna.unknown().readonly();
+
+const readonlyVoidZod = z.void().readonly();
+const readonlyVoidDna = dna.void().readonly();
+
 export const readonlyTests = [
   {
     description: "readonly string",
@@ -117,6 +135,72 @@ export const readonlyTests = [
     dnaSchema: readonlyObjectDna,
     tests: [
       { description: "valid object", data: { a: "hello", 1: 42 }, valid: true },
+    ],
+  },
+  {
+    description: "readonly bigint",
+    zodSchema: readonlyBigIntZod,
+    dnaSchema: readonlyBigIntDna,
+    tests: [
+      { description: "valid bigint", data: BigInt(1), valid: true },
+    ],
+  },
+  {
+    description: "readonly undefined",
+    zodSchema: readonlyUndefinedZod,
+    dnaSchema: readonlyUndefinedDna,
+    tests: [
+      { description: "valid undefined", data: undefined, valid: true },
+    ],
+  },
+  {
+    description: "readonly null",
+    zodSchema: readonlyNullZod,
+    dnaSchema: readonlyNullDna,
+    tests: [
+      { description: "valid null", data: null, valid: true },
+    ],
+  },
+  {
+    description: "readonly any",
+    zodSchema: readonlyAnyZod,
+    dnaSchema: readonlyAnyDna,
+    tests: [
+      { description: "valid any string", data: "whatever", valid: true },
+    ],
+  },
+  {
+    description: "readonly unknown",
+    zodSchema: readonlyUnknownZod,
+    dnaSchema: readonlyUnknownDna,
+    tests: [
+      { description: "valid unknown string", data: "whatever", valid: true },
+    ],
+  },
+  {
+    description: "readonly void",
+    zodSchema: readonlyVoidZod,
+    dnaSchema: readonlyVoidDna,
+    tests: [
+      { description: "valid void undefined", data: undefined, valid: true },
+    ],
+  },
+  {
+    description: "readonly parse with tuples",
+    zodSchema: readonlyTupleZod,
+    dnaSchema: readonlyTupleDna,
+    tests: [
+      { description: "valid tuple parse", data: ["a", 1], valid: true },
+      { description: "valid tuple with different values", data: ["asdf", 1234], valid: true },
+    ],
+  },
+  {
+    description: "readonly and the get method - runtime parse",
+    zodSchema: readonlyStringArrayZod,
+    dnaSchema: readonlyStringArrayDna,
+    tests: [
+      { description: "valid string array parse", data: ["asdf"], valid: true },
+      { description: "valid string array with multiple items", data: ["a", "b", "c"], valid: true },
     ],
   },
 ];

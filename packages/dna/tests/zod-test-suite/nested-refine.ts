@@ -63,6 +63,7 @@ export const nestedRefineTests = [
     tests: [
       { description: "valid", data: { password: "bar", nested: { confirm: "bar" } }, valid: true },
       { description: "invalid too short", data: { password: "bar", nested: { confirm: "" } }, valid: false },
+      { description: "invalid confirm does not match password", data: { password: "bar", nested: { confirm: "foo" } }, valid: false },
     ],
   },
 ];

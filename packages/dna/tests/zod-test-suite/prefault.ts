@@ -72,4 +72,37 @@ export const prefaultTests = [
       { description: "invalid number", data: 123, valid: false },
     ],
   },
+  {
+    description: "object schema with prefault should return shallow clone",
+    zodSchema: prefaultObjectZod,
+    dnaSchema: prefaultObjectDna,
+    tests: [
+      {
+        description: "valid undefined returns cloned default",
+        data: undefined,
+        valid: true,
+        customCheck: (zodResult: any, dnaResult: any) => {
+          const zodParsed1 = zodResult.data;
+          const zodParsed2 = prefaultObjectZod.parse(undefined);
+          const dnaParsed1 = dnaResult.data;
+          const dnaParsed2 = prefaultObjectDna.parse(undefined);
+          return (
+            zodParsed1 !== zodParsed2 &&
+            JSON.stringify(zodParsed1) === JSON.stringify(zodParsed2) &&
+            dnaParsed1 !== dnaParsed2 &&
+            JSON.stringify(dnaParsed1) === JSON.stringify(dnaParsed2)
+          );
+        },
+      },
+    ],
+  },
+  {
+    description: "direction-aware prefault (parse applies prefault, encode does not)",
+    zodSchema: prefaultStringZod,
+    dnaSchema: prefaultStringDna,
+    tests: [
+      { description: "valid undefined uses default in forward direction", data: undefined, valid: true },
+      { description: "valid string in forward direction", data: "world", valid: true },
+    ],
+  },
 ];

@@ -157,4 +157,27 @@ export const coerceTests = [
       { description: "valid date", data: new Date(), valid: true },
     ],
   },
+  {
+    description: "override input type",
+    zodSchema: z.coerce.string(),
+    dnaSchema: dna.coerce.string(),
+    tests: [
+      {
+        description: "coerce.string input type is unknown, output is string",
+        data: "test",
+        valid: true,
+        customCheck: () => {
+          // Zod: z.coerce.string<any>() — input is any, output is string
+          const zodSchema = z.coerce.string();
+          // DNA: dna.coerce.string() — input should be unknown, output is string
+          const dnaSchema = dna.coerce.string();
+          // Verify both parse correctly
+          const zodResult = zodSchema.safeParse("test");
+          const dnaResult = dnaSchema.safeParse("test");
+          return zodResult.success && dnaResult.success &&
+            zodResult.data === "test" && dnaResult.data === "test";
+        },
+      },
+    ],
+  },
 ];

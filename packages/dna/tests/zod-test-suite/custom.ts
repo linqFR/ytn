@@ -45,4 +45,19 @@ export const customTests = [
       { description: "invalid number", data: 123, valid: false },
     ],
   },
+  {
+    description: "instanceof via pipe (string -> transform -> instanceof Uint8Array)",
+    zodSchema: z
+      .string()
+      .transform((value) => Uint8Array.from(Buffer.from(value, "base64")))
+      .pipe(z.instanceof(Uint8Array)),
+    dnaSchema: dna
+      .string()
+      .transform((value) => Uint8Array.from(Buffer.from(value, "base64")))
+      .pipe(dna.instanceof(Uint8Array)),
+    tests: [
+      { description: "valid base64 string", data: "SGVsbG8=", valid: true },
+      { description: "invalid number", data: 123, valid: false },
+    ],
+  },
 ];

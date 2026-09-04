@@ -203,4 +203,184 @@ export const errorTests = [
       },
     ],
   },
+  {
+    description: "type error with custom error map",
+    zodSchema: z.string(),
+    dnaSchema: dna.string(),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid type number",
+        data: 234,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "refinement fail with params",
+    zodSchema: z.number().refine((val) => val >= 3, {
+      params: { minimum: 3 },
+    }),
+    dnaSchema: dna.number().refine((val) => val >= 3, {
+      params: { minimum: 3 },
+    }),
+    tests: [
+      {
+        description: "valid number >= 3",
+        data: 5,
+        valid: true,
+      },
+      {
+        description: "invalid number < 3",
+        data: 2,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "default error message",
+    zodSchema: z.number().refine((x) => x > 3),
+    dnaSchema: dna.number().refine((x) => x > 3),
+    tests: [
+      {
+        description: "valid number > 3",
+        data: 5,
+        valid: true,
+      },
+      {
+        description: "invalid number <= 3 with default message",
+        data: 2,
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "array minimum without custom message",
+    zodSchema: z.array(z.string()).min(3),
+    dnaSchema: dna.array(dna.string()).min(3),
+    tests: [
+      {
+        description: "valid array with 3 items",
+        data: ["a", "b", "c"],
+        valid: true,
+      },
+      {
+        description: "invalid array with 2 items",
+        data: ["a", "b"],
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "root level formatting - email",
+    zodSchema: z.string().email(),
+    dnaSchema: dna.email(),
+    tests: [
+      {
+        description: "valid email",
+        data: "test@example.com",
+        valid: true,
+      },
+      {
+        description: "invalid email",
+        data: "asdfsdf",
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "no abort early on refinements",
+    zodSchema: z.object({
+      inner: z.object({
+        name: z
+          .string()
+          .refine((val) => val.length > 5)
+          .array()
+          .refine((val) => val.length <= 1),
+      }),
+    }),
+    dnaSchema: dna.object({
+      inner: dna.object({
+        name: dna
+          .string()
+          .refine((val) => val.length > 5)
+          .array()
+          .refine((val) => val.length <= 1),
+      }),
+    }),
+    tests: [
+      {
+        description: "valid nested refinements",
+        data: { inner: { name: ["abcdef"] } },
+        valid: true,
+      },
+      {
+        description: "invalid - short string and too many items",
+        data: { inner: { name: ["aasd", "asdfasdfasfd"] } },
+        valid: false,
+      },
+      {
+        description: "invalid - too many items only",
+        data: { inner: { name: ["abcdef", "ghijkl"] } },
+        valid: false,
+      },
+    ],
+  },
+  {
+    description: "error inheritance",
+    zodSchema: z.string(),
+    dnaSchema: dna.string(),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid - thrown error is instance of Error",
+        data: 123,
+        valid: false,
+        customCheck: () => {
+          let zodIsError = false;
+          try { z.string().parse(123); } catch (e) { zodIsError = e instanceof Error; }
+          let dnaIsError = false;
+          try { dna.string().parse(123); } catch (e) { dnaIsError = e instanceof Error; }
+          return zodIsError && dnaIsError;
+        },
+      },
+    ],
+  },
+  {
+    description: "error serialization",
+    zodSchema: z.string(),
+    dnaSchema: dna.string(),
+    tests: [
+      {
+        description: "valid string",
+        data: "hello",
+        valid: true,
+      },
+      {
+        description: "invalid - thrown error can be serialized",
+        data: 123,
+        valid: false,
+        customCheck: () => {
+          let zodErr: unknown, dnaErr: unknown;
+          try { z.string().parse(123); } catch (e) { zodErr = e; }
+          try { dna.string().parse(123); } catch (e) { dnaErr = e; }
+          try {
+            JSON.stringify(zodErr);
+            JSON.stringify(dnaErr);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+      },
+    ],
+  },
 ];

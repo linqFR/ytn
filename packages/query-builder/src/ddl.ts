@@ -65,7 +65,7 @@ export class DDLEngine {
     // (meta.pk, pkauto, and convention-based id/uuid inference).
     if (!pk) {
       for (const col of columns) {
-        if (col.meta.pk || col.pkauto) { pk = col.name; break; }
+        if (col.meta?.pk || col.pkauto) { pk = col.name; break; }
       }
       if (!pk) {
         const names = columns.map((c) => c.name);

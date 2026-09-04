@@ -30,6 +30,74 @@ const optionalObjectDna = dna.object({ a: dna.string().optional() });
 const defaultedObjectZod = z.object({ value: z.string().default("fallback") });
 const defaultedObjectDna = dna.object({ value: dna.string().default("fallback") });
 
+const optionalPropWithPipeZod = z.object({
+  id: z
+    .union([z.number(), z.string().nullish()])
+    .transform((val) => (val === null || val === undefined ? val : Number(val)))
+    .pipe(z.number())
+    .optional(),
+});
+const optionalPropWithPipeDna = dna.object({
+  id: dna
+    .union([dna.number(), dna.string().nullish()])
+    .transform((val) => (val === null || val === undefined ? val : Number(val)))
+    .pipe(dna.number())
+    .optional(),
+});
+
+const objectAbsentKeysZod = z.object({
+  value: z.undefined(),
+  union: z.union([z.string(), z.undefined()]),
+});
+const objectAbsentKeysDna = dna.object({
+  value: dna.undefined(),
+  union: dna.union([dna.string(), dna.undefined()]),
+});
+
+const optionalOutOnlyZod = z.object({
+  value: z
+    .string()
+    .transform((val) => (Math.random() ? val : undefined))
+    .pipe(z.string().optional()),
+});
+const optionalOutOnlyDna = dna.object({
+  value: dna
+    .string()
+    .transform((val) => (Math.random() ? val : undefined))
+    .pipe(dna.string().optional()),
+});
+
+const exactOptionalVsOptionalZod = z.object({ a: z.string().exactOptional() });
+const exactOptionalVsOptionalDna = dna.object({ a: dna.string().exactOptional() });
+
+const swallowedIssueZod = z.object({
+  a: z
+    .string()
+    .optional()
+    .superRefine((_v, ctx) => {
+      ctx.addIssue({ code: "custom", message: "bad" });
+      ctx.value = "leaked";
+    }),
+});
+const swallowedIssueDna = dna.object({
+  a: dna
+    .string()
+    .optional()
+    .superRefine((_v, ctx) => {
+      ctx.addIssue({ code: "custom", message: "bad" });
+      ctx.value = "leaked";
+    }),
+});
+
+const optionalDoesNotSwallowZod = z
+  .strictObject({ a: z.string() })
+  .transform((): number | undefined => undefined)
+  .pipe(z.number().default(5).optional());
+const optionalDoesNotSwallowDna = dna
+  .strictObject({ a: dna.string() })
+  .transform((): number | undefined => undefined)
+  .pipe(dna.number().default(5).optional());
+
 export const optionalTests = [
   {
     description: ".optional()",
@@ -128,6 +196,58 @@ export const optionalTests = [
     tests: [
       { description: "valid absent (defaulted)", data: {}, valid: true },
       { description: "valid present", data: { value: "hello" }, valid: true },
+    ],
+  },
+  {
+    description: "optional prop with pipe",
+    zodSchema: optionalPropWithPipeZod,
+    dnaSchema: optionalPropWithPipeDna,
+    tests: [
+      { description: "valid absent key", data: {}, valid: true },
+    ],
+  },
+  {
+    description: "object absent keys require optin optional",
+    zodSchema: objectAbsentKeysZod,
+    dnaSchema: objectAbsentKeysDna,
+    tests: [
+      { description: "invalid absent keys (undefined and union)", data: {}, valid: false },
+      { description: "valid present undefined values", data: { value: undefined, union: undefined }, valid: true },
+    ],
+  },
+  {
+    description: "object absent keys - optional out only fails on absent",
+    zodSchema: optionalOutOnlyZod,
+    dnaSchema: optionalOutOnlyDna,
+    tests: [
+      { description: "invalid absent key (optout only)", data: {}, valid: false },
+    ],
+  },
+  {
+    description: "exactOptional vs optional comparison",
+    zodSchema: exactOptionalVsOptionalZod,
+    dnaSchema: exactOptionalVsOptionalDna,
+    tests: [
+      { description: "valid absent key", data: {}, valid: true },
+      { description: "valid present value", data: { a: "hi" }, valid: true },
+      { description: "invalid explicit undefined", data: { a: undefined }, valid: false },
+    ],
+  },
+  {
+    description: "swallowed issue on an absent optional key drops its value",
+    zodSchema: swallowedIssueZod,
+    dnaSchema: swallowedIssueDna,
+    tests: [
+      { description: "valid absent key (issue swallowed)", data: {}, valid: true },
+      { description: "invalid present key (issue surfaces)", data: { a: "x" }, valid: false },
+    ],
+  },
+  {
+    description: "optional does not swallow an issue it did not cause",
+    zodSchema: optionalDoesNotSwallowZod,
+    dnaSchema: optionalDoesNotSwallowDna,
+    tests: [
+      { description: "invalid unrecognized key survives pipe", data: { a: "x", extra: 1 }, valid: false },
     ],
   },
 ];
