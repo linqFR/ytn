@@ -178,7 +178,7 @@ export class QueryBuilder {
     if (Array.isArray(def)) {
       // Manual: qbColumn[]
       columns = def;
-      pk = columns.find((c) => c.meta.pk || c.pkauto)?.name || "";
+      pk = columns.find((c) => c.meta?.pk || c.pkauto)?.name || "";
       if (!pk) {
         const names = columns.map((c) => c.name);
         if (names.includes("id")) pk = "id";
@@ -214,7 +214,7 @@ export class QueryBuilder {
     const nonPkKeys = keys.filter((k) => !pkCols.includes(k));
     // Extract unique keys from column metadata (unique: true or pk: true or pkauto)
     const uniqueKeys = columns
-      .filter((c) => c.meta.unique || c.meta.pk || c.pkauto)
+      .filter((c) => c.meta?.unique || c.meta?.pk || c.pkauto)
       .map((c) => c.name);
 
     return {

@@ -220,10 +220,10 @@ export interface qbColumn {
   name: string;
   /** SQLite type mapped from the source schema type. */
   sqliteType: tsSqliteType;
-  /** Whether the column is optional (NOT NULL omitted). */
-  optional: boolean;
-  /** Whether the column has a default value (DEFAULT clause emitted). */
-  hasDefault: boolean;
+  /** Whether the column is optional (NOT NULL omitted). Defaults to `false`. */
+  optional?: boolean;
+  /** Whether the column has a default value (DEFAULT clause emitted). Defaults to `false`. */
+  hasDefault?: boolean;
   /** Default value (tagged or direct) when `hasDefault` is true. See `tsDefaultValue`. */
   defaultValue?: tsDefaultValue;
   /** Whether the column is an auto-increment primary key. */
@@ -234,8 +234,8 @@ export interface qbColumn {
   fk?: string | IForeignKeyDefinition;
   /** Column-level CHECK constraint (e.g. `"age >= 0"`). */
   check?: string;
-  /** Raw metadata bag from the source schema (for advanced overrides). */
-  meta: Record<string, unknown>;
+  /** Raw metadata bag from the source schema (for advanced overrides). Defaults to `{}`. */
+  meta?: Record<string, unknown>;
 }
 
 /**
