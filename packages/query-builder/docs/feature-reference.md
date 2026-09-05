@@ -66,9 +66,9 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | Feature | Support | How |
 |---------|---------|-----|
 | SQLite types (TEXT, INTEGER, REAL, BOOLEAN, DATETIME, BLOB) | ✅ | `qbColumn.sqliteType` |
-| PRIMARY KEY | ✅ | `meta.pk` or `pkauto` |
+| PRIMARY KEY | ✅ | `pk: true` (direct), `meta.pk` (Zod/DNA chain), or `pkauto` |
 | AUTOINCREMENT | ✅ | `pkauto: true` → `PRIMARY KEY AUTOINCREMENT` |
-| NOT NULL | ✅ | Inferred from `optional: false` |
+| NOT NULL | ✅ | Inferred from `optional: false`. Independent of `DEFAULT` — both can appear together. |
 | UNIQUE (single column) | ✅ | `unique: true` or `options.unique` |
 | DEFAULT | ✅ | `.default()` (Zod/DNA) or `defaultValue` (manual columns) or `options.defaults` |
 | IF NOT EXISTS | ✅ | Always generated |
@@ -233,7 +233,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 ## Type System (`src/types.ts`)
 
-- `qbColumn` — column definition (name, sqliteType, optional, hasDefault, defaultValue, pkauto, unique, fk, check, generated, meta)
+- `qbColumn` — column definition (name, sqliteType, optional, hasDefault, defaultValue, pk, pkauto, unique, fk, check, generated, meta)
 - `qbTableOptions` — table-level options (primaryKey, foreignKeys, defaults, unique, uniqueConstraints, checks, temporary)
 - `IForeignKeyDefinition` — `{ table, col, onDelete?, onUpdate? }` (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION)
 - `IUniqueConstraint` — `{ columns: string[], name?: string }`
@@ -252,13 +252,13 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 ## Testing
 
 - **Framework**: Vitest 4 (pure ESM)
-- **Total tests**: 396
+- **Total tests**: 405
 - **Run**: `npm.cmd test -w @ytrynot/qb`
 - **Typecheck**: `npm.cmd test -- --typecheck`
 
 | Test file | Count | Coverage |
 |-----------|-------|----------|
-| `tests/builder.test.ts` | 108 | Core Builder API: SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, onConflict sub-builder, insertMulti, insertDefaultValues, having, distinct, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, dropIndex, runtime guards, PragmaBuilder full coverage |
+| `tests/builder.test.ts` | 132 | Core Builder API: SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, onConflict sub-builder, insertMulti, insertDefaultValues, having, distinct, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, dropIndex, runtime guards, PragmaBuilder full coverage, PK detection via `pk`/`meta.pk`/`pkauto`, NOT NULL + DEFAULT independence, direct properties without `meta` |
 | `tests/readme-examples.test.ts` | 17 | README examples produce documented SQL |
 | `tests/e2e-lifecycle.test.ts` | 48 | CRUD lifecycle across drivers + schema sources |
 | `tests/e2e-ddl.test.ts` | 36 | DDL generation + execution + PRAGMA e2e (both drivers) |

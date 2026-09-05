@@ -270,6 +270,8 @@ export interface qbColumn {
   hasDefault?: boolean;
   /** Default value (tagged or direct) when `hasDefault` is true. See `tsDefaultValue`. */
   defaultValue?: tsDefaultValue;
+  /** Whether the column is the primary key. */
+  pk?: boolean;
   /** Whether the column is an auto-increment primary key. */
   pkauto?: boolean;
   /** Whether the column is marked as UNIQUE. */
@@ -335,6 +337,24 @@ export interface ISchemaIntrospector<S = unknown> {
 }
 
 /**
+ * @interface ITableNames
+ * @description Runtime-accessible table metadata for raw SQL construction.
+ * All values are plain strings/booleans computed once at `defTable` time.
+ */
+export interface ITableNames {
+  /** Table name. */
+  readonly table: string;
+  /** Column name lookup: `col.seq` → `"seq"`. */
+  readonly col: Record<string, string>;
+  /** Primary key column name(s). String for single PK, array for composite PK. */
+  readonly pk: string | string[];
+  /** Per-column PK flag: `isPk.id` → `true`, `isPk.title` → `false`. */
+  readonly isPk: Record<string, boolean>;
+  /** Per-column unique flag: `isUnique.email` → `true`, `isUnique.name` → `false`. */
+  readonly isUnique: Record<string, boolean>;
+}
+
+/**
  * @interface TableDef
  * @description Return type of `QueryBuilder.defTable()`.
  * Contains pre-built generic SQL statements (DDL + DML) and a `req` getter
@@ -345,6 +365,8 @@ export interface TableDef {
   readonly name: string;
   /** Column names extracted from the schema definition. */
   readonly cols: string[];
+  /** Runtime-accessible table metadata for raw SQL construction. */
+  readonly names: ITableNames;
   /** DDL: CREATE TABLE IF NOT EXISTS statement. */
   createTable: string;
   /** DML: SELECT * FROM <table>. */

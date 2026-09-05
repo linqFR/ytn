@@ -69,7 +69,7 @@ In addition to global build rules, this package requires:
 
 ## 🧪 Testing Workflow
 
-Always run the full suite before submitting changes. "It builds" is not enough. 300 tests total.
+Always run the full suite before submitting changes. "It builds" is not enough. 405 tests total.
 
 - **`tests/builder.test.ts`** (108): Core `Builder` fluent API — SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, `defTable` + `req`/`q` + `uniqueKeys` + `ddl` shortcut, `onConflict` sub-builder, `insertMulti`, `insertDefaultValues`, `having`, `distinct`, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, `dropIndex`, runtime guards, PragmaBuilder full coverage.
 - **`tests/readme-examples.test.ts`** (17): Verifies that every code example in `README.md` produces the documented SQL output.

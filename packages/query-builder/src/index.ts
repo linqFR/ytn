@@ -264,7 +264,7 @@ export class QueryBuilder {
     if (Array.isArray(def)) {
       // Manual: qbColumn[]
       columns = def;
-      pk = columns.find((c) => c.meta?.pk || c.pkauto)?.name || "";
+      pk = columns.find((c) => c.pk || c.meta?.pk || c.pkauto)?.name || "";
       if (!pk) {
         const names = columns.map((c) => c.name);
         if (names.includes("id")) pk = "id";
@@ -300,12 +300,25 @@ export class QueryBuilder {
     const nonPkKeys = keys.filter((k) => !pkCols.includes(k));
     // Extract unique keys from column metadata (unique: true or pk: true or pkauto)
     const uniqueKeys = columns
-      .filter((c) => c.meta?.unique || c.meta?.pk || c.pkauto)
+      .filter((c) => c.pk || c.meta?.pk || c.unique || c.meta?.unique || c.pkauto)
       .map((c) => c.name);
+
+    // Build names metadata for raw SQL construction
+    const colLookup = Object.fromEntries(keys.map((k) => [k, k]));
+    const isPk = Object.fromEntries(keys.map((k) => [k, pkCols.includes(k)]));
+    const uniqueSet = new Set(uniqueKeys);
+    const isUnique = Object.fromEntries(keys.map((k) => [k, uniqueSet.has(k)]));
 
     return {
       name: tableName,
       cols: keys,
+      names: {
+        table: tableName,
+        col: colLookup,
+        pk,
+        isPk,
+        isUnique,
+      },
       createTable: DDLEngine.createTable(tableName, columns, options),
       getAll: QueryBuilder.table(tableName).select().toSQL(),
       getById: QueryBuilder.table(tableName).select().where(pkCols).toSQL(),

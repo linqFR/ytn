@@ -218,7 +218,7 @@ You must read the documentation of your SQLite database and check which paramete
 
 ## Testing
 
-The package includes a comprehensive suite of 396 tests covering source logic, Zod v4 and DNA compliance, distribution bundles, and minification.
+The package includes a comprehensive suite of 405 tests covering source logic, Zod v4 and DNA compliance, distribution bundles, and minification.
 
 ```bash
 # Run the full suite

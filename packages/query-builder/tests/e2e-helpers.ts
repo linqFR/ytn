@@ -119,19 +119,19 @@ export const orderSchemaDna = dna.object({
 // path: QueryBuilder.createTable() with manually constructed columns.
 
 export const userColumnsManual: qbColumn[] = [
-  { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: { pk: true } },
-  { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, unique: true, meta: { unique: true } },
-  { name: 'name', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
-  { name: 'age', sqliteType: 'INTEGER', optional: false, hasDefault: false, meta: {} },
-  { name: 'score', sqliteType: 'REAL', optional: false, hasDefault: false, meta: {} },
-  { name: 'bio', sqliteType: 'TEXT', optional: true, hasDefault: false, meta: {} },
+  { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+  { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, unique: true },
+  { name: 'name', sqliteType: 'TEXT', optional: false, hasDefault: false },
+  { name: 'age', sqliteType: 'INTEGER', optional: false, hasDefault: false },
+  { name: 'score', sqliteType: 'REAL', optional: false, hasDefault: false },
+  { name: 'bio', sqliteType: 'TEXT', optional: true, hasDefault: false },
 ];
 
 export const orderColumnsManual: qbColumn[] = [
-  { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: { pk: true } },
-  { name: 'user_id', sqliteType: 'TEXT', optional: false, hasDefault: false, fk: { table: 'users', col: 'id', onDelete: 'CASCADE' }, meta: { fk: { table: 'users', col: 'id', onDelete: 'CASCADE' } } },
-  { name: 'total', sqliteType: 'REAL', optional: false, hasDefault: false, meta: {} },
-  { name: 'status', sqliteType: 'TEXT', optional: false, hasDefault: true, defaultValue: { string: 'pending' }, meta: {} },
+  { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+  { name: 'user_id', sqliteType: 'TEXT', optional: false, hasDefault: false, fk: { table: 'users', col: 'id', onDelete: 'CASCADE' } },
+  { name: 'total', sqliteType: 'REAL', optional: false, hasDefault: false },
+  { name: 'status', sqliteType: 'TEXT', optional: true, hasDefault: true, defaultValue: { string: 'pending' } },
 ];
 
 // ─── Test Matrix ────────────────────────────────────────────────────
@@ -239,18 +239,17 @@ function col(
     sqliteType,
     optional: false,
     hasDefault: false,
-    meta: {},
     ...extra,
   };
 }
 
 export const itemColumnsManual: qbColumn[] = [
-  col('id', 'INTEGER', { pkauto: true, meta: { pkauto: true } }),
+  col('id', 'INTEGER', { pkauto: true }),
   col('label', 'TEXT'),
 ];
 
 export const typedColumnsManual: qbColumn[] = [
-  col('id', 'TEXT', { meta: { pk: true } }),
+  col('id', 'TEXT', { pk: true }),
   col('text_col', 'TEXT'),
   col('int_col', 'INTEGER'),
   col('real_col', 'REAL'),
@@ -259,24 +258,24 @@ export const typedColumnsManual: qbColumn[] = [
 ];
 
 export const mixedColumnsManual: qbColumn[] = [
-  col('id', 'TEXT', { meta: { pk: true } }),
+  col('id', 'TEXT', { pk: true }),
   col('required_col', 'TEXT'),
   col('optional_col', 'TEXT', { optional: true }),
   col('nullable_col', 'TEXT', { optional: true }),
 ];
 
 export const defaultsColumnsManual: qbColumn[] = [
-  col('id', 'TEXT', { meta: { pk: true } }),
+  col('id', 'TEXT', { pk: true }),
   col('status', 'TEXT', { hasDefault: true, defaultValue: { string: 'pending' } }),
   col('count', 'INTEGER', { hasDefault: true, defaultValue: 0 }),
 ];
 
 export const parentColumnsManual: qbColumn[] = [
-  col('id', 'TEXT', { meta: { pk: true } }),
+  col('id', 'TEXT', { pk: true }),
 ];
 
 export const childRestrictColumnsManual: qbColumn[] = [
-  col('id', 'TEXT', { meta: { pk: true } }),
+  col('id', 'TEXT', { pk: true }),
   col('parent_id', 'TEXT', {
     fk: {
       table: 'parents',

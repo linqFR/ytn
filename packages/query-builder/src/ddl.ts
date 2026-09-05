@@ -65,7 +65,7 @@ export class DDLEngine {
     // (meta.pk, pkauto, and convention-based id/uuid inference).
     if (!pk) {
       for (const col of columns) {
-        if (col.meta?.pk || col.pkauto) { pk = col.name; break; }
+        if (col.pk || col.meta?.pk || col.pkauto) { pk = col.name; break; }
       }
       if (!pk) {
         const names = columns.map((c) => c.name);
@@ -95,11 +95,12 @@ export class DDLEngine {
           : " PRIMARY KEY";
       } else {
         if (isUniqueFromDoc) constraints += " UNIQUE";
+        if (!optional) {
+          constraints += " NOT NULL";
+        }
         const defValue = defaults[name] ?? resolveDefault(col.defaultValue);
         if (defValue !== undefined) {
           constraints += ` DEFAULT ${defValue}`;
-        } else if (!optional) {
-          constraints += " NOT NULL";
         }
       }
 

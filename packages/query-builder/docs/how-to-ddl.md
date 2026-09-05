@@ -127,11 +127,11 @@ When you do not have a Zod or DNA schema, pass a `qbColumn[]` array directly. Ea
 import { QueryBuilder, type qbTable } from "@ytrynot/qb";
 
 const columns: qbTable = [
-  { name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, meta: { pk: true } },
-  { name: "email", sqliteType: "TEXT", optional: false, hasDefault: false, unique: true, meta: {} },
-  { name: "role", sqliteType: "TEXT", optional: false, hasDefault: true, defaultValue: { string: "user" }, meta: {} },
-  { name: "age", sqliteType: "INTEGER", optional: false, hasDefault: false, meta: {} },
-  { name: "created_at", sqliteType: "DATETIME", optional: true, hasDefault: false, meta: {} },
+  { name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, pk: true },
+  { name: "email", sqliteType: "TEXT", optional: false, hasDefault: false, unique: true },
+  { name: "role", sqliteType: "TEXT", optional: false, hasDefault: true, defaultValue: { string: "user" } },
+  { name: "age", sqliteType: "INTEGER", optional: false, hasDefault: false },
+  { name: "created_at", sqliteType: "DATETIME", optional: true, hasDefault: false },
 ];
 
 const ddl = QueryBuilder.createTable("users", columns);
@@ -144,17 +144,24 @@ Output (verified):
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  role TEXT DEFAULT 'user',
+  role TEXT NOT NULL DEFAULT 'user',
   age INTEGER NOT NULL,
   created_at DATETIME
 );
 ```
 
+> [!NOTE]
+> `NOT NULL` and `DEFAULT` are independent constraints. With `optional: false` + `hasDefault: true`, both are emitted — `role TEXT NOT NULL DEFAULT 'user'`. With `optional: true` + `hasDefault: true` (the Zod/DNA behavior for `.default()`), only `DEFAULT` is emitted.
+
 > [!IMPORTANT]
-> For manual `qbColumn[]`, constraints are declared at specific locations:
-> - **UNIQUE**: top-level `unique` field — `{ name: "email", sqliteType: "TEXT", optional: false, hasDefault: false, unique: true, meta: {} }`
-> - **PRIMARY KEY AUTOINCREMENT**: top-level `pkauto` field — `{ name: "id", sqliteType: "INTEGER", optional: false, hasDefault: false, pkauto: true, meta: {} }`
-> - **PRIMARY KEY**: inside `meta` — `{ name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, meta: { pk: true } }`
+> For manual `qbColumn[]`, all constraints are declared via top-level properties — no `meta` bag needed:
+> - **PRIMARY KEY**: `pk: true` — `{ name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, pk: true }`
+> - **PRIMARY KEY AUTOINCREMENT**: `pkauto: true` — `{ name: "id", sqliteType: "INTEGER", optional: false, hasDefault: false, pkauto: true }`
+> - **UNIQUE**: `unique: true` — `{ name: "email", sqliteType: "TEXT", optional: false, hasDefault: false, unique: true }`
+> - **FOREIGN KEY**: `fk: { table: "orgs", col: "id" }` — direct property
+> - **CHECK**: `check: "age >= 0"` — direct property
+>
+> The `meta` bag is used by the Zod/DNA introspectors when you chain `.meta({ pk: true })` on a schema field. The introspectors extract known keys (`pk`, `pkauto`, `unique`, `fk`) from `meta` and promote them to the same top-level properties. For manual columns, use the direct properties directly.
 
 ### `qbColumn` fields
 
@@ -162,14 +169,16 @@ CREATE TABLE IF NOT EXISTS users (
 | :--- | :--- | :--- | :--- |
 | `name` | `string` | yes | Column name. |
 | `sqliteType` | `tsSqliteType` | yes | SQLite type: `"TEXT"`, `"INTEGER"`, `"REAL"`, `"BOOLEAN"`, `"DATETIME"`, `"BLOB"`. |
-| `optional` | `boolean` | yes | If `false`, `NOT NULL` is emitted (unless the column has a default). |
+| `optional` | `boolean` | yes | If `false`, `NOT NULL` is emitted. Independent of `hasDefault` — both `NOT NULL` and `DEFAULT` can appear together. |
 | `hasDefault` | `boolean` | yes | If `true`, the `DEFAULT` clause is emitted from `defaultValue`. |
 | `defaultValue` | `tsDefaultValue` | no | Default value — tagged form `{ string: "user" }` (auto-quoted) or direct form `"CURRENT_TIMESTAMP"` (raw SQL). See `tsDefaultValue` for all options. |
-| `unique` | `boolean` | no | If `true`, adds a `UNIQUE` constraint. |
+| `pk` | `boolean` | no | If `true`, marks this column as the primary key. Direct property for manual columns. |
 | `pkauto` | `boolean` | no | If `true`, adds `PRIMARY KEY AUTOINCREMENT` (valid only for `INTEGER` columns in SQLite). |
+| `unique` | `boolean` | no | If `true`, adds a `UNIQUE` constraint. |
 | `fk` | `string \| IForeignKeyDefinition` | no | Foreign key reference. |
 | `check` | `string` | no | Column-level CHECK constraint expression (e.g. `"age >= 0"`). |
-| `meta` | `Record<string, unknown>` | yes | Metadata bag. For manual columns, set `meta: { pk: true }` to mark the primary key. |
+| `generated` | `{ expr: string, type: "STORED" \| "VIRTUAL" }` | no | Generated column definition. |
+| `meta` | `Record<string, unknown>` | no | Metadata bag from the source schema (Zod/DNA introspectors). Not required for manual columns. |
 
 ## Generate only the DDL string
 
@@ -200,7 +209,7 @@ users.req.select("id", "name").where("id").toSQL();
 // SELECT id, name FROM users WHERE id = @id
 ```
 
-The `req` getter returns a fresh `Builder` pre-configured with the table name and all unique keys detected from the schema (columns with `meta.pk`, `meta.unique`, or `pkauto`). This lets `.upsert()` auto-deduce its conflict targets.
+The `req` getter returns a fresh `Builder` pre-configured with the table name and all unique keys detected from the schema (columns with `pk`, `unique`, or `pkauto`). This lets `.upsert()` auto-deduce its conflict targets.
 
 ## Supported metadata keys
 
@@ -320,7 +329,7 @@ members.getById;
 // SELECT * FROM members WHERE tenant_id = @tenant_id AND user_id = @user_id
 ```
 
-Without this option, only the first column with `meta.pk: true` is used as the PK for the pre-built queries (`getById`, `update`, `delete`, `upsert`).
+Without this option, only the first column with `pk: true` (or `meta.pk: true` from introspectors) is used as the PK for the pre-built queries (`getById`, `update`, `delete`, `upsert`).
 
 ## Table-level constraints
 
