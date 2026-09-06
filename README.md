@@ -15,6 +15,7 @@ Each package is designed to be **lightweight**, **type-safe**, and **independent
 | **[@ytrynot/dna](./packages/dna)** | DNA | **Schema Builder** | `const schema = dna.string().min(5); const dna = schema.toDna();` |
 | **[@ytrynot/schvalid](./packages/schvalid)** | Schvalid | **JSON Schema Processing** | `const dna = jschemaToDna(schema); const validate = validator(dna);` |
 | **[@ytrynot/cli](./packages/cli)** | CLI | **DNA-validated CLI Factory & Router** | `const contract = createContract({ routes }); const result = execute(contract, argv);` |
+| **[@ytrynot/gov-mcp](./packages/gov-mcp)** | Gov MCP | **Inter-agent Governance MCP Server** | `npx @ytrynot/gov-mcp` |
 
 ---
 
@@ -101,6 +102,27 @@ const parser = compile(contract);
 const aot = parser(["build", "a.ts"]); // same result, no @ytrynot/dna needed
 ```
 
+#### [@ytrynot/gov-mcp](./packages/gov-mcp/README.md)
+
+Inter-agent governance MCP server — track decisions, actions, ideas, problems, and specs shared across multiple AI agents via the Model Context Protocol.
+
+```bash
+# Install and start the MCP server (stdio transport)
+npx @ytrynot/gov-mcp
+```
+
+```json
+// Add to your MCP client config (Claude Code, Devin, Cursor, etc.)
+{
+  "mcpServers": {
+    "gov-mcp": {
+      "command": "npx",
+      "args": ["-y", "@ytrynot/gov-mcp"]
+    }
+  }
+}
+```
+
 ## Tech Stack
 
 - **Runtime**: Node.js (>=25.0.0)
@@ -118,6 +140,7 @@ npm install @ytrynot/qb
 npm install @ytrynot/dna
 npm install @ytrynot/schvalid
 npm install @ytrynot/cli
+npm install @ytrynot/gov-mcp
 ```
 
 #### For development (monorepo)
@@ -163,6 +186,10 @@ npm test -w @ytrynot/schvalid
 # Example for CLI
 npm run build -w @ytrynot/cli
 npm test -w @ytrynot/cli
+
+# Example for Gov MCP
+npm run build -w @ytrynot/gov-mcp
+npm test -w @ytrynot/gov-mcp
 ```
 
 ## Agent Skills

@@ -9,6 +9,7 @@ on:
       - "packages/schvalid/package.json"
       - "packages/query-builder/package.json"
       - "packages/cli/package.json"
+      - "packages/gov-mcp/package.json"
   workflow_dispatch:
 
 permissions:
@@ -110,6 +111,7 @@ jobs:
           npm test -w @ytrynot/schvalid
           npm test -w @ytrynot/qb
           npm test -w @ytrynot/cli
+          npm test -w @ytrynot/gov-mcp
 
       - name: Configure git for tagging
         run: |
