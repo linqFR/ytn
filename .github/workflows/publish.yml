@@ -28,7 +28,7 @@ jobs:
       pending: ${{ steps.check.outputs.pending }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Check for pending changesets
         id: check
@@ -49,13 +49,13 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Setup Node.js 26
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "26"
 
@@ -87,13 +87,13 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Setup Node.js 26
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "26"
           registry-url: 'https://registry.npmjs.org'
