@@ -13,7 +13,6 @@ import * as S from "../schemas/tool-inputs.js";
 import type { IToolCtx, IToolResult } from "../types/types.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 
 // ─── List tools ──────────────────────────────────────────────────────────────
 
@@ -858,7 +857,7 @@ export function getUpdates(
 
   // Read + cursor update must be transactional to avoid skipping entries
   // inserted between the SELECT and the cursor advancement.
-  const { rows, hasMore, entries, newCursor } = ctx.db.transaction(() => {
+  const { hasMore, entries, newCursor } = ctx.db.transaction(() => {
     const rows = ctx.db.prepare(sql).all(params);
     const hasMore = rows.length > limit;
     const entries = hasMore ? rows.slice(0, limit) : rows;
@@ -958,16 +957,21 @@ export function listDocs(
   }
   const docs = entries
     .filter((e) => e.isFile() && e.name.endsWith(".md"))
-    .map((e) => {
+    .map((e): { filename: string; size: number; title: string | null } | null => {
       const fullPath = path.join(docsDir, e.name);
-      const stat = fs.statSync(fullPath);
-      const content = fs.readFileSync(fullPath, "utf-8");
-      return {
-        filename: e.name,
-        size: stat.size,
-        title: extractMarkdownTitle(content),
-      };
+      try {
+        const stat = fs.statSync(fullPath);
+        const content = fs.readFileSync(fullPath, "utf-8");
+        return {
+          filename: e.name,
+          size: stat.size,
+          title: extractMarkdownTitle(content),
+        };
+      } catch {
+        return null;
+      }
     })
+    .filter((d): d is { filename: string; size: number; title: string | null } => d !== null)
     .sort((a, b) => a.filename.localeCompare(b.filename));
   return ok(`${docs.length} document(s)`, { docs, count: docs.length });
 }
@@ -989,14 +993,15 @@ export function getDoc(
   if (!normalized.startsWith(path.resolve(docsDir) + path.sep)) {
     return err(`Path traversal rejected: ${input.filename}`);
   }
-  if (!fs.existsSync(filePath)) {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const stat = fs.statSync(filePath);
+    return ok(`Document: ${input.filename}`, {
+      filename: input.filename,
+      content,
+      size: stat.size,
+    });
+  } catch {
     return err(`Document not found: ${input.filename}`);
   }
-  const content = fs.readFileSync(filePath, "utf-8");
-  const stat = fs.statSync(filePath);
-  return ok(`Document: ${input.filename}`, {
-    filename: input.filename,
-    content,
-    size: stat.size,
-  });
 }

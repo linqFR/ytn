@@ -24,7 +24,6 @@ const p = tables.problems.names;
 const i = tables.ideas.names;
 const s = tables.specs.names;
 const sh = tables.status_history.names;
-const es = tables.entity_scopes.names;
 const pa = tables.problem_actions.names;
 const ds = tables.decision_supersedes.names;
 const ff = tables.free_fields.names;
