@@ -1,6 +1,6 @@
 {
   "name": "@ytrynot/gov-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Inter-agent governance MCP server — decisions, actions, ideas, problems, specs, and narrative log shared across AI agents via Model Context Protocol",
   "author": "linqFR",
   "license": "MIT",
@@ -72,7 +72,7 @@
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
     "@ytrynot/dna": "^0.11.0",
-    "@ytrynot/qb": "^1.1.5",
+    "@ytrynot/qb": "^1.2.0",
     "better-sqlite3": "^13.0.3",
     "nanoid": "^6.0.1"
   },
