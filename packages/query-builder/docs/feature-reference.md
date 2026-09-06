@@ -83,6 +83,53 @@ All values are plain strings/booleans computed once at `defTable` time — no ge
 | Field | Type | Description |
 |-------|------|-------------|
 | `names.table` | `string` | Table name |
+| `names.col` | `Record<string, string>` | Column name lookup: `col.seq` â†’ `"seq"` |
+| `names.pk` | `string \| string[]` | Primary key column name(s) |
+| `names.isPk` | `Record<string, boolean>` | Per-column PK flag: `isPk.id` â†’ `true` |
+| `names.isUnique` | `Record<string, boolean>` | Per-column unique flag: `isUnique.email` â†’ `true` |
+| `names.readonly` | `string[]` | Readonly column names (PK, seq, timestamps, trigger-managed) |
+| `names.updatable` | `string[]` | Non-readonly column names |
+
+### Builder access
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `req` | `Builder` | Fresh builder pre-configured with table name + uniqueKeys (getter — new instance each access) |
+| `q` | `Builder` | Alias for `req` |
+
+### Readonly detection
+
+| Source | Mechanism |
+|--------|-----------|
+| **Zod** | `.readonly()` â†’ `z.ZodReadonly` wrapper detected by introspector |
+| **DNA** | `.readonly()` â†’ `meta.readonly = true` read by introspector |
+| **Manual** | `qbColumn.readonly: true` direct field |
+
+---
+
+## TableDef — Runtime Metadata (`defTable` return)
+
+`defTable()` returns a `TableDef` with pre-built SQL strings and runtime metadata for raw SQL construction.
+
+### Pre-built SQL (strings, computed once)
+
+| Field | Description |
+|-------|-------------|
+| `createTable` | `CREATE TABLE IF NOT EXISTS ...` DDL |
+| `getAll` | `SELECT * FROM <table>` |
+| `getById` | `SELECT * FROM <table> WHERE <pk> = @<pk>` |
+| `insert` | `INSERT INTO <table> (...) VALUES (...)` |
+| `update` | `UPDATE <table> SET ... WHERE <pk> = @<pk>` |
+| `delete` | `DELETE FROM <table> WHERE <pk> = @<pk>` |
+| `upsert` | `INSERT ... ON CONFLICT(<uniqueKeys>) DO UPDATE SET ...` |
+
+### Runtime metadata (`names: ITableNames`)
+
+All values are plain strings/booleans computed once at `defTable` time — no getters, no recompute.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `names.table` | `string` | Table name |
 | `names.col` | `Record<string, string>` | Column name lookup: `col.seq` → `"seq"` |
 | `names.pk` | `string \| string[]` | Primary key column name(s) |
 | `names.isPk` | `Record<string, boolean>` | Per-column PK flag: `isPk.id` → `true` |
