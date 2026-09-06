@@ -52,7 +52,8 @@
     "./min": {
       "import": "./dist/index.min.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "peerDependencies": {
     "@ytrynot/dna": "^0.11.0",

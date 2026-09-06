@@ -158,6 +158,18 @@ describe('DNA Introspector — createTableFromDna', () => {
     const ddl = QueryBuilder.reqCreateTable('t', schema);
     expect(ddl).toContain('uuid TEXT PRIMARY KEY');
   });
+
+  it('Readonly via .readonly() → names.readonly', () => {
+    const schema = dna.object({
+      id: dna.string().meta({ pk: true }).readonly(),
+      email: dna.string(),
+      name: dna.string().readonly(),
+    });
+
+    const crud = QueryBuilder.defTable('t', schema);
+    expect(crud.names.readonly).toEqual(['id', 'name']);
+    expect(crud.names.updatable).toEqual(['email']);
+  });
 });
 
 describe('DNA Introspector — defTable', () => {

@@ -17,7 +17,7 @@ import * as S from "../schemas/tool-inputs.js";
 import { resolveMonorepoRoot } from "../seed.js";
 import { err, ok } from "./results.js";
 import type { IToolCtx, IToolResult } from "../types/types.ts";
-import { ACTION_STATUS, PROBLEM_STATUS, IDEA_STATUS, DECISION_STATUS } from "../definitions/enums.js";
+import { PROBLEM_STATUS, IDEA_STATUS, DECISION_STATUS } from "../definitions/enums.js";
 
 // ─── File writing helper ─────────────────────────────────────────────────────
 
@@ -103,7 +103,6 @@ export function generateDailyReport(
   const logEntries = q.reportLogEntriesByDate.all({ date });
 
   // Open items (still actionable, not new today)
-  const OPEN_ACTIONS: readonly string[] = [ACTION_STATUS.pending, ACTION_STATUS.in_progress, ACTION_STATUS.blocked];
   const OPEN_PROBLEMS: readonly string[] = [PROBLEM_STATUS.open, PROBLEM_STATUS.critical, PROBLEM_STATUS.in_progress, PROBLEM_STATUS.partial];
   const OPEN_IDEAS: readonly string[] = [IDEA_STATUS.raw, IDEA_STATUS.explored];
   const OPEN_DECISIONS: readonly string[] = [DECISION_STATUS.Proposed, DECISION_STATUS.Suspended];

@@ -37,14 +37,14 @@ driver meets the minimum requirement for each feature they use.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `QueryBuilder.table(name, uniqueKeys?)` | `Builder` | Fluent DML chain (SELECT/INSERT/UPDATE/DELETE/UPSERT) |
-| `QueryBuilder.defTable(name, def, options?)` | `TableDef` | Table from any schema source. Returns `createTable`, `getAll`, `getById`, `insert`, `update`, `delete`, `upsert`, `req`, `q` |
-| `QueryBuilder.reqCreateTable(name, def, options?)` | `string` | Shortcut for `defTable(name, def).createTable` |
-| `QueryBuilder.createTable(name, columns, options?)` | `string` | `CREATE TABLE` DDL from manual `qbColumn[]` |
-| `QueryBuilder.dropTable(name)` | `string` | `DROP TABLE IF EXISTS` |
-| `QueryBuilder.dropIndex(name)` | `string` | `DROP INDEX IF EXISTS` |
-| `QueryBuilder.pragma()` | `PragmaBuilder` | Fluent PRAGMA chain |
-| `QueryBuilder.enableForeignKeys()` | `string` | `PRAGMA foreign_keys = ON;` |
+| `qb.table(name, uniqueKeys?)` | `Builder` | Fluent DML chain (SELECT/INSERT/UPDATE/DELETE/UPSERT) |
+| `qb.defTable(name, def, options?)` | `TableDef` | Table from any schema source. Returns `createTable`, `getAll`, `getById`, `insert`, `update`, `delete`, `upsert`, `req`, `q`, `cols`, `names` |
+| `qb.reqCreateTable(name, def, options?)` | `string` | Shortcut for `defTable(name, def).createTable` |
+| `qb.createTable(name, columns, options?)` | `string` | `CREATE TABLE` DDL from manual `qbColumn[]` |
+| `qb.dropTable(name)` | `string` | `DROP TABLE IF EXISTS` |
+| `qb.dropIndex(name)` | `string` | `DROP INDEX IF EXISTS` |
+| `qb.pragma()` | `PragmaBuilder` | Fluent PRAGMA chain |
+| `qb.enableForeignKeys()` | `string` | `PRAGMA foreign_keys = ON;` |
 
 ---
 
@@ -57,6 +57,100 @@ driver meets the minimum requirement for each feature they use.
 | **Manual** | None | Direct `qbColumn[]` array |
 
 All 3 produce identical DDL when given equivalent schemas (verified by e2e tests).
+
+---
+
+## TableDef — Runtime Metadata (`defTable` return)
+
+`defTable()` returns a `TableDef` with pre-built SQL strings and runtime metadata for raw SQL construction.
+
+### Pre-built SQL (strings, computed once)
+
+| Field | Description |
+|-------|-------------|
+| `createTable` | `CREATE TABLE IF NOT EXISTS ...` DDL |
+| `getAll` | `SELECT * FROM <table>` |
+| `getById` | `SELECT * FROM <table> WHERE <pk> = @<pk>` |
+| `insert` | `INSERT INTO <table> (...) VALUES (...)` |
+| `update` | `UPDATE <table> SET ... WHERE <pk> = @<pk>` |
+| `delete` | `DELETE FROM <table> WHERE <pk> = @<pk>` |
+| `upsert` | `INSERT ... ON CONFLICT(<uniqueKeys>) DO UPDATE SET ...` |
+
+### Runtime metadata (`names: ITableNames`)
+
+All values are plain strings/booleans computed once at `defTable` time — no getters, no recompute.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `names.table` | `string` | Table name |
+| `names.col` | `Record<string, string>` | Column name lookup: `col.seq` â†’ `"seq"` |
+| `names.pk` | `string \| string[]` | Primary key column name(s) |
+| `names.isPk` | `Record<string, boolean>` | Per-column PK flag: `isPk.id` â†’ `true` |
+| `names.isUnique` | `Record<string, boolean>` | Per-column unique flag: `isUnique.email` â†’ `true` |
+| `names.readonly` | `string[]` | Readonly column names (PK, seq, timestamps, trigger-managed) |
+| `names.updatable` | `string[]` | Non-readonly column names |
+
+### Builder access
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `req` | `Builder` | Fresh builder pre-configured with table name + uniqueKeys (getter — new instance each access) |
+| `q` | `Builder` | Alias for `req` |
+
+### Readonly detection
+
+| Source | Mechanism |
+|--------|-----------|
+| **Zod** | `.readonly()` â†’ `z.ZodReadonly` wrapper detected by introspector |
+| **DNA** | `.readonly()` â†’ `meta.readonly = true` read by introspector |
+| **Manual** | `qbColumn.readonly: true` direct field |
+
+---
+
+## TableDef — Runtime Metadata (`defTable` return)
+
+`defTable()` returns a `TableDef` with pre-built SQL strings and runtime metadata for raw SQL construction.
+
+### Pre-built SQL (strings, computed once)
+
+| Field | Description |
+|-------|-------------|
+| `createTable` | `CREATE TABLE IF NOT EXISTS ...` DDL |
+| `getAll` | `SELECT * FROM <table>` |
+| `getById` | `SELECT * FROM <table> WHERE <pk> = @<pk>` |
+| `insert` | `INSERT INTO <table> (...) VALUES (...)` |
+| `update` | `UPDATE <table> SET ... WHERE <pk> = @<pk>` |
+| `delete` | `DELETE FROM <table> WHERE <pk> = @<pk>` |
+| `upsert` | `INSERT ... ON CONFLICT(<uniqueKeys>) DO UPDATE SET ...` |
+
+### Runtime metadata (`names: ITableNames`)
+
+All values are plain strings/booleans computed once at `defTable` time — no getters, no recompute.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `names.table` | `string` | Table name |
+| `names.col` | `Record<string, string>` | Column name lookup: `col.seq` → `"seq"` |
+| `names.pk` | `string \| string[]` | Primary key column name(s) |
+| `names.isPk` | `Record<string, boolean>` | Per-column PK flag: `isPk.id` → `true` |
+| `names.isUnique` | `Record<string, boolean>` | Per-column unique flag: `isUnique.email` → `true` |
+| `names.readonly` | `string[]` | Readonly column names (PK, seq, timestamps, trigger-managed) |
+| `names.updatable` | `string[]` | Non-readonly column names |
+
+### Builder access
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `req` | `Builder` | Fresh builder pre-configured with table name + uniqueKeys (getter — new instance each access) |
+| `q` | `Builder` | Alias for `req` |
+
+### Readonly detection
+
+| Source | Mechanism |
+|--------|-----------|
+| **Zod** | `.readonly()` → `z.ZodReadonly` wrapper detected by introspector |
+| **DNA** | `.readonly()` → `meta.readonly = true` read by introspector |
+| **Manual** | `qbColumn.readonly: true` direct field |
 
 ---
 
@@ -73,6 +167,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | DEFAULT | ✅ | `.default()` (Zod/DNA) or `defaultValue` (manual columns) or `options.defaults` |
 | IF NOT EXISTS | ✅ | Always generated |
 | Column-level CHECK | ✅ | `qbColumn.check: "expr"` |
+| Readonly flag | ✅ | `qbColumn.readonly: true` (direct), `.readonly()` (Zod/DNA) → propagates to `names.readonly` / `names.updatable` |
 | COLLATE | ❌ | Out of scope (niche) |
 | Generated columns (STORED/VIRTUAL) | ✅ | `qbColumn.generated: { expr, type }` |
 
@@ -88,16 +183,16 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | WITHOUT ROWID | ❌ | Out of scope (niche) |
 | STRICT tables | ❌ | Out of scope (complex + niche) |
 | CREATE TEMP TABLE | ✅ | `options.temporary: true` → `CREATE TEMP TABLE` |
-| CREATE TABLE AS SELECT | ✅ | `QueryBuilder.createTableAs(name, builder)` |
+| CREATE TABLE AS SELECT | ✅ | `qb.createTableAs(name, builder)` |
 
 ### DROP TABLE / DROP INDEX
-- `DROP TABLE IF EXISTS` — `QueryBuilder.dropTable(name)`
-- `DROP INDEX IF EXISTS` — `QueryBuilder.dropIndex(name)`
+- `DROP TABLE IF EXISTS` — `qb.dropTable(name)`
+- `DROP INDEX IF EXISTS` — `qb.dropIndex(name)`
 
 ### Triggers
 | Feature | Support | Method |
 |---------|---------|--------|
-| CREATE TRIGGER | ✅ | `QueryBuilder.createTrigger(name, def)` — typed structure (timing, event, table, OF, WHEN, FOR EACH ROW), raw body |
+| CREATE TRIGGER | ✅ | `qb.createTrigger(name, def)` — typed structure (timing, event, table, OF, WHEN, FOR EACH ROW), raw body |
 | Timing (BEFORE/AFTER/INSTEAD OF) | ✅ | `def.timing` |
 | Event (INSERT/UPDATE/DELETE) | ✅ | `def.event` |
 | UPDATE OF columns | ✅ | `def.of: string[]` |
@@ -137,10 +232,10 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | Raw SELECT expression | ✅ | `.selectRaw(sql)` |
 | CTE (WITH) | ✅ | `.with(name, builderOrSql)` — non-recursive CTE prefix |
 | CTE (WITH RECURSIVE) | ✅ | `.withRecursive(name, builderOrSql)` — recursive CTE prefix |
-| Compound SELECT (UNION) | ✅ | `.union(other)`, `QueryBuilder.union(...builders)` |
-| Compound SELECT (UNION ALL) | ✅ | `.unionAll(other)`, `QueryBuilder.unionAll(...builders)` |
-| Compound SELECT (INTERSECT) | ✅ | `.intersect(other)`, `QueryBuilder.intersect(...builders)` |
-| Compound SELECT (EXCEPT) | ✅ | `.except(other)`, `QueryBuilder.except(...builders)` |
+| Compound SELECT (UNION) | ✅ | `.union(other)`, `qb.union(...builders)` |
+| Compound SELECT (UNION ALL) | ✅ | `.unionAll(other)`, `qb.unionAll(...builders)` |
+| Compound SELECT (INTERSECT) | ✅ | `.intersect(other)`, `qb.intersect(...builders)` |
+| Compound SELECT (EXCEPT) | ✅ | `.except(other)`, `qb.except(...builders)` |
 | Window frames (ROWS BETWEEN) | ❌ | Out of scope (niche) |
 | EXPLAIN | ✅ | `.explain()` → `EXPLAIN SELECT ...` |
 | EXPLAIN QUERY PLAN | ✅ | `.explainQueryPlan()` → `EXPLAIN QUERY PLAN SELECT ...` |
@@ -194,7 +289,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | CREATE INDEX | ✅ | `.createIndex(name, columns, options?)` |
 | Partial index (WHERE) | ✅ | `.createIndex(name, cols, { where: '...' })` |
 | Expression index | ✅ | `.createIndex(name, ['LOWER(name)'])` |
-| DROP INDEX | ✅ | `QueryBuilder.dropIndex(name)` |
+| DROP INDEX | ✅ | `qb.dropIndex(name)` |
 
 ---
 
@@ -202,8 +297,8 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 | Feature | Support | Method |
 |---------|---------|--------|
-| PragmaBuilder | ✅ | `QueryBuilder.pragma()` → fluent chain, `.toSQL()` compiles all |
-| enableForeignKeys | ✅ | `QueryBuilder.enableForeignKeys()` |
+| PragmaBuilder | ✅ | `qb.pragma()` → fluent chain, `.toSQL()` compiles all |
+| enableForeignKeys | ✅ | `qb.enableForeignKeys()` |
 | `foreignKeys(on?)` | ✅ | `PRAGMA foreign_keys = ON/OFF;` |
 | `journalMode(mode)` | ✅ | `PRAGMA journal_mode = WAL/DELETE/MEMORY/TRUNCATE/PERSIST/OFF;` |
 | `synchronous(level)` | ✅ | `PRAGMA synchronous = OFF/NORMAL/FULL/EXTRA;` |
@@ -211,7 +306,7 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 | `tempStore(location)` | ✅ | `PRAGMA temp_store = DEFAULT/FILE/MEMORY;` |
 | `busyTimeout(ms)` | ✅ | `PRAGMA busy_timeout = N;` |
 | `mmap_size(bytes)` | ✅ | `PRAGMA mmap_size = N;` |
-| `pageSize(bytes)` | ✅ | `PRAGMA page_size = N;` (power of 2, 512–65536) |
+| `pageSize(bytes)` | ✅ | `PRAGMA page_size = N;` (power of 2, 512—65536) |
 | `autoVacuum(mode)` | ✅ | `PRAGMA auto_vacuum = NONE/FULL/INCREMENTAL;` |
 | `optimize()` | ✅ | `PRAGMA optimize;` |
 | `raw(key, value)` | ✅ | `PRAGMA key = value;` (arbitrary pragma) |
@@ -252,19 +347,19 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 ## Testing
 
 - **Framework**: Vitest 4 (pure ESM)
-- **Total tests**: 405
+- **Total tests**: 410
 - **Run**: `npm.cmd test -w @ytrynot/qb`
 - **Typecheck**: `npm.cmd test -- --typecheck`
 
 | Test file | Count | Coverage |
 |-----------|-------|----------|
-| `tests/builder.test.ts` | 132 | Core Builder API: SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, onConflict sub-builder, insertMulti, insertDefaultValues, having, distinct, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, dropIndex, runtime guards, PragmaBuilder full coverage, PK detection via `pk`/`meta.pk`/`pkauto`, NOT NULL + DEFAULT independence, direct properties without `meta` |
+| `tests/builder.test.ts` | 135 | Core Builder API: SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, onConflict sub-builder, insertMulti, insertDefaultValues, having, distinct, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, dropIndex, runtime guards, PragmaBuilder full coverage, PK detection via `pk`/`meta.pk`/`pkauto`, NOT NULL + DEFAULT independence, direct properties without `meta`, `names` metadata (table, col, pk, isPk, isUnique, readonly, updatable) |
 | `tests/readme-examples.test.ts` | 17 | README examples produce documented SQL |
 | `tests/e2e-lifecycle.test.ts` | 48 | CRUD lifecycle across drivers + schema sources |
 | `tests/e2e-ddl.test.ts` | 36 | DDL generation + execution + PRAGMA e2e (both drivers) |
 | `tests/sqlite-integration.test.ts` | 15 | node:sqlite integration |
-| `tests/zod-introspector.test.ts` | 18 | Zod introspector |
-| `tests/dna-introspector.test.ts` | 18 | DNA introspector |
+| `tests/zod-introspector.test.ts` | 19 | Zod introspector — PK detection, type mapping, metadata, readonly via `.readonly()` |
+| `tests/dna-introspector.test.ts` | 19 | DNA introspector — PK detection, type mapping, metadata, readonly via `.readonly()` |
 | `tests/zod-compliance.test.ts` | 11 | Zod unwrapping patterns |
 | `tests/dna-compliance.test.ts` | 10 | DNA unwrapping patterns |
 | `tests/query-construction.test.ts` | 4 | Basic queries + UPSERT |

@@ -1,5 +1,8 @@
 # @ytrynot (whY Try Not)
 
+[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 
 ## Why
 
@@ -199,6 +202,10 @@ This repo ships a [skill.md](./skills/ytn/SKILL.md) compatible with the [Agent S
 ```bash
 npx skills add linqFR/ytn
 ```
+
+## Contributing
+
+Contributions are welcome. If you want to help — bug reports, feature ideas, docs, tests, or new packages — open an issue or a PR on [GitHub](https://github.com/linqFR/ytn).
 
 ## License
 

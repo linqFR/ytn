@@ -305,6 +305,10 @@ Regenerate after schema changes:
 npx tsx packages/gov-mcp/scripts/generate-sql-artifacts.ts
 ```
 
+## Contributing
+
+Contributions are welcome — bug reports, feature ideas, new tools, docs, or test coverage. Open an issue or PR on [GitHub](https://github.com/linqFR/ytn/tree/main/packages/gov-mcp).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

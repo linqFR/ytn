@@ -160,6 +160,18 @@ describe('Zod Introspector — createTableFromZod', () => {
     const ddl = QueryBuilder.reqCreateTable('t', schema);
     expect(ddl).toContain('uuid TEXT PRIMARY KEY');
   });
+
+  it('Readonly via .readonly() → names.readonly', () => {
+    const schema = z.object({
+      id: z.string().meta({ pk: true }).readonly(),
+      email: z.string(),
+      name: z.string().readonly(),
+    });
+
+    const crud = QueryBuilder.defTable('t', schema);
+    expect(crud.names.readonly).toEqual(['id', 'name']);
+    expect(crud.names.updatable).toEqual(['email']);
+  });
 });
 
 describe('Zod Introspector — defTable', () => {

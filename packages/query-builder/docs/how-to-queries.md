@@ -34,14 +34,14 @@ This guide covers building data-manipulation SQL strings with the fluent `Builde
 
 ## Start a query
 
-`QueryBuilder.table(name)` starts a fluent DML chain. An optional second argument sets unique keys for upsert auto-deduction:
+`qb.table(name)` starts a fluent DML chain. An optional second argument sets unique keys for upsert auto-deduction:
 
 ```typescript
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
-const builder = QueryBuilder.table("users");
+const builder = qb.table("users");
 // or with unique keys pre-configured
-const builderWithKeys = QueryBuilder.table("users", ["email"]);
+const builderWithKeys = qb.table("users", ["email"]);
 ```
 
 ## SELECT
@@ -49,7 +49,7 @@ const builderWithKeys = QueryBuilder.table("users", ["email"]);
 `.select(fields)` selects specific columns. `.select()` with no arguments selects `*`.
 
 ```typescript
-const sql = QueryBuilder.table("users")
+const sql = qb.table("users")
   .select(["id", "name"])
   .where(["id"])
   .toSQL();
@@ -60,7 +60,7 @@ console.log(sql);
 `.select()` also accepts variadic string arguments:
 
 ```typescript
-QueryBuilder.table("users").select("id", "email", "age").toSQL();
+qb.table("users").select("id", "email", "age").toSQL();
 // SELECT id, email, age FROM users
 ```
 
@@ -69,7 +69,7 @@ QueryBuilder.table("users").select("id", "email", "age").toSQL();
 `.count()` produces `SELECT COUNT(*) as count`:
 
 ```typescript
-const sql = QueryBuilder.table("users").where(["is_active"]).count().toSQL();
+const sql = qb.table("users").where(["is_active"]).count().toSQL();
 console.log(sql);
 // SELECT COUNT(*) as count FROM users WHERE is_active = @is_active
 ```
@@ -79,7 +79,7 @@ console.log(sql);
 `.selectRaw(sql)` injects a raw SQL expression as a selected column:
 
 ```typescript
-const sql = QueryBuilder.table("events")
+const sql = qb.table("events")
   .select(["type"])
   .selectRaw("COUNT(*) as cnt")
   .groupBy(["type"])
@@ -95,7 +95,7 @@ console.log(sql);
 `.where(fields)` produces `WHERE col = @col` for each field. The parameter name matches the column name:
 
 ```typescript
-QueryBuilder.table("users").select().where(["id"]).toSQL();
+qb.table("users").select().where(["id"]).toSQL();
 // SELECT * FROM users WHERE id = @id
 ```
 
@@ -104,7 +104,7 @@ QueryBuilder.table("users").select().where(["id"]).toSQL();
 Pass an object `{ col, param }` to map a column to a different parameter name:
 
 ```typescript
-QueryBuilder.table("logs")
+qb.table("logs")
   .delete()
   .where([{ col: "created_at", param: "threshold" }])
   .toSQL();
@@ -116,7 +116,7 @@ QueryBuilder.table("logs")
 `.whereColumn(col1, col2)` compares two columns (used in correlated subqueries and joins):
 
 ```typescript
-QueryBuilder.table("orders")
+qb.table("orders")
   .as("o")
   .whereColumn("o.user_id", "u.id")
   .toSQL();
@@ -128,7 +128,7 @@ QueryBuilder.table("orders")
 `.whereLiteral(col, value)` injects a SQL literal without parameter binding:
 
 ```typescript
-QueryBuilder.table("tool_versions")
+qb.table("tool_versions")
   .as("tv")
   .whereLiteral("tv.version", "'1.0.0'")
   .toSQL();
@@ -140,7 +140,7 @@ QueryBuilder.table("tool_versions")
 `.whereIn(col, [...values])` filters against a list of literal values:
 
 ```typescript
-QueryBuilder.table("tools").whereIn("uuid", ["value1", "value2"]).toSQL();
+qb.table("tools").whereIn("uuid", ["value1", "value2"]).toSQL();
 // SELECT * FROM tools WHERE uuid IN ('value1', 'value2')
 ```
 
@@ -149,8 +149,8 @@ QueryBuilder.table("tools").whereIn("uuid", ["value1", "value2"]).toSQL();
 Pass a `Builder` instance (without calling `.toSQL()`) to filter against a subquery. The inner query is compiled automatically during the parent's `toSQL()`:
 
 ```typescript
-const sub = QueryBuilder.table("tool_versions").select(["uuid"]).limit(5);
-QueryBuilder.table("tools").whereIn("uuid", sub).toSQL();
+const sub = qb.table("tool_versions").select(["uuid"]).limit(5);
+qb.table("tools").whereIn("uuid", sub).toSQL();
 // SELECT * FROM tools WHERE uuid IN (SELECT uuid FROM tool_versions LIMIT 5)
 ```
 
@@ -159,12 +159,12 @@ QueryBuilder.table("tools").whereIn("uuid", sub).toSQL();
 `.whereRaw(condition)` injects a raw SQL condition string. Use this for `EXISTS` fragments and custom predicates:
 
 ```typescript
-const hasOrders = QueryBuilder.table("orders")
+const hasOrders = qb.table("orders")
   .as("o")
   .whereColumn("o.user_id", "u.id")
   .asExists();
 
-QueryBuilder.table("users")
+qb.table("users")
   .as("u")
   .select(["name"])
   .whereRaw(hasOrders)
@@ -177,7 +177,7 @@ QueryBuilder.table("users")
 `.insert(fields)` maps each field to a `@field` placeholder:
 
 ```typescript
-QueryBuilder.table("logs")
+qb.table("logs")
   .insert(["level", "message", "timestamp"])
   .toSQL();
 // INSERT INTO logs (level, message, timestamp) VALUES (@level, @message, @timestamp)
@@ -188,7 +188,7 @@ QueryBuilder.table("logs")
 `.insertMulti(fields, rowCount)` produces indexed placeholders for multiple rows:
 
 ```typescript
-QueryBuilder.table("logs")
+qb.table("logs")
   .insertMulti(["level", "message"], 3)
   .toSQL();
 // INSERT INTO logs (level, message) VALUES (@level_0, @message_0), (@level_1, @message_1), (@level_2, @message_2)
@@ -197,7 +197,7 @@ QueryBuilder.table("logs")
 ### INSERT DEFAULT VALUES
 
 ```typescript
-QueryBuilder.table("logs").insertDefaultValues().toSQL();
+qb.table("logs").insertDefaultValues().toSQL();
 // INSERT INTO logs DEFAULT VALUES
 ```
 
@@ -206,7 +206,7 @@ QueryBuilder.table("logs").insertDefaultValues().toSQL();
 `.update(fields)` sets the listed columns. Combine with `.where()` for conditions. All WHERE variants (`.whereIn()`, `.whereRaw()`, etc.) are supported:
 
 ```typescript
-QueryBuilder.table("tools")
+qb.table("tools")
   .update(["name"])
   .where(["uuid"])
   .whereIn("status", ["draft", "pending"])
@@ -217,7 +217,7 @@ QueryBuilder.table("tools")
 ## DELETE
 
 ```typescript
-QueryBuilder.table("logs")
+qb.table("logs")
   .delete()
   .where(["id"])
   .toSQL();
@@ -227,7 +227,7 @@ QueryBuilder.table("logs")
 `.delete()` without `.where()` deletes all rows:
 
 ```typescript
-QueryBuilder.table("logs").delete().toSQL();
+qb.table("logs").delete().toSQL();
 // DELETE FROM logs
 ```
 
@@ -238,7 +238,7 @@ QueryBuilder.table("logs").delete().toSQL();
 `.upsert(fields)` produces `INSERT ... ON CONFLICT(uniqueKeys) DO UPDATE SET ...`. Unique keys (conflict targets) must be provided via `defTable`, `table(name, uniqueKeys)`, or `.uniqueKeys()`:
 
 ```typescript
-QueryBuilder.table("users", ["email"]).upsert("email", "name").toSQL();
+qb.table("users", ["email"]).upsert("email", "name").toSQL();
 // INSERT INTO users (email, name) VALUES (@email, @name) ON CONFLICT(email) DO UPDATE SET name = excluded.name
 ```
 
@@ -250,7 +250,7 @@ For fine-grained control, use `.insert().onConflict(cols)`:
 
 ```typescript
 // DO UPDATE
-QueryBuilder.table("users", ["email"])
+qb.table("users", ["email"])
   .insert(["email", "name"])
   .onConflict("email")
   .doUpdate(["name"])
@@ -258,7 +258,7 @@ QueryBuilder.table("users", ["email"])
 // INSERT INTO users (email, name) VALUES (@email, @name) ON CONFLICT(email) DO UPDATE SET name = excluded.name
 
 // DO NOTHING
-QueryBuilder.table("users", ["email"])
+qb.table("users", ["email"])
   .insert(["email", "name"])
   .onConflict("email")
   .doNothing()
@@ -280,7 +280,7 @@ See [How-to: DDL & schema generation](./how-to-ddl.md#unique-keys--upsert) for a
 SQLite 3.35+ supports returning modified rows. `.returning(fields)` works with `INSERT`, `UPDATE`, `DELETE`, and `UPSERT`:
 
 ```typescript
-QueryBuilder.table("users")
+qb.table("users")
   .insert(["name"])
   .returning(["id", "created_at"])
   .toSQL();
@@ -296,7 +296,7 @@ Three join methods are available: `.joinInner()`, `.joinLeft()`, `.joinRight()`.
 Provide the table name (with optional alias) and the `ON` condition:
 
 ```typescript
-QueryBuilder.table("users")
+qb.table("users")
   .as("u")
   .select(["u.name", "p.title"])
   .joinInner("posts p", "u.id = p.user_id")
@@ -309,12 +309,12 @@ QueryBuilder.table("users")
 Provide a `Builder` instance, an alias for the result set, and the `ON` condition:
 
 ```typescript
-const latestVersion = QueryBuilder.table("tool_versions")
+const latestVersion = qb.table("tool_versions")
   .select(["tool_uuid", "version"])
   .orderBy("created_at", "DESC")
   .limit(1);
 
-QueryBuilder.table("tools")
+qb.table("tools")
   .as("t")
   .select(["t.name", "latest.version"])
   .joinLeft(latestVersion, "latest", "t.uuid = latest.tool_uuid")
@@ -336,7 +336,7 @@ The same signature pattern applies to `.joinLeft()` and `.joinRight()`.
 ## Ordering & limits
 
 ```typescript
-QueryBuilder.table("events")
+qb.table("events")
   .select()
   .orderBy("created_at", "DESC")
   .limit(10)
@@ -347,7 +347,7 @@ QueryBuilder.table("events")
 `.offset(n)` adds an `OFFSET` clause for pagination:
 
 ```typescript
-QueryBuilder.table("events")
+qb.table("events")
   .select()
   .orderBy("created_at", "DESC")
   .limit(10)
@@ -359,7 +359,7 @@ QueryBuilder.table("events")
 ## GROUP BY & HAVING
 
 ```typescript
-QueryBuilder.table("events")
+qb.table("events")
   .select(["type"])
   .selectRaw("COUNT(*) as cnt")
   .groupBy(["type"])
@@ -372,7 +372,7 @@ QueryBuilder.table("events")
 ## DISTINCT
 
 ```typescript
-QueryBuilder.table("events").select(["type"]).distinct().toSQL();
+qb.table("events").select(["type"]).distinct().toSQL();
 // SELECT DISTINCT type FROM events
 ```
 
@@ -381,7 +381,7 @@ QueryBuilder.table("events").select(["type"]).distinct().toSQL();
 `.search(columnsToSearch, columnsToFilter)` searches a text pattern across `columnsToSearch` (via `LIKE @search_term`) and filters exact values on `columnsToFilter` (via `col = @col`):
 
 ```typescript
-QueryBuilder.table("docs")
+qb.table("docs")
   .search(["title", "content"], ["type"])
   .toSQL();
 // SELECT * FROM docs WHERE (title LIKE @search_term OR content LIKE @search_term) AND type = @type
@@ -394,7 +394,7 @@ The `@search_term` parameter receives the wildcard pattern (e.g. `'%term%'`), an
 `.clone()` creates an independent copy of the current builder. Use it to derive multiple queries (pagination + count) from a shared base without mutating the original:
 
 ```typescript
-const baseQuery = QueryBuilder.table("users").where(["is_active"]);
+const baseQuery = qb.table("users").where(["is_active"]);
 
 const totalSql = baseQuery.clone().count().toSQL();
 console.log(totalSql);
@@ -410,7 +410,7 @@ console.log(pageSql);
 `.as(alias)` sets a table alias:
 
 ```typescript
-QueryBuilder.table("users").as("u").select("u.name").toSQL();
+qb.table("users").as("u").select("u.name").toSQL();
 // SELECT u.name FROM users u
 ```
 
@@ -420,18 +420,18 @@ Combine multiple queries with `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT`. Us
 
 ```typescript
 // Instance method
-const sql = QueryBuilder.table("actions").select("id", "title")
-  .unionAll(QueryBuilder.table("problems").select("id", "title"))
+const sql = qb.table("actions").select("id", "title")
+  .unionAll(qb.table("problems").select("id", "title"))
   .toSQL();
 // SELECT id, title FROM actions
 // UNION ALL
 // SELECT id, title FROM problems
 
 // Static factory (3+ queries)
-const sql = QueryBuilder.unionAll(
-  QueryBuilder.table("actions").select("id", "type").whereRaw("to_test = 1"),
-  QueryBuilder.table("problems").select("id", "type").whereRaw("to_test = 1"),
-  QueryBuilder.table("ideas").select("id", "type").whereRaw("to_test = 1"),
+const sql = qb.unionAll(
+  qb.table("actions").select("id", "type").whereRaw("to_test = 1"),
+  qb.table("problems").select("id", "type").whereRaw("to_test = 1"),
+  qb.table("ideas").select("id", "type").whereRaw("to_test = 1"),
 ).orderBy("type", "ASC").limit(50).toSQL();
 // SELECT id, type FROM actions WHERE to_test = 1
 // UNION ALL
@@ -450,8 +450,8 @@ Add Common Table Expressions with `.with(name, query)` (non-recursive) or `.with
 
 ```typescript
 // Non-recursive CTE
-const cte = QueryBuilder.table("users").select("id", "name").whereRaw("active = 1");
-const sql = QueryBuilder.table("active_users")
+const cte = qb.table("users").select("id", "name").whereRaw("active = 1");
+const sql = qb.table("active_users")
   .with("active_users", cte)
   .select("*")
   .toSQL();
@@ -459,9 +459,9 @@ const sql = QueryBuilder.table("active_users")
 // SELECT * FROM active_users
 
 // Recursive CTE
-const seed = QueryBuilder.table("nodes").select("id", "parent").whereRaw("parent IS NULL");
-const recur = QueryBuilder.table("nodes n").select("n.id", "n.parent").joinInner("tree", "n.parent = tree.id");
-const sql = QueryBuilder.table("tree")
+const seed = qb.table("nodes").select("id", "parent").whereRaw("parent IS NULL");
+const recur = qb.table("nodes n").select("n.id", "n.parent").joinInner("tree", "n.parent = tree.id");
+const sql = qb.table("tree")
   .withRecursive("tree", seed.unionAll(recur))
   .select("*")
   .toSQL();
@@ -483,7 +483,7 @@ For expressions the fluent API can't express, use the raw methods:
 - `.updateRaw({ col: 'expr' })` — injects into UPDATE SET (see below)
 
 ```typescript
-const sql = QueryBuilder.table("actions")
+const sql = qb.table("actions")
   .select("id", "title")
   .orderByRaw("CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 ELSE 2 END, seq ASC")
   .toSQL();
@@ -495,13 +495,13 @@ const sql = QueryBuilder.table("actions")
 Use `.or(action)` after `.insert()` to generate `INSERT OR <action> INTO`:
 
 ```typescript
-const sql = QueryBuilder.table("users")
+const sql = qb.table("users")
   .insert("id", "name")
   .or("REPLACE")
   .toSQL();
 // INSERT OR REPLACE INTO users (id, name) VALUES (@id, @name)
 
-const sql2 = QueryBuilder.table("users")
+const sql2 = qb.table("users")
   .insert("id", "name")
   .or("IGNORE")
   .toSQL();
@@ -515,7 +515,7 @@ Supported actions: `ROLLBACK`, `ABORT`, `FAIL`, `IGNORE`, `REPLACE`. Works with 
 Add a `FROM` clause to an `UPDATE` statement (SQLite 3.33+):
 
 ```typescript
-const sql = QueryBuilder.table("users")
+const sql = qb.table("users")
   .update("status")
   .from("orders")
   .whereRaw("users.id = orders.user_id AND orders.total > 100")
@@ -528,7 +528,7 @@ const sql = QueryBuilder.table("users")
 Use `.updateRaw({ col: 'expr' })` for subqueries, arithmetic, or function calls in the SET clause:
 
 ```typescript
-const sql = QueryBuilder.table("orders")
+const sql = qb.table("orders")
   .updateRaw({
     total: "(SELECT SUM(amount) FROM items WHERE items.order_id = orders.id)",
     updated_at: "CURRENT_TIMESTAMP",
@@ -543,10 +543,10 @@ const sql = QueryBuilder.table("orders")
 Prefix a query with `EXPLAIN` or `EXPLAIN QUERY PLAN` for analysis:
 
 ```typescript
-const sql = QueryBuilder.table("users").select("id", "name").where(["status"]).explain();
+const sql = qb.table("users").select("id", "name").where(["status"]).explain();
 // EXPLAIN SELECT id, name FROM users WHERE status = @status
 
-const sql2 = QueryBuilder.table("users").select("id").explainQueryPlan();
+const sql2 = qb.table("users").select("id").explainQueryPlan();
 // EXPLAIN QUERY PLAN SELECT id FROM users
 ```
 
