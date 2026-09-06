@@ -1,0 +1,86 @@
+{
+  "name": "@ytrynot/gov-mcp",
+  "version": "0.1.0",
+  "description": "Inter-agent governance MCP server — decisions, actions, ideas, problems, specs, and narrative log shared across AI agents via Model Context Protocol",
+  "author": "linqFR",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/linqFR/ytn.git",
+    "directory": "packages/gov-mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/linqFR/ytn/issues"
+  },
+  "homepage": "https://github.com/linqFR/ytn/tree/main/packages/gov-mcp#readme",
+  "keywords": [
+    "mcp",
+    "inter-agents",
+    "governance",
+    "sqlite",
+    "model-context-protocol",
+    "change-management",
+    "problem-management",
+    "decision-tracking",
+    "action-tracking",
+    "workflow",
+    "specifications",
+    "change-requests",
+    "lifecycle-management",
+    "traceability",
+    "audit-trail",
+    "typescript"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "schema",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "start": "node --import tsx ./src/server.ts"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "gov-mcp": "./dist/server.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@ytrynot/dna": "^0.11.0",
+    "@ytrynot/qb": "^1.1.5",
+    "better-sqlite3": "^13.0.3",
+    "nanoid": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.4.1",
+    "@ytrynot/shared": "*",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.13"
+  }
+}

@@ -1,0 +1,5 @@
+# DB files are local only (v0)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.db-journal

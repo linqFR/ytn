@@ -243,9 +243,9 @@ describe('QueryBuilder - Fixes and New Features', () => {
     });
 
     const manualColumns: qbColumn[] = [
-      { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: { pk: true } },
-      { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: { unique: true } },
-      { name: 'name', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
+      { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+      { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, unique: true },
+      { name: 'name', sqliteType: 'TEXT', optional: false, hasDefault: false, },
     ];
 
     it('defTable from Zod — generates all 7 SQL statements', () => {
@@ -299,6 +299,19 @@ describe('QueryBuilder - Fixes and New Features', () => {
       expect(d.upsert).toBe(m.upsert);
     });
 
+    it('defTable — names metadata (table, col, pk, isPk, isUnique)', () => {
+      const crud = QueryBuilder.defTable('users', manualColumns);
+      expect(crud.names.table).toBe('users');
+      expect(crud.names.col.id).toBe('id');
+      expect(crud.names.col.email).toBe('email');
+      expect(crud.names.pk).toBe('id');
+      expect(crud.names.isPk.id).toBe(true);
+      expect(crud.names.isPk.email).toBe(false);
+      expect(crud.names.isUnique.id).toBe(true);
+      expect(crud.names.isUnique.email).toBe(true);
+      expect(crud.names.isUnique.name).toBe(false);
+    });
+
     it('defTable — throws on non-object schema', () => {
       expect(() => QueryBuilder.defTable('users', z.string())).toThrow();
     });
@@ -341,9 +354,9 @@ describe('QueryBuilder - Fixes and New Features', () => {
 
   describe('5b. defTable — composite PK via options.primaryKey', () => {
     const compositeColumns: qbColumn[] = [
-      { name: 'tenant_id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: { pk: true } },
-      { name: 'user_id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: { pk: true } },
-      { name: 'role', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
+      { name: 'tenant_id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+      { name: 'user_id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+      { name: 'role', sqliteType: 'TEXT', optional: false, hasDefault: false, },
     ];
 
     it('DDL generates composite PRIMARY KEY', () => {
@@ -379,6 +392,96 @@ describe('QueryBuilder - Fixes and New Features', () => {
         primaryKey: ['tenant_id', 'user_id'],
       });
       expect(crud.upsert).toContain('ON CONFLICT(tenant_id, user_id)');
+    });
+
+    it('names metadata with composite PK', () => {
+      const crud = QueryBuilder.defTable('members', compositeColumns, {
+        primaryKey: ['tenant_id', 'user_id'],
+      });
+      expect(crud.names.pk).toEqual(['tenant_id', 'user_id']);
+      expect(crud.names.isPk.tenant_id).toBe(true);
+      expect(crud.names.isPk.user_id).toBe(true);
+      expect(crud.names.isPk.role).toBe(false);
+    });
+  });
+
+  describe('5c. NOT NULL + DEFAULT — independent constraints', () => {
+    it('optional: true + hasDefault: true → DEFAULT only (no NOT NULL)', () => {
+      const ddl = QueryBuilder.createTable('t_opt_def', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+        { name: 'status', sqliteType: 'TEXT', optional: true, hasDefault: true, defaultValue: { string: 'pending' } },
+      ]);
+      expect(ddl).toContain("status TEXT DEFAULT 'pending'");
+      expect(ddl).not.toContain('status TEXT NOT NULL');
+    });
+
+    it('optional: false + hasDefault: true → NOT NULL DEFAULT (both constraints)', () => {
+      const ddl = QueryBuilder.createTable('t_notnull_def', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+        { name: 'scope', sqliteType: 'TEXT', optional: false, hasDefault: true, defaultValue: { string: 'repo-wide' } },
+      ]);
+      expect(ddl).toContain("scope TEXT NOT NULL DEFAULT 'repo-wide'");
+    });
+
+    it('optional: false + hasDefault: false → NOT NULL only (no DEFAULT)', () => {
+      const ddl = QueryBuilder.createTable('t_notnull', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+        { name: 'name', sqliteType: 'TEXT', optional: false, hasDefault: false },
+      ]);
+      expect(ddl).toContain('name TEXT NOT NULL');
+      expect(ddl).not.toContain('name TEXT DEFAULT');
+    });
+
+    it('optional: true + hasDefault: false → neither constraint', () => {
+      const ddl = QueryBuilder.createTable('t_plain', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+        { name: 'bio', sqliteType: 'TEXT', optional: true, hasDefault: false },
+      ]);
+      expect(ddl).toContain('bio TEXT');
+      expect(ddl).not.toContain('bio TEXT NOT NULL');
+      expect(ddl).not.toContain('bio TEXT DEFAULT');
+    });
+
+    it('direct pk: true — no meta needed', () => {
+      const ddl = QueryBuilder.createTable('t_direct_pk', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+        { name: 'name', sqliteType: 'TEXT', optional: false, hasDefault: false },
+      ]);
+      expect(ddl).toContain('id TEXT PRIMARY KEY');
+    });
+
+    it('direct unique and fk — no meta needed', () => {
+      const ddl = QueryBuilder.createTable('t_direct_fk', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+        { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, unique: true },
+        { name: 'org_id', sqliteType: 'TEXT', optional: false, hasDefault: false, fk: { table: 'orgs', col: 'id' } },
+      ]);
+      expect(ddl).toContain('email TEXT UNIQUE NOT NULL');
+      expect(ddl).toContain('FOREIGN KEY (org_id) REFERENCES orgs(id)');
+    });
+
+    it('direct pkauto — no meta needed', () => {
+      const ddl = QueryBuilder.createTable('t_direct_pkauto', [
+        { name: 'id', sqliteType: 'INTEGER', optional: false, hasDefault: false, pkauto: true },
+        { name: 'label', sqliteType: 'TEXT', optional: false, hasDefault: false },
+      ]);
+      expect(ddl).toContain('id INTEGER PRIMARY KEY AUTOINCREMENT');
+    });
+
+    it('direct check — no meta needed', () => {
+      const ddl = QueryBuilder.createTable('t_direct_check', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+        { name: 'age', sqliteType: 'INTEGER', optional: false, hasDefault: false, check: 'age >= 0' },
+      ]);
+      expect(ddl).toContain('CHECK (age >= 0)');
+    });
+
+    it('no pk declared — falls back to id convention', () => {
+      const ddl = QueryBuilder.createTable('t_no_pk', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false },
+        { name: 'name', sqliteType: 'TEXT', optional: false, hasDefault: false },
+      ]);
+      expect(ddl).toContain('id TEXT PRIMARY KEY');
     });
   });
 
@@ -582,8 +685,8 @@ describe('QueryBuilder - Fixes and New Features', () => {
   describe('7. P1 batch — DDL additions + multi-row INSERT', () => {
     it('FK actions SET DEFAULT and NO ACTION are accepted', () => {
       const ddl = QueryBuilder.createTable('users', [
-        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: { pk: true } },
-        { name: 'org_id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true },
+        { name: 'org_id', sqliteType: 'TEXT', optional: false, hasDefault: false, },
       ], {
         foreignKeys: {
           org_id: { table: 'orgs', col: 'id', onDelete: 'SET DEFAULT', onUpdate: 'NO ACTION' },
@@ -600,8 +703,8 @@ describe('QueryBuilder - Fixes and New Features', () => {
 
     it('composite UNIQUE constraint via uniqueConstraints', () => {
       const ddl = QueryBuilder.createTable('users', [
-        { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
-        { name: 'tenant_id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
+        { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, },
+        { name: 'tenant_id', sqliteType: 'TEXT', optional: false, hasDefault: false, },
       ], {
         uniqueConstraints: [{ columns: ['email', 'tenant_id'] }],
       });
@@ -610,8 +713,8 @@ describe('QueryBuilder - Fixes and New Features', () => {
 
     it('composite UNIQUE with name', () => {
       const ddl = QueryBuilder.createTable('users', [
-        { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
-        { name: 'tenant_id', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
+        { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, },
+        { name: 'tenant_id', sqliteType: 'TEXT', optional: false, hasDefault: false, },
       ], {
         uniqueConstraints: [{ columns: ['email', 'tenant_id'], name: 'uq_email_tenant' }],
       });
@@ -620,7 +723,7 @@ describe('QueryBuilder - Fixes and New Features', () => {
 
     it('table-level CHECK constraint', () => {
       const ddl = QueryBuilder.createTable('users', [
-        { name: 'age', sqliteType: 'INTEGER', optional: false, hasDefault: false, meta: {} },
+        { name: 'age', sqliteType: 'INTEGER', optional: false, hasDefault: false, },
       ], {
         checks: ['age >= 18'],
       });
@@ -629,7 +732,7 @@ describe('QueryBuilder - Fixes and New Features', () => {
 
     it('column-level CHECK constraint', () => {
       const ddl = QueryBuilder.createTable('products', [
-        { name: 'price', sqliteType: 'REAL', optional: false, hasDefault: false, meta: {}, check: 'price >= 0' },
+        { name: 'price', sqliteType: 'REAL', optional: false, hasDefault: false, check: 'price >= 0' },
       ]);
       expect(ddl).toContain('CHECK (price >= 0)');
     });
@@ -760,7 +863,7 @@ describe('QueryBuilder - Fixes and New Features', () => {
 
     it('DDL skips empty uniqueConstraints entry', () => {
       const ddl = QueryBuilder.createTable('t', [
-        { name: 'a', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
+        { name: 'a', sqliteType: 'TEXT', optional: false, hasDefault: false, },
       ], {
         uniqueConstraints: [{ columns: [] }],
       });
@@ -769,7 +872,7 @@ describe('QueryBuilder - Fixes and New Features', () => {
 
     it('DDL skips empty check string', () => {
       const ddl = QueryBuilder.createTable('t', [
-        { name: 'a', sqliteType: 'TEXT', optional: false, hasDefault: false, meta: {} },
+        { name: 'a', sqliteType: 'TEXT', optional: false, hasDefault: false, },
       ], {
         checks: [''],
       });
@@ -967,6 +1070,44 @@ describe('QueryBuilder - Fixes and New Features', () => {
     it('createIndex accepts valid identifier', () => {
       const sql = QueryBuilder.table('t').createIndex('idx_valid', ['col']).toSQL();
       expect(sql).toContain('idx_valid');
+    });
+  });
+
+  describe('13. orderByRaw()', () => {
+    it('orderByRaw() generates raw ORDER BY clause', () => {
+      const sql = QueryBuilder.table('actions')
+        .select()
+        .whereIn('status', ['pending', 'in_progress', 'blocked'])
+        .orderByRaw("CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 ELSE 3 END, seq ASC")
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM actions WHERE status IN ('pending', 'in_progress', 'blocked') ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 ELSE 3 END, seq ASC");
+    });
+
+    it('orderByRaw() overrides prior orderBy() calls', () => {
+      const sql = QueryBuilder.table('actions')
+        .select()
+        .orderBy('seq', 'ASC')
+        .orderByRaw("CASE priority WHEN 'P0' THEN 0 END")
+        .toSQL();
+      expect(sql).toContain('ORDER BY CASE priority WHEN \'P0\' THEN 0 END');
+      expect(sql).not.toContain('seq ASC');
+    });
+
+    it('orderByRaw() is preserved by clone()', () => {
+      const original = QueryBuilder.table('actions')
+        .select()
+        .orderByRaw("CASE priority WHEN 'P0' THEN 0 END");
+      const cloned = original.clone();
+      expect(cloned.toSQL()).toBe(original.toSQL());
+    });
+
+    it('orderByRaw() with LIMIT', () => {
+      const sql = QueryBuilder.table('actions')
+        .select()
+        .orderByRaw("length(title) DESC")
+        .limit(10)
+        .toSQL();
+      expect(sql).toBe('SELECT * FROM actions ORDER BY length(title) DESC LIMIT 10');
     });
   });
 

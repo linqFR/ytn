@@ -1,8 +1,11 @@
 import type {
   ICaseBranch,
+  ICteDefinition,
   IJoinDefinition,
   IOnConflictConfig,
   IOrderByDefinition,
+  tsCompoundOp,
+  tsInsertOrAction,
   tsQueryMode,
   tsWhereDefinition,
   IWhereInDefinition,
@@ -29,6 +32,7 @@ export class Builder {
   #limit: number | null = null;
   #searchFields: string[] = [];
   #orderBy: IOrderByDefinition[] = [];
+  #orderByRaw: string | null = null;
   #joins: IJoinDefinition[] = [];
   #groupBy: string[] = [];
   #offset: number | null = null;
@@ -43,6 +47,14 @@ export class Builder {
   #havingFields: tsWhereDefinition[] = [];
   #onConflictConfig: IOnConflictConfig | null = null;
   #multiRowCount: number = 0;
+  #compoundParts: string[] | null = null;
+  #compoundOp: tsCompoundOp = "UNION ALL";
+  #cteParts: ICteDefinition[] = [];
+  #cteRecursive: boolean = false;
+  #insertOrAction: tsInsertOrAction | null = null;
+  #updateFromTable: string | null = null;
+  #updateRawSets: Record<string, string> | null = null;
+  #explainMode: "EXPLAIN" | "EXPLAIN QUERY PLAN" | null = null;
 
   /**
    * @constructor
@@ -114,12 +126,22 @@ export class Builder {
       ...f,
     }));
     cloned.#orderBy = this.#orderBy.map((f) => ({ ...f }));
+    cloned.#orderByRaw = this.#orderByRaw;
     cloned.#joins = this.#joins.map((f) => ({ ...f }));
 
     cloned.#whereInFields = this.#whereInFields.map((f) => ({
       col: f.col,
       target: Array.isArray(f.target) ? [...f.target] : f.target,
     }));
+
+    cloned.#compoundParts = this.#compoundParts ? [...this.#compoundParts] : null;
+    cloned.#compoundOp = this.#compoundOp;
+    cloned.#cteParts = this.#cteParts.map((c) => ({ ...c }));
+    cloned.#cteRecursive = this.#cteRecursive;
+    cloned.#insertOrAction = this.#insertOrAction;
+    cloned.#updateFromTable = this.#updateFromTable;
+    cloned.#updateRawSets = this.#updateRawSets ? { ...this.#updateRawSets } : null;
+    cloned.#explainMode = this.#explainMode;
 
     return cloned;
   }
@@ -135,6 +157,7 @@ export class Builder {
   public select(fields: string[]): this;
   public select(...fields: string[]): this;
   public select(first?: string[] | string, ...rest: string[]): this {
+    this.#assertNotCompound("select");
     this.#mode = "SELECT";
     this.#fields = first === undefined
       ? ["*"]
@@ -152,6 +175,7 @@ export class Builder {
    * @impact Changes mode to 'COUNT'.
    */
   public count(): this {
+    this.#assertNotCompound("count");
     this.#mode = "COUNT";
     return this;
   }
@@ -167,6 +191,7 @@ export class Builder {
   public insert(fields: string[]): this;
   public insert(...fields: string[]): this;
   public insert(first?: string[] | string, ...rest: string[]): this {
+    this.#assertNotCompound("insert");
     this.#mode = "INSERT";
     this.#fields = first === undefined
       ? []
@@ -198,6 +223,7 @@ export class Builder {
    *   your driver's limit. qb does not validate this — split large batches if needed.
    */
   public insertMulti(fields: string[], rowCount: number): this {
+    this.#assertNotCompound("insertMulti");
     if (fields.length === 0)
       throw new Error("insertMulti: fields must not be empty");
     if (rowCount < 1)
@@ -217,6 +243,7 @@ export class Builder {
    * @impact Changes mode to 'INSERT_DEFAULT'.
    */
   public insertDefaultValues(): this {
+    this.#assertNotCompound("insertDefaultValues");
     this.#mode = "INSERT_DEFAULT";
     return this;
   }
@@ -232,6 +259,7 @@ export class Builder {
   public update(fields: string[]): this;
   public update(...fields: string[]): this;
   public update(first?: string[] | string, ...rest: string[]): this {
+    this.#assertNotCompound("update");
     this.#mode = "UPDATE";
     this.#updateFields = first === undefined
       ? []
@@ -249,6 +277,7 @@ export class Builder {
    * @impact Changes mode to 'DELETE'.
    */
   public delete(): this {
+    this.#assertNotCompound("delete");
     this.#mode = "DELETE";
     return this;
   }
@@ -327,6 +356,7 @@ export class Builder {
   public upsert(fields: string[]): this;
   public upsert(field: string, ...rest: string[]): this;
   public upsert(fieldsOrFirst: string[] | string, ...rest: string[]): this {
+    this.#assertNotCompound("upsert");
     const fields = Array.isArray(fieldsOrFirst)
       ? fieldsOrFirst
       : [fieldsOrFirst, ...rest];
@@ -352,6 +382,7 @@ export class Builder {
   public where(fields: tsWhereDefinition[]): this;
   public where(...fields: tsWhereDefinition[]): this;
   public where(first?: tsWhereDefinition[] | tsWhereDefinition, ...rest: tsWhereDefinition[]): this {
+    this.#assertNotCompound("where");
     const fields = first === undefined
       ? []
       : Array.isArray(first)
@@ -370,6 +401,7 @@ export class Builder {
    * @usage `.whereColumn('updated_at', 'created_at')`
    */
   public whereColumn(col1: string, col2: string): this {
+    this.#assertNotCompound("whereColumn");
     this.#whereColumnFields.push({ col1, col2 });
     return this;
   }
@@ -383,6 +415,7 @@ export class Builder {
    * @usage `.whereLiteral('status', "'deleted'")`
    */
   public whereLiteral(col: string, value: string): this {
+    this.#assertNotCompound("whereLiteral");
     this.#whereLiteralFields.push({ col, value });
     return this;
   }
@@ -396,6 +429,7 @@ export class Builder {
    * @usage `.whereIn('id', ['1', '2'])` or `.whereIn('id', subquery)`
    */
   public whereIn(col: string, target: string[] | Builder): this {
+    this.#assertNotCompound("whereIn");
     this.#whereInFields.push({ col, target });
     return this;
   }
@@ -408,6 +442,7 @@ export class Builder {
    * @usage `.whereRaw("json_extract(meta, '$.id') = '123'")`
    */
   public whereRaw(condition: string): this {
+    this.#assertNotCompound("whereRaw");
     this.#whereRawFields.push(condition);
     return this;
   }
@@ -428,6 +463,7 @@ export class Builder {
     columns: string[],
     options?: { where?: string },
   ): this {
+    this.#assertNotCompound("createIndex");
     validateIdentifier(indexName, "createIndex");
     this.#mode = "CREATE_INDEX";
     this.#indexName = indexName;
@@ -481,6 +517,7 @@ export class Builder {
    * @usage `.selectRaw('COUNT(*) as total')`
    */
   public selectRaw(rawSql: string): this {
+    this.#assertNotCompound("selectRaw");
     this.#rawFunctionFields.push(rawSql);
     return this;
   }
@@ -499,6 +536,7 @@ export class Builder {
     branches: ICaseBranch[],
     elseValue?: string,
   ): this {
+    this.#assertNotCompound("selectCase");
     const branchStrings = branches
       .map((b) => `WHEN ${b.when} THEN ${b.then}`)
       .join(" ");
@@ -521,6 +559,7 @@ export class Builder {
    * @usage `.selectWindow('row_num', { func: 'ROW_NUMBER()', partitionBy: ['dept'] })`
    */
   public selectWindow(alias: string, def: IWindowDefinition): this {
+    this.#assertNotCompound("selectWindow");
     const parts: string[] = [];
     if (def.partitionBy && def.partitionBy.length > 0) {
       parts.push(`PARTITION BY ${def.partitionBy.join(", ")}`);
@@ -530,6 +569,14 @@ export class Builder {
         .map((o) => `${o.field} ${o.dir || "ASC"}`)
         .join(", ");
       parts.push(`ORDER BY ${orders}`);
+    }
+    if (def.frame) {
+      const endBoundary = def.frame.end ?? "CURRENT ROW";
+      let frameSpec = `${def.frame.type} BETWEEN ${def.frame.start} AND ${endBoundary}`;
+      if (def.frame.exclude) {
+        frameSpec += ` EXCLUDE ${def.frame.exclude}`;
+      }
+      parts.push(frameSpec);
     }
     const winSpec = parts.join(" ");
     this.#rawFunctionFields.push(`${def.func} OVER(${winSpec}) as ${alias}`);
@@ -549,12 +596,236 @@ export class Builder {
   }
 
   /**
+   * @function orderByRaw
+   * @description Sets a raw ORDER BY clause, replacing any prior `orderBy` calls.
+   * Use this for expressions that `orderBy(field, dir)` cannot express: `CASE`,
+   * function calls, collations, mixed-direction multi-column sorts.
+   * @param {string} expression - Raw SQL expression for the ORDER BY clause
+   *   (e.g. `"CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 END, seq ASC"`).
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.orderByRaw("CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 END, seq ASC")`
+   */
+  public orderByRaw(expression: string): this {
+    this.#orderByRaw = expression;
+    return this;
+  }
+
+  // ─── Compound SELECT (UNION / UNION ALL / INTERSECT / EXCEPT) ───────────────
+
+  /**
+   * @function union
+   * @description Combines this query with another using `UNION` (deduplicates rows).
+   * Each sub-query must be built independently before combining.
+   * `orderBy`, `orderByRaw`, `limit`, and `offset` can be chained on the result
+   * to apply to the compound as a whole.
+   * @param {Builder} other - The other query to union with.
+   * @returns {Builder} A new Builder in compound mode.
+   * @usage `builder1.select('id').union(builder2.select('id')).orderBy('id')`
+   */
+  public union(other: Builder): Builder {
+    return this.#compound(other, "UNION");
+  }
+
+  /**
+   * @function unionAll
+   * @description Combines this query with another using `UNION ALL` (keeps duplicates).
+   * Each sub-query must be built independently before combining.
+   * `orderBy`, `orderByRaw`, `limit`, and `offset` can be chained on the result
+   * to apply to the compound as a whole.
+   * @param {Builder} other - The other query to union with.
+   * @returns {Builder} A new Builder in compound mode.
+   * @usage `builder1.select('id').unionAll(builder2.select('id')).limit(50)`
+   */
+  public unionAll(other: Builder): Builder {
+    return this.#compound(other, "UNION ALL");
+  }
+
+  /**
+   * @function intersect
+   * @description Combines this query with another using `INTERSECT` (common rows only).
+   * Each sub-query must be built independently before combining.
+   * @param {Builder} other - The other query to intersect with.
+   * @returns {Builder} A new Builder in compound mode.
+   * @usage `builder1.select('id').intersect(builder2.select('id'))`
+   */
+  public intersect(other: Builder): Builder {
+    return this.#compound(other, "INTERSECT");
+  }
+
+  /**
+   * @function except
+   * @description Combines this query with another using `EXCEPT` (rows in this but not other).
+   * Each sub-query must be built independently before combining.
+   * @param {Builder} other - The other query to subtract.
+   * @returns {Builder} A new Builder in compound mode.
+   * @usage `builder1.select('id').except(builder2.select('id'))`
+   */
+  public except(other: Builder): Builder {
+    return this.#compound(other, "EXCEPT");
+  }
+
+  /**
+   * @function #compound
+   * @description Internal helper for compound SELECT operations.
+   * If already in compound mode with the same operator, appends the new sub-query.
+   * Otherwise creates a new Builder in compound mode.
+   * @private
+   */
+  #compound(other: Builder, op: tsCompoundOp): Builder {
+    if (this.#compoundParts !== null && this.#compoundOp === op) {
+      this.#compoundParts.push(other.toSQL());
+      return this;
+    }
+    const result = new Builder("__compound__");
+    result.#mode = "COMPOUND";
+    result.#compoundOp = op;
+    result.#compoundParts = [this.toSQL(), other.toSQL()];
+    result.#cteParts = [...this.#cteParts];
+    result.#cteRecursive = this.#cteRecursive;
+    return result;
+  }
+
+  /**
+   * @function with
+   * @description Adds a non-recursive CTE (Common Table Expression) to the query.
+   * The CTE name can be used as the table name in the main query.
+   * Multiple CTEs can be chained.
+   * @param {string} name - CTE name (used as table alias in the main query).
+   * @param {Builder | string} query - Sub-query Builder or raw SQL string.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `QueryBuilder.table('active').with('active', subBuilder).select('*')`
+   */
+  public with(name: string, query: Builder | string): this {
+    validateIdentifier(name, "with");
+    this.#cteParts.push({ name, query: typeof query === "string" ? query : query.toSQL() });
+    return this;
+  }
+
+  /**
+   * @function withRecursive
+   * @description Adds a recursive CTE (Common Table Expression) to the query.
+   * The CTE name can be used as the table name in the main query.
+   * The query should be a compound (typically `seed.unionAll(recursive)`) or raw SQL.
+   * Multiple CTEs can be chained; `WITH RECURSIVE` is emitted if any CTE is recursive.
+   * @param {string} name - CTE name (used as table alias in the main query).
+   * @param {Builder | string} query - Sub-query Builder (typically a compound) or raw SQL string.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `QueryBuilder.table('tree').withRecursive('tree', seed.unionAll(recur)).select('*')`
+   */
+  public withRecursive(name: string, query: Builder | string): this {
+    validateIdentifier(name, "withRecursive");
+    this.#cteParts.push({ name, query: typeof query === "string" ? query : query.toSQL() });
+    this.#cteRecursive = true;
+    return this;
+  }
+
+  /**
+   * @function #assertNotCompound
+   * @description Throws if the builder is in compound mode, preventing invalid
+   * clause additions (WHERE, JOIN, GROUP BY, etc.) on compound queries.
+   * @private
+   */
+  #assertNotCompound(methodName: string): void {
+    if (this.#compoundParts !== null) {
+      throw new Error(
+        `${methodName}: cannot be used on a compound query (created by union/unionAll/intersect/except). Build each sub-query before combining.`,
+      );
+    }
+  }
+
+  // ─── INSERT OR (conflict resolution) ────────────────────────────────────────
+
+  /**
+   * @function or
+   * @description Sets the INSERT OR conflict resolution action.
+   * Must be called after `.insert()`, `.insertMulti()`, or `.insertDefaultValues()`.
+   * Generates `INSERT OR <action> INTO ...` instead of the default `INSERT INTO ...`.
+   * @param {tsInsertOrAction} action - One of `ROLLBACK`, `ABORT`, `FAIL`, `IGNORE`, `REPLACE`.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.insert('id', 'name').or('REPLACE')`
+   */
+  public or(action: tsInsertOrAction): this {
+    if (this.#mode !== "INSERT" && this.#mode !== "INSERT_MULTI" && this.#mode !== "INSERT_DEFAULT")
+      throw new Error(
+        `or: cannot set INSERT OR action in mode '${this.#mode}'. Call .insert() or .insertMulti() or .insertDefaultValues() first.`,
+      );
+    this.#insertOrAction = action;
+    return this;
+  }
+
+  // ─── UPDATE FROM (SQLite 3.33+) ─────────────────────────────────────────────
+
+  /**
+   * @function from
+   * @description Adds a FROM clause to an UPDATE statement (SQLite 3.33+).
+   * Allows referencing another table's columns in the SET expressions.
+   * Must be called after `.update()`.
+   * @param {string} table - Table name (or alias) to read from.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.update('status').from('orders').whereRaw('users.id = orders.user_id')`
+   */
+  public from(table: string): this {
+    if (this.#mode !== "UPDATE")
+      throw new Error(
+        `from: FROM clause is only valid in UPDATE mode (current: '${this.#mode}'). Call .update() first.`,
+      );
+    this.#updateFromTable = table;
+    return this;
+  }
+
+  // ─── UPDATE SET raw expressions (subqueries, expressions) ───────────────────
+
+  /**
+   * @function updateRaw
+   * @description Sets raw SQL expressions for the UPDATE SET clause.
+   * Use this for subqueries in SET, arithmetic expressions, or function calls
+   * that the standard `.update(fields)` cannot express.
+   * Overrides the fields set by `.update()` for the SET clause.
+   * @param {Record<string, string>} sets - Map of column → SQL expression (e.g. `{ count: 'count + 1', status: '(SELECT s FROM config WHERE id = 1)' }`).
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.updateRaw({ total: '(SELECT SUM(amount) FROM items WHERE items.order_id = orders.id)' }).where(['id'])`
+   */
+  public updateRaw(sets: Record<string, string>): this {
+    this.#assertNotCompound("updateRaw");
+    this.#mode = "UPDATE";
+    this.#updateRawSets = sets;
+    return this;
+  }
+
+  // ─── EXPLAIN / EXPLAIN QUERY PLAN ───────────────────────────────────────────
+
+  /**
+   * @function explain
+   * @description Prefixes the query with `EXPLAIN`.
+   * Returns the query plan without executing it. Useful for debugging query performance.
+   * @returns {string} Compiled SQL with EXPLAIN prefix.
+   * @usage `.select('id').explain()` → `EXPLAIN SELECT id FROM ...`
+   */
+  public explain(): string {
+    this.#explainMode = "EXPLAIN";
+    return this.toSQL();
+  }
+
+  /**
+   * @function explainQueryPlan
+   * @description Prefixes the query with `EXPLAIN QUERY PLAN`.
+   * Shows the query plan that SQLite would use to execute the query.
+   * @returns {string} Compiled SQL with EXPLAIN QUERY PLAN prefix.
+   * @usage `.select('id').explainQueryPlan()` → `EXPLAIN QUERY PLAN SELECT id FROM ...`
+   */
+  public explainQueryPlan(): string {
+    this.#explainMode = "EXPLAIN QUERY PLAN";
+    return this.toSQL();
+  }
+
+  /**
    * @function groupBy
    * @description Adds a GROUP BY clause.
    * @param {string[]} fields - Column names to group by.
    * @returns {this} The current Builder instance for chaining.
    */
   public groupBy(fields: string[]): this {
+    this.#assertNotCompound("groupBy");
     this.#groupBy = fields;
     return this;
   }
@@ -566,6 +837,7 @@ export class Builder {
    * @usage `.select(['dept']).distinct()`
    */
   public distinct(): this {
+    this.#assertNotCompound("distinct");
     this.#distinct = true;
     return this;
   }
@@ -583,6 +855,7 @@ export class Builder {
     first?: tsWhereDefinition[] | tsWhereDefinition,
     ...rest: tsWhereDefinition[]
   ): this {
+    this.#assertNotCompound("having");
     const conds = first === undefined
       ? []
       : Array.isArray(first)
@@ -646,6 +919,7 @@ export class Builder {
     arg2: string,
     arg3?: string,
   ): this {
+    this.#assertNotCompound(`${type} JOIN`);
     if (typeof target === "string") {
       this.#joins.push({ type, target, on: arg2 });
     } else {
@@ -674,6 +948,63 @@ export class Builder {
     return `NOT EXISTS (${this.toSQL()})`;
   }
 
+  // ─── Static compound factories ──────────────────────────────────────────────
+
+  /**
+   * @function Builder.union
+   * @description Static factory: combine multiple builders with `UNION`.
+   * @param {Builder[]} builders - Two or more query builders.
+   * @returns {Builder} A new Builder in compound mode.
+   */
+  public static union(builders: Builder[]): Builder {
+    return Builder.#buildCompound(builders, "UNION");
+  }
+
+  /**
+   * @function Builder.unionAll
+   * @description Static factory: combine multiple builders with `UNION ALL`.
+   * @param {Builder[]} builders - Two or more query builders.
+   * @returns {Builder} A new Builder in compound mode.
+   */
+  public static unionAll(builders: Builder[]): Builder {
+    return Builder.#buildCompound(builders, "UNION ALL");
+  }
+
+  /**
+   * @function Builder.intersect
+   * @description Static factory: combine multiple builders with `INTERSECT`.
+   * @param {Builder[]} builders - Two or more query builders.
+   * @returns {Builder} A new Builder in compound mode.
+   */
+  public static intersect(builders: Builder[]): Builder {
+    return Builder.#buildCompound(builders, "INTERSECT");
+  }
+
+  /**
+   * @function Builder.except
+   * @description Static factory: combine multiple builders with `EXCEPT`.
+   * @param {Builder[]} builders - Two or more query builders.
+   * @returns {Builder} A new Builder in compound mode.
+   */
+  public static except(builders: Builder[]): Builder {
+    return Builder.#buildCompound(builders, "EXCEPT");
+  }
+
+  /**
+   * @function Builder.#buildCompound
+   * @description Internal static helper to build a compound Builder from N sub-queries.
+   * @private
+   */
+  static #buildCompound(builders: Builder[], op: tsCompoundOp): Builder {
+    if (builders.length < 2)
+      throw new Error(`${op}: at least 2 builders required`);
+    const result = new Builder("__compound__");
+    result.#mode = "COMPOUND";
+    result.#compoundOp = op;
+    result.#compoundParts = builders.map((b) => b.toSQL());
+    return result;
+  }
+
   /**
    * @function search
    * @description Searches a text pattern across `columnsToSearch` (via `LIKE @search_term`) and filters exact values on `columnsToFilter` (via `col = @col`).
@@ -687,6 +1018,7 @@ export class Builder {
     columnsToSearch: string[],
     columnsToFilter: tsWhereDefinition[] = [],
   ): this {
+    this.#assertNotCompound("search");
     this.#mode = "SELECT";
     this.#searchFields = columnsToSearch;
     this.#whereFields = columnsToFilter;
@@ -700,6 +1032,24 @@ export class Builder {
    * @throws {Error} If the query mode is unknown.
    */
   public toSQL(): string {
+    // ── EXPLAIN prefix ──
+    const explainPrefix = this.#explainMode ? `${this.#explainMode} ` : "";
+
+    // ── Compound SELECT (UNION / UNION ALL / INTERSECT / EXCEPT) ──
+    if (this.#mode === "COMPOUND" && this.#compoundParts !== null) {
+      let sql = this.#compoundParts.join(`\n${this.#compoundOp}\n`);
+      if (this.#orderByRaw !== null) {
+        sql += `\nORDER BY ${this.#orderByRaw}`;
+      } else if (this.#orderBy.length > 0) {
+        sql += `\nORDER BY ${this.#orderBy
+          .map((o) => `${o.field} ${o.dir}`)
+          .join(", ")}`;
+      }
+      if (this.#limit) sql += `\nLIMIT ${this.#limit}`;
+      if (this.#offset) sql += `\nOFFSET ${this.#offset}`;
+      return explainPrefix + this.#prependCte(sql);
+    }
+
     switch (this.#mode) {
       case "SELECT": {
         const fields = this.#fields;
@@ -732,14 +1082,16 @@ export class Builder {
             .join(" AND ");
           sql += ` HAVING ${havingClause}`;
         }
-        if (this.#orderBy.length > 0) {
+        if (this.#orderByRaw !== null) {
+          sql += ` ORDER BY ${this.#orderByRaw}`;
+        } else if (this.#orderBy.length > 0) {
           sql += ` ORDER BY ${this.#orderBy
             .map((o) => `${o.field} ${o.dir}`)
             .join(", ")}`;
         }
         if (this.#limit) sql += ` LIMIT ${this.#limit}`;
         if (this.#offset) sql += ` OFFSET ${this.#offset}`;
-        return sql;
+        return explainPrefix + this.#prependCte(sql);
       }
 
       case "COUNT": {
@@ -763,7 +1115,8 @@ export class Builder {
 
       case "INSERT": {
         const placeholders = this.#fields.map((f) => `@${f}`).join(", ");
-        let sql = `INSERT INTO ${this.#table} (${this.#fields.join(
+        const orPrefix = this.#insertOrAction ? `INSERT OR ${this.#insertOrAction} INTO` : "INSERT INTO";
+        let sql = `${orPrefix} ${this.#table} (${this.#fields.join(
           ", ",
         )}) VALUES (${placeholders})`;
         if (this.#onConflictConfig) {
@@ -782,7 +1135,8 @@ export class Builder {
             .join(", ");
           rows.push(`(${rowPlaceholders})`);
         }
-        let sql = `INSERT INTO ${this.#table} (${this.#fields.join(
+        const orPrefix = this.#insertOrAction ? `INSERT OR ${this.#insertOrAction} INTO` : "INSERT INTO";
+        let sql = `${orPrefix} ${this.#table} (${this.#fields.join(
           ", ",
         )}) VALUES ${rows.join(", ")}`;
         if (this.#onConflictConfig) {
@@ -794,7 +1148,8 @@ export class Builder {
       }
 
       case "INSERT_DEFAULT": {
-        let sql = `INSERT INTO ${this.#table} DEFAULT VALUES`;
+        const orPrefix = this.#insertOrAction ? `INSERT OR ${this.#insertOrAction} INTO` : "INSERT INTO";
+        let sql = `${orPrefix} ${this.#table} DEFAULT VALUES`;
         if (this.#onConflictConfig) {
           sql += this.#buildOnConflictClause();
         }
@@ -804,8 +1159,11 @@ export class Builder {
       }
 
       case "UPDATE": {
-        const sets = this.#updateFields.map((f) => `${f} = @${f}`).join(", ");
+        const sets = this.#updateRawSets
+          ? Object.entries(this.#updateRawSets).map(([col, expr]) => `${col} = ${expr}`).join(", ")
+          : this.#updateFields.map((f) => `${f} = @${f}`).join(", ");
         let sql = `UPDATE ${this.#table} SET ${sets}`;
+        if (this.#updateFromTable) sql += ` FROM ${this.#updateFromTable}`;
         sql += this.#buildWhereClause();
         if (this.#returningFields.length > 0)
           sql += ` RETURNING ${this.#returningFields.join(", ")}`;
@@ -839,6 +1197,22 @@ export class Builder {
       }
     }
     throw new Error(`Unknown QueryBuilder mode: ${this.#mode}`);
+  }
+
+  /**
+   * @function #prependCte
+   * @description Internal helper to prepend a WITH [RECURSIVE] clause to a SQL string.
+   * @private
+   * @param {string} sql - The main query SQL.
+   * @returns {string} The SQL with CTE prefix, or the original SQL if no CTEs are defined.
+   */
+  #prependCte(sql: string): string {
+    if (this.#cteParts.length === 0) return sql;
+    const withKeyword = this.#cteRecursive ? "WITH RECURSIVE" : "WITH";
+    const cteClause = this.#cteParts
+      .map((c) => `${c.name} AS (${c.query})`)
+      .join(", ");
+    return `${withKeyword} ${cteClause}\n${sql}`;
   }
 
   /**

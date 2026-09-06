@@ -6,14 +6,75 @@ export * from "./jschema-to-dna.js";
 
 // Re-export validation functions from @ytrynot/dna for convenience
 // Use schvalid-specific versions (canonical DNA opcodes only)
-import { validator, parser, toJS } from "@ytrynot/dna/toJs";
+import { validator as _validator, parser as _parser, toJS as _toJS } from "@ytrynot/dna/toJs";
 import type { tsDnaParserFn, tsDnaValidatorFn, tsDnaSeq } from "@ytrynot/dna/toJs"
 
 // Convenience functions that combine schema conversion and validation
 // import { validator as dnaValidator, parser as dnaParser } from "@ytrynot/dna";
 import { jschemaToDna } from "./jschema-to-dna.js";
-export { validator, parser, toJS };
-export type { tsDnaParserFn as DnaParseFn, tsDnaValidatorFn as DnaValidatorFn };
+/**
+ * Compiles DNA bytecode into a fast boolean validator function (fail-fast).
+ * Re-exported from `@ytrynot/dna/toJs`.
+ *
+ * @param dna - DNA bytecode sequence produced by `jschemaToDna()`.
+ * @returns A validator function `(value: unknown) => boolean`. Returns `true` if the input matches the schema, `false` otherwise. No error collection.
+ * @example
+ * import { jschemaToDna, validator } from "@ytrynot/schvalid";
+ * const dna = jschemaToDna({ type: "string", minLength: 3 });
+ * const validate = validator(dna);
+ * validate("hello"); // true
+ * validate("hi");    // false
+ */
+export const validator: typeof _validator = _validator;
+/**
+ * Compiles DNA bytecode into a parser function with full error collection and output construction.
+ * Re-exported from `@ytrynot/dna/toJs`.
+ *
+ * @param dna - DNA bytecode sequence produced by `jschemaToDna()`.
+ * @returns A parser function `(value) => { success: true, data } | { success: false, errors }`. On success, `data` is a fresh output object built from the validated input. On failure, `errors` contains detailed issue objects.
+ * @example
+ * import { jschemaToDna, parser } from "@ytrynot/schvalid";
+ * const dna = jschemaToDna({ type: "string", minLength: 3 });
+ * const parse = parser(dna);
+ * parse("hello"); // { success: true, data: "hello" }
+ * parse("hi");    // { success: false, errors: [...] }
+ */
+export const parser: typeof _parser = _parser;
+/**
+ * Low-level DNA → JavaScript code compiler.
+ * Re-exported from `@ytrynot/dna/toJs`.
+ *
+ * @param validateMode - `true` for validator mode (boolean, fail-fast), `false` for parser mode (error collection + output construction).
+ * @param enhancedMapper - `false` for canonical JSON Schema opcodes (schvalid), `true` for builder API opcodes.
+ * @param ownProperties - Optional. Controls `Object.hasOwnProperty` vs `in` semantics for property checks.
+ * @returns A function `(dna: tsDnaSeq) => string[]` that produces JavaScript source code from DNA bytecode.
+ * @example
+ * import { jschemaToDna, toJS } from "@ytrynot/schvalid";
+ * const dna = jschemaToDna({ type: "string" });
+ * const code = toJS(true, false)(dna);
+ * console.log(code.join("\n")); // generated validator source
+ */
+export const toJS: typeof _toJS = _toJS;
+/**
+ * Function signature returned by `parser()`.
+ * Re-exported as alias of `tsDnaParserFn` from `@ytrynot/dna/toJs`.
+ *
+ * @typeParam I - Input type (defaults to `unknown`).
+ * @typeParam O - Output type (defaults to `any`).
+ * @example
+ * const parse: DnaParseFn = parser(dna);
+ * const result = parse(input); // { success: true, data: O } | { success: false, errors: [...] }
+ */
+export type DnaParseFn = tsDnaParserFn;
+/**
+ * Function signature returned by `validator()`.
+ * Re-exported as alias of `tsDnaValidatorFn` from `@ytrynot/dna/toJs`.
+ *
+ * @example
+ * const validate: DnaValidatorFn = validator(dna);
+ * const ok: boolean = validate(input);
+ */
+export type DnaValidatorFn = tsDnaValidatorFn;
 
 
 type tsCompileOptions = {
@@ -59,7 +120,7 @@ const combineFast = <I = unknown, O = any>(validate: tsDnaValidatorFn, parse: ts
  * behavior/trade-off documentation.
  */
 export const parserFast = <I = unknown, O = any>(dna: tsDnaSeq): tsDnaParserFn<I, O> =>
-	combineFast(validator(dna), parser(dna));
+	combineFast(_validator(dna), _parser(dna));
 
 /**
  * Schvalid builder API - compile schema once, validate many times
@@ -83,10 +144,10 @@ export function schvalid(mode: "validation" | "parser" | "fast" | "all") {
 			const dna = jschemaToDna(schema, "#", options);
 
 			if (mode === "validation") {
-				return validator(dna);
+				return _validator(dna);
 			}
 			else if (mode === "parser") {
-				return parser(dna);
+				return _parser(dna);
 			}
 			else if (mode === "fast") {
 				return parserFast(dna);
@@ -94,8 +155,8 @@ export function schvalid(mode: "validation" | "parser" | "fast" | "all") {
 			else {
 				// Compile `validate`/`parse` ONCE and reuse both instances for
 				// `parseFast` (via `combineFast`) — never recompile a third time.
-				const validate = validator(dna);
-				const parse = parser(dna);
+				const validate = _validator(dna);
+				const parse = _parser(dna);
 				return {
 					validate,
 					parse,

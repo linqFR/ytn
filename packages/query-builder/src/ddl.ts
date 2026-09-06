@@ -1,4 +1,4 @@
-import type { IUniqueConstraint, qbColumn, qbTableOptions } from "./types.js";
+import type { ITriggerDefinition, IUniqueConstraint, qbColumn, qbTableOptions } from "./types.js";
 import { resolveDefault } from "./sql-literal.js";
 
 /**
@@ -65,7 +65,7 @@ export class DDLEngine {
     // (meta.pk, pkauto, and convention-based id/uuid inference).
     if (!pk) {
       for (const col of columns) {
-        if (col.meta?.pk || col.pkauto) { pk = col.name; break; }
+        if (col.pk || col.meta?.pk || col.pkauto) { pk = col.name; break; }
       }
       if (!pk) {
         const names = columns.map((c) => c.name);
@@ -78,6 +78,14 @@ export class DDLEngine {
       const { name, sqliteType, optional, meta } = col;
       let constraints = "";
 
+      // Generated columns: emit GENERATED ALWAYS AS and skip other constraints
+      if (col.generated) {
+        columnDefs.push(
+          `${name} ${sqliteType} GENERATED ALWAYS AS (${col.generated.expr}) ${col.generated.type}`,
+        );
+        continue;
+      }
+
       const isUniqueFromDoc =
         col.unique || (Array.isArray(uniques) && uniques.includes(name));
 
@@ -87,11 +95,12 @@ export class DDLEngine {
           : " PRIMARY KEY";
       } else {
         if (isUniqueFromDoc) constraints += " UNIQUE";
+        if (!optional) {
+          constraints += " NOT NULL";
+        }
         const defValue = defaults[name] ?? resolveDefault(col.defaultValue);
         if (defValue !== undefined) {
           constraints += ` DEFAULT ${defValue}`;
-        } else if (!optional) {
-          constraints += " NOT NULL";
         }
       }
 
@@ -138,8 +147,35 @@ export class DDLEngine {
       }
     }
 
-    return `CREATE TABLE IF NOT EXISTS ${tableName} (\n  ${columnDefs.join(
+    const tempKeyword = options.temporary ? "TEMP " : "";
+    return `CREATE ${tempKeyword}TABLE IF NOT EXISTS ${tableName} (\n  ${columnDefs.join(
       ",\n  ",
     )}\n);`;
+  }
+
+  /**
+   * @function createTrigger
+   * @description Generates a `CREATE TRIGGER IF NOT EXISTS` statement.
+   * The trigger body and WHEN clause are raw SQL — SQLite trigger bodies contain
+   * imperative multi-statement logic (INSERT...SELECT, UPDATE with NEW/OLD refs,
+   * EXISTS subqueries) that cannot be expressed by the fluent Builder.
+   * @param {string} triggerName - Name of the trigger.
+   * @param {ITriggerDefinition} def - Trigger configuration.
+   * @returns {string} Compiled SQL DDL.
+   */
+  public static createTrigger(triggerName: string, def: ITriggerDefinition): string {
+    validateIdentifier(triggerName, "createTrigger");
+    validateIdentifier(def.table, "createTrigger");
+
+    const eventClause =
+      def.event === "UPDATE" && def.of && def.of.length > 0
+        ? `UPDATE OF ${def.of.join(", ")}`
+        : def.event;
+
+    const forEachRow = def.forEachRow !== false ? " FOR EACH ROW" : "";
+
+    const whenClause = def.when ? ` WHEN ${def.when}` : "";
+
+    return `CREATE TRIGGER IF NOT EXISTS ${triggerName}\n${def.timing} ${eventClause} ON ${def.table}${forEachRow}${whenClause}\nBEGIN\n${def.body}\nEND;`;
   }
 }
