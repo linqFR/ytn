@@ -293,7 +293,6 @@ describe('CTE (WITH / WITH RECURSIVE)', () => {
   describe('CTE + compound combination', () => {
     it('CTE prefix on a compound query', () => {
       const cte = QueryBuilder.table('source').select('id', 'type').whereRaw('active = 1');
-      const q1 = QueryBuilder.table('cte_result').select('id', 'type');
       const q2 = QueryBuilder.table('other').select('id', 'type');
 
       const sql = QueryBuilder.table('cte_result')

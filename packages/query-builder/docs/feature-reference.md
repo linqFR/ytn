@@ -10,7 +10,7 @@
 - **Name**: `@ytrynot/qb`
 - **Path**: `packages/query-builder/`
 - **Purpose**: Fluent SQLite query builder with Zod/DNA schema introspection
-- **Philosophy**: Schema-first → SQL derived. Strict TS 6.0. SQLite-first. Zero-dep. String builder (not a runtime).
+- **Philosophy**: Schema-first â†’ SQL derived. Strict TS 6.0. SQLite-first. Zero-dep. String builder (not a runtime).
 
 ---
 
@@ -37,14 +37,14 @@ driver meets the minimum requirement for each feature they use.
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `QueryBuilder.table(name, uniqueKeys?)` | `Builder` | Fluent DML chain (SELECT/INSERT/UPDATE/DELETE/UPSERT) |
-| `QueryBuilder.defTable(name, def, options?)` | `TableDef` | Table from any schema source. Returns `createTable`, `getAll`, `getById`, `insert`, `update`, `delete`, `upsert`, `req`, `q` |
-| `QueryBuilder.reqCreateTable(name, def, options?)` | `string` | Shortcut for `defTable(name, def).createTable` |
-| `QueryBuilder.createTable(name, columns, options?)` | `string` | `CREATE TABLE` DDL from manual `qbColumn[]` |
-| `QueryBuilder.dropTable(name)` | `string` | `DROP TABLE IF EXISTS` |
-| `QueryBuilder.dropIndex(name)` | `string` | `DROP INDEX IF EXISTS` |
-| `QueryBuilder.pragma()` | `PragmaBuilder` | Fluent PRAGMA chain |
-| `QueryBuilder.enableForeignKeys()` | `string` | `PRAGMA foreign_keys = ON;` |
+| `qb.table(name, uniqueKeys?)` | `Builder` | Fluent DML chain (SELECT/INSERT/UPDATE/DELETE/UPSERT) |
+| `qb.defTable(name, def, options?)` | `TableDef` | Table from any schema source. Returns `createTable`, `getAll`, `getById`, `insert`, `update`, `delete`, `upsert`, `req`, `q`, `cols`, `names` |
+| `qb.reqCreateTable(name, def, options?)` | `string` | Shortcut for `defTable(name, def).createTable` |
+| `qb.createTable(name, columns, options?)` | `string` | `CREATE TABLE` DDL from manual `qbColumn[]` |
+| `qb.dropTable(name)` | `string` | `DROP TABLE IF EXISTS` |
+| `qb.dropIndex(name)` | `string` | `DROP INDEX IF EXISTS` |
+| `qb.pragma()` | `PragmaBuilder` | Fluent PRAGMA chain |
+| `qb.enableForeignKeys()` | `string` | `PRAGMA foreign_keys = ON;` |
 
 ---
 
@@ -60,50 +60,98 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 ---
 
+## TableDef — Runtime Metadata (`defTable` return)
+
+`defTable()` returns a `TableDef` with pre-built SQL strings and runtime metadata for raw SQL construction.
+
+### Pre-built SQL (strings, computed once)
+
+| Field | Description |
+|-------|-------------|
+| `createTable` | `CREATE TABLE IF NOT EXISTS ...` DDL |
+| `getAll` | `SELECT * FROM <table>` |
+| `getById` | `SELECT * FROM <table> WHERE <pk> = @<pk>` |
+| `insert` | `INSERT INTO <table> (...) VALUES (...)` |
+| `update` | `UPDATE <table> SET ... WHERE <pk> = @<pk>` |
+| `delete` | `DELETE FROM <table> WHERE <pk> = @<pk>` |
+| `upsert` | `INSERT ... ON CONFLICT(<uniqueKeys>) DO UPDATE SET ...` |
+
+### Runtime metadata (`names: ITableNames`)
+
+All values are plain strings/booleans computed once at `defTable` time — no getters, no recompute.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `names.table` | `string` | Table name |
+| `names.col` | `Record<string, string>` | Column name lookup: `col.seq` â†’ `"seq"` |
+| `names.pk` | `string \| string[]` | Primary key column name(s) |
+| `names.isPk` | `Record<string, boolean>` | Per-column PK flag: `isPk.id` â†’ `true` |
+| `names.isUnique` | `Record<string, boolean>` | Per-column unique flag: `isUnique.email` â†’ `true` |
+| `names.readonly` | `string[]` | Readonly column names (PK, seq, timestamps, trigger-managed) |
+| `names.updatable` | `string[]` | Non-readonly column names |
+
+### Builder access
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `req` | `Builder` | Fresh builder pre-configured with table name + uniqueKeys (getter — new instance each access) |
+| `q` | `Builder` | Alias for `req` |
+
+### Readonly detection
+
+| Source | Mechanism |
+|--------|-----------|
+| **Zod** | `.readonly()` â†’ `z.ZodReadonly` wrapper detected by introspector |
+| **DNA** | `.readonly()` â†’ `meta.readonly = true` read by introspector |
+| **Manual** | `qbColumn.readonly: true` direct field |
+
+---
+
 ## DDL — CREATE TABLE (`src/ddl.ts`)
 
 ### Column-level features
 | Feature | Support | How |
 |---------|---------|-----|
-| SQLite types (TEXT, INTEGER, REAL, BOOLEAN, DATETIME, BLOB) | ✅ | `qbColumn.sqliteType` |
-| PRIMARY KEY | ✅ | `pk: true` (direct), `meta.pk` (Zod/DNA chain), or `pkauto` |
-| AUTOINCREMENT | ✅ | `pkauto: true` → `PRIMARY KEY AUTOINCREMENT` |
-| NOT NULL | ✅ | Inferred from `optional: false`. Independent of `DEFAULT` — both can appear together. |
-| UNIQUE (single column) | ✅ | `unique: true` or `options.unique` |
-| DEFAULT | ✅ | `.default()` (Zod/DNA) or `defaultValue` (manual columns) or `options.defaults` |
-| IF NOT EXISTS | ✅ | Always generated |
-| Column-level CHECK | ✅ | `qbColumn.check: "expr"` |
-| COLLATE | ❌ | Out of scope (niche) |
-| Generated columns (STORED/VIRTUAL) | ✅ | `qbColumn.generated: { expr, type }` |
+| SQLite types (TEXT, INTEGER, REAL, BOOLEAN, DATETIME, BLOB) | âœ… | `qbColumn.sqliteType` |
+| PRIMARY KEY | âœ… | `pk: true` (direct), `meta.pk` (Zod/DNA chain), or `pkauto` |
+| AUTOINCREMENT | âœ… | `pkauto: true` â†’ `PRIMARY KEY AUTOINCREMENT` |
+| NOT NULL | âœ… | Inferred from `optional: false`. Independent of `DEFAULT` — both can appear together. |
+| UNIQUE (single column) | âœ… | `unique: true` or `options.unique` |
+| DEFAULT | âœ… | `.default()` (Zod/DNA) or `defaultValue` (manual columns) or `options.defaults` |
+| IF NOT EXISTS | âœ… | Always generated |
+| Column-level CHECK | âœ… | `qbColumn.check: "expr"` |
+| Readonly flag | âœ… | `qbColumn.readonly: true` (direct), `.readonly()` (Zod/DNA) â†’ propagates to `names.readonly` / `names.updatable` |
+| COLLATE | âŒ | Out of scope (niche) |
+| Generated columns (STORED/VIRTUAL) | âœ… | `qbColumn.generated: { expr, type }` |
 
 ### Table-level features
 | Feature | Support | How |
 |---------|---------|-----|
-| Composite PRIMARY KEY | ✅ | `primaryKey: string[]` in options |
-| Composite UNIQUE | ✅ | `options.uniqueConstraints: IUniqueConstraint[]` |
-| Table-level CHECK | ✅ | `options.checks: string[]` |
-| FOREIGN KEY | ✅ | `qbColumn.fk` or `options.foreignKeys` |
-| FK ON DELETE (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION) | ✅ | `IForeignKeyDefinition.onDelete` |
-| FK ON UPDATE (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION) | ✅ | `IForeignKeyDefinition.onUpdate` |
-| WITHOUT ROWID | ❌ | Out of scope (niche) |
-| STRICT tables | ❌ | Out of scope (complex + niche) |
-| CREATE TEMP TABLE | ✅ | `options.temporary: true` → `CREATE TEMP TABLE` |
-| CREATE TABLE AS SELECT | ✅ | `QueryBuilder.createTableAs(name, builder)` |
+| Composite PRIMARY KEY | âœ… | `primaryKey: string[]` in options |
+| Composite UNIQUE | âœ… | `options.uniqueConstraints: IUniqueConstraint[]` |
+| Table-level CHECK | âœ… | `options.checks: string[]` |
+| FOREIGN KEY | âœ… | `qbColumn.fk` or `options.foreignKeys` |
+| FK ON DELETE (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION) | âœ… | `IForeignKeyDefinition.onDelete` |
+| FK ON UPDATE (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION) | âœ… | `IForeignKeyDefinition.onUpdate` |
+| WITHOUT ROWID | âŒ | Out of scope (niche) |
+| STRICT tables | âŒ | Out of scope (complex + niche) |
+| CREATE TEMP TABLE | âœ… | `options.temporary: true` â†’ `CREATE TEMP TABLE` |
+| CREATE TABLE AS SELECT | âœ… | `qb.createTableAs(name, builder)` |
 
 ### DROP TABLE / DROP INDEX
-- `DROP TABLE IF EXISTS` — `QueryBuilder.dropTable(name)`
-- `DROP INDEX IF EXISTS` — `QueryBuilder.dropIndex(name)`
+- `DROP TABLE IF EXISTS` — `qb.dropTable(name)`
+- `DROP INDEX IF EXISTS` — `qb.dropIndex(name)`
 
 ### Triggers
 | Feature | Support | Method |
 |---------|---------|--------|
-| CREATE TRIGGER | ✅ | `QueryBuilder.createTrigger(name, def)` — typed structure (timing, event, table, OF, WHEN, FOR EACH ROW), raw body |
-| Timing (BEFORE/AFTER/INSTEAD OF) | ✅ | `def.timing` |
-| Event (INSERT/UPDATE/DELETE) | ✅ | `def.event` |
-| UPDATE OF columns | ✅ | `def.of: string[]` |
-| WHEN clause | ✅ | `def.when: string` (raw SQL, NEW/OLD refs) |
-| FOR EACH ROW | ✅ | `def.forEachRow` (default: true) |
-| Multi-statement body | ✅ | `def.body: string` (raw SQL between BEGIN...END) |
+| CREATE TRIGGER | âœ… | `qb.createTrigger(name, def)` — typed structure (timing, event, table, OF, WHEN, FOR EACH ROW), raw body |
+| Timing (BEFORE/AFTER/INSTEAD OF) | âœ… | `def.timing` |
+| Event (INSERT/UPDATE/DELETE) | âœ… | `def.event` |
+| UPDATE OF columns | âœ… | `def.of: string[]` |
+| WHEN clause | âœ… | `def.when: string` (raw SQL, NEW/OLD refs) |
+| FOR EACH ROW | âœ… | `def.forEachRow` (default: true) |
+| Multi-statement body | âœ… | `def.body: string` (raw SQL between BEGIN...END) |
 
 ---
 
@@ -111,39 +159,39 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 | Feature | Support | Method |
 |---------|---------|--------|
-| Basic SELECT | ✅ | `.select(fields)` |
-| SELECT * | ✅ | `.select()` (default) |
-| SELECT COUNT(*) | ✅ | `.count()` |
-| Table alias | ✅ | `.as(alias)` |
-| JOIN (INNER, LEFT, RIGHT) | ✅ | `.joinInner()`, `.joinLeft()`, `.joinRight()` |
-| Subquery JOIN | ✅ | Pass `Builder` as join target |
-| WHERE (column = @param) | ✅ | `.where(fields)` |
-| WHERE column = column | ✅ | `.whereColumn(col1, col2)` |
-| WHERE literal value | ✅ | `.whereLiteral(col, value)` |
-| WHERE IN (values) | ✅ | `.whereIn(col, [...])` |
-| WHERE IN (subquery) | ✅ | `.whereIn(col, Builder)` |
-| WHERE raw SQL | ✅ | `.whereRaw(condition)` |
-| Search (LIKE) | ✅ | `.search(fields)` → `LIKE @search_term` |
-| EXISTS / NOT EXISTS | ✅ | `.asExists()`, `.asNotExists()` |
-| GROUP BY | ✅ | `.groupBy(fields)` |
-| HAVING | ✅ | `.having(conditions)` |
-| ORDER BY | ✅ | `.orderBy(field, dir)` |
-| ORDER BY (raw expression) | ✅ | `.orderByRaw(expression)` — `CASE`, function calls, mixed-direction |
-| LIMIT / OFFSET | ✅ | `.limit(n)`, `.offset(n)` |
-| DISTINCT | ✅ | `.distinct()` |
-| CASE WHEN | ✅ | `.selectCase(alias, branches, else?)` |
-| Window functions (OVER) | ✅ | `.selectWindow(alias, def)` |
-| Window frames (ROWS/RANGE/GROUPS BETWEEN) | ✅ | `.selectWindow(alias, { frame: { type, start, end?, exclude? } })` |
-| Raw SELECT expression | ✅ | `.selectRaw(sql)` |
-| CTE (WITH) | ✅ | `.with(name, builderOrSql)` — non-recursive CTE prefix |
-| CTE (WITH RECURSIVE) | ✅ | `.withRecursive(name, builderOrSql)` — recursive CTE prefix |
-| Compound SELECT (UNION) | ✅ | `.union(other)`, `QueryBuilder.union(...builders)` |
-| Compound SELECT (UNION ALL) | ✅ | `.unionAll(other)`, `QueryBuilder.unionAll(...builders)` |
-| Compound SELECT (INTERSECT) | ✅ | `.intersect(other)`, `QueryBuilder.intersect(...builders)` |
-| Compound SELECT (EXCEPT) | ✅ | `.except(other)`, `QueryBuilder.except(...builders)` |
-| Window frames (ROWS BETWEEN) | ❌ | Out of scope (niche) |
-| EXPLAIN | ✅ | `.explain()` → `EXPLAIN SELECT ...` |
-| EXPLAIN QUERY PLAN | ✅ | `.explainQueryPlan()` → `EXPLAIN QUERY PLAN SELECT ...` |
+| Basic SELECT | âœ… | `.select(fields)` |
+| SELECT * | âœ… | `.select()` (default) |
+| SELECT COUNT(*) | âœ… | `.count()` |
+| Table alias | âœ… | `.as(alias)` |
+| JOIN (INNER, LEFT, RIGHT) | âœ… | `.joinInner()`, `.joinLeft()`, `.joinRight()` |
+| Subquery JOIN | âœ… | Pass `Builder` as join target |
+| WHERE (column = @param) | âœ… | `.where(fields)` |
+| WHERE column = column | âœ… | `.whereColumn(col1, col2)` |
+| WHERE literal value | âœ… | `.whereLiteral(col, value)` |
+| WHERE IN (values) | âœ… | `.whereIn(col, [...])` |
+| WHERE IN (subquery) | âœ… | `.whereIn(col, Builder)` |
+| WHERE raw SQL | âœ… | `.whereRaw(condition)` |
+| Search (LIKE) | âœ… | `.search(fields)` â†’ `LIKE @search_term` |
+| EXISTS / NOT EXISTS | âœ… | `.asExists()`, `.asNotExists()` |
+| GROUP BY | âœ… | `.groupBy(fields)` |
+| HAVING | âœ… | `.having(conditions)` |
+| ORDER BY | âœ… | `.orderBy(field, dir)` |
+| ORDER BY (raw expression) | âœ… | `.orderByRaw(expression)` — `CASE`, function calls, mixed-direction |
+| LIMIT / OFFSET | âœ… | `.limit(n)`, `.offset(n)` |
+| DISTINCT | âœ… | `.distinct()` |
+| CASE WHEN | âœ… | `.selectCase(alias, branches, else?)` |
+| Window functions (OVER) | âœ… | `.selectWindow(alias, def)` |
+| Window frames (ROWS/RANGE/GROUPS BETWEEN) | âœ… | `.selectWindow(alias, { frame: { type, start, end?, exclude? } })` |
+| Raw SELECT expression | âœ… | `.selectRaw(sql)` |
+| CTE (WITH) | âœ… | `.with(name, builderOrSql)` — non-recursive CTE prefix |
+| CTE (WITH RECURSIVE) | âœ… | `.withRecursive(name, builderOrSql)` — recursive CTE prefix |
+| Compound SELECT (UNION) | âœ… | `.union(other)`, `qb.union(...builders)` |
+| Compound SELECT (UNION ALL) | âœ… | `.unionAll(other)`, `qb.unionAll(...builders)` |
+| Compound SELECT (INTERSECT) | âœ… | `.intersect(other)`, `qb.intersect(...builders)` |
+| Compound SELECT (EXCEPT) | âœ… | `.except(other)`, `qb.except(...builders)` |
+| Window frames (ROWS BETWEEN) | âŒ | Out of scope (niche) |
+| EXPLAIN | âœ… | `.explain()` â†’ `EXPLAIN SELECT ...` |
+| EXPLAIN QUERY PLAN | âœ… | `.explainQueryPlan()` â†’ `EXPLAIN QUERY PLAN SELECT ...` |
 
 ---
 
@@ -151,11 +199,11 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 | Feature | Support | Method |
 |---------|---------|--------|
-| Single-row INSERT | ✅ | `.insert(fields)` → `INSERT INTO t (cols) VALUES (@cols)` |
-| Multi-row INSERT | ✅ | `.insertMulti(fields, rowCount)` → `VALUES (@col_0, ...), (@col_1, ...)` |
-| INSERT DEFAULT VALUES | ✅ | `.insertDefaultValues()` → `INSERT INTO t DEFAULT VALUES` |
-| INSERT OR ROLLBACK/ABORT/FAIL/IGNORE/REPLACE | ✅ | `.insert(...).or('REPLACE')` — conflict resolution |
-| RETURNING | ✅ | `.returning(fields)` (SQLite 3.35+) |
+| Single-row INSERT | âœ… | `.insert(fields)` â†’ `INSERT INTO t (cols) VALUES (@cols)` |
+| Multi-row INSERT | âœ… | `.insertMulti(fields, rowCount)` â†’ `VALUES (@col_0, ...), (@col_1, ...)` |
+| INSERT DEFAULT VALUES | âœ… | `.insertDefaultValues()` â†’ `INSERT INTO t DEFAULT VALUES` |
+| INSERT OR ROLLBACK/ABORT/FAIL/IGNORE/REPLACE | âœ… | `.insert(...).or('REPLACE')` — conflict resolution |
+| RETURNING | âœ… | `.returning(fields)` (SQLite 3.35+) |
 
 ---
 
@@ -163,14 +211,14 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 | Feature | Support | Method |
 |---------|---------|--------|
-| UPSERT (uniqueKeys-based) | ✅ | `.upsert(fields)` — requires `.uniqueKeys()` or `defTable()` pre-configured |
-| ON CONFLICT sub-builder | ✅ | `.onConflict(cols).doNothing()/.doUpdate(fields)/.doUpdateRaw(sets)` |
-| ON CONFLICT DO NOTHING | ✅ | `.onConflict(cols).doNothing()` |
-| DO UPDATE SET (auto excluded.*) | ✅ | `.onConflict(cols).doUpdate(fields)` |
-| DO UPDATE SET (manual expressions) | ✅ | `.onConflict(cols).doUpdateRaw({ col: 'expr' })` |
-| Partial index WHERE on conflict target | ✅ | `.onConflict(cols, { where: '...' })` |
-| WHERE on DO UPDATE | ✅ | `.doUpdate(fields, where)` or `.doUpdateRaw(sets, where)` |
-| RETURNING on UPSERT | ✅ | `.returning()` works with onConflict |
+| UPSERT (uniqueKeys-based) | âœ… | `.upsert(fields)` — requires `.uniqueKeys()` or `defTable()` pre-configured |
+| ON CONFLICT sub-builder | âœ… | `.onConflict(cols).doNothing()/.doUpdate(fields)/.doUpdateRaw(sets)` |
+| ON CONFLICT DO NOTHING | âœ… | `.onConflict(cols).doNothing()` |
+| DO UPDATE SET (auto excluded.*) | âœ… | `.onConflict(cols).doUpdate(fields)` |
+| DO UPDATE SET (manual expressions) | âœ… | `.onConflict(cols).doUpdateRaw({ col: 'expr' })` |
+| Partial index WHERE on conflict target | âœ… | `.onConflict(cols, { where: '...' })` |
+| WHERE on DO UPDATE | âœ… | `.doUpdate(fields, where)` or `.doUpdateRaw(sets, where)` |
+| RETURNING on UPSERT | âœ… | `.returning()` works with onConflict |
 
 ---
 
@@ -178,12 +226,12 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 | Feature | Support | Method |
 |---------|---------|--------|
-| Basic UPDATE SET WHERE | ✅ | `.update(fields).where(conditions)` |
-| Basic DELETE WHERE | ✅ | `.delete().where(conditions)` |
-| DELETE without WHERE | ✅ | `.delete()` |
-| RETURNING | ✅ | `.returning(fields)` |
-| UPDATE FROM (SQLite 3.33+) | ✅ | `.update(fields).from(table).where(conditions)` |
-| Subquery / raw expression in SET | ✅ | `.updateRaw({ col: 'expr' }).where(conditions)` |
+| Basic UPDATE SET WHERE | âœ… | `.update(fields).where(conditions)` |
+| Basic DELETE WHERE | âœ… | `.delete().where(conditions)` |
+| DELETE without WHERE | âœ… | `.delete()` |
+| RETURNING | âœ… | `.returning(fields)` |
+| UPDATE FROM (SQLite 3.33+) | âœ… | `.update(fields).from(table).where(conditions)` |
+| Subquery / raw expression in SET | âœ… | `.updateRaw({ col: 'expr' }).where(conditions)` |
 
 ---
 
@@ -191,10 +239,10 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 | Feature | Support | Method |
 |---------|---------|--------|
-| CREATE INDEX | ✅ | `.createIndex(name, columns, options?)` |
-| Partial index (WHERE) | ✅ | `.createIndex(name, cols, { where: '...' })` |
-| Expression index | ✅ | `.createIndex(name, ['LOWER(name)'])` |
-| DROP INDEX | ✅ | `QueryBuilder.dropIndex(name)` |
+| CREATE INDEX | âœ… | `.createIndex(name, columns, options?)` |
+| Partial index (WHERE) | âœ… | `.createIndex(name, cols, { where: '...' })` |
+| Expression index | âœ… | `.createIndex(name, ['LOWER(name)'])` |
+| DROP INDEX | âœ… | `qb.dropIndex(name)` |
 
 ---
 
@@ -202,19 +250,19 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 
 | Feature | Support | Method |
 |---------|---------|--------|
-| PragmaBuilder | ✅ | `QueryBuilder.pragma()` → fluent chain, `.toSQL()` compiles all |
-| enableForeignKeys | ✅ | `QueryBuilder.enableForeignKeys()` |
-| `foreignKeys(on?)` | ✅ | `PRAGMA foreign_keys = ON/OFF;` |
-| `journalMode(mode)` | ✅ | `PRAGMA journal_mode = WAL/DELETE/MEMORY/TRUNCATE/PERSIST/OFF;` |
-| `synchronous(level)` | ✅ | `PRAGMA synchronous = OFF/NORMAL/FULL/EXTRA;` |
-| `cacheSize(size)` | ✅ | `PRAGMA cache_size = N;` (positive=pages, negative=KB) |
-| `tempStore(location)` | ✅ | `PRAGMA temp_store = DEFAULT/FILE/MEMORY;` |
-| `busyTimeout(ms)` | ✅ | `PRAGMA busy_timeout = N;` |
-| `mmap_size(bytes)` | ✅ | `PRAGMA mmap_size = N;` |
-| `pageSize(bytes)` | ✅ | `PRAGMA page_size = N;` (power of 2, 512–65536) |
-| `autoVacuum(mode)` | ✅ | `PRAGMA auto_vacuum = NONE/FULL/INCREMENTAL;` |
-| `optimize()` | ✅ | `PRAGMA optimize;` |
-| `raw(key, value)` | ✅ | `PRAGMA key = value;` (arbitrary pragma) |
+| PragmaBuilder | âœ… | `qb.pragma()` â†’ fluent chain, `.toSQL()` compiles all |
+| enableForeignKeys | âœ… | `qb.enableForeignKeys()` |
+| `foreignKeys(on?)` | âœ… | `PRAGMA foreign_keys = ON/OFF;` |
+| `journalMode(mode)` | âœ… | `PRAGMA journal_mode = WAL/DELETE/MEMORY/TRUNCATE/PERSIST/OFF;` |
+| `synchronous(level)` | âœ… | `PRAGMA synchronous = OFF/NORMAL/FULL/EXTRA;` |
+| `cacheSize(size)` | âœ… | `PRAGMA cache_size = N;` (positive=pages, negative=KB) |
+| `tempStore(location)` | âœ… | `PRAGMA temp_store = DEFAULT/FILE/MEMORY;` |
+| `busyTimeout(ms)` | âœ… | `PRAGMA busy_timeout = N;` |
+| `mmap_size(bytes)` | âœ… | `PRAGMA mmap_size = N;` |
+| `pageSize(bytes)` | âœ… | `PRAGMA page_size = N;` (power of 2, 512—65536) |
+| `autoVacuum(mode)` | âœ… | `PRAGMA auto_vacuum = NONE/FULL/INCREMENTAL;` |
+| `optimize()` | âœ… | `PRAGMA optimize;` |
+| `raw(key, value)` | âœ… | `PRAGMA key = value;` (arbitrary pragma) |
 
 ---
 
@@ -252,19 +300,19 @@ All 3 produce identical DDL when given equivalent schemas (verified by e2e tests
 ## Testing
 
 - **Framework**: Vitest 4 (pure ESM)
-- **Total tests**: 405
+- **Total tests**: 410
 - **Run**: `npm.cmd test -w @ytrynot/qb`
 - **Typecheck**: `npm.cmd test -- --typecheck`
 
 | Test file | Count | Coverage |
 |-----------|-------|----------|
-| `tests/builder.test.ts` | 132 | Core Builder API: SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, onConflict sub-builder, insertMulti, insertDefaultValues, having, distinct, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, dropIndex, runtime guards, PragmaBuilder full coverage, PK detection via `pk`/`meta.pk`/`pkauto`, NOT NULL + DEFAULT independence, direct properties without `meta` |
+| `tests/builder.test.ts` | 135 | Core Builder API: SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, onConflict sub-builder, insertMulti, insertDefaultValues, having, distinct, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, dropIndex, runtime guards, PragmaBuilder full coverage, PK detection via `pk`/`meta.pk`/`pkauto`, NOT NULL + DEFAULT independence, direct properties without `meta`, `names` metadata (table, col, pk, isPk, isUnique, readonly, updatable) |
 | `tests/readme-examples.test.ts` | 17 | README examples produce documented SQL |
 | `tests/e2e-lifecycle.test.ts` | 48 | CRUD lifecycle across drivers + schema sources |
 | `tests/e2e-ddl.test.ts` | 36 | DDL generation + execution + PRAGMA e2e (both drivers) |
 | `tests/sqlite-integration.test.ts` | 15 | node:sqlite integration |
-| `tests/zod-introspector.test.ts` | 18 | Zod introspector |
-| `tests/dna-introspector.test.ts` | 18 | DNA introspector |
+| `tests/zod-introspector.test.ts` | 19 | Zod introspector — PK detection, type mapping, metadata, readonly via `.readonly()` |
+| `tests/dna-introspector.test.ts` | 19 | DNA introspector — PK detection, type mapping, metadata, readonly via `.readonly()` |
 | `tests/zod-compliance.test.ts` | 11 | Zod unwrapping patterns |
 | `tests/dna-compliance.test.ts` | 10 | DNA unwrapping patterns |
 | `tests/query-construction.test.ts` | 4 | Basic queries + UPSERT |
@@ -285,7 +333,7 @@ qb is a simple string builder for common SQLite operations. These features are *
 
 **Niche DDL optimizations**:
 - **WITHOUT ROWID** — storage optimization, users can append manually to DDL
-- **STRICT tables** — requires type mapping (`BOOLEAN → INTEGER`, `DATETIME → TEXT`), complex + niche
+- **STRICT tables** — requires type mapping (`BOOLEAN â†’ INTEGER`, `DATETIME â†’ TEXT`), complex + niche
 - **COLLATE on columns** — very niche (`NOCASE` is the only realistic use case)
 - **CREATE/DROP VIEW** — users create views via migrations, not via qb
 

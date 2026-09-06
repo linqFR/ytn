@@ -308,6 +308,11 @@ export class QueryBuilder {
     const isPk = Object.fromEntries(keys.map((k) => [k, pkCols.includes(k)]));
     const uniqueSet = new Set(uniqueKeys);
     const isUnique = Object.fromEntries(keys.map((k) => [k, uniqueSet.has(k)]));
+    const readonlyCols = columns
+      .filter((c) => c.readonly || c.meta?.readonly === true)
+      .map((c) => c.name);
+    const readonlySet = new Set(readonlyCols);
+    const updatableCols = keys.filter((k) => !readonlySet.has(k));
 
     return {
       name: tableName,
@@ -318,6 +323,8 @@ export class QueryBuilder {
         pk,
         isPk,
         isUnique,
+        readonly: readonlyCols,
+        updatable: updatableCols,
       },
       createTable: DDLEngine.createTable(tableName, columns, options),
       getAll: QueryBuilder.table(tableName).select().toSQL(),

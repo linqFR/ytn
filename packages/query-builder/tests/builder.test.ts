@@ -312,6 +312,17 @@ describe('QueryBuilder - Fixes and New Features', () => {
       expect(crud.names.isUnique.name).toBe(false);
     });
 
+    it('defTable — names.readonly and names.updatable', () => {
+      const crud = QueryBuilder.defTable('users', [
+        { name: 'id', sqliteType: 'TEXT', optional: false, hasDefault: false, pk: true, readonly: true },
+        { name: 'email', sqliteType: 'TEXT', optional: false, hasDefault: false, unique: true },
+        { name: 'name', sqliteType: 'TEXT', optional: false, hasDefault: false, readonly: true },
+        { name: 'bio', sqliteType: 'TEXT', optional: true, hasDefault: false },
+      ]);
+      expect(crud.names.readonly).toEqual(['id', 'name']);
+      expect(crud.names.updatable).toEqual(['email', 'bio']);
+    });
+
     it('defTable — throws on non-object schema', () => {
       expect(() => QueryBuilder.defTable('users', z.string())).toThrow();
     });

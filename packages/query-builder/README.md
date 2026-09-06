@@ -13,7 +13,7 @@ It can define a table and generate full CRUD directly from a **Zod v4** schema, 
 > [!IMPORTANT]
 > **Schema support is strictly limited to Zod v4 and @ytrynot/dna.** No other schema library is supported for DDL generation or CRUD helpers. Zod v3 is **not** supported — the introspection layer relies on the v4 `._zod` protocol exclusively.
 >
-> For use cases that do not involve schema introspection, the `QueryBuilder` fluent API (`.select()`, `.insert()`, `.where()`, etc.) works independently of any schema library.
+> For use cases that do not involve schema introspection, the `qb` fluent API (`.select()`, `.insert()`, `.where()`, etc.) works independently of any schema library.
 
 > [!NOTE]
 > **Terminology**:
@@ -55,9 +55,9 @@ npx skills add linqFR/ytn
 The smallest example: build a `SELECT` query and get the SQL string with named parameters.
 
 ```typescript
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
-const sql = QueryBuilder.table("users")
+const sql = qb.table("users")
   .select(["id", "name"])
   .where(["id"])
   .toSQL();
@@ -87,7 +87,7 @@ const row = stmt.get({ id: 123 });
 
 ```typescript
 import { z } from "zod";
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
 const UserSchema = z.object({
   id: z.string().uuid().meta({ pk: true }),
@@ -97,7 +97,7 @@ const UserSchema = z.object({
   created_at: z.date().optional(),
 });
 
-const users = QueryBuilder.defTable("users", UserSchema);
+const users = qb.defTable("users", UserSchema);
 
 console.log(users.createTable);
 console.log(users.getById);
@@ -122,7 +122,7 @@ The same table, defined with `@ytrynot/dna` — identical SQL output:
 
 ```typescript
 import { dna } from "@ytrynot/dna";
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
 const UserSchema = dna.object({
   id: dna.string().uuid().meta({ pk: true }),
@@ -132,7 +132,7 @@ const UserSchema = dna.object({
   created_at: dna.date().optional(),
 });
 
-const users = QueryBuilder.defTable("users", UserSchema);
+const users = qb.defTable("users", UserSchema);
 
 console.log(users.createTable);
 ```
@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS users (
 - **Schema-First DDL**: Generate `CREATE TABLE` and a full CRUD set from **Zod v4** or **@ytrynot/dna** schemas — or use the fluent API standalone.
 - **Three schema sources, one API**: `defTable(name, def)` accepts Zod, DNA, or manual `qbColumn[]` and returns the same `TableDef` shape.
 - **Advanced Queries**: JOINs (INNER, LEFT, RIGHT), subqueries, `EXISTS`, `CASE WHEN`, window functions (with frame specs), `DISTINCT`, `HAVING`, `RETURNING`.
-- **Compound SELECT**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT` via instance methods (`.union()`, `.unionAll()`, etc.) and static factories (`QueryBuilder.unionAll(...)`).
+- **Compound SELECT**: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT` via instance methods (`.union()`, `.unionAll()`, etc.) and static factories (`qb.unionAll(...)`).
 - **CTE**: `.with(name, query)` and `.withRecursive(name, query)` for `WITH` / `WITH RECURSIVE` clauses.
 - **Raw escape hatches**: `whereRaw()`, `selectRaw()`, `orderByRaw()`, `updateRaw()` for expressions the fluent API can't express.
 - **ON CONFLICT**: `.onConflict(cols).doNothing()/.doUpdate()/.doUpdateRaw()` for fine-grained upsert control.
@@ -164,8 +164,8 @@ CREATE TABLE IF NOT EXISTS users (
 - **Multi-row INSERT**: `.insertMulti(fields, rowCount)` with indexed placeholders.
 - **DDL Constraints**: Composite UNIQUE, CHECK (column + table level), FK actions (CASCADE/SET NULL/SET DEFAULT/RESTRICT/NO ACTION), generated columns (`GENERATED ALWAYS AS ... STORED|VIRTUAL`).
 - **TEMP tables**: `options.temporary: true` for `CREATE TEMP TABLE`.
-- **CREATE TABLE AS SELECT**: `QueryBuilder.createTableAs(name, builder)`.
-- **CREATE TRIGGER**: `QueryBuilder.createTrigger(name, def)` — typed structure (timing, event, table, WHEN, FOR EACH ROW), raw body.
+- **CREATE TABLE AS SELECT**: `qb.createTableAs(name, builder)`.
+- **CREATE TRIGGER**: `qb.createTrigger(name, def)` — typed structure (timing, event, table, WHEN, FOR EACH ROW), raw body.
 - **EXPLAIN**: `.explain()` and `.explainQueryPlan()` for query analysis.
 - **Index Management**: `createIndex()` with partial WHERE and expression columns, `dropIndex()`.
 - **SQLite Pragmas**: Fluent `PragmaBuilder` for `foreign_keys`, `journal_mode`, `synchronous`, and more.
@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS users (
 - `better-sqlite3` bundles its own SQLite — check the bundled version.
 - Features used without guard produce runtime errors from the driver on older SQLite, not from `@ytrynot/qb`.
 
-You must read the documentation of your SQLite database and check which parameters are effective and allowed by the version of SQLite your database is using. **`QueryBuilder` is a tool to write SQLite requests; it does not execute the request.**
+You must read the documentation of your SQLite database and check which parameters are effective and allowed by the version of SQLite your database is using. **`qb` is a tool to write SQLite requests; it does not execute the request.**
 
 ## Testing
 
@@ -240,4 +240,4 @@ The project uses `tsup` for bundling.
 
 ## License
 
-[MIT](./LICENSE) — © linqFR
+[MIT](./LICENSE) — Â© linqFR

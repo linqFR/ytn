@@ -31,14 +31,14 @@ All three paths produce identical SQL when given equivalent schemas.
 
 | Method | Returns | Use when |
 | :--- | :--- | :--- |
-| `QueryBuilder.defTable(name, def, options?)` | `TableDef` | You want the full CRUD set + a `req` getter for custom queries. Accepts Zod, DNA, or manual `qbColumn[]`. |
-| `QueryBuilder.reqCreateTable(name, def, options?)` | `string` | You want only the `CREATE TABLE` DDL string. Shortcut for `defTable(name, def).createTable`. |
-| `QueryBuilder.createTable(name, columns, options?)` | `string` | You want DDL from manual `qbColumn[]` without a schema library. |
+| `qb.defTable(name, def, options?)` | `TableDef` | You want the full CRUD set + a `req` getter for custom queries. Accepts Zod, DNA, or manual `qbColumn[]`. |
+| `qb.reqCreateTable(name, def, options?)` | `string` | You want only the `CREATE TABLE` DDL string. Shortcut for `defTable(name, def).createTable`. |
+| `qb.createTable(name, columns, options?)` | `string` | You want DDL from manual `qbColumn[]` without a schema library. |
 
 `defTable` automatically detects the schema type:
-- `z.ZodTypeAny` → uses the Zod v4 introspector
-- `DnaType` → uses the DNA introspector
-- `qbColumn[]` → uses the columns directly (manual)
+- `z.ZodTypeAny` â†’ uses the Zod v4 introspector
+- `DnaType` â†’ uses the DNA introspector
+- `qbColumn[]` â†’ uses the columns directly (manual)
 
 ## Define a table from a Zod v4 schema
 
@@ -46,7 +46,7 @@ Database-specific constraints are declared through Zod v4's `.meta()` API on eac
 
 ```typescript
 import { z } from "zod";
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
 const UserSchema = z.object({
   id: z.string().uuid().meta({ pk: true }),
@@ -56,7 +56,7 @@ const UserSchema = z.object({
   created_at: z.date().optional(),
 });
 
-const ddl = QueryBuilder.reqCreateTable("users", UserSchema);
+const ddl = qb.reqCreateTable("users", UserSchema);
 console.log(ddl);
 ```
 
@@ -91,7 +91,7 @@ Optional fields (`z.string().optional()`, `z.date().optional()`) omit `NOT NULL`
 
 ```typescript
 import { dna } from "@ytrynot/dna";
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
 const UserSchema = dna.object({
   id: dna.string().uuid().meta({ pk: true }),
@@ -101,7 +101,7 @@ const UserSchema = dna.object({
   created_at: dna.date().optional(),
 });
 
-const ddl = QueryBuilder.reqCreateTable("users", UserSchema);
+const ddl = qb.reqCreateTable("users", UserSchema);
 console.log(ddl);
 ```
 
@@ -124,7 +124,7 @@ The DNA introspector uses the `@ytrynot/dna/introspect` public API (`isOptional`
 When you do not have a Zod or DNA schema, pass a `qbColumn[]` array directly. Each `qbColumn` declares the column name, SQLite type, optionality, default, and constraints.
 
 ```typescript
-import { QueryBuilder, type qbTable } from "@ytrynot/qb";
+import { qb, type qbTable } from "@ytrynot/qb";
 
 const columns: qbTable = [
   { name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, pk: true },
@@ -134,7 +134,7 @@ const columns: qbTable = [
   { name: "created_at", sqliteType: "DATETIME", optional: true, hasDefault: false },
 ];
 
-const ddl = QueryBuilder.createTable("users", columns);
+const ddl = qb.createTable("users", columns);
 console.log(ddl);
 ```
 
@@ -185,8 +185,8 @@ CREATE TABLE IF NOT EXISTS users (
 `reqCreateTable(name, def)` is a shortcut for `defTable(name, def).createTable` — it returns only the DDL string, without the rest of the CRUD set. It accepts the same three schema sources (Zod, DNA, manual `qbColumn[]`).
 
 ```typescript
-const ddl = QueryBuilder.reqCreateTable("users", UserSchema);
-// → "CREATE TABLE IF NOT EXISTS users (...);"
+const ddl = qb.reqCreateTable("users", UserSchema);
+// â†’ "CREATE TABLE IF NOT EXISTS users (...);"
 ```
 
 ## Use the auto-generated CRUD set
@@ -194,7 +194,7 @@ const ddl = QueryBuilder.reqCreateTable("users", UserSchema);
 `defTable(name, def)` returns a `TableDef` with pre-built SQL strings and a `req`/`q` getter for custom fluent queries:
 
 ```typescript
-const users = QueryBuilder.defTable("users", UserSchema);
+const users = qb.defTable("users", UserSchema);
 
 users.createTable;  // CREATE TABLE IF NOT EXISTS users (...)
 users.getAll;       // SELECT * FROM users
@@ -240,7 +240,7 @@ const PostSchema = z.object({
   }),
 });
 
-const ddl = QueryBuilder.reqCreateTable("posts", PostSchema);
+const ddl = qb.reqCreateTable("posts", PostSchema);
 console.log(ddl);
 ```
 
@@ -270,8 +270,8 @@ The `fk` value can be a string `"table(col)"` (shorthand, no actions) or an obje
 > **SQLite enforcement**: SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` when opening your connection:
 >
 > ```typescript
-> const sql = QueryBuilder.enableForeignKeys();
-> // → "PRAGMA foreign_keys = ON;"
+> const sql = qb.enableForeignKeys();
+> // â†’ "PRAGMA foreign_keys = ON;"
 > ```
 >
 > Without this, the database ignores FK constraints and allows orphaned rows.
@@ -292,22 +292,22 @@ The `fk` value can be a string `"table(col)"` (shorthand, no actions) or an obje
 
 ```typescript
 // 1. Auto-deduced from defTable (schema metadata: pk, unique, pkauto)
-const users = QueryBuilder.defTable("users", UserSchema);
+const users = qb.defTable("users", UserSchema);
 users.req.upsert("email", "name").toSQL();
 // INSERT INTO users (email, name) VALUES (@email, @name)
 // ON CONFLICT(id, email) DO UPDATE SET name = excluded.name
 
 // 2. Via table() 2nd arg
-QueryBuilder.table("users", ["email"]).upsert("email", "name").toSQL();
+qb.table("users", ["email"]).upsert("email", "name").toSQL();
 
 // 3. Via .uniqueKeys() chain
-QueryBuilder.table("users").uniqueKeys("email").upsert("email", "name").toSQL();
+qb.table("users").uniqueKeys("email").upsert("email", "name").toSQL();
 ```
 
 For more control (partial index WHERE, raw expressions, DO NOTHING), use `.insert().onConflict()`:
 
 ```typescript
-QueryBuilder.table("users", ["email"])
+qb.table("users", ["email"])
   .insert(["email", "name"])
   .onConflict("email")
   .doUpdate(["name"])
@@ -322,7 +322,7 @@ See [How-to: Queries](./how-to-queries.md) for the full UPSERT and ON CONFLICT c
 Pass `primaryKey: string[]` in the `options` argument to `defTable` or `createTable` for a composite primary key. The PK is emitted as a table-level `PRIMARY KEY (col1, col2)` clause.
 
 ```typescript
-const members = QueryBuilder.defTable("members", memberColumns, {
+const members = qb.defTable("members", memberColumns, {
   primaryKey: ["tenant_id", "user_id"],
 });
 members.getById;
@@ -347,36 +347,36 @@ Pass table-level constraints through the `options` argument (`qbTableOptions`):
 
 ## Index management
 
-Create indexes with `.createIndex(name, columns, options?)` on a `Builder` instance. Drop indexes with `QueryBuilder.dropIndex(name)`.
+Create indexes with `.createIndex(name, columns, options?)` on a `Builder` instance. Drop indexes with `qb.dropIndex(name)`.
 
 ```typescript
 // Basic index
-const idx = QueryBuilder.table("users").createIndex("idx_users_email", ["email"]).toSQL();
+const idx = qb.table("users").createIndex("idx_users_email", ["email"]).toSQL();
 console.log(idx);
 // CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
 
 // Partial index (WHERE clause)
-const partialIdx = QueryBuilder.table("users")
+const partialIdx = qb.table("users")
   .createIndex("idx_active_users", ["email"], { where: "is_active = 1" })
   .toSQL();
 console.log(partialIdx);
 // CREATE INDEX IF NOT EXISTS idx_active_users ON users(email) WHERE is_active = 1
 
 // Expression index
-const exprIdx = QueryBuilder.table("users")
+const exprIdx = qb.table("users")
   .createIndex("idx_users_name_lower", ["LOWER(name)"])
   .toSQL();
 // CREATE INDEX IF NOT EXISTS idx_users_name_lower ON users(LOWER(name))
 
 // Drop an index
-QueryBuilder.dropIndex("idx_users_email");
+qb.dropIndex("idx_users_email");
 // DROP INDEX IF EXISTS idx_users_email;
 ```
 
 ## Drop a table
 
 ```typescript
-const dropSql = QueryBuilder.dropTable("users");
+const dropSql = qb.dropTable("users");
 console.log(dropSql);
 // DROP TABLE IF EXISTS users;
 ```
@@ -393,7 +393,7 @@ const columns: qbColumn[] = [
   { name: "full_name", sqliteType: "TEXT", generated: { expr: "first_name || ' ' || last_name", type: "STORED" } },
 ];
 
-const sql = QueryBuilder.createTable("users", columns);
+const sql = qb.createTable("users", columns);
 // CREATE TABLE IF NOT EXISTS users (
 //   id INTEGER PRIMARY KEY AUTOINCREMENT,
 //   first_name TEXT NOT NULL,
@@ -409,7 +409,7 @@ Use `type: "VIRTUAL"` for computed-on-read columns (no storage). Generated colum
 Pass `temporary: true` in options to create a session-scoped temporary table:
 
 ```typescript
-const sql = QueryBuilder.createTable("temp_cache", columns, { temporary: true });
+const sql = qb.createTable("temp_cache", columns, { temporary: true });
 // CREATE TEMP TABLE IF NOT EXISTS temp_cache (...)
 ```
 
@@ -418,18 +418,18 @@ const sql = QueryBuilder.createTable("temp_cache", columns, { temporary: true })
 Create a table populated from a query:
 
 ```typescript
-const sql = QueryBuilder.createTableAs("active_users",
-  QueryBuilder.table("users").select("id", "name").whereRaw("active = 1")
+const sql = qb.createTableAs("active_users",
+  qb.table("users").select("id", "name").whereRaw("active = 1")
 );
 // CREATE TABLE active_users AS SELECT id, name FROM users WHERE active = 1;
 ```
 
 ## CREATE TRIGGER
 
-`QueryBuilder.createTrigger(name, def)` generates a `CREATE TRIGGER IF NOT EXISTS` statement with typed structure and a raw SQL body. The body and WHEN clause are raw SQL — SQLite trigger bodies contain imperative multi-statement logic (INSERT...SELECT, UPDATE with NEW/OLD refs, EXISTS subqueries) that cannot be expressed by the fluent Builder.
+`qb.createTrigger(name, def)` generates a `CREATE TRIGGER IF NOT EXISTS` statement with typed structure and a raw SQL body. The body and WHEN clause are raw SQL — SQLite trigger bodies contain imperative multi-statement logic (INSERT...SELECT, UPDATE with NEW/OLD refs, EXISTS subqueries) that cannot be expressed by the fluent Builder.
 
 ```typescript
-const sql = QueryBuilder.createTrigger("trg_act_done_pb", {
+const sql = qb.createTrigger("trg_act_done_pb", {
   timing: "AFTER",
   event: "UPDATE",
   of: ["status"],
@@ -449,8 +449,8 @@ Supported: `BEFORE` / `AFTER` / `INSTEAD OF` timing, `INSERT` / `UPDATE` / `DELE
 Use `TableDef.cols` and `TableDef.name` for refactor-safe trigger definitions:
 
 ```typescript
-const t = QueryBuilder.defTable("actions", ActionSchema);
-QueryBuilder.createTrigger("trg_act_done_pb", {
+const t = qb.defTable("actions", ActionSchema);
+qb.createTrigger("trg_act_done_pb", {
   timing: "AFTER",
   event: "UPDATE",
   of: [t.cols[1]],   // 'status' via cols

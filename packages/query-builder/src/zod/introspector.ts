@@ -37,6 +37,7 @@ export class ZodIntrospector implements ISchemaIntrospector<z.ZodType> {
     return Object.entries(shape).map(([key, schemaItem]) => {
       const meta = getZodMetaDeep(schemaItem);
       const optional = isZodOptional(schemaItem) || isZodDefault(schemaItem) || isZodNullable(schemaItem);
+      const isReadonly = schemaItem instanceof z.ZodReadonly;
       const unwrapped = unwrapZodDeep(schemaItem);
       const baseType = getZodDef(unwrapped)?.type;
 
@@ -57,6 +58,7 @@ export class ZodIntrospector implements ISchemaIntrospector<z.ZodType> {
         pkauto: meta.pkauto === true,
         unique: meta.unique === true,
         fk: meta.fk,
+        readonly: isReadonly,
         meta,
       };
     });

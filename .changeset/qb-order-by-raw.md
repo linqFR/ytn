@@ -16,9 +16,10 @@ Compound SELECT, CTE, advanced DDL/DML, window frames, triggers, and DDL improve
 - Subquery in SET: `.updateRaw({ col: 'expr' })` emits `UPDATE t SET col = expr WHERE ...`.
 - Window frames: `.selectWindow(alias, { frame: { type, start, end?, exclude? } })` emits `ROWS BETWEEN ... AND ...` etc.
 - CREATE TRIGGER: `QueryBuilder.createTrigger(name, def)` — typed structure, raw body.
-- `TableDef` exposes `name: string`, `cols: string[]`, and `names: ITableNames` for programmatic access. `names` provides `table`, `col` (lookup by name), `pk`, `isPk` (per-column boolean), and `isUnique` (per-column boolean) — all computed once at `defTable` time for raw SQL construction without hardcoding identifiers.
+- `TableDef` exposes `name: string`, `cols: string[]`, and `names: ITableNames` for programmatic access. `names` provides `table`, `col` (lookup by name), `pk`, `isPk` (per-column boolean), `isUnique` (per-column boolean), `readonly` (list of readonly column names), and `updatable` (list of non-readonly column names) — all computed once at `defTable` time for raw SQL construction without hardcoding identifiers.
+- `qbColumn.readonly: boolean` is now a direct field. The Zod introspector detects `z.ZodReadonly` (via `.readonly()`); the DNA introspector reads `meta.readonly` (set by DNA's `.readonly()`). Both propagate to `names.readonly` / `names.updatable`.
 - `clone()` preserves all new state.
 - `qbColumn.optional`, `qbColumn.hasDefault`, and `qbColumn.meta` are now optional in the interface (natural defaults `false`, `false`, `{}`).
 - `qbColumn.pk: true` is now a direct primary key marker, alongside `meta.pk` and `pkauto`.
 - `NOT NULL` and `DEFAULT` are now independent constraints — both can appear together (e.g. `scope TEXT NOT NULL DEFAULT 'repo-wide'`). `NOT NULL` is emitted before `DEFAULT`, matching standard SQLite DDL conventions.
-- 407 total tests pass.
+- 410 total tests pass.

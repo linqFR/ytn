@@ -280,6 +280,8 @@ export interface qbColumn {
   fk?: string | IForeignKeyDefinition;
   /** Column-level CHECK constraint (e.g. `"age >= 0"`). */
   check?: string;
+  /** Whether the column is readonly (not correctable via update tools). */
+  readonly?: boolean;
   /** Generated column definition (`GENERATED ALWAYS AS (expr) STORED|VIRTUAL`). */
   generated?: {
     /** SQL expression for the generated column. */
@@ -352,6 +354,10 @@ export interface ITableNames {
   readonly isPk: Record<string, boolean>;
   /** Per-column unique flag: `isUnique.email` → `true`, `isUnique.name` → `false`. */
   readonly isUnique: Record<string, boolean>;
+  /** List of readonly column names (PK, seq, timestamps, trigger-managed, etc.). */
+  readonly readonly: string[];
+  /** List of updatable column names (not readonly). */
+  readonly updatable: string[];
 }
 
 /**

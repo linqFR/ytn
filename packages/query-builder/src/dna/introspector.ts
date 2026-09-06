@@ -57,6 +57,7 @@ export class DnaIntrospector implements ISchemaIntrospector<DnaType> {
         pkauto: meta.pkauto === true,
         unique: meta.unique === true,
         fk: normalizeFk(meta.fk),
+        readonly: meta.readonly === true,
         meta,
       };
     });

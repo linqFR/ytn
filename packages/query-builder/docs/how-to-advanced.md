@@ -24,16 +24,16 @@ This guide covers SQL constructs that go beyond basic CRUD: existence predicates
 - **Performance**: In SQL, `EXISTS` is efficient because the query engine stops searching as soon as it finds the first matching row.
 
 ```typescript
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
 // Build the EXISTS fragment
-const hasOrders = QueryBuilder.table("orders")
+const hasOrders = qb.table("orders")
   .as("o")
   .whereColumn("o.user_id", "u.id") // "u" is the alias of the outer query
   .asExists();
 
 // Use it in the outer query
-const sql = QueryBuilder.table("users")
+const sql = qb.table("users")
   .as("u")
   .select(["name"])
   .whereRaw(hasOrders)
@@ -46,11 +46,11 @@ console.log(sql);
 `.asNotExists()` produces `NOT EXISTS (...)`:
 
 ```typescript
-const noOrders = QueryBuilder.table("orders")
+const noOrders = qb.table("orders")
   .as("o")
   .whereColumn("o.user_id", "u.id")
   .asNotExists();
-// → "NOT EXISTS (SELECT * FROM orders o WHERE o.user_id = u.id)"
+// â†’ "NOT EXISTS (SELECT * FROM orders o WHERE o.user_id = u.id)"
 ```
 
 ## Declarative CASE statements
@@ -63,14 +63,14 @@ The `when` value can be a raw SQL string or the result of `.asExists()` / `.asNo
 const hasPublishedPrompts =
   "EXISTS (SELECT * FROM prompts p WHERE p.tool_uuid = t.uuid AND p.status = 'published')";
 
-const sql = QueryBuilder.table("tools")
+const sql = qb.table("tools")
   .as("t")
   .select(["name"])
   .selectCase(
     "status",
     [
       {
-        when: QueryBuilder.table("prompt_tools")
+        when: qb.table("prompt_tools")
           .as("pt")
           .whereColumn("pt.tool_uuid", "t.uuid")
           .asNotExists(),
@@ -97,14 +97,14 @@ A correlated subquery references a column from the outer query. Build the inner 
 
 ```typescript
 // Inner subquery — references outer alias "t"
-const recentVersion = QueryBuilder.table("tool_versions")
+const recentVersion = qb.table("tool_versions")
   .as("tv")
   .whereColumn("tv.tool_uuid", "t.uuid") // links "tv" to outer alias "t"
   .whereLiteral("tv.version", "'1.0.0'") // string literal (no @ binding)
   .limit(1);
 
 // Outer query — defines alias "t"
-const sql = QueryBuilder.table("tools")
+const sql = qb.table("tools")
   .as("t")
   .whereIn("uuid", recentVersion)
   .toSQL();
@@ -123,7 +123,7 @@ The inner `Builder` is compiled automatically when the outer query calls `.toSQL
 > Window functions require SQLite 3.25+. Window frames (`ROWS BETWEEN ...`) are supported via the `frame` option.
 
 ```typescript
-const sql = QueryBuilder.table("events")
+const sql = qb.table("events")
   .select(["type"])
   .selectWindow("rn", {
     func: "ROW_NUMBER()",
@@ -141,7 +141,7 @@ console.log(sql);
 Use the `frame` option to specify a window frame:
 
 ```typescript
-const sql = QueryBuilder.table("sales")
+const sql = qb.table("sales")
   .select(["month", "amount"])
   .selectWindow("moving_avg", {
     func: "AVG(amount)",
@@ -158,10 +158,10 @@ Supported frame types: `ROWS`, `RANGE`, `GROUPS`. Boundaries: `UNBOUNDED PRECEDI
 
 ## SQLite configuration (Pragmas)
 
-`QueryBuilder.pragma()` returns a `PragmaBuilder` — a fluent chain for SQLite `PRAGMA` statements. Each method adds a pragma; `.toSQL()` compiles all of them into a single script separated by newlines. Execute the script with your driver's `exec` method.
+`qb.pragma()` returns a `PragmaBuilder` — a fluent chain for SQLite `PRAGMA` statements. Each method adds a pragma; `.toSQL()` compiles all of them into a single script separated by newlines. Execute the script with your driver's `exec` method.
 
 ```typescript
-const sql = QueryBuilder.pragma()
+const sql = qb.pragma()
   .foreignKeys(true)
   .journalMode("WAL")
   .synchronous("NORMAL")
@@ -196,10 +196,10 @@ db.exec(sql);
 
 ### Enable foreign keys (shortcut)
 
-`QueryBuilder.enableForeignKeys()` returns the single statement `PRAGMA foreign_keys = ON;` — a shortcut for the most common pragma:
+`qb.enableForeignKeys()` returns the single statement `PRAGMA foreign_keys = ON;` — a shortcut for the most common pragma:
 
 ```typescript
-const sql = QueryBuilder.enableForeignKeys();
+const sql = qb.enableForeignKeys();
 console.log(sql);
 // PRAGMA foreign_keys = ON;
 ```

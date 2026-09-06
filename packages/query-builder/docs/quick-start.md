@@ -40,20 +40,20 @@ If you use only the fluent DML API (no schema-driven DDL), neither peer dependen
 
 ```typescript
 // Standard version (with full JSDoc support)
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
 // Minified version (optimized for production)
-import { QueryBuilder } from "@ytrynot/qb/min";
+import { qb } from "@ytrynot/qb/min";
 ```
 
 ## Step 2 — Build your first query
 
-`QueryBuilder.table(name)` starts a fluent DML chain. Each method returns the builder, so you chain calls and terminate with `.toSQL()`, which compiles the chain into a SQL string with named parameters.
+`qb.table(name)` starts a fluent DML chain. Each method returns the builder, so you chain calls and terminate with `.toSQL()`, which compiles the chain into a SQL string with named parameters.
 
 ```typescript
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
-const sql = QueryBuilder.table("users")
+const sql = qb.table("users")
   .select(["id", "name"])
   .where(["id"])
   .toSQL();
@@ -71,13 +71,13 @@ The `.where(["id"])` call produces `WHERE id = @id` — the parameter name match
 
 ## Step 3 — Define a table from a Zod v4 schema
 
-`QueryBuilder.defTable(name, schema)` introspects a Zod v4 object schema and returns a `TableDef` — an object containing the `CREATE TABLE` DDL string and a full set of pre-built CRUD SQL strings.
+`qb.defTable(name, schema)` introspects a Zod v4 object schema and returns a `TableDef` — an object containing the `CREATE TABLE` DDL string and a full set of pre-built CRUD SQL strings.
 
 Database-specific constraints (primary key, unique, default value, foreign key) are declared through Zod's `.meta()` API on each field:
 
 ```typescript
 import { z } from "zod";
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
 const UserSchema = z.object({
   id: z.string().uuid().meta({ pk: true }),
@@ -87,7 +87,7 @@ const UserSchema = z.object({
   created_at: z.date().optional(),
 });
 
-const users = QueryBuilder.defTable("users", UserSchema);
+const users = qb.defTable("users", UserSchema);
 
 console.log(users.createTable);
 ```
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 ```
 
-How it works: the Zod introspector reads each field of the object schema, maps the Zod type to a SQLite type (`z.string()` → `TEXT`, `z.number().int()` → `INTEGER`, `z.date()` → `DATETIME`), and reads the `.meta()` bag for constraints. Optional fields (`z.date().optional()`) omit `NOT NULL`. The result is a neutral `qbColumn[]` that the DDL engine turns into the `CREATE TABLE` statement.
+How it works: the Zod introspector reads each field of the object schema, maps the Zod type to a SQLite type (`z.string()` â†’ `TEXT`, `z.number().int()` â†’ `INTEGER`, `z.date()` â†’ `DATETIME`), and reads the `.meta()` bag for constraints. Optional fields (`z.date().optional()`) omit `NOT NULL`. The result is a neutral `qbColumn[]` that the DDL engine turns into the `CREATE TABLE` statement.
 
 ## Step 4 — Define the same table from a DNA schema
 
@@ -112,7 +112,7 @@ How it works: the Zod introspector reads each field of the object schema, maps t
 
 ```typescript
 import { dna } from "@ytrynot/dna";
-import { QueryBuilder } from "@ytrynot/qb";
+import { qb } from "@ytrynot/qb";
 
 const UserSchema = dna.object({
   id: dna.string().uuid().meta({ pk: true }),
@@ -122,7 +122,7 @@ const UserSchema = dna.object({
   created_at: dna.date().optional(),
 });
 
-const users = QueryBuilder.defTable("users", UserSchema);
+const users = qb.defTable("users", UserSchema);
 
 console.log(users.createTable);
 ```
@@ -146,7 +146,7 @@ The DNA introspector uses the `@ytrynot/dna/introspect` public API (`isOptional`
 The `TableDef` returned by `defTable` contains pre-built SQL strings for the common CRUD operations, plus a `req` (alias `q`) getter that returns a fresh `Builder` for custom queries.
 
 ```typescript
-const users = QueryBuilder.defTable("users", UserSchema);
+const users = qb.defTable("users", UserSchema);
 
 users.createTable;  // CREATE TABLE IF NOT EXISTS users (...)
 users.getAll;       // SELECT * FROM users
@@ -180,7 +180,7 @@ import { DatabaseSync } from "node:sqlite";
 const db = new DatabaseSync("app.db");
 
 // Enable foreign key enforcement (SQLite disables it by default)
-db.exec(QueryBuilder.enableForeignKeys());
+db.exec(qb.enableForeignKeys());
 
 // Create the table
 db.exec(users.createTable);
@@ -208,7 +208,7 @@ import Database from "better-sqlite3";
 
 const db = new Database("app.db");
 
-db.exec(QueryBuilder.enableForeignKeys());
+db.exec(qb.enableForeignKeys());
 db.exec(users.createTable);
 
 const insertStmt = db.prepare(users.insert);
@@ -226,7 +226,7 @@ console.log(row);
 ```
 
 > [!CAUTION]
-> **Foreign key enforcement**: SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` (or `QueryBuilder.enableForeignKeys()`) when opening your connection. Without this, the database ignores FK constraints and allows orphaned rows.
+> **Foreign key enforcement**: SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` (or `qb.enableForeignKeys()`) when opening your connection. Without this, the database ignores FK constraints and allows orphaned rows.
 
 ## Where to go next
 
