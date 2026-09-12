@@ -767,6 +767,17 @@ export function help(
   lines.push("");
   lines.push("**Pull unread updates:** `get_updates({ nanoid })` — returns log entries since your last read. Cursor is advanced automatically.");
   lines.push("");
+  lines.push("## Audience Targeting", "");
+  lines.push("When you post a log entry, the `audience` field controls who sees it via `get_updates`:");
+  lines.push("");
+  lines.push("- `audience: \"all\"` (default) — broadcast to every writer");
+  lines.push("- `audience: \"writer-id\"` — addressed to a specific writer only");
+  lines.push("- `audience: \"all,writer-id\"` — broadcast AND explicit addressing");
+  lines.push("");
+  lines.push("If you want a specific writer to see your write, you MUST include their writer ID in `audience`. Do not rely on scope-sharing alone — scope-sharing makes entries from scope colleagues visible, but does not guarantee delivery to a specific writer.");
+  lines.push("");
+  lines.push("Use `list_writers` to find writer IDs.");
+  lines.push("");
   lines.push("## Recommended Reading", "");
   lines.push("Call `get_doc({ filename: \"<doc>\" })` to read any of these. Pick by intent:");
   lines.push("");
@@ -822,7 +833,7 @@ export function getUpdates(
   }
   const writer = ctx.queries.getWriterByNanoid.get({ nanoid: input.nanoid });
   if (!writer) return err(`Writer not found for nanoid ${input.nanoid}`);
-  const cursor = (writer.last_read_log_id as number) ?? 0;
+  const cursor = (writer.last_read_at as number) ?? 0;
   const limit = input.limit ?? 50;
   const limitPlus1 = limit + 1;
 
@@ -864,7 +875,7 @@ export function getUpdates(
     const newCursor = entries.length > 0
       ? (entries[entries.length - 1].id as number)
       : cursor;
-    ctx.queries.updateWriterCursor.run({ last_read_log_id: newCursor, nanoid: input.nanoid });
+    ctx.queries.updateWriterCursor.run({ last_read_at: newCursor, nanoid: input.nanoid });
     return { rows, hasMore, entries, newCursor };
   });
 

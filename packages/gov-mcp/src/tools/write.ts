@@ -48,7 +48,7 @@ export function registerWriter(
       objective: d.objective ?? null,
       expertise: d.expertise ?? null,
       prohibitions: d.prohibitions ?? null,
-      last_read_log_id: 0,
+      last_read_at: 0,
       created_at: currentTimestamp(),
     });
   });

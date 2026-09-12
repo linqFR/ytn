@@ -414,7 +414,7 @@ Parameters:
   includeDeprecated — optional boolean (default: false)
 
 Returns:
-  { freeFields: IFreeFieldRow[], count }`,
+  { freeFields: tsFreeFieldRow[], count }`,
   category: "read",
 });
 
@@ -437,7 +437,7 @@ export const appendLogEntryInput = dna.object({
   nanoid: nanoidSchema,
   date: dateSchema,
   type: logEntryTypeSchema,
-  audience: dna.string().optional().describe("Target audience"),
+  audience: dna.string().optional().describe('Target audience: "all" (broadcast, default), comma-separated writer IDs (e.g. "writer1,writer2"), or "all,writer-id" to broadcast AND address a specific writer. If you want a specific writer to see your write, include their writer ID here — do not rely on scope-sharing alone.'),
   subject: dna.string().optional().describe("Entry subject"),
   body: dna.string().optional().describe("Entry body"),
   refId: dna.string().optional().describe("Reference entity ID"),
@@ -488,7 +488,7 @@ export const listDecisionsInput = dna.object({
   usage: `List decisions.
 
 Returns:
-  { decisions: IDecisionRow[], count: number }`,
+  { decisions: tsDecisionRow[], count: number }`,
   category: "read",
 });
 
@@ -500,7 +500,7 @@ export const getDecisionInput = dna.object({
   usage: `Get a single decision with full details and status history.
 
 Returns:
-  { decision: IDecisionRow, history: IStatusHistoryRow[], scopes: IEntityScopeRow[] }`,
+  { decision: tsDecisionRow, history: tsStatusHistoryRow[], scopes: tsEntityScopeRow[] }`,
   category: "read",
 });
 
@@ -517,7 +517,7 @@ export const listActionsInput = dna.object({
   usage: `List actions.
 
 Returns:
-  { actions: IActionRow[], count: number }`,
+  { actions: tsActionRow[], count: number }`,
   category: "read",
 });
 
@@ -529,7 +529,7 @@ export const getActionInput = dna.object({
   usage: `Get a single action with dependencies, workstreams, and status history.
 
 Returns:
-  { action: IActionRow, dependencies: IActionDependencyRow[], workstreams: IActionWorkstreamRow[], history: IStatusHistoryRow[], scopes: IEntityScopeRow[] }`,
+  { action: tsActionRow, dependencies: tsActionDependencyRow[], workstreams: tsActionWorkstreamRow[], history: tsStatusHistoryRow[], scopes: tsEntityScopeRow[] }`,
   category: "read",
 });
 
@@ -546,7 +546,7 @@ export const listIdeasInput = dna.object({
   usage: `List ideas.
 
 Returns:
-  { ideas: IIdeaRow[], count: number }`,
+  { ideas: tsIdeaRow[], count: number }`,
   category: "read",
 });
 
@@ -558,7 +558,7 @@ export const getIdeaInput = dna.object({
   usage: `Get a single idea with promotion target and status history.
 
 Returns:
-  { idea: IIdeaRow, promotedTo: IDecisionRow | null, history: IStatusHistoryRow[], scopes: IEntityScopeRow[] }`,
+  { idea: tsIdeaRow, promotedTo: tsDecisionRow | null, history: tsStatusHistoryRow[], scopes: tsEntityScopeRow[] }`,
   category: "read",
 });
 
@@ -575,7 +575,7 @@ export const listProblemsInput = dna.object({
   usage: `List problems/bugs.
 
 Returns:
-  { problems: IProblemRow[], count: number }`,
+  { problems: tsProblemRow[], count: number }`,
   category: "read",
 });
 
@@ -587,7 +587,7 @@ export const getProblemInput = dna.object({
   usage: `Get a single problem with linked actions and status history.
 
 Returns:
-  { problem: IProblemRow, actions: IProblemActionRow[], history: IStatusHistoryRow[], scopes: IEntityScopeRow[] }`,
+  { problem: tsProblemRow, actions: tsProblemActionRow[], history: tsStatusHistoryRow[], scopes: tsEntityScopeRow[] }`,
   category: "read",
 });
 
@@ -603,7 +603,7 @@ export const listSpecsInput = dna.object({
   usage: `List specifications.
 
 Returns:
-  { specs: ISpecRow[], count: number }`,
+  { specs: tsSpecRow[], count: number }`,
   category: "read",
 });
 
@@ -615,7 +615,7 @@ export const getSpecInput = dna.object({
   usage: `Get a single specification.
 
 Returns:
-  { spec: ISpecRow, scopes: IEntityScopeRow[] }`,
+  { spec: tsSpecRow, scopes: tsEntityScopeRow[] }`,
   category: "read",
 });
 
@@ -627,7 +627,7 @@ export const listScopesInput = dna.object({
   usage: `List all workspace scopes.
 
 Returns:
-  { scopes: IScopeRow[], count: number }`,
+  { scopes: tsScopeRow[], count: number }`,
   category: "read",
 });
 
@@ -639,7 +639,7 @@ export const getScopeInput = dna.object({
   usage: `Get a single scope with entity counts.
 
 Returns:
-  { scope: IScopeRow, counts: { decisions: number, actions: number, ideas: number, problems: number } }`,
+  { scope: tsScopeRow, counts: { decisions: number, actions: number, ideas: number, problems: number } }`,
   category: "read",
 });
 
@@ -656,7 +656,7 @@ export const listLogEntriesInput = dna.object({
   usage: `List log entries from the append-only journal.
 
 Returns:
-  { entries: ILogEntryRow[], count: number }`,
+  { entries: tsLogEntryRow[], count: number }`,
   category: "read",
 });
 
@@ -668,7 +668,7 @@ export const getLastLogEntryInput = dna.object({
   usage: `Get the most recent log entry for a reference ID.
 
 Returns:
-  { entry: ILogEntryRow | null }`,
+  { entry: tsLogEntryRow | null }`,
   category: "read",
 });
 
@@ -680,7 +680,7 @@ export const getThreadInput = dna.object({
   usage: `Get all entries in a log thread.
 
 Returns:
-  { entries: ILogEntryRow[], count: number }`,
+  { entries: tsLogEntryRow[], count: number }`,
   category: "read",
 });
 
@@ -696,7 +696,7 @@ export const getUpdatesInput = dna.object({
   usage: `Get new log entries since your last read. Advances your cursor.
 
 Returns:
-  { entries: ILogEntryRow[], new_cursor: number, max_entry_id: number, has_more: boolean, remaining: number }
+  { entries: tsLogEntryRow[], new_cursor: number, max_entry_id: number, has_more: boolean, remaining: number }
 
 If has_more is true, call get_updates again with the same nanoid to fetch the next batch.
 Cursor is advanced transactionally — safe to stop and resume anytime.`,
@@ -745,7 +745,7 @@ export const getDecisionHistoryInput = dna.object({
   usage: `Get the complete status history for a decision.
 
 Returns:
-  { history: IStatusHistoryRow[], count: number }`,
+  { history: tsStatusHistoryRow[], count: number }`,
   category: "read",
 });
 
@@ -757,7 +757,7 @@ export const getActionLineageInput = dna.object({
   usage: `Get an action's lineage — what it depends on, what depends on it, and its history.
 
 Returns:
-  { action: IActionRow, dependencies: IActionRow[], dependents: IActionRow[], history: IStatusHistoryRow[] }`,
+  { action: tsActionRow, dependencies: tsActionRow[], dependents: tsActionRow[], history: tsStatusHistoryRow[] }`,
   category: "read",
 });
 
@@ -769,7 +769,7 @@ export const getOpenActionsInput = dna.object({
   usage: `List all open actions sorted by priority (P0 > P1 > P2) then seq.
 
 Returns:
-  { actions: IActionRow[], count: number }`,
+  { actions: tsActionRow[], count: number }`,
   category: "read",
 });
 
@@ -824,7 +824,7 @@ export const whoamiInput = dna.object({
   usage: `Retrieve your own writer profile using your nanoid.
 
 Returns:
-  { writer: IWriterRow } — full writer record including id, role, responsibility, default_scope, display_name, objective, expertise, prohibitions, last_read_log_id, created_at`,
+  { writer: tsWriterRow } — full writer record including id, role, responsibility, default_scope, display_name, objective, expertise, prohibitions, last_read_at, created_at`,
   category: "writers",
 });
 

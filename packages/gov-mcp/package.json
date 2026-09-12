@@ -67,6 +67,10 @@
       "import": "./dist/server.js",
       "types": "./dist/server.d.ts"
     },
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

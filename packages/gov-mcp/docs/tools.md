@@ -126,6 +126,8 @@ The MCP server tracks spec entities (ID, status, links). It does not create or e
 | `append_log_entry` | `nanoid`, `date`, `type` | `audience`, `subject`, `body`, `refId`, `scope`, `replyTo`, `threadId` | `{ id, created, thread_id }` |
 | `correct` | `nanoid`, `entityType`, `entityId`, `field`, `newValue`, `reason` | — | `{ entityType, entityId, field, corrected }` |
 
+**Audience field**: Controls who sees the entry via `get_updates`. Use `"all"` (default) for broadcast, `"writer-id"` to address a specific writer, or `"all,writer-id"` for both. If you want a specific writer to see your write, include their writer ID in `audience` — do not rely on scope-sharing alone.
+
 #### Free Field Mutations
 
 | Tool | Required Params | Optional Params | Returns |
@@ -133,7 +135,7 @@ The MCP server tracks spec entities (ID, status, links). It does not create or e
 | `add_free_field` | `nanoid`, `entityType`, `entityId`, `key`, `format`, `value` | `ftsIndexed` | `{ id, created }` |
 | `deprecate_free_field` | `nanoid`, `id` | — | `{ id, deprecated }` |
 
-### Report Tools (8)
+### Report Tools (9)
 
 Report tools generate Markdown from the DB and write it to `mailbox/generated/` on disk. SQLite is the source of truth; these files are human-readable views. All queries use pre-compiled QB statements.
 
@@ -144,9 +146,10 @@ Report tools generate Markdown from the DB and write it to `mailbox/generated/` 
 | `generate_actions_report` | — | — | `{ filename, filepath, markdown, count }` | `mailbox/generated/mailbox-actions.md` |
 | `generate_ideas_report` | — | — | `{ filename, filepath, markdown, count }` | `mailbox/generated/features-ideas.md` |
 | `generate_problems_report` | — | — | `{ filename, filepath, markdown, count }` | `mailbox/generated/mailbox-problems.md` |
+| `generate_specs_report` | — | — | `{ filename, filepath, markdown, count }` | `mailbox/generated/mailbox-specs.md` |
 | `generate_decision_history_report` | `id` | — | `{ id, filename, filepath, markdown, counts }` | `mailbox/generated/decision-history-dec-NNNN.md` |
 | `export_dump` | — | — | `{ sql, tables }` | — (returns SQL string only) |
-| `generate_all_reports` | — | — | `{ reports: Array<{ report, filepath }> }` | Generates all 5 main reports at once |
+| `generate_all_reports` | — | — | `{ reports: Array<{ report, filepath }> }` | Generates all 6 main reports at once |
 
 #### Report file formats
 

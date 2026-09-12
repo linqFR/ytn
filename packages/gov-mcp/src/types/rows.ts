@@ -2,7 +2,7 @@
  * Row types — typed interfaces for SQLite query results (IStatement<T>).
  */
 
-export interface IDecisionRow {
+export interface tsDecisionRow {
   id: string;
   seq: number;
   title: string;
@@ -19,7 +19,7 @@ export interface IDecisionRow {
   updated_at: string;
 }
 
-export interface IActionRow {
+export interface tsActionRow {
   id: string;
   seq: number;
   title: string;
@@ -40,7 +40,7 @@ export interface IActionRow {
   updated_at: string;
 }
 
-export interface IIdeaRow {
+export interface tsIdeaRow {
   id: string;
   seq: number;
   title: string;
@@ -57,7 +57,7 @@ export interface IIdeaRow {
   updated_at: string;
 }
 
-export interface IProblemRow {
+export interface tsProblemRow {
   id: string;
   seq: number;
   title: string;
@@ -78,7 +78,7 @@ export interface IProblemRow {
   fixed_at: string | null;
 }
 
-export interface ISpecRow {
+export interface tsSpecRow {
   id: string;
   filename: string;
   date: string;
@@ -90,7 +90,7 @@ export interface ISpecRow {
   updated_at: string;
 }
 
-export interface IScopeRow {
+export interface tsScopeRow {
   id: string;
   label: string;
   description: string | null;
@@ -100,7 +100,7 @@ export interface IScopeRow {
   updated_at: string;
 }
 
-export interface IWriterRow {
+export interface tsWriterRow {
   id: string;
   nanoid: string;
   role: string;
@@ -110,11 +110,11 @@ export interface IWriterRow {
   objective: string | null;
   expertise: string | null;
   prohibitions: string | null;
-  last_read_log_id: number;
+  last_read_at: number;
   created_at: string;
 }
 
-export interface ILogEntryRow {
+export interface tsLogEntryRow {
   id: number;
   date: string;
   timestamp: string;
@@ -128,7 +128,7 @@ export interface ILogEntryRow {
   thread_id: number | null;
 }
 
-export interface IStatusHistoryRow {
+export interface tsStatusHistoryRow {
   id: number;
   entity_type: string;
   entity_id: string;
@@ -140,59 +140,59 @@ export interface IStatusHistoryRow {
   cascade_trigger: string | null;
 }
 
-export interface IActionDependencyRow {
+export interface tsActionDependencyRow {
   action_id: string;
   depends_on: string;
 }
 
-export interface IProblemActionRow {
+export interface tsProblemActionRow {
   problem_id: string;
   action_id: string;
   role: string | null;
   created_at: string;
 }
 
-export interface IActionWorkstreamRow {
+export interface tsActionWorkstreamRow {
   action_id: string;
   workstream_id: string;
 }
 
-export interface INextSeqRow {
+export interface tsNextSeqRow {
   next_seq: number;
 }
 
-export interface ICountRow {
+export interface tsCountRow {
   count: number;
 }
 
-export interface ICursorRow {
-  last_read_log_id: number;
+export interface tsCursorRow {
+  last_read_at: number;
 }
 
-export interface IScopeTreeRow {
+export interface tsScopeTreeRow {
   id: string;
 }
 
-export interface IFTS5SearchRow {
+export interface tsFTS5SearchRow {
   entity_type: string;
   entity_id: string;
   title: string;
   snippet: string;
 }
 
-export interface IDecisionSupersedesRow {
+export interface tsDecisionSupersedesRow {
   superseding_id: string;
   superseded_id: string;
   partial: number | null;
 }
 
-export interface IEntityScopeRow {
+export interface tsEntityScopeRow {
   entity_type: string;
   entity_id: string;
   scope_id: string;
 }
 
-export interface IFreeFieldRow {
+export interface tsFreeFieldRow {
   id: number;
   entity_type: string;
   entity_id: string;

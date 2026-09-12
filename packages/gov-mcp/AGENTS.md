@@ -42,6 +42,49 @@
 - `tests/integration/` — Shared JSON test cases for DB integration (language-agnostic)
 - `tests/protocol/` — Shared JSON test cases for MCP protocol (language-agnostic)
 
+### Function map (where to find what)
+
+Quick lookup for exported functions by file. Use this before grepping.
+
+**`src/tools/read.ts`** — Read-only MCP tools (29 exports):
+- List/get by entity: `listDecisions`, `getDecision`, `listActions`, `getAction`, `listIdeas`, `getIdea`, `listProblems`, `getProblem`, `listSpecs`, `getSpec`, `listScopes`, `getScope`, `listLogEntries`, `getLastLogEntry`, `listWriters`
+- Mailbox/threads: `getThread`, `searchMailbox`, `mailboxLast24h`, `getUpdates`
+- History/lineage: `getDecisionHistory`, `getActionLineage`
+- Aggregates: `getOpenActions`, `getHandoff`, `auditConsistency`
+- Identity/docs: `whoami`, `help`, `listDocs`, `getDoc`, `getFreeFields`
+
+**`src/tools/write.ts`** — Mutation MCP tools (20 exports):
+- Register: `registerWriter`
+- Create: `createDecision`, `createAction`, `createIdea`, `createProblem`, `createSpec`, `createScope`
+- Update status: `updateDecisionStatus`, `updateActionStatus`, `updateIdeaStatus`, `updateProblemStatus`, `updateSpecStatus`
+- Update scope: `updateScope`
+- Link: `linkProblemAction`, `linkActionWorkstream`, `linkActionDependency`
+- Log/correct: `appendLogEntry`, `correct`
+- Free fields: `addFreeField`, `deprecateFreeField`
+
+**`src/tools/reports.ts`** — Report generators (8 exports):
+- `generateDailyReport`, `generateDecisionsReport`, `generateActionsReport`, `generateIdeasReport`, `generateProblemsReport`, `generateDecisionHistoryReport`, `exportDump`, `generateAllReports`
+
+**`src/tools/results.ts`** — Result helpers: `ok`, `err`
+**`src/tools/meta.ts`** — Tool metadata registry: `IToolMeta`, `toolMeta`
+**`src/tools/describe-signature.ts`** — Signature introspection: `describeSignature`, `describeToolSignature`
+
+**`src/schemas/tool-inputs.ts`** — All DNA input schemas (82 exports):
+- Shared schemas: `nanoidSchema`, `entityIdSchema`, `scopeSchema`, `withChildrenSchema`, `dateSchema`, `limitSchema`, status/enum schemas (`decisionStatusSchema`, `actionStatusSchema`, `ideaStatusSchema`, `problemStatusSchema`, `specStatusSchema`, `severitySchema`, `prioritySchema`, etc.)
+- Tool inputs: one `xxxInput` per tool — naming convention is `<toolName>Input` (e.g. `listDecisionsInput`, `createActionInput`, `getUpdatesInput`, `appendLogEntryInput`).
+
+**`src/helpers.ts`** — Shared utilities (7 exports):
+- `generateWriterNanoid`, `formatId`, `currentDate`, `currentTimestamp`, `resolveScopeFilter`, `resolveScopeWildcard`, `getAllScopeIds`
+
+**`src/client.ts`** — MCP client (subpath `./client`):
+- `McpClient` interface exposes: `whoami`, `getUpdates`, `getOpenActions`, `getHandoff`, `listProblems`, `listActions`, `listDecisions`, `close`
+- `createMcpClient(opts?)` factory
+- Re-exports `O*` result types (`OWhoamiResult`, `OListDecisionsResult`, `OGetHandoffResult`, etc.)
+
+**`src/types/rows.ts`** — 20 row interfaces (`tsDecisionRow`, `tsActionRow`, `tsIdeaRow`, `tsProblemRow`, `tsSpecRow`, `tsWriterRow`, `tsLogEntryRow`, etc.)
+**`src/types/queries.ts`** — `IQueries` interface (all prepared statement signatures)
+**`src/types/client.ts`** — Public `O*` result types for the MCP client
+
 ### Key invariants
 
 1. **SQLite is the source of truth** — Markdown is generated, never hand-edited post-migration.

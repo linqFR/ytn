@@ -238,7 +238,7 @@ All write operations require a registered writer with a valid `nanoid` token. Wr
 | `admin` | Full access — all tools, all scopes |
 | `agent` | Write access within registered scope — must provide nanoid for every mutation |
 
-Writers have a `default_scope` that determines where their entities are created unless explicitly overridden. The `whoami` tool returns the writer's profile and `last_read_log_id` cursor.
+Writers have a `default_scope` that determines where their entities are created unless explicitly overridden. The `whoami` tool returns the writer's profile and `last_read_at` cursor.
 
 ### Free fields
 

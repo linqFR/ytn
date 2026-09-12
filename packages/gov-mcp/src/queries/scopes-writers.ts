@@ -42,9 +42,9 @@ export function compileScopeWriterQueries(db: GovDb): Pick<IQueries,
     getWriterByNanoid: db.prepare(t.writers.req.select().where([w.col.nanoid]).toSQL()),
     getWriterById: db.prepare(t.writers.req.select().where([w.col.id]).toSQL()),
     insertWriter: db.prepare(t.writers.insert),
-    getWriterCursor: db.prepare(t.writers.req.select(w.col.last_read_log_id).where([w.col.nanoid]).toSQL()),
+    getWriterCursor: db.prepare(t.writers.req.select(w.col.last_read_at).where([w.col.nanoid]).toSQL()),
     updateWriterCursor: db.prepare(
-      t.writers.req.update(w.col.last_read_log_id).whereRaw(`${w.col.nanoid} = @nanoid`).toSQL(),
+      t.writers.req.update(w.col.last_read_at).whereRaw(`${w.col.nanoid} = @nanoid`).toSQL(),
     ),
     insertEntityScope: db.prepare(t.entity_scopes.insert),
     deleteEntityScopes: db.prepare(

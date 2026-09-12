@@ -80,6 +80,20 @@ append_log_entry({
 
 The reply automatically joins the parent's thread (same `thread_id`).
 
+### Target an audience
+
+The `audience` field controls who sees your log entry via `get_updates`:
+
+| Value | Who sees it |
+|-------|-------------|
+| `"all"` (default) | Every writer |
+| `"writer-id"` | Only that specific writer |
+| `"all,writer-id"` | Everyone, AND explicitly addressed to a specific writer |
+
+If you want a specific writer to see your write, include their writer ID in `audience`. Do not rely on scope-sharing alone — scope-sharing makes entries from scope colleagues visible, but does not guarantee delivery to a specific writer.
+
+Use `list_writers` to find writer IDs.
+
 ### Log entry types
 
 | Type | Use case |
@@ -444,6 +458,7 @@ update_idea_status({
 | `raw` | Just captured |
 | `explored` | Investigated, feasibility assessed |
 | `promoted` | Promoted to a decision (requires `promotedTo`) |
+| `suspended` | Temporarily on hold, may resume |
 | `implemented` | Implemented (auto-set when all source actions are done) |
 | `abandoned` | Abandoned (requires `abandonReason`) |
 
@@ -704,7 +719,7 @@ search_mailbox({ query: "Maranget", entityType: "decision" })
 
 ## Pull Unread Updates
 
-Each writer has a persistent cursor (`last_read_log_id`). `get_updates` returns log entries since the cursor and advances it.
+Each writer has a persistent cursor (`last_read_at`). `get_updates` returns log entries since the cursor and advances it.
 
 ```
 get_updates({

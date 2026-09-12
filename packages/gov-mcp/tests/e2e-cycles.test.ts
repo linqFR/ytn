@@ -220,6 +220,47 @@ describe("e2e: Decision cancellation → Idea abandonment", () => {
   });
 });
 
+// ─── Cycle 3b: Idea suspended → resumed ───────────────────────────────────
+describe("e2e: Idea suspended → resumed", () => {
+  let db: GovDb;
+  let ctx: IToolCtx;
+
+  beforeEach(() => { ({ db, ctx } = setup()); });
+  afterEach(() => {
+    const dir = generatedDir();
+    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+    db.close();
+  });
+
+  it("suspends an idea and resumes it back to explored", () => {
+    // 1. Create idea
+    write.createIdea(ctx, { nanoid: NANOID, title: "Explore AI-driven governance", forcedNumId: 2 });
+
+    // 2. Suspend it — no abandonReason required
+    write.updateIdeaStatus(ctx, {
+      nanoid: NANOID, id: "IDEA-0002", newStatus: "suspended",
+    });
+    const suspended = read.getIdea(ctx, { id: "IDEA-0002" });
+    expect((suspended.structuredContent as any).idea.status).toBe("suspended");
+    expect((suspended.structuredContent as any).idea.abandon_reason).toBeNull();
+
+    // 3. Resume back to explored
+    write.updateIdeaStatus(ctx, {
+      nanoid: NANOID, id: "IDEA-0002", newStatus: "explored",
+    });
+    const resumed = read.getIdea(ctx, { id: "IDEA-0002" });
+    expect((resumed.structuredContent as any).idea.status).toBe("explored");
+
+    // 4. Verify status history records both transitions
+    const history = db.prepare(
+      "SELECT new_status FROM status_history WHERE entity_type = 'idea' AND entity_id = ? ORDER BY id ASC",
+    ).all("IDEA-0002") as any[];
+    expect(history).toHaveLength(2); // suspended → explored (createIdea does not insert status_history)
+    expect(history[0].new_status).toBe("suspended");
+    expect(history[1].new_status).toBe("explored");
+  });
+});
+
 // ─── Cycle 4: Spec lifecycle → superseded → Problem reopened ──────────────
 
 describe("e2e: Spec lifecycle → superseded → Problem reopened", () => {

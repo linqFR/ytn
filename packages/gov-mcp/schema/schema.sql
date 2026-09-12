@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS writers (
   objective TEXT,
   expertise TEXT,
   prohibitions TEXT,
-  last_read_log_id INTEGER NOT NULL DEFAULT 0,
+  last_read_at INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   FOREIGN KEY (default_scope) REFERENCES scopes(id)
 );

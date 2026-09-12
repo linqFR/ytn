@@ -114,7 +114,7 @@ Retrieve free-form metadata fields for an entity.
 | `entityId` | string | yes | Entity ID |
 | `includeDeprecated` | boolean | no | Include deprecated fields (default: false) |
 
-**Returns:** `{ freeFields: IFreeFieldRow[], count: number }`
+**Returns:** `{ freeFields: tsFreeFieldRow[], count: number }`
 
 ## FTS5 Integration
 

@@ -252,19 +252,11 @@ export const tables = {
     { name: "objective", sqliteType: "TEXT", optional: true },
     { name: "expertise", sqliteType: "TEXT", optional: true },
     { name: "prohibitions", sqliteType: "TEXT", optional: true },
-    { name: "last_read_log_id", sqliteType: "INTEGER", hasDefault: true, defaultValue: "0" },
+    { name: "last_read_at", sqliteType: "INTEGER", hasDefault: true, defaultValue: "0" },
     { name: "created_at", sqliteType: "TEXT" },
   ]),
   status_history: QueryBuilder.defTable("status_history", statusHistoryColumns),
 } as const;
-
-// ─── Row types re-exported from types/rows.ts ────────────────────────────────
-export type {
-  IDecisionRow, IActionRow, IIdeaRow, IProblemRow, ISpecRow, IScopeRow,
-  IWriterRow, ILogEntryRow, IStatusHistoryRow, IActionDependencyRow,
-  IProblemActionRow, IActionWorkstreamRow, INextSeqRow, ICountRow,
-  ICursorRow, IScopeTreeRow, IFTS5SearchRow,
-} from "../types/rows.ts";
 
 // FTS5_DDL and CASCADE_DDL are re-exported from their dedicated files.
 export { FTS5_DDL } from "./fts5.js";

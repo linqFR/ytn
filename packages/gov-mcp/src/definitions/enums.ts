@@ -36,6 +36,7 @@ export const IDEA_STATUS = {
   raw: "raw",
   explored: "explored",
   promoted: "promoted",
+  suspended: "suspended",
   implemented: "implemented",
   abandoned: "abandoned",
 } as const;
