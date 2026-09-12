@@ -721,7 +721,7 @@ Cursor is advanced transactionally — safe to stop and resume anytime.`,
 });
 
 export const searchMailboxInput = dna.object({
-  query: dna.string().min(1).max(500).describe('Search query (FTS5 syntax: AND, OR, NOT, prefix*, "phrase")'),
+  query: dna.string().min(1).max(500).describe('Search query (FTS5 syntax: AND, OR, NOT, prefix*, "phrase"). Hyphens are NOT bareword chars — quote hyphenated IDs: "PB-0108", "writer-a". Escape inner quotes by doubling: "a""b".'),
   entityType: dna.enum(["all", "decision", "action", "idea", "problem", "spec"]).optional().describe("Filter by entity type"),
   scope: scopeSchema.optional().describe("Filter by scope"),
   withChildren: withChildrenSchema,
@@ -733,7 +733,61 @@ export const searchMailboxInput = dna.object({
 Returns:
   { results: Array<{ entity_type, entity_id, title, snippet }>, count: number }
 
-Snippets use <mark>...</mark> highlighting. Results ordered by FTS5 rank. Limit 50.`,
+Snippets use <mark>...</mark> highlighting. Results ordered by FTS5 rank. Limit 50.
+
+FTS5 query syntax:
+
+  Terms (strings):
+  - Bareword: letters, digits, underscore only (e.g. parser, crash, devin).
+    Hyphens, dots, colons, parentheses are NOT bareword chars — they break the parse.
+  - Quoted string: "..." — anything inside is a single phrase. Escape inner " by doubling: "".
+
+  Phrases:
+  - A phrase is an ordered sequence of tokens. The tokenizer splits text on separators
+    (spaces, punctuation, hyphens). "PB-0108" tokenizes to tokens "pb" then "0108".
+  - A phrase matches a document only if the tokens appear adjacent and in order.
+  - Concatenate phrases with + : one + two + three == "one two three".
+
+  Prefix:
+  - term* matches any token starting with "term". The * must be OUTSIDE quotes:
+    parser* works, "parser*" does not.
+
+  Initial token:
+  - ^term matches only if term is the first token in a column.
+
+  NEAR:
+  - NEAR(phrase1 phrase2, N) — phrases within N tokens of each other (default N=10).
+
+  Column filter:
+  - colname : phrase — search phrase in column colname only.
+  - {col1 col2} : phrase — search in col1 or col2.
+  - -colname : phrase — search in all columns EXCEPT colname.
+
+  Boolean operators (case-sensitive: AND, OR, NOT — lowercase is a bareword):
+  - a AND b   — both must match
+  - a OR b    — either matches
+  - a NOT b   — a matches and b does not
+  - Implicit AND: space-separated phrases are ANDed: one two == one AND two
+
+  Precedence (tightest to loosest):
+    ^  >  column filter (:)  >  +  >  NEAR  >  NOT  >  AND  >  OR
+    Implicit AND is tighter than all operators, including NOT.
+
+Hyphenated IDs (IMPORTANT):
+  Hyphens are separators for the unicode61 tokenizer AND not bareword chars in query syntax.
+  A bareword like PB-0108 causes a parse error ("no such column: 0108").
+  ALWAYS quote hyphenated terms: "PB-0108", "ACT-0054", "writer-a".
+  Quoted, the tokenizer splits on the hyphen and matches the adjacent tokens.
+
+Examples:
+  "PB-0108"                       — find entity PB-0108
+  parser AND crash                — both terms, any order
+  "parser crash"                  — phrase: parser immediately followed by crash
+  parser NOT fix                  — parser present, fix absent
+  parser*                         — any token starting with "parser"
+  NEAR(parser crash, 5)           — parser and crash within 5 tokens
+  "PB-0108" AND parser            — PB-0108 entity containing "parser"
+  "writer-a" OR "devin-arch"      — either writer mentioned`,
   category: "search",
 });
 
