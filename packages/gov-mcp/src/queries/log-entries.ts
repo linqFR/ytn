@@ -27,7 +27,7 @@ export function compileLogEntryQueries(db: GovDb): Pick<IQueries,
       t.log_entries.req.update(le.col.thread_id).where([le.col.id]).toSQL(),
     ),
     reportLogEntriesByDate: db.prepare(
-      t.log_entries.req.select().where([le.col.date]).orderBy(le.col.id, "ASC").toSQL(),
+      t.log_entries.req.select().whereLike(le.col.date, "date").orderBy(le.col.id, "ASC").toSQL(),
     ),
     reportLogEntriesByRef: db.prepare(
       t.log_entries.req.select(le.col.id, le.col.timestamp, le.col.type, le.col.author, le.col.subject, le.col.body)

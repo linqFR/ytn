@@ -5,7 +5,7 @@
 
 import { dna } from "@ytrynot/dna";
 import { ROOT_SCOPE_ID } from "../definitions/constants.js";
-import { currentDate, currentTimestamp, formatId, generateWriterNanoid } from "../helpers.js";
+import { currentTimestamp, formatId, generateWriterNanoid } from "../helpers.js";
 import * as S from "../schemas/tool-inputs.js";
 import { tables } from "../definitions/schema.js";
 import { TESTED_STATUS, ACTION_STATUS, IDEA_STATUS, PROBLEM_STATUS } from "../definitions/enums.js";
@@ -200,7 +200,7 @@ export function createDecision(
       cascade_trigger: null,
     });
     ctx.queries.insertLogEntry.run({
-      id: null, date: currentDate(), timestamp: now, type: "decision",
+      id: null, date: currentTimestamp(), timestamp: now, type: "decision",
       author: d.writer.id, audience: "all",
       subject: `Decision ${d.id} created`, body: d.title, ref_id: d.id,
       reply_to: null, thread_id: null,
@@ -249,7 +249,7 @@ export function updateDecisionStatus(
       reason: d.reason ?? null, cascade_trigger: null,
     });
     ctx.queries.insertLogEntry.run({
-      id: null, date: currentDate(), timestamp: now, type: "status",
+      id: null, date: currentTimestamp(), timestamp: now, type: "status",
       author: d.writer.id, audience: "all",
       subject: `Decision ${d.id} → ${d.newStatus}`,
       body: d.reason ?? "", ref_id: d.id,
@@ -339,7 +339,7 @@ export function createAction(
       });
     }
     ctx.queries.insertLogEntry.run({
-      id: null, date: currentDate(), timestamp: now, type: "action",
+      id: null, date: currentTimestamp(), timestamp: now, type: "action",
       author: d.writer.id, audience: "all",
       subject: `Action ${d.id} created`, body: d.title, ref_id: d.id,
       reply_to: null, thread_id: null,
@@ -400,7 +400,7 @@ export function updateActionStatus(
         reason: d.reason ?? null, cascade_trigger: null,
       });
       ctx.queries.insertLogEntry.run({
-        id: null, date: currentDate(), timestamp: now, type: "status",
+        id: null, date: currentTimestamp(), timestamp: now, type: "status",
         author: d.writer.id, audience: "all",
         subject: `Action ${d.id} → ${d.newStatus}`,
         body: d.reason ?? "", ref_id: d.id,
@@ -482,7 +482,7 @@ export function createIdea(
       });
     }
     ctx.queries.insertLogEntry.run({
-      id: null, date: currentDate(), timestamp: now, type: "idea",
+      id: null, date: currentTimestamp(), timestamp: now, type: "idea",
       author: d.writer.id, audience: "all",
       subject: `Idea ${d.id} created`, body: d.title, ref_id: d.id,
       reply_to: null, thread_id: null,
@@ -603,7 +603,7 @@ export function createProblem(
       });
     }
     ctx.queries.insertLogEntry.run({
-      id: null, date: currentDate(), timestamp: now, type: "pb",
+      id: null, date: currentTimestamp(), timestamp: now, type: "pb",
       author: d.writer.id, audience: "all",
       subject: `Problem ${d.id} created`, body: d.title, ref_id: d.id,
       reply_to: null, thread_id: null,
@@ -1019,7 +1019,7 @@ export function appendLogEntry(
 
   const tx = ctx.db.safeTransaction(() => {
     const info = ctx.queries.insertLogEntry.run({
-      id: null, date: d.date, timestamp: now, type: d.type,
+      id: null, date: d.date ?? currentTimestamp(), timestamp: now, type: d.type,
       author: d.writer.id,
       audience: d.audience?.join(",") ?? "all", subject: d.subject ?? null,
       body: d.body ?? null, ref_id: d.refId ?? null,
@@ -1103,18 +1103,19 @@ export function correct(
   const now = currentTimestamp();
   const tableDef = tables[d.table as keyof typeof tables];
   const t = tableDef.names;
+  const pk = typeof t.pk === "string" ? t.pk : t.pk[0];
 
   const tx = ctx.db.safeTransaction(() => {
     const oldRow = ctx.db.prepare(
-      tableDef.req.selectRaw(`${d.field} AS old_value`).where([{ col: t.pk, param: "id" }]).toSQL(),
+      tableDef.req.selectRaw(`${d.field} AS old_value`).where([{ col: pk, param: "id" }]).toSQL(),
     ).get({ id: d.entityId }) as { old_value: string | null } | undefined;
     const oldValue = oldRow?.old_value ?? null;
 
     ctx.db.prepare(
-      tableDef.req.update(d.field, t.col.updated_at).where([{ col: t.pk, param: "id" }]).toSQL(),
+      tableDef.req.update(d.field, t.col.updated_at).where([{ col: pk, param: "id" }]).toSQL(),
     ).run({ [d.field]: d.newValue, [t.col.updated_at]: now, id: d.entityId });
     ctx.queries.insertLogEntry.run({
-      id: null, date: currentDate(), timestamp: now, type: "correction",
+      id: null, date: currentTimestamp(), timestamp: now, type: "correction",
       author: d.writer.id, audience: d.audience?.join(",") ?? "all",
       subject: `Correction: ${d.entityType} ${d.entityId} field "${d.field}"`,
       body: `Old value: ${oldValue ?? "(null)"}. New value: ${d.newValue}. Reason: ${d.reason}`,

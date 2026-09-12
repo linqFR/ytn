@@ -1,0 +1,15 @@
+---
+"@ytrynot/gov-mcp": minor
+---
+
+Date input: require HH:MM, normalize local/GMT, store full ISO
+
+- `dateSchema` (write tools: `createDecision`, `createAction`, `createIdea`, `createProblem`, `createSpec`, `appendLogEntry`, `correct`) now requires a time component (`HH:MM`). Date-only inputs like `YYYY-MM-DD` and `YYYY-MM-DDZ` are rejected. Accepted formats: `YYYY-MM-DD HH:MM`, `YYYY-MM-DDTHH:MM`, and full ISO with `Z` or `±HH:MM` offset.
+- Timezone rule: inputs without a `Z` or offset suffix are interpreted as local time; inputs with `Z` or an explicit offset are interpreted as GMT/UTC. All values are stored as full ISO 8601 (UTC) in the database.
+- `dateFilterSchema` (read tool `listLogEntries`) accepts `YYYY-MM-DD` for date filtering, plus all formats supported by `dateSchema`.
+- `dateOnlySchema` (`generateDailyReport`) accepts `YYYY-MM-DD` strictly, with no timezone conversion, so report filenames and LIKE queries use the intended calendar date.
+- `appendLogEntry.date` is now optional (defaults to the current timestamp).
+- `reportLogEntriesByDate` now uses a LIKE query (`date%`) so date-only filters match full-ISO stored values.
+- FTS5 search documentation: `searchMailboxInput.query` `.describe()` and `usage` metadata now explain FTS5 syntax (phrases, prefixes, NEAR, column filters, booleans, precedence) and the hyphen trap (hyphenated identifiers must be quoted, embedded double-quotes escaped by doubling).
+
+BREAKING CHANGE: Write tools no longer accept `YYYY-MM-DD` without a time component. Callers must provide at least `HH:MM` (e.g. `2026-09-05 00:00`). Use `generateDailyReport` or `listLogEntries` for date-only filtering.

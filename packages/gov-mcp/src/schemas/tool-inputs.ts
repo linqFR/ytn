@@ -32,9 +32,48 @@ export const withChildrenSchema = dna.boolean().optional().describe("Include des
 /** Target audience for log entries. Array of writer IDs, or ["all"] for broadcast. */
 export const audienceSchema = dna.string().min(1).max(100).array().optional().describe('Target audience: ["all"] (broadcast, default), or array of writer IDs (e.g. ["writer1","writer2"]). If you want a specific writer to see your write, include their writer ID here — do not rely on scope-sharing alone.');
 
-export const dateSchema = dna.coerce.date()
-  .transform((d) => d.toISOString())
-  .describe("Date (YYYY-MM-DD, YYYY-MM-DDTHH:MM, or any parseable date string)");
+/**
+ * Date input schema for write operations (entity creation, log entries).
+ * Requires at least HH:MM — date-only (YYYY-MM-DD) is rejected.
+ *
+ * Accepted formats:
+ * - `YYYY-MM-DD HH:MM` → local time
+ * - `YYYY-MM-DDTHH:MM` → local time
+ * - `YYYY-MM-DD HH:MMZ` / `YYYY-MM-DDTHH:MMZ` → GMT/UTC
+ * - Full ISO with `Z` or `±HH:MM` offset → explicit timezone
+ *
+ * Rule: no timezone suffix → local time; `Z` or offset → GMT/UTC.
+ * All values are stored as full ISO 8601 (UTC) in the database.
+ */
+export const dateSchema = dna.preprocess(
+  (v) => {
+    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}(Z?)$/.test(v.trim())) {
+      throw new Error("Date must include time (HH:MM). Use YYYY-MM-DD HH:MM or YYYY-MM-DDTHH:MM for local time of suffix it with 'Z' for GMT/UTC Time");
+    }
+    return v;
+  },
+  dna.coerce.date().transform((d) => d.toISOString()),
+).describe("Date with time (YYYY-MM-DD HH:MM, YYYY-MM-DDTHH:MM, or full ISO. Without Z/offset = local; with Z/offset = GMT/UTC)");
+
+/**
+ * Date filter schema for read operations (list_log_entries, daily report).
+ * Accepts date-only (YYYY-MM-DD) for filtering, plus all formats supported by dateSchema.
+ */
+export const dateFilterSchema = dna.preprocess(
+  (v) => {
+    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.trim())) {
+      return v.trim() + "T00:00:00";
+    }
+    return v;
+  },
+  dna.coerce.date().transform((d) => d.toISOString()),
+).describe("Date filter (YYYY-MM-DD, YYYY-MM-DD HH:MM, YYYY-MM-DDTHH:MM, or full ISO)");
+
+/**
+ * Date-only schema for report generation. Accepts YYYY-MM-DD and keeps it as-is
+ * (no timezone conversion) so LIKE queries and filenames use the intended date.
+ */
+export const dateOnlySchema = dna.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Date (YYYY-MM-DD)");
 
 export const timestampSchema = dna.iso.datetime().describe("ISO datetime");
 
@@ -442,7 +481,7 @@ The field remains in the database with status="deprecated". Use get_free_fields 
 
 export const appendLogEntryInput = dna.object({
   nanoid: nanoidSchema,
-  date: dateSchema,
+  date: dateSchema.optional().describe("Entry date (default now)"),
   type: logEntryTypeSchema,
   audience: audienceSchema,
   subject: dna.string().optional().describe("Entry subject"),
@@ -652,7 +691,7 @@ Returns:
 });
 
 export const listLogEntriesInput = dna.object({
-  date: dateSchema.optional().describe("Filter by date"),
+  date: dateFilterSchema.optional().describe("Filter by date"),
   type: logEntryTypeSchema.optional().describe("Filter by type"),
   refId: dna.string().optional().describe("Filter by reference ID"),
   scope: scopeSchema.optional().describe("Filter by scope"),
@@ -864,7 +903,7 @@ Each audit returns an array of violating entities (empty if consistent).`,
 });
 
 export const generateDailyReportInput = dna.object({
-  date: dateSchema.describe("Date to report (default today)"),
+  date: dateOnlySchema.describe("Date to report (YYYY-MM-DD)"),
 }).meta({
   title: "GenerateDailyReportInput",
   description: "Generate a daily mailbox report (Markdown) from log entries. Writes to mailbox/generated/.",

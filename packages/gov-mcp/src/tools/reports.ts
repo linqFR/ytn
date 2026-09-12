@@ -100,7 +100,7 @@ export function generateDailyReport(
   const newProblems = q.reportProblemsByDate.all({ date: `${date}%` });
   const newIdeas = q.reportIdeasByDate.all({ date: `${date}%` });
   const newSpecs = q.reportSpecsByDate.all({ date: `${date}%` });
-  const logEntries = q.reportLogEntriesByDate.all({ date });
+  const logEntries = q.reportLogEntriesByDate.all({ date: `${date}%` });
 
   // Open items (still actionable, not new today)
   const OPEN_PROBLEMS: readonly string[] = [PROBLEM_STATUS.open, PROBLEM_STATUS.critical, PROBLEM_STATUS.in_progress, PROBLEM_STATUS.partial];

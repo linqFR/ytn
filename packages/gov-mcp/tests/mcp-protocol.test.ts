@@ -606,12 +606,12 @@ describe("MCP protocol: full server with all tools", () => {
 
   it("get_updates returns entries and advances cursor via MCP", async () => {
     // Append a log entry first
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date().toISOString().slice(0, 16);
     await client.callTool({
       name: "append_log_entry",
       arguments: {
         nanoid,
-        date: today,
+        date: now,
         type: "action",
         subject: "Test log entry via MCP",
         body: "Verifying get_updates cursor",
@@ -917,14 +917,14 @@ describe("MCP protocol: full server with all tools", () => {
   // ─── Threading via MCP ─────────────────────────────────────────────────────
 
   it("append_log_entry with replyTo creates a thread via MCP", async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date().toISOString().slice(0, 16);
 
     // First entry
     const firstResult = await client.callTool({
       name: "append_log_entry",
       arguments: {
         nanoid,
-        date: today,
+        date: now,
         type: "question",
         subject: "How does the cascade work?",
         body: "I need to understand the ACT→PB cascade",
@@ -940,7 +940,7 @@ describe("MCP protocol: full server with all tools", () => {
       name: "append_log_entry",
       arguments: {
         nanoid,
-        date: today,
+        date: now,
         type: "answer",
         subject: "Re: How does the cascade work?",
         body: "When an action is done, linked problems become partial",
@@ -1160,5 +1160,150 @@ describe("MCP protocol: full server with all tools", () => {
     const pb = structured<{ id: string; seq: number }>(result);
     expect(pb.id).toBe("PB-5004");
     expect(pb.seq).toBe(5004);
+  });
+
+  // ─── Date format acceptance for log entries ────────────────────────────────
+
+  it("append_log_entry rejects YYYY-MM-DD without time (HH:MM required)", async () => {
+    const result = await client.callTool({
+      name: "append_log_entry",
+      arguments: {
+        nanoid,
+        date: "2026-01-15",
+        type: "status",
+        subject: "Date format test: YYYY-MM-DD rejected",
+        scope: ["ytn"],
+      },
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it("append_log_entry accepts YYYY-MM-DD HH:MM and stores full ISO in DB (local)", async () => {
+    const result = await client.callTool({
+      name: "append_log_entry",
+      arguments: {
+        nanoid,
+        date: "2026-02-20 14:30",
+        type: "status",
+        subject: "Date format test: YYYY-MM-DD HH:MM",
+        scope: ["ytn"],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    const entry = structured<{ id: number }>(result);
+
+    const row = ctx.db.prepare("SELECT date FROM log_entries WHERE id = ?").get(entry.id) as { date: string };
+    expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(row.date).toContain("2026-02-20");
+  });
+
+  it("append_log_entry accepts YYYY-MM-DDTHH:MM and stores full ISO in DB (local)", async () => {
+    const result = await client.callTool({
+      name: "append_log_entry",
+      arguments: {
+        nanoid,
+        date: "2026-03-10T09:15",
+        type: "status",
+        subject: "Date format test: YYYY-MM-DDTHH:MM",
+        scope: ["ytn"],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    const entry = structured<{ id: number }>(result);
+
+    const row = ctx.db.prepare("SELECT date FROM log_entries WHERE id = ?").get(entry.id) as { date: string };
+    expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(row.date).toContain("2026-03-10");
+  });
+
+  it("append_log_entry accepts full ISO with Z and stores it unchanged (GMT)", async () => {
+    const iso = "2026-04-05T18:45:30.123Z";
+    const result = await client.callTool({
+      name: "append_log_entry",
+      arguments: {
+        nanoid,
+        date: iso,
+        type: "status",
+        subject: "Date format test: full ISO Z",
+        scope: ["ytn"],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    const entry = structured<{ id: number }>(result);
+
+    const row = ctx.db.prepare("SELECT date FROM log_entries WHERE id = ?").get(entry.id) as { date: string };
+    expect(row.date).toBe(iso);
+  });
+
+  it("append_log_entry accepts ISO with explicit offset and converts to UTC", async () => {
+    const result = await client.callTool({
+      name: "append_log_entry",
+      arguments: {
+        nanoid,
+        date: "2026-05-12T10:00:00+03:00",
+        type: "status",
+        subject: "Date format test: ISO with offset",
+        scope: ["ytn"],
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    const entry = structured<{ id: number }>(result);
+
+    const row = ctx.db.prepare("SELECT date FROM log_entries WHERE id = ?").get(entry.id) as { date: string };
+    // +03:00 → UTC is 07:00
+    expect(row.date).toBe("2026-05-12T07:00:00.000Z");
+  });
+
+  it("append_log_entry rejects YYYY-MM-DDZ without time (HH:MM required)", async () => {
+    const result = await client.callTool({
+      name: "append_log_entry",
+      arguments: {
+        nanoid,
+        date: "2026-06-01Z",
+        type: "status",
+        subject: "Date format test: YYYY-MM-DDZ rejected",
+        scope: ["ytn"],
+      },
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it("append_log_entry without date defaults to current timestamp (full ISO)", async () => {
+    const before = new Date().toISOString();
+    const result = await client.callTool({
+      name: "append_log_entry",
+      arguments: {
+        nanoid,
+        type: "status",
+        subject: "Date format test: no date provided",
+        scope: ["ytn"],
+      },
+    });
+    const after = new Date().toISOString();
+    expect(result.isError).toBeFalsy();
+    const entry = structured<{ id: number }>(result);
+
+    const row = ctx.db.prepare("SELECT date FROM log_entries WHERE id = ?").get(entry.id) as { date: string };
+    expect(row.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    // Stored date should be between before and after
+    expect(row.date >= before).toBe(true);
+    expect(row.date <= after).toBe(true);
+  });
+
+  it("log entry date stored as full ISO is sortable lexicographically", async () => {
+    // Insert entries with known dates
+    const dates = ["2026-01-01T00:00:00.000Z", "2026-06-15T12:00:00.000Z", "2026-03-10T08:30:00.000Z"];
+    for (const d of dates) {
+      await client.callTool({
+        name: "append_log_entry",
+        arguments: { nanoid, date: d, type: "status", subject: "Sort test", scope: ["ytn"] },
+      });
+    }
+
+    // Query ordered by date DESC — should be June > March > January
+    const rows = ctx.db.prepare("SELECT date FROM log_entries WHERE subject = 'Sort test' ORDER BY date DESC").all() as { date: string }[];
+    expect(rows[0].date).toContain("2026-06-15");
+    expect(rows[1].date).toContain("2026-03-10");
+    expect(rows[2].date).toContain("2026-01-01");
   });
 });

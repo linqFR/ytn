@@ -80,11 +80,11 @@ describe("coverage: untested tools", () => {
   describe("get_last_log_entry", () => {
     it("returns the last log entry for a ref_id", () => {
       write.appendLogEntry(ctx, {
-        nanoid: NANOID, date: "2026-09-05", type: "status",
+        nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
         subject: "First", body: "Entry 1", refId: "DEC-0001",
       });
       write.appendLogEntry(ctx, {
-        nanoid: NANOID, date: "2026-09-05", type: "status",
+        nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
         subject: "Second", body: "Entry 2", refId: "DEC-0001",
       });
 
@@ -416,12 +416,12 @@ describe("coverage: critical business logic", () => {
     it("correcting date field restores the time component", () => {
       write.createDecision(ctx, {
         nanoid: NANOID, title: "D1", decider: "admin", forcedNumId: 1,
-        date: "2026-08-16",
+        date: "2026-08-16 00:00",
       });
 
-      // Verify the date was stored without time
+      // Verify the date was stored as local midnight converted to UTC
       const before = db.prepare("SELECT date FROM decisions WHERE id = ?").get("DEC-0001") as { date: string };
-      expect(before.date).toBe("2026-08-16T00:00:00.000Z");
+      expect(before.date).toBe(new Date("2026-08-16T00:00:00").toISOString());
 
       // Correct the date to include the time component
       write.correct(ctx, {
@@ -490,13 +490,13 @@ describe("coverage: critical business logic", () => {
   describe("thread auto-resolution", () => {
     it("replyTo without threadId auto-resolves thread from parent", () => {
       const parent = write.appendLogEntry(ctx, {
-        nanoid: NANOID, date: "2026-09-05", type: "question",
+        nanoid: NANOID, date: "2026-09-05 00:00", type: "question",
         subject: "Original question", body: "What about X?",
       });
       const parentId = (parent.structuredContent as any).id;
 
       const reply = write.appendLogEntry(ctx, {
-        nanoid: NANOID, date: "2026-09-05", type: "answer",
+        nanoid: NANOID, date: "2026-09-05 00:00", type: "answer",
         replyTo: parentId, body: "X is fine",
       });
       expect(reply.isError).toBeFalsy();
@@ -832,7 +832,7 @@ describe("coverage: FTS5 UPDATE/DELETE sync", () => {
 
   it("log_entry: INSERT indexes, DELETE removes", () => {
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "UniqueFtsLogAlpha", body: "log body alpha",
     });
 

@@ -328,12 +328,12 @@ describe("scope filtering: get_updates", () => {
   it("get_updates({ scope: 'cli' }) returns only cli log entries", () => {
     // Create log entries in different scopes
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "CLI update", body: "CLI scoped entry",
       scope: ["cli"],
     });
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "DNA update", body: "DNA scoped entry",
       scope: ["dna"],
     });
@@ -348,17 +348,17 @@ describe("scope filtering: get_updates", () => {
   it("get_updates({ scope: 'cli', withChildren: true }) returns cli + children", () => {
     // cli-dna is a child of cli
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "CLI entry", body: "cli",
       scope: ["cli"],
     });
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "CLI-DNA child entry", body: "cli-dna",
       scope: ["cli-dna"],
     });
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "DNA entry", body: "dna",
       scope: ["dna"],
     });
@@ -374,12 +374,12 @@ describe("scope filtering: get_updates", () => {
 
   it("get_updates() without scope returns everything", () => {
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "CLI entry", body: "cli",
       scope: ["cli"],
     });
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "DNA entry", body: "dna",
       scope: ["dna"],
     });
@@ -460,12 +460,12 @@ describe("scope filtering: list_log_entries", () => {
 
   it("list_log_entries({ scope: 'dna' }) returns only dna-scoped entries", () => {
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "DNA log", body: "dna scoped",
       scope: ["dna"],
     });
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "CLI log", body: "cli scoped",
       scope: ["cli"],
     });
@@ -479,7 +479,7 @@ describe("scope filtering: list_log_entries", () => {
 
   it("multi-scope log entry is returned by both scope filters", () => {
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "Multi-scope log", body: "cli and dna",
       scope: ["cli", "dna"],
     });

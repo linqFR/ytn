@@ -364,7 +364,7 @@ describe("e2e: Discussion thread lifecycle", () => {
   it("creates a standalone discussion, replies, corrects, and closes via log entries", () => {
     // 1. Start a standalone discussion (no ref_id)
     const root = write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "question",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "question",
       subject: "Should we add a workstream table?",
       body: "I'm wondering if we need a separate workstream table or if scopes are enough.",
     });
@@ -374,7 +374,7 @@ describe("e2e: Discussion thread lifecycle", () => {
 
     // 2. Reply to the discussion
     const reply1 = write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "answer",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "answer",
       subject: "Re: workstream table",
       body: "Yes, workstreams group actions across scopes.",
       replyTo: rootId,
@@ -383,7 +383,7 @@ describe("e2e: Discussion thread lifecycle", () => {
 
     // 3. Another reply
     const reply2 = write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "challenge",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "challenge",
       body: "But isn't that what scopes already do?",
       replyTo: reply1.structuredContent && (reply1.structuredContent as any).id,
     });
@@ -396,7 +396,7 @@ describe("e2e: Discussion thread lifecycle", () => {
 
     // 5. Correct the root message (append a correction, don't mutate)
     const correction = write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "correction",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "correction",
       subject: "Correction: workstream table question",
       body: "Actually, I meant to ask about action_workstreams junction table.",
       replyTo: rootId,
@@ -516,7 +516,7 @@ describe("e2e: Full daily cycle with reports and handoff", () => {
 
     // 6. Add a log entry
     write.appendLogEntry(ctx, {
-      nanoid: NANOID, date: "2026-09-05", type: "status",
+      nanoid: NANOID, date: "2026-09-05 00:00", type: "status",
       subject: "Daily cycle started", body: "All entities created for daily cycle test.",
     });
 

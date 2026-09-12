@@ -338,18 +338,19 @@ describe("create_decision with date field", () => {
 
   afterEach(() => db.close());
 
-  it("create_decision with YYYY-MM-DD date normalizes to ISO UTC", () => {
+  it("create_decision with YYYY-MM-DD HH:MM date normalizes to ISO UTC (local)", () => {
     const result = write.createDecision(ctx, {
       nanoid: NANOID,
       title: "Dated decision",
       decider: "admin",
       forcedNumId: 1,
-      date: "2026-08-15",
+      date: "2026-08-15 00:00",
     });
     expect(result.isError).toBeFalsy();
 
     const row = ctx.queries.getDecisionById.get({ id: "DEC-0001" });
-    expect(row!.date).toBe("2026-08-15T00:00:00.000Z");
+    // YYYY-MM-DD HH:MM without Z = local time → converted to UTC ISO
+    expect(row!.date).toBe(new Date("2026-08-15T00:00:00").toISOString());
   });
 
   it("create_decision without date defaults to current timestamp", () => {
