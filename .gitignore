@@ -28,6 +28,7 @@ yarn-error.log*
 
 # Testing
 coverage/
+**/.vitest/
 
 # Antigravity / Gemini specific (if applicable)
 .gemini/
