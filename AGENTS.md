@@ -7,6 +7,7 @@
 - NEVER ERASE ENTIRE BLOCKS OF TEXT TO REWRITE THEM ELSEWHERE WITHOUT EXPLICIT PRIOR APPROVAL. Provide only minimal code changes. Do not rewrite unchanged blocks.
 - NEVER CHANGE THE DOCUMENT STRUCTURE OR MOVE/SUMMARIZE EXISTING PARAGRAPHS OR CODE WITHOUT EXPLICIT PRIOR APPROVAL.
 - **NEVER PERFORM ANY OPTIMIZATIONS WITHOUT PRIOR VALIDATION AND APPROVAL.**
+- **⚠️ NEVER use `git stash` or `git stash pop` — CRITICAL**: **Stashing is strictly forbidden.** Multiple agents may be working on the repository concurrently — a stash removes changes from the working tree and can cause **data loss** or **conflicts** for other agents. If you need to set work aside, leave the changes in the working tree or stage them with `git add`. If a stash is absolutely necessary, **ask ADMIN first**.
 
 AGENTS MUST ONLY INSERT OR APPEND NEW INSTRUCTIONS.
 
