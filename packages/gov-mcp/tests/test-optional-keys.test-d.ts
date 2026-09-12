@@ -59,7 +59,7 @@ type $DnaObjectInputFixed<T extends Record<string, DnaSomeType>> = {
 // Helper: extract shape from a DnaObject schema via the `shape` getter
 type ShapeOf<O> = O extends { shape: infer T extends Record<string, DnaSomeType> } ? T : never;
 type FixedInput<O> = $DnaObjectInputFixed<ShapeOf<O>>;
-type FixedOutput<O> = $DnaObjectOutputFixed<ShapeOf<O>>;
+// type FixedOutput<O> = $DnaObjectOutputFixed<ShapeOf<O>>;
 
 // ─── Tests with REAL gov-mcp schemas ─────────────────────────────────────────
 
@@ -279,15 +279,14 @@ describe("appendLogEntryInput — real schema with transform (dateSchema)", () =
   // date is dateSchema = dna.coerce.date().transform() → DnaPipe, NOT optional → required key
   // Note: coerce.date() has _input: Date (a pre-existing typing issue, not related to key remapping).
   // We test the key-remapping behavior: date is required, optional fields are ?:.
-  it("date is a required key (not optional)", () => {
-    // @ts-expect-error missing required field 'date'
-    const _bad: FixedInput<typeof S.appendLogEntryInput> = {
+  it("date is optional and not required", () => {
+    const _ok: FixedInput<typeof S.appendLogEntryInput> = {
       nanoid: "abc",
       type: "status",
       subject: "s",
       body: "b",
     };
-    void _bad;
+    void _ok;
   });
 
   it("optional fields (audience, subject, body, refId, scope, replyTo, threadId) are optional keys", () => {

@@ -3,8 +3,8 @@
  *
  * Derives `toolMeta` from `toolList` (the single source of truth in
  * `definitions/tools.ts`). Each tool's `args` schema carries `description`,
- * `usage`, and `category` via `.meta()`. Alias tools may override these via
- * `descriptionOverride` / `usageOverride` on their `IToolDef` entry.
+ * `usage`, and `category` via `.meta()`. Alias tools carry their own meta on
+ * a cloned schema (e.g. `S.registerWriterInput.meta({...})`).
  *
  * `toolMeta` is a lazy Proxy: the derivation from `toolList` is deferred until
  * first property access. This breaks the circular import chain:
@@ -16,26 +16,31 @@
  */
 
 import { toolList } from "../definitions/tools.js";
+import { CATEGORY, type IToolCategory } from "../definitions/enums.js";
 
 export interface IToolMeta {
   /** Short description for MCP tools/list. */
   description: string;
   /** Detailed usage: what it does, parameters, return shape. */
-  usage: string;
+  usage: readonly [string, string];
+  /** Return shape, e.g. `{ id, created: true, seq }`. */
+  returns: string;
   /** Category for help grouping. */
-  category: "writers" | "read" | "write" | "reports" | "search" | "system";
+  category: IToolCategory;
 }
 
 /**
- * Derive `IToolMeta` from a DNA schema's `.meta()` payload, applying any
- * overrides from the `IToolDef` entry.
+ * Derive `IToolMeta` from a DNA schema's `.meta()` payload. Tool entries are
+ * literal objects, so `tool.args` keeps its concrete schema type and `.meta()`
+ * returns the declared fields with their literal types.
  */
 function metaFromTool(tool: typeof toolList[number]): IToolMeta {
-  const m = tool.args?.meta?.() ?? {};
+  const m = tool.args.meta();
   return {
-    description: tool.descriptionOverride ?? (m.description as string) ?? "",
-    usage: tool.usageOverride ?? (m.usage as string) ?? "",
-    category: (m.category as IToolMeta["category"]) ?? "system",
+    description: m.description ?? "",
+    usage: m.usage ?? ["",""],
+    returns: m.returns ?? "",
+    category: m.category ?? CATEGORY.system,
   };
 }
 

@@ -5,11 +5,12 @@
 import { dna } from "@ytrynot/dna";
 import { err, ok } from "./results.js";
 import { toolMeta } from "./meta.js";
-import { describeToolSignature } from "./describe-signature.js";
+import { buildHelp } from "./describe-signature.js";
 import { resolveScopeFilter } from "../helpers.js";
 import { tables } from "../definitions/schema.js";
-import { TESTED_STATUS, DECISION_STATUS, IDEA_STATUS } from "../definitions/enums.js";
+import { TESTED_STATUS, DECISION_STATUS, IDEA_STATUS, CATEGORY } from "../definitions/enums.js";
 import * as S from "../schemas/tool-inputs.js";
+import { helpInput } from "../definitions/tools.js";
 import type { IToolCtx, OToolResult } from "../types/types.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -735,108 +736,92 @@ export function listWriters(
   return ok(`${writers.length} writer(s)`, { writers });
 }
 
-/** Help / instructions — returns available tools and usage from toolMeta. */
+/** Help / instructions — compact index (no args) or full detail for one tool. */
 export function help(
   ctx: IToolCtx,
-  input: dna.infer<typeof S.helpInput>,
+  input: dna.infer<typeof helpInput>,
 ): OToolResult {
-  const res = S.helpInput.safeParse(input);
+  const res = helpInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
     return err(`Validation failed:\n${messages.join("\n")}`);
   }
-  const categories: Array<{ key: string; label: string }> = [
-    { key: "writers", label: "Writers & Identity" },
-    { key: "read", label: "Read & Browse" },
-    { key: "search", label: "Search & Transverse" },
-    { key: "write", label: "Write & Mutations" },
-    { key: "reports", label: "Reports & Export" },
-    { key: "system", label: "System" },
-  ];
-  const lines: string[] = ["# Governance MCP — Tools Reference", ""];
-  lines.push("## Getting Started", "");
-  lines.push("Before you can write anything, you MUST register yourself as a writer:");
-  lines.push("1. Call `register_me` (or `register_writer`) with your chosen `id`, your `role` (\"admin\" or \"agent\"), and optional profile fields.");
-  lines.push("2. The response contains your `nanoid` — a secret token. **Save both your `id` and your `nanoid`** in a secure location.");
-  lines.push("3. Use the `nanoid` as the `nanoid` parameter for all write operations (create_decision, create_action, append_log_entry, correct, etc.).");
-  lines.push("4. Use `whoami` with your `nanoid` to retrieve your profile at any time.");
-  lines.push("5. `list_writers` shows other writers' profiles but never returns their nanoids.");
-  lines.push("");
-  lines.push("## How-To: Common Workflows", "");
-  lines.push("**Start a discussion:** `append_log_entry({ type: \"question\", scope, subject, body })` → reply with `append_log_entry({ type: \"answer\", replyTo: <id>, body })` → read with `get_thread({ threadId: <id> })`.");
-  lines.push("");
-  lines.push("**Propose & accept a decision:** `create_decision({ title, decider, scope })` → `update_decision_status({ id, newStatus: \"Accepted\" })`.");
-  lines.push("");
-  lines.push("**Create & track an action:** `create_action({ title, source: \"DEC-NNNN\", source_type: \"decision\", scope })` → `update_action_status({ id, newStatus: \"in_progress\" })` → `update_action_status({ id, newStatus: \"done\", evidence: \"...\" })`.");
-  lines.push("");
-  lines.push("**Report & fix a problem:** `create_problem({ title, severity, type, scope })` → `update_problem_status({ id, newStatus: \"fixed\", fix: \"...\" })`. Link to actions with `link_problem_action`.");
-  lines.push("");
-  lines.push("**Promote an idea:** `create_idea({ title, scope })` → `create_decision({ title, decider, scope })` → `update_idea_status({ id, newStatus: \"promoted\", promotedTo: \"DEC-NNNN\" })`.");
-  lines.push("");
-  lines.push("**Add metadata to any entity:** `add_free_field({ entityType, entityId, key, format, value })` → retrieve with `get_free_fields({ entityType, entityId })`. Soft-delete with `deprecate_free_field({ id })`.");
-  lines.push("");
-  lines.push("**Correct a field:** `correct({ entityType, entityId, field, newValue, reason })`. Cannot correct log_entries — use `append_log_entry({ type: \"correction\", replyTo: <id> })` instead.");
-  lines.push("");
-  lines.push("**Handoff between sessions:** `get_handoff()` for a snapshot → `append_log_entry({ type: \"handoff\", body: \"...\" })` for context.");
-  lines.push("");
-  lines.push("**Search:** `search_mailbox({ query })` — full-text across all entities. Filter with `entityType`.");
-  lines.push("");
-  lines.push("**Pull unread updates:** `get_updates({ nanoid })` — returns log entries since your last read. Cursor is advanced automatically.");
-  lines.push("");
-  lines.push("## Audience Targeting", "");
-  lines.push("When you post a log entry, the `audience` field controls who sees it via `get_updates`:");
-  lines.push("");
-  lines.push("- `audience: \"all\"` (default) — broadcast to every writer");
-  lines.push("- `audience: \"writer-id\"` — addressed to a specific writer only");
-  lines.push("- `audience: \"all,writer-id\"` — broadcast AND explicit addressing");
-  lines.push("");
-  lines.push("If you want a specific writer to see your write, you MUST include their writer ID in `audience`. Do not rely on scope-sharing alone — scope-sharing makes entries from scope colleagues visible, but does not guarantee delivery to a specific writer.");
-  lines.push("");
-  lines.push("Use `list_writers` to find writer IDs.");
-  lines.push("");
-  lines.push("## Recommended Reading", "");
-  lines.push("Call `get_doc({ filename: \"<doc>\" })` to read any of these. Pick by intent:");
-  lines.push("");
-  lines.push("| If you want to… | Read |");
-  lines.push("|------------------|------|");
-  lines.push("| Start writing immediately (register, create, update, handoff) | `how-to.md` |");
-  lines.push("| See the full tool reference with parameters and return shapes | `tools.md` |");
-  lines.push("| Understand the architecture, SQLite-as-truth, table layout | `architecture.md` |");
-  lines.push("| Understand status cascades (done → partial, superseded → reopened) | `cascades.md` |");
-  lines.push("| Write or manage spec-annexes (lifecycle, versioning, drift) | `spec-guide.md` |");
-  lines.push("| Add custom metadata to entities (free fields, FTS indexing) | `free-fields.md` |");
-  lines.push("| Use the package as a TypeScript library (programmatic API) | `api.md` |");
-  lines.push("| Back up or restore the SQLite database | `backup-restore.md` |");
-  lines.push("| Migrate from Markdown files to SQLite (one-shot import) | `migration.md` |");
-  lines.push("");
-  lines.push("Or call `list_docs({})` to see all available documents with their titles.");
-  lines.push("");
-  for (const cat of categories) {
-    const tools = Object.entries(toolMeta).filter(([, m]) => m.category === cat.key);
-    if (tools.length === 0) continue;
-    lines.push(`## ${cat.label}`, "");
-    for (const [name, meta] of tools) {
-      lines.push(`### ${name}`, "");
-      lines.push(meta.description, "");
 
-      // Auto-generated Parameters: block from DNA schema (.describe() metadata)
-      const sig = describeToolSignature(name);
-      if (sig) {
-        lines.push(sig, "");
-      }
-
-      // Usage prose (intro + Returns: + notes — no Parameters: block)
-      lines.push(meta.usage, "");
+  // ── Detailed mode: help({ tool: "xxx" }) ──
+  if (res.data.tool) {
+    const toolName = res.data.tool;
+    if (!toolMeta[toolName]) {
+      return err(`Unknown tool: ${toolName}. Call help() without args for the full list.`);
     }
+    return ok(buildHelp(toolName, "{{name}}: {{desc}}\n\n{{sig}}\n\n{{args}}\n\n{{usage}}"));
   }
-  lines.push("## Security: nanoid", "");
-  lines.push("- The nanoid is a secret token. Never share it in logs, decisions, or public channels.");
-  lines.push("- **Keep your writer `id` and your `nanoid` together** — you need both to identify yourself and authenticate writes.");
-  lines.push("- `list_writers` shows writer profiles but never returns nanoids.");
-  lines.push("- `whoami` requires the nanoid to retrieve your own profile.");
-  lines.push("- If you lose your nanoid, an admin can read it directly from the database, or you can register a new writer.");
+
+  // ── Compact index mode: help() without args ──
+  const categories = Object.values(CATEGORY).sort((a, b) => a.order - b.order);
+
+  const lines: string[] = [
+    "# Governance MCP — Tools Reference",
+    "",
+    "Governance MCP is a persistent governance system for multi-agent projects. It stores decisions, actions, ideas, problems, and it lists specs; It has full-text search, audit trails, and inter-session handoffs.",
+    "Agents register as writers, then create/update entities, log discussions, and query the log entries to recover context across sessions.",
+    "",
+    "## Getting Started",
+    "",
+    'Register: `register_me({ id, role, responsibility?, defaultScope?, displayName?, objective?, expertise?, prohibitions? })` → save your `nanoid` → use it for all writes.',
+    "`whoami({ nanoid })` retrieves your profile. `list_writers({})` shows others (never nanoids).",
+    "",
+    "## How-To",
+    "",
+    '- **Discuss**: `append_log_entry({ type: "question", subject, body })` → reply with `replyTo` → `get_thread({ threadId })`',
+    '- **Decide**: `create_decision({ title, decider })` → `update_decision_status({ id, newStatus: "Accepted" })`',
+    '- **Act**: `create_action({ title })` → `update_action_status({ id, newStatus: "done", evidence })`',
+    '- **Fix**: `create_problem({ title, severity, type })` → `update_problem_status({ id, newStatus: "fixed", fix })`',
+    '- **Idea**: `create_idea({ title })` → `create_decision(...)` → `update_idea_status({ id, newStatus: "promoted", promotedTo })`',
+    '- **Correct**: `correct({ entityType, entityId, field, newValue, reason })` — for log_entries use `append_log_entry({ type: "correction", replyTo })`',
+    "- **Handoff**: `get_handoff()` → `append_log_entry({ type: \"handoff\", body })`",
+    '- **Search**: `search_mailbox({ query })` — FTS5 syntax, quote hyphens: `"PB-0108"`',
+    "- **Updates**: `get_updates({ nanoid })` — unread log entries since last read",
+    "",
+    "## Docs",
+    "",
+    "`list_docs()` — list all available docs.",
+    "`get_doc({ filename })` — read a doc by filename:",
+    "- `how-to.md` — register, create, update, handoff",
+    "- `tools.md` — full tool reference with parameters and return shapes",
+    "- `architecture.md` — architecture, SQLite-as-truth, table layout",
+    "- `cascades.md` — status cascades (done → partial, superseded → reopened)",
+    "- `spec-guide.md` — spec-annexes lifecycle, versioning, drift",
+    "- `free-fields.md` — custom metadata, FTS indexing",
+    "- `api.md` — programmatic TypeScript API",
+    "- `backup-restore.md` — SQLite backup/restore",
+    "- `migration.md` — Markdown → SQLite one-shot import",
+    "",
+  ];
+
+  for (const cat of categories) {
+    const tools = Object.entries(toolMeta).filter(([, m]) => m.category.key === cat.key);
+    if (tools.length === 0) continue;
+    lines.push(`## ${cat.name}`, "");
+    for (const [name] of tools) {
+      lines.push("- "+ buildHelp(name, "`{{name}}`: {{desc}} - `{{sig}}`."));
+    }
+    lines.push("");
+  }
+
+  lines.push(
+    "## Notes",
+    "",
+    "- `nanoid` is required for all write tools. Never share it.",
+    '- `scope` is an array on write tools (e.g. `["ytn"]`), a string on read tools (e.g. `"ytn"`).',
+    '- `date` on write tools requires `HH:MM` (e.g. `"2026-09-12 14:30"`). Read tools accept `YYYY-MM-DD`.',
+    "- Without `Z`/offset = local time; with `Z`/offset = GMT/UTC.",
+    '- `help({ tool: "create_decision" })` returns full detail for one tool.',
+  );
+
   return ok(lines.join("\n"));
 }
+
+
 
 export function getUpdates(
   ctx: IToolCtx,

@@ -6,6 +6,22 @@
  * for TypeScript signatures.
  */
 
+export const CATEGORY = {
+  id: { name: "Writers & Identity", key: "writers", order: 1 },
+  read: { name: "Read & Browse", key: "read", order: 2 },
+  search: { name: "Search & Transverse", key: "search", order: 3 },
+  write: { name: "Write & Mutations", key: "write", order: 4 },
+  reports: { name: "Reports & Export", key: "reports", order: 5 },
+  system: { name: "System", key: "system", order: 6 },
+} as const;
+
+export type tsToolCategoryKey = keyof typeof CATEGORY;
+export interface IToolCategory {
+  readonly name: string;
+  readonly key: (typeof CATEGORY)[tsToolCategoryKey]["key"];
+  readonly order: number;
+}
+
 // ─── Decision statuses ───────────────────────────────────────────────────────
 export const DECISION_STATUS = {
   Proposed: "Proposed",

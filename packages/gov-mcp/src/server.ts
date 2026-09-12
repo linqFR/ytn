@@ -65,7 +65,7 @@ export async function startServer(options: IServerOptions = {}): Promise<void> {
     server.registerTool(
       tool.name,
       { description: meta.description, inputSchema: tool.args },
-      async (args: unknown) => toCallToolResult(tool.handler(ctx, args as Record<string, unknown>)),
+      async (args) => toCallToolResult(tool.handler(ctx, args)),
     );
   }
 

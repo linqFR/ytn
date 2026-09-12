@@ -13,6 +13,7 @@ import type { DnaSomeType } from "@ytrynot/dna/core";
 import { DnaObject } from "@ytrynot/dna/core";
 import { getDescription } from "@ytrynot/dna/introspect";
 import { toolList } from "../definitions/tools.js";
+import { toolMeta } from "./meta.js";
 
 /** JSON Schema property shape (subset we care about). */
 interface IJSProp {
@@ -83,14 +84,14 @@ export function describeSignature(schema: DnaSomeType): string {
     const optional = !requiredSet.has(key);
     const type = typeName(prop);
     const optMark = optional ? "?" : "";
-    const reqMark = optional ? ", optional" : ", required";
+    const reqMark = optional ? "optional" : "required";
     // Read description from the DNA schema field, walking through wrappers
     // (optional, nullable, etc.) to find the first non-undefined description.
     const desc = shape[key] ? getDescription(shape[key]) : undefined;
     if (desc) {
-      lines.push(`  ${key}${optMark} (${type}${reqMark}) — ${desc}`);
+      lines.push(`-  ${key}${optMark} (${type}) — ${desc} [${reqMark}]`);
     } else {
-      lines.push(`  ${key}${optMark} (${type}${reqMark})`);
+      lines.push(`-  ${key}${optMark} (${type})`);
     }
   }
   return lines.join("\n");
@@ -126,4 +127,67 @@ export function describeToolSignature(toolName: string): string {
   const schema = getToolSchemas()[toolName];
   if (!schema) return "";
   return describeSignature(schema);
+}
+
+// ─── Compact signature & composable help ─────────────────────────────────────
+
+/**
+ * Build a compact one-line signature: `name(req, opt?) → { returnKey }`.
+ *
+ * Parses the `Parameters:` block produced by `describeToolSignature` to extract
+ * parameter names (with `?` for optional), then extracts the return shape from
+ * `toolMeta[toolName].usage` (the `Returns:` line).
+ */
+export function compactSignature(toolName: string, sig: string): string {
+  const lines = sig.split("\n").slice(1); // skip "Parameters:"
+  const params: string[] = [];
+  for (const line of lines) {
+    const m = line.match(/^\s+(\w+)(\??)\s+\(([^,]+),\s*(required|optional)\)/);
+    if (m) {
+      const [, name, optMark] = m;
+      params.push(name + (optMark || ""));
+    }
+  }
+  const meta = toolMeta[toolName];
+  const returnShape = meta.returns;
+  const paramStr = params.length > 0 ? params.join(", ") : "";
+  const arrow = returnShape ? ` → ${returnShape}` : "";
+  return `${toolName}(${paramStr})${arrow}`;
+}
+
+/** Tokens available in `buildHelp()` format templates. */
+export type THelpToken = "name" | "desc" | "sig" | "args" | "usage" | "return";
+
+/**
+ * Build a help string for one tool using a format template.
+ *
+ * Tokens replaced in the template:
+ * - `{{name}}`   — tool name (e.g. `create_decision`)
+ * - `{{desc}}`   — `meta.description` (one-line summary)
+ * - `{{sig}}`    — compact one-line signature: `name(req, opt?) → { returnKey }`
+ * - `{{args}}`   — full `Parameters:` block (auto-generated from DNA schema)
+ * - `{{usage}}`  — `meta.usage` prose (start + end joined)
+ * - `{{return}}` — return shape only: `{ id, created, seq }`
+ *
+ * Returns "" if the tool is unknown.
+ *
+ * @example
+ * buildHelp("create_decision", "`{{name}}`: {{desc}} — {{sig}}")
+ * // → "`create_decision`: Create a new decision — create_decision(nanoid, title, ...) → { id, created, seq }"
+ *
+ * @example
+ * buildHelp("create_decision", "{{name}}: {{desc}}\n\n{{sig}}\n\nArguments:\n{{args}}\n\n{{usage}}")
+ * // → full detail (name + description + signature + Parameters block + usage prose)
+ */
+export function buildHelp(toolName: string, template: string): string {
+  const meta = toolMeta[toolName];
+  if (!meta) return "";
+
+  return template
+    .replace(/\{\{name\}\}/g, toolName)
+    .replace(/\{\{desc\}\}/g, meta.description)
+    .replace(/\{\{sig\}\}/g, compactSignature(toolName, describeToolSignature(toolName)))
+    .replace(/\{\{args\}\}/g, describeToolSignature(toolName))
+    .replace(/\{\{return\}\}/g, meta.returns)
+    .replace(/\{\{usage\}\}/g, meta.usage.join("\n\n"));
 }

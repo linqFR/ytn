@@ -48,11 +48,9 @@ export const getDecisionInput = dna.strictObject({
 }).meta({
   title: "GetDecisionInput",
   description: "Get a single decision by ID, including its status history.",
-  usage: `Get a single decision with full details and status history.
-
-Returns:
-  { decision: tsDecisionRow, history: tsStatusHistoryRow[], scopes: tsEntityScopeRow[] }`,
-  category: "read",
+  usage: "Get a single decision with full details and status history.",
+  category: CATEGORY.read,
+  returns: "{ decision: tsDecisionRow, history: tsStatusHistoryRow[], scopes: tsEntityScopeRow[] }",
 });
 ```
 
@@ -60,7 +58,7 @@ Returns:
 
 - **`dna.strictObject()`** — rejects unknown fields at validation time. Never use `dna.object()` for tool inputs.
 - **`.describe()`** on each field — surfaces in the auto-generated `Parameters:` block of `help`.
-- **`.meta()`** — `description` is the short one-liner shown in `tools/list`; `usage` is the detailed prose shown in `help`; `category` controls which section of `help` the tool appears under (`writers`, `read`, `search`, `write`, `reports`, `system`).
+- **`.meta()`** — `description` is the short one-liner shown in `tools/list`; `usage` is the detailed prose shown in `help`; `category` is a `CATEGORY.*` object (`id`, `read`, `search`, `write`, `reports`, `system`) controlling which section of `help` the tool appears under.
 - **Reuse shared schemas** — `nanoidSchema`, `entityIdSchema`, `decisionStatusSchema`, etc. are already defined at the top of the file.
 
 ---
@@ -152,40 +150,44 @@ export function getDecision(
 - **`ctx.queries.xxx`** — access the pre-compiled query. `.get()` for single-row, `.all()` for multiple rows.
 - **`ok(text, structured)`** — returns a successful result. `text` is a human-readable summary; `structured` is the machine-readable payload that becomes `structuredContent` in the MCP response.
 - **`err(text)`** — returns an error result with `isError: true`.
-- **Tools without input** — if the tool takes no arguments, omit `input` from the handler signature and the `args` field in the registry entry. See `get_handoff` or `export_dump` for examples.
+- **Tools without input** — the handler signature omits `input`, but the registry entry still carries an empty `dna.object({})` schema (see `get_handoff` or `export_dump`).
 
 ---
 
 ## Step 4 — Register the Tool
 
-In `src/definitions/tools.ts`, add one entry to the `toolList` array:
+In `src/definitions/tools.ts`, add one entry to the `toolDefs` record — the key is the tool name:
 
 ```ts
-const toolList: IToolDef[] = [
+const toolDefs = {
   // ... existing tools ...
 
-  { name: "get_decision", category: CATEGORY.read, args: S.getDecisionInput, handler: read.getDecision },
-];
+  get_decision: { handler: read.getDecision, schema: S.getDecisionInput },
+};
 ```
 
-**That's it.** The server iterates over `toolList` in `server.ts` to register every tool with the MCP server. The help system, signature generator, and metadata all derive from this list.
+**That's it.** `toolList` is derived from `toolDefs` (`Object.entries` → `{ name, args, handler, category }`), and `server.ts` iterates it to register every tool with the MCP server. The help system, signature generator, and metadata all derive from this list.
 
 **Key points:**
 
-- **`name`** — the MCP tool name (snake_case). This is what agents call.
-- **`category`** — one of the `CATEGORY` constants defined at the top of the file. Controls help grouping.
-- **`args`** — the DNA schema from Step 1. Omit for tools without input.
+- **the record key** — the MCP tool name (snake_case). This is what agents call.
+- **`schema`** — the DNA schema from Step 1.
 - **`handler`** — the function from Step 3.
-- **`descriptionOverride` / `usageOverride`** — optional, for aliases. If omitted, description and usage are derived from the schema's `.meta()`.
+- **`category`** — not written on the entry; it is read from the schema's `.meta()` (`category: CATEGORY.*`) when `toolList` is derived.
 
 ### Aliases
 
-To register the same handler under a different name (e.g. `register_me` as an alias for `register_writer`):
+To register the same handler under a different name (e.g. `register_me` as an alias for `register_writer`), clone the shared schema and override the doc fields in its `.meta()`:
 
 ```ts
-{ name: "register_me", category: CATEGORY.writers, args: S.registerWriterInput, handler: write.registerWriter,
-  descriptionOverride: "Alias for register_writer. Register yourself as a writer and receive a nanoid token.",
-  usageOverride: "Alias for register_writer. See register_writer for full documentation." },
+register_me: {
+  handler: write.registerWriter,
+  schema: S.registerWriterInput.meta({
+    description: "Alias for register_writer. Register yourself as a writer and receive a nanoid token.",
+    usage: "Alias for register_writer. See register_writer for full documentation.",
+    category: CATEGORY.id,
+  }),
+},
 ```
 
 ### The `help` tool
