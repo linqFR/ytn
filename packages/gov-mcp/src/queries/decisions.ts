@@ -24,15 +24,15 @@ export function compileDecisionQueries(db: GovDb): Pick<IQueries,
       t.decisions.req.selectRaw(`COALESCE(MAX(${d.col.seq}), 0) + 1 AS next_seq`).toSQL(),
     ),
     countDecisionsByScope: db.prepare(
-      t.decisions.req.count().whereRaw(`${d.col.id} IN (SELECT ${es.col.entity_id} FROM ${es.table} WHERE ${es.col.entity_type} = 'decision' AND ${es.col.scope_id} = @scope)`).toSQL(),
+      t.decisions.req.count().whereIn(d.col.id, t.entity_scopes.req.select(es.col.entity_id).whereLiteral(es.col.entity_type, "'decision'").where([{ col: es.col.scope_id, param: "scope" }])).toSQL(),
     ),
     insertDecision: db.prepare(t.decisions.insert),
     updateDecisionStatus: db.prepare(
-      t.decisions.req.update(d.col.status, d.col.updated_at).whereRaw(`${d.col.id} = @id`).toSQL(),
+      t.decisions.req.update(d.col.status, d.col.updated_at).where([d.col.id]).toSQL(),
     ),
     reportDecisionsByDate: db.prepare(
       t.decisions.req.select(d.col.id, d.col.title, d.col.status)
-        .whereRaw(`${d.col.date} LIKE @date`).orderBy(d.col.seq, "ASC").toSQL(),
+        .whereLike(d.col.date, "date").orderBy(d.col.seq, "ASC").toSQL(),
     ),
     reportAllDecisions: db.prepare(
       t.decisions.req.select(d.col.id, d.col.title, d.col.status, d.col.date, d.col.decider, d.col.superseded_by, d.col.spec_ref, d.col.source, d.col.context, d.col.decision, d.col.consequences)

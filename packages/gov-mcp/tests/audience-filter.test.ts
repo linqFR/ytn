@@ -144,21 +144,6 @@ describe("write tools audience parameter", () => {
     db.close();
   });
 
-  it("createDecision with audience='writer-a' stores it in log_entry", () => {
-    const result = write.createDecision(ctx, {
-      nanoid: NANOID_B,
-      title: "Decision for A",
-      decider: "writer-b",
-      audience: "writer-a",
-    });
-    expect(result.isError).toBeFalsy();
-
-    const logRow = db.prepare(
-      "SELECT audience FROM log_entries WHERE type = 'decision' AND author = ? ORDER BY id DESC LIMIT 1",
-    ).get("writer-b") as { audience: string };
-    expect(logRow.audience).toBe("writer-a");
-  });
-
   it("createDecision without audience defaults to 'all'", () => {
     const result = write.createDecision(ctx, {
       nanoid: NANOID_B,
@@ -173,52 +158,48 @@ describe("write tools audience parameter", () => {
     expect(logRow.audience).toBe("all");
   });
 
-  it("createAction with audience stores it in log_entry", () => {
+  it("createAction without audience defaults to 'all'", () => {
     const result = write.createAction(ctx, {
       nanoid: NANOID_C,
-      title: "Action for A and B",
-      audience: "writer-a,writer-b",
+      title: "Action for all",
     });
     expect(result.isError).toBeFalsy();
 
     const logRow = db.prepare(
       "SELECT audience FROM log_entries WHERE type = 'action' AND author = ? ORDER BY id DESC LIMIT 1",
     ).get("writer-c") as { audience: string };
-    expect(logRow.audience).toBe("writer-a,writer-b");
+    expect(logRow.audience).toBe("all");
   });
 
-  it("createIdea with audience stores it in log_entry", () => {
+  it("createIdea without audience defaults to 'all'", () => {
     const result = write.createIdea(ctx, {
       nanoid: NANOID_B,
-      title: "Idea for A",
-      audience: "writer-a",
+      title: "Idea for all",
     });
     expect(result.isError).toBeFalsy();
 
     const logRow = db.prepare(
       "SELECT audience FROM log_entries WHERE type = 'idea' AND author = ? ORDER BY id DESC LIMIT 1",
     ).get("writer-b") as { audience: string };
-    expect(logRow.audience).toBe("writer-a");
+    expect(logRow.audience).toBe("all");
   });
 
-  it("createProblem with audience stores it in log_entry", () => {
+  it("createProblem without audience defaults to 'all'", () => {
     const result = write.createProblem(ctx, {
       nanoid: NANOID_C,
-      title: "Problem for A",
+      title: "Problem for all",
       severity: "HIGH",
       type: "code",
-      audience: "writer-a",
     });
     expect(result.isError).toBeFalsy();
 
     const logRow = db.prepare(
       "SELECT audience FROM log_entries WHERE type = 'pb' AND author = ? ORDER BY id DESC LIMIT 1",
     ).get("writer-c") as { audience: string };
-    expect(logRow.audience).toBe("writer-a");
+    expect(logRow.audience).toBe("all");
   });
 
-  it("correct with audience stores it in log_entry", () => {
-    // First create a decision to correct
+  it("correct without audience defaults to 'all'", () => {
     write.createDecision(ctx, {
       nanoid: NANOID_B,
       title: "Decision to correct",
@@ -235,7 +216,33 @@ describe("write tools audience parameter", () => {
       field: "title",
       newValue: "Corrected title",
       reason: "typo",
-      audience: "writer-a",
+    });
+    expect(result.isError).toBeFalsy();
+
+    const logRow = db.prepare(
+      "SELECT audience FROM log_entries WHERE type = 'correction' AND author = ? ORDER BY id DESC LIMIT 1",
+    ).get("writer-c") as { audience: string };
+    expect(logRow.audience).toBe("all");
+  });
+
+  it("correct with audience stores it in log_entry", () => {
+    write.createDecision(ctx, {
+      nanoid: NANOID_B,
+      title: "Decision to correct",
+      decider: "writer-b",
+    });
+    const decId = db.prepare(
+      "SELECT ref_id FROM log_entries WHERE type = 'decision' ORDER BY id DESC LIMIT 1",
+    ).get() as { ref_id: string };
+
+    const result = write.correct(ctx, {
+      nanoid: NANOID_C,
+      entityType: "decision",
+      entityId: decId.ref_id,
+      field: "title",
+      newValue: "Corrected title",
+      reason: "typo",
+      audience: ["writer-a"],
     });
     expect(result.isError).toBeFalsy();
 

@@ -10,14 +10,14 @@ import * as S from "../schemas/tool-inputs.js";
 import { tables } from "../definitions/schema.js";
 import { TESTED_STATUS, ACTION_STATUS, IDEA_STATUS, PROBLEM_STATUS } from "../definitions/enums.js";
 import { err, ok } from "./results.js";
-import type { IToolCtx, IToolResult } from "../types/types.ts";
+import type { IToolCtx, OToolResult } from "../types/types.ts";
 
 // ─── Writer management ───────────────────────────────────────────────────────
 
 export function registerWriter(
   ctx: IToolCtx,
   input: dna.infer<typeof S.registerWriterInput>,
-): IToolResult {
+): OToolResult {
   const res = S.registerWriterInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -48,7 +48,7 @@ export function registerWriter(
       objective: d.objective ?? null,
       expertise: d.expertise ?? null,
       prohibitions: d.prohibitions ?? null,
-      last_read_at: 0,
+      last_read_at: "1970-01-01T00:00:00.000Z",
       created_at: currentTimestamp(),
     });
   });
@@ -66,12 +66,60 @@ export function registerWriter(
   });
 }
 
+export function updateMe(
+  ctx: IToolCtx,
+  input: dna.infer<typeof S.updateMeInput>,
+): OToolResult {
+  const res = S.updateMeInput
+    .transform((data, dnactx) => {
+      if (dnactx.issues.length > 0) return;
+      const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
+      if (!writer) {
+        dnactx.issues.push({ message: `Invalid nanoid — writer not found` });
+        return;
+      }
+      const fields: string[] = [];
+      if (data.responsibility !== undefined) fields.push("responsibility");
+      if (data.objective !== undefined) fields.push("objective");
+      if (data.expertise !== undefined) fields.push("expertise");
+      if (data.prohibitions !== undefined) fields.push("prohibitions");
+      if (fields.length === 0) {
+        dnactx.issues.push({ message: `No fields to update — provide at least one of responsibility, objective, expertise, prohibitions` });
+        return;
+      }
+      return { ...data, writer, fields };
+    }, { ctx })
+    .safeParse(input, { ctx });
+
+  if (!res.success) {
+    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
+    return err(`Validation failed:\n${messages.join("\n")}`);
+  }
+  const d = res.data!;
+  const sets: string[] = [];
+  const params: Record<string, unknown> = { nanoid: d.nanoid };
+  if (d.responsibility !== undefined) { sets.push("responsibility = @responsibility"); params.responsibility = d.responsibility; }
+  if (d.objective !== undefined) { sets.push("objective = @objective"); params.objective = d.objective; }
+  if (d.expertise !== undefined) { sets.push("expertise = @expertise"); params.expertise = d.expertise; }
+  if (d.prohibitions !== undefined) { sets.push("prohibitions = @prohibitions"); params.prohibitions = d.prohibitions; }
+
+  const tx = ctx.db.safeTransaction(() => {
+    ctx.db.prepare(`UPDATE writers SET ${sets.join(", ")} WHERE nanoid = @nanoid`).run(params);
+  });
+  if (!tx.ok) return err(`Database error: ${tx.error}`);
+  return ok(`Profile updated: ${d.fields.join(", ")}`, {
+    id: d.writer.id,
+    updated: true,
+    fields: d.fields,
+  });
+}
+
 // ─── Decision tools ──────────────────────────────────────────────────────────
 
 export function createDecision(
   ctx: IToolCtx,
   input: dna.infer<typeof S.createDecisionInput>,
-): IToolResult {
+): OToolResult {
   const res = S.createDecisionInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -80,7 +128,7 @@ export function createDecision(
         dnactx.issues.push({ message: `Invalid nanoid — writer not found` });
         return;
       }
-      const scopes = data.scope ? (Array.isArray(data.scope) ? data.scope : [data.scope]) : [writer.default_scope];
+      const scopes = data.scope ?? [writer.default_scope];
       const seqRow = ctx.queries.nextDecisionSeq.get();
       if (!seqRow) {
         dnactx.issues.push({ message: `Failed to generate sequence number` });
@@ -165,7 +213,7 @@ export function createDecision(
 export function updateDecisionStatus(
   ctx: IToolCtx,
   input: dna.infer<typeof S.updateDecisionStatusInput>,
-): IToolResult {
+): OToolResult {
   const res = S.updateDecisionStatusInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -219,7 +267,7 @@ export function updateDecisionStatus(
 export function createAction(
   ctx: IToolCtx,
   input: dna.infer<typeof S.createActionInput>,
-): IToolResult {
+): OToolResult {
   const res = S.createActionInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -228,7 +276,7 @@ export function createAction(
         dnactx.issues.push({ message: `Invalid nanoid — writer not found` });
         return;
       }
-      const scopes = data.scope ? (Array.isArray(data.scope) ? data.scope : [data.scope]) : [writer.default_scope];
+      const scopes = data.scope ?? [writer.default_scope];
       const seqRow = ctx.queries.nextActionSeq.get();
       if (!seqRow) {
         dnactx.issues.push({ message: `Failed to generate sequence number` });
@@ -304,7 +352,7 @@ export function createAction(
 export function updateActionStatus(
   ctx: IToolCtx,
   input: dna.infer<typeof S.updateActionStatusInput>,
-): IToolResult {
+): OToolResult {
   const res = S.updateActionStatusInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -376,7 +424,7 @@ export function updateActionStatus(
 export function createIdea(
   ctx: IToolCtx,
   input: dna.infer<typeof S.createIdeaInput>,
-): IToolResult {
+): OToolResult {
   const res = S.createIdeaInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -385,7 +433,7 @@ export function createIdea(
         dnactx.issues.push({ message: `Invalid nanoid — writer not found` });
         return;
       }
-      const scopes = data.scope ? (Array.isArray(data.scope) ? data.scope : [data.scope]) : [writer.default_scope];
+      const scopes = data.scope ?? [writer.default_scope];
       const seqRow = ctx.queries.nextIdeaSeq.get();
       if (!seqRow) {
         dnactx.issues.push({ message: `Failed to generate sequence number` });
@@ -447,7 +495,7 @@ export function createIdea(
 export function updateIdeaStatus(
   ctx: IToolCtx,
   input: dna.infer<typeof S.updateIdeaStatusInput>,
-): IToolResult {
+): OToolResult {
   const res = S.updateIdeaStatusInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -496,7 +544,7 @@ export function updateIdeaStatus(
 export function createProblem(
   ctx: IToolCtx,
   input: dna.infer<typeof S.createProblemInput>,
-): IToolResult {
+): OToolResult {
   const res = S.createProblemInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -505,7 +553,7 @@ export function createProblem(
         dnactx.issues.push({ message: `Invalid nanoid — writer not found` });
         return;
       }
-      const scopes = data.scope ? (Array.isArray(data.scope) ? data.scope : [data.scope]) : [writer.default_scope];
+      const scopes = data.scope ?? [writer.default_scope];
       const seqRow = ctx.queries.nextProblemSeq.get();
       if (!seqRow) {
         dnactx.issues.push({ message: `Failed to generate sequence number` });
@@ -568,7 +616,7 @@ export function createProblem(
 export function updateProblemStatus(
   ctx: IToolCtx,
   input: dna.infer<typeof S.updateProblemStatusInput>,
-): IToolResult {
+): OToolResult {
   const res = S.updateProblemStatusInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -626,7 +674,7 @@ export function updateProblemStatus(
 export function linkProblemAction(
   ctx: IToolCtx,
   input: dna.infer<typeof S.linkProblemActionInput>,
-): IToolResult {
+): OToolResult {
   const res = S.linkProblemActionInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -664,7 +712,7 @@ export function linkProblemAction(
 export function linkActionWorkstream(
   ctx: IToolCtx,
   input: dna.infer<typeof S.linkActionWorkstreamInput>,
-): IToolResult {
+): OToolResult {
   const res = S.linkActionWorkstreamInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -699,7 +747,7 @@ export function linkActionWorkstream(
 export function linkActionDependency(
   ctx: IToolCtx,
   input: dna.infer<typeof S.linkActionDependencyInput>,
-): IToolResult {
+): OToolResult {
   const ad = tables.action_dependencies.names;
   const res = S.linkActionDependencyInput
     .transform((data, dnactx) => {
@@ -768,7 +816,7 @@ export function linkActionDependency(
 export function createSpec(
   ctx: IToolCtx,
   input: dna.infer<typeof S.createSpecInput>,
-): IToolResult {
+): OToolResult {
   const res = S.createSpecInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -777,7 +825,7 @@ export function createSpec(
         dnactx.issues.push({ message: `Invalid nanoid — writer not found` });
         return;
       }
-      const scopes = data.scope ? (Array.isArray(data.scope) ? data.scope : [data.scope]) : [writer.default_scope];
+      const scopes = data.scope ?? [writer.default_scope];
       return { ...data, writer, scopes };
     }, { ctx })
     .safeParse(input, { ctx });
@@ -811,7 +859,7 @@ export function createSpec(
 export function updateSpecStatus(
   ctx: IToolCtx,
   input: dna.infer<typeof S.updateSpecStatusInput>,
-): IToolResult {
+): OToolResult {
   const res = S.updateSpecStatusInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -845,7 +893,7 @@ export function updateSpecStatus(
       id: null, entity_type: "spec", entity_id: d.id,
       old_status: d.current.status,
       new_status: d.newStatus, changed_at: now, changed_by: d.writer.id,
-      reason: null, cascade_trigger: null,
+      reason: d.reason ?? null, cascade_trigger: null,
     });
   });
   if (!tx.ok) return err(`Database error: ${tx.error}`);
@@ -859,7 +907,7 @@ export function updateSpecStatus(
 export function createScope(
   ctx: IToolCtx,
   input: dna.infer<typeof S.createScopeInput>,
-): IToolResult {
+): OToolResult {
   const res = S.createScopeInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -898,7 +946,7 @@ export function createScope(
 export function updateScope(
   ctx: IToolCtx,
   input: dna.infer<typeof S.updateScopeInput>,
-): IToolResult {
+): OToolResult {
   const res = S.updateScopeInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -940,7 +988,7 @@ export function updateScope(
 export function appendLogEntry(
   ctx: IToolCtx,
   input: dna.infer<typeof S.appendLogEntryInput>,
-): IToolResult {
+): OToolResult {
   const res = S.appendLogEntryInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -956,7 +1004,7 @@ export function appendLogEntry(
           resolvedThreadId = parent.thread_id ?? data.replyTo;
         }
       }
-      const scope = data.scope ? (Array.isArray(data.scope) ? data.scope : [data.scope]) : undefined;
+      const scope = data.scope;
       return { ...data, writer, resolvedThreadId, scope };
     }, { ctx })
     .safeParse(input, { ctx });
@@ -973,7 +1021,7 @@ export function appendLogEntry(
     const info = ctx.queries.insertLogEntry.run({
       id: null, date: d.date, timestamp: now, type: d.type,
       author: d.writer.id,
-      audience: d.audience ?? "all", subject: d.subject ?? null,
+      audience: d.audience?.join(",") ?? "all", subject: d.subject ?? null,
       body: d.body ?? null, ref_id: d.refId ?? null,
       reply_to: d.replyTo ?? null, thread_id: d.resolvedThreadId,
     });
@@ -1007,7 +1055,7 @@ export function appendLogEntry(
 export function correct(
   ctx: IToolCtx,
   input: dna.infer<typeof S.correctInput>,
-): IToolResult {
+): OToolResult {
   const tableMap: Record<string, string> = {
     decision: "decisions",
     action: "actions",
@@ -1058,16 +1106,16 @@ export function correct(
 
   const tx = ctx.db.safeTransaction(() => {
     const oldRow = ctx.db.prepare(
-      tableDef.req.selectRaw(`${d.field} AS old_value`).whereRaw(`${t.pk} = @id`).toSQL(),
+      tableDef.req.selectRaw(`${d.field} AS old_value`).where([{ col: t.pk, param: "id" }]).toSQL(),
     ).get({ id: d.entityId }) as { old_value: string | null } | undefined;
     const oldValue = oldRow?.old_value ?? null;
 
     ctx.db.prepare(
-      tableDef.req.update(d.field, t.col.updated_at).whereRaw(`${t.pk} = @id`).toSQL(),
+      tableDef.req.update(d.field, t.col.updated_at).where([{ col: t.pk, param: "id" }]).toSQL(),
     ).run({ [d.field]: d.newValue, [t.col.updated_at]: now, id: d.entityId });
     ctx.queries.insertLogEntry.run({
       id: null, date: currentDate(), timestamp: now, type: "correction",
-      author: d.writer.id, audience: "all",
+      author: d.writer.id, audience: d.audience?.join(",") ?? "all",
       subject: `Correction: ${d.entityType} ${d.entityId} field "${d.field}"`,
       body: `Old value: ${oldValue ?? "(null)"}. New value: ${d.newValue}. Reason: ${d.reason}`,
       ref_id: d.entityId, reply_to: null, thread_id: null,
@@ -1096,7 +1144,7 @@ export function correct(
 export function addFreeField(
   ctx: IToolCtx,
   input: dna.infer<typeof S.addFreeFieldInput>,
-): IToolResult {
+): OToolResult {
   const res = S.addFreeFieldInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;
@@ -1142,7 +1190,7 @@ export function addFreeField(
 export function deprecateFreeField(
   ctx: IToolCtx,
   input: dna.infer<typeof S.deprecateFreeFieldInput>,
-): IToolResult {
+): OToolResult {
   const res = S.deprecateFreeFieldInput
     .transform((data, dnactx) => {
       if (dnactx.issues.length > 0) return;

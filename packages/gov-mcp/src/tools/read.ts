@@ -10,7 +10,7 @@ import { resolveScopeFilter } from "../helpers.js";
 import { tables } from "../definitions/schema.js";
 import { TESTED_STATUS, DECISION_STATUS, IDEA_STATUS } from "../definitions/enums.js";
 import * as S from "../schemas/tool-inputs.js";
-import type { IToolCtx, IToolResult } from "../types/types.ts";
+import type { IToolCtx, OToolResult } from "../types/types.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -19,7 +19,7 @@ import * as path from "node:path";
 export function listDecisions(
   ctx: IToolCtx,
   input: dna.infer<typeof S.listDecisionsInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listDecisionsInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -48,7 +48,7 @@ export function listDecisions(
 export function getDecision(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getDecisionInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getDecisionInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -65,7 +65,7 @@ export function getDecision(
 export function listActions(
   ctx: IToolCtx,
   input: dna.infer<typeof S.listActionsInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listActionsInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -93,7 +93,7 @@ export function listActions(
 export function getAction(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getActionInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getActionInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -119,7 +119,7 @@ export function getAction(
 export function listIdeas(
   ctx: IToolCtx,
   input: dna.infer<typeof S.listIdeasInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listIdeasInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -147,7 +147,7 @@ export function listIdeas(
 export function getIdea(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getIdeaInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getIdeaInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -165,7 +165,7 @@ export function getIdea(
 export function listProblems(
   ctx: IToolCtx,
   input: dna.infer<typeof S.listProblemsInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listProblemsInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -193,7 +193,7 @@ export function listProblems(
 export function getProblem(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getProblemInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getProblemInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -210,7 +210,7 @@ export function getProblem(
 export function listSpecs(
   ctx: IToolCtx,
   input: dna.infer<typeof S.listSpecsInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listSpecsInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -237,7 +237,7 @@ export function listSpecs(
 export function getSpec(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getSpecInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getSpecInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -252,7 +252,7 @@ export function getSpec(
 export function listScopes(
   ctx: IToolCtx,
   input: dna.infer<typeof S.listScopesInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listScopesInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -271,7 +271,7 @@ export function listScopes(
 export function getScope(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getScopeInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getScopeInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -293,7 +293,7 @@ export function getScope(
 export function listLogEntries(
   ctx: IToolCtx,
   input: dna.infer<typeof S.listLogEntriesInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listLogEntriesInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -301,7 +301,12 @@ export function listLogEntries(
   }
   const whereFields: string[] = [];
   const params: Record<string, unknown> = {};
-  if (input.date) { whereFields.push("date"); params.date = input.date; }
+  let dateClause: string | null = null;
+  if (input.date) {
+    // Filter by day, not exact timestamp — entries may have non-midnight ISO dates
+    dateClause = "date(date) = date(@date)";
+    params.date = input.date;
+  }
   if (input.type) { whereFields.push("type"); params.type = input.type; }
   if (input.refId) { whereFields.push("ref_id"); params.ref_id = input.refId; }
   let scopeClause: string | null = null;
@@ -312,6 +317,7 @@ export function listLogEntries(
   }
   let builder = tables.log_entries.req.select();
   if (whereFields.length > 0) builder = builder.where(whereFields);
+  if (dateClause) builder = builder.whereRaw(dateClause);
   if (scopeClause) builder = builder.whereRaw(scopeClause);
   const sql = builder.orderBy("id", "DESC").limit(input.limit ?? 100).toSQL();
   const rows = ctx.db.prepare(sql).all(params);
@@ -321,7 +327,7 @@ export function listLogEntries(
 export function getLastLogEntry(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getLastLogEntryInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getLastLogEntryInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -335,7 +341,7 @@ export function getLastLogEntry(
 export function getThread(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getThreadInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getThreadInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -354,7 +360,7 @@ export function getThread(
 export function searchMailbox(
   ctx: IToolCtx,
   input: dna.infer<typeof S.searchMailboxInput>,
-): IToolResult {
+): OToolResult {
   const res = S.searchMailboxInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -394,7 +400,7 @@ export function searchMailbox(
 export function mailboxLast24h(
   ctx: IToolCtx,
   input: dna.infer<typeof S.mailboxLast24hInput>,
-): IToolResult {
+): OToolResult {
   const res = S.mailboxLast24hInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -408,6 +414,11 @@ export function mailboxLast24h(
     String(hours),
     String(hours),
   );
+
+  // Post-query type filter (UNION returns all entity types)
+  if (input.type) {
+    rows = rows.filter((r) => r.type === input.type);
+  }
 
   // Post-query scope filtering via entity_scopes (UNION query cannot join entity_scopes)
   if (input.scope) {
@@ -435,6 +446,11 @@ export function mailboxLast24h(
     });
   }
 
+  // Post-query limit (applied after type and scope filters)
+  if (input.limit) {
+    rows = rows.slice(0, input.limit);
+  }
+
   return ok(`${rows.length} item(s) in the last ${input.hours ?? 24}h`, {
     timeline: rows,
     count: rows.length,
@@ -444,7 +460,7 @@ export function mailboxLast24h(
 export function getDecisionHistory(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getDecisionHistoryInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getDecisionHistoryInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -466,7 +482,7 @@ export function getDecisionHistory(
 export function getActionLineage(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getActionLineageInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getActionLineageInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -492,7 +508,7 @@ export function getActionLineage(
 export function getOpenActions(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getOpenActionsInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getOpenActionsInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -504,31 +520,31 @@ export function getOpenActions(
   return ok(`${rows.length} open action(s)`, { actions: rows, count: rows.length });
 }
 
-export function getHandoff(ctx: IToolCtx): IToolResult {
+export function getHandoff(ctx: IToolCtx): OToolResult {
   const openActions = ctx.queries.getOpenActionsForHandoff.all();
 
   const pendingDecisions = ctx.db.prepare(
     tables.decisions.req.select("id", "title", "status")
-      .whereRaw(`status = '${DECISION_STATUS.Proposed}'`).orderBy("date", "DESC").toSQL(),
+      .whereLiteral("status", `'${DECISION_STATUS.Proposed}'`).orderBy("date", "DESC").toSQL(),
   ).all();
 
-  // Problems by severity — whereIn for status NOT IN + whereRaw for severity
+  // Problems by severity — whereLiteral for severity + whereNotIn for status
   const criticalPbs = ctx.db.prepare(
     tables.problems.req.select("id", "title", "severity")
-      .whereRaw("severity = 'CRITICAL' AND status NOT IN ('fixed', 'wontfix')").toSQL(),
+      .whereLiteral("severity", "'CRITICAL'").whereNotIn("status", ["fixed", "wontfix"]).toSQL(),
   ).all();
   const highPbs = ctx.db.prepare(
     tables.problems.req.select("id", "title", "severity")
-      .whereRaw("severity = 'HIGH' AND status NOT IN ('fixed', 'wontfix')").toSQL(),
+      .whereLiteral("severity", "'HIGH'").whereNotIn("status", ["fixed", "wontfix"]).toSQL(),
   ).all();
   const mediumPbs = ctx.db.prepare(
     tables.problems.req.select("id", "title", "severity")
-      .whereRaw("severity = 'MEDIUM' AND status NOT IN ('fixed', 'wontfix')").toSQL(),
+      .whereLiteral("severity", "'MEDIUM'").whereNotIn("status", ["fixed", "wontfix"]).toSQL(),
   ).all();
 
   const rawIdeas = ctx.db.prepare(
     tables.ideas.req.select("id", "title")
-      .whereRaw(`status = '${IDEA_STATUS.raw}'`).orderBy("seq", "DESC").toSQL(),
+      .whereLiteral("status", `'${IDEA_STATUS.raw}'`).orderBy("seq", "DESC").toSQL(),
   ).all();
 
   // tested: UNION ALL across 3 tables — qb escape hatch (no UNION support)
@@ -544,7 +560,7 @@ export function getHandoff(ctx: IToolCtx): IToolResult {
 
   const archItems = ctx.db.prepare(
     tables.log_entries.req.select("id", "type", "subject")
-      .whereRaw("type = 'architectural'").orderBy("id", "DESC").limit(20).toSQL(),
+      .whereLiteral("type", "'architectural'").orderBy("id", "DESC").limit(20).toSQL(),
   ).all();
   return ok("Handoff snapshot", {
     date: new Date().toISOString().slice(0, 10),
@@ -564,7 +580,7 @@ export function getHandoff(ctx: IToolCtx): IToolResult {
 export function auditConsistency(
   ctx: IToolCtx,
   input: dna.infer<typeof S.auditConsistencyInput>,
-): IToolResult {
+): OToolResult {
   const res = S.auditConsistencyInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -687,7 +703,7 @@ export function auditConsistency(
 export function whoami(
   ctx: IToolCtx,
   input: dna.infer<typeof S.whoamiInput>,
-): IToolResult {
+): OToolResult {
   const res = S.whoamiInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -702,7 +718,7 @@ export function whoami(
 export function listWriters(
   ctx: IToolCtx,
   input: dna.infer<typeof S.listWritersInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listWritersInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -723,7 +739,7 @@ export function listWriters(
 export function help(
   ctx: IToolCtx,
   input: dna.infer<typeof S.helpInput>,
-): IToolResult {
+): OToolResult {
   const res = S.helpInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -825,7 +841,7 @@ export function help(
 export function getUpdates(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getUpdatesInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getUpdatesInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -833,59 +849,104 @@ export function getUpdates(
   }
   const writer = ctx.queries.getWriterByNanoid.get({ nanoid: input.nanoid });
   if (!writer) return err(`Writer not found for nanoid ${input.nanoid}`);
-  const cursor = (writer.last_read_at as number) ?? 0;
+  // last_read_at stores an ISO timestamp (not a numeric id). Fallback covers
+  // freshly-registered writers and legacy null values.
+  const cursor = writer.last_read_at || "1970-01-01T00:00:00.000Z";
   const limit = input.limit ?? 50;
-  const limitPlus1 = limit + 1;
 
-  // qb escape hatch: id > @cursor uses whereRaw (qb .where() only supports =).
-  // type/scope filters are also via whereRaw to keep a single conditional chain.
-  // Scope filtering uses entity_scopes subquery (log_entries no longer has a scope column).
-  let rawCond = "id > @cursor";
-  if (input.type) rawCond += " AND type = @type";
-  let scopeParams: Record<string, unknown> = {};
+  // ── Mode: resetCursor — advance cursor to max without returning entries ──
+  if (input.resetCursor) {
+    const maxRow = ctx.queries.getMaxLogEntryId.get({}) as { max_id: number | null } | undefined;
+    const maxId = maxRow?.max_id ?? 0;
+    let maxTimestamp = cursor;
+    if (maxId > 0) {
+      const maxEntry = ctx.queries.getLogEntryById.get({ id: maxId }) as { timestamp: string } | undefined;
+      if (maxEntry) maxTimestamp = maxEntry.timestamp;
+    }
+    ctx.queries.updateWriterCursor.run({ last_read_at: maxTimestamp, nanoid: input.nanoid });
+    return ok(`Cursor reset to max (${maxId}). 0 entries returned.`, {
+      entries: [],
+      new_cursor: maxTimestamp,
+      max_entry_id: maxId,
+      has_more: false,
+      remaining: 0,
+    });
+  }
+
+  // ── Determine order and cursor reference ──
+  // - last/since modes: DESC (most recent first), cursor is the `since` timestamp or epoch
+  // - default mode: ASC (oldest first), cursor is last_read_at
+  const isDesc = input.last !== undefined || input.since !== undefined;
+  const effectiveCursor = input.since ?? cursor;
+  const effectiveLimit = input.last ?? limit;
+
+  // Build query: whereRaw for timestamp > (qb .where() only supports =),
+  // .where() for type equality, .whereIn() for scope subquery.
+  const params: Record<string, unknown> = { cursor: effectiveCursor };
+  let builder = tables.log_entries.req.select()
+    .whereRaw("timestamp > @cursor");
+  if (input.type) {
+    builder = builder.where(["type"]);
+    params.type = input.type;
+  }
   if (input.scope) {
+    const es = tables.entity_scopes.names;
+    let subquery = tables.entity_scopes.req.select(es.col.entity_id)
+      .whereLiteral(es.col.entity_type, "'log_entry'");
     if (input.withChildren) {
       const childIds = ctx.queries.scopeTree
         .all({ scope: input.scope })
         .map((r) => (r as { id: string }).id);
-      if (childIds.length === 0) {
-        rawCond += " AND CAST(id AS TEXT) IN (SELECT entity_id FROM entity_scopes WHERE entity_type = 'log_entry' AND scope_id = @scope)";
-        scopeParams = { scope: input.scope };
+      if (childIds.length > 0) {
+        subquery = subquery.whereIn(es.col.scope_id, childIds);
       } else {
-        const placeholders = childIds.map((_, i) => `@scope_${i}`).join(", ");
-        rawCond += ` AND CAST(id AS TEXT) IN (SELECT entity_id FROM entity_scopes WHERE entity_type = 'log_entry' AND scope_id IN (${placeholders}))`;
-        childIds.forEach((id, i) => { scopeParams[`scope_${i}`] = id; });
+        subquery = subquery.where([{ col: es.col.scope_id, param: "scope" }]);
+        params.scope = input.scope;
       }
     } else {
-      rawCond += " AND CAST(id AS TEXT) IN (SELECT entity_id FROM entity_scopes WHERE entity_type = 'log_entry' AND scope_id = @scope)";
-      scopeParams = { scope: input.scope };
+      subquery = subquery.where([{ col: es.col.scope_id, param: "scope" }]);
+      params.scope = input.scope;
     }
+    builder = builder.whereIn("CAST(id AS TEXT)", subquery);
   }
-  const sql = tables.log_entries.req.select()
-    .whereRaw(rawCond).orderBy("id", "ASC").limit(limitPlus1).toSQL();
-  const params: Record<string, unknown> = { cursor, ...scopeParams };
-  if (input.type) params.type = input.type;
+  // ── Audience filtering ──
+  // An entry is visible to the caller if:
+  // 1. audience = 'all' (broadcast)
+  // 2. the caller's writer id appears in the comma-separated audience (direct address)
+  // 3. the author shares the caller's default_scope (same-scope author)
+  const audienceCond = `(audience = 'all' OR (',' || audience || ',') LIKE '%,' || @caller_id || ',%' OR author IN (SELECT id FROM writers WHERE default_scope = @caller_scope))`;
+  builder = builder.whereRaw(audienceCond);
+  params.caller_id = writer.id;
+  params.caller_scope = writer.default_scope;
+  const sql = builder
+    .orderBy("id", isDesc ? "DESC" : "ASC")
+    .limit(effectiveLimit + 1)
+    .toSQL();
 
   // Read + cursor update must be transactional to avoid skipping entries
   // inserted between the SELECT and the cursor advancement.
-  const { hasMore, entries, newCursor } = ctx.db.transaction(() => {
+  const { entries, newCursor, hasMore } = ctx.db.transaction(() => {
     const rows = ctx.db.prepare(sql).all(params);
-    const hasMore = rows.length > limit;
-    const entries = hasMore ? rows.slice(0, limit) : rows;
-    const newCursor = entries.length > 0
-      ? (entries[entries.length - 1].id as number)
-      : cursor;
+    // We always request effectiveLimit + 1 rows to detect has_more
+    const hasMore = rows.length > effectiveLimit;
+    const entries = hasMore ? rows.slice(0, effectiveLimit) : rows;
+    // new_cursor = timestamp of the most recent entry returned (DESC: first, ASC: last)
+    const last = isDesc ? entries[0] : entries[entries.length - 1];
+    const newCursor = last ? (last.timestamp as string) : effectiveCursor;
     ctx.queries.updateWriterCursor.run({ last_read_at: newCursor, nanoid: input.nanoid });
-    return { rows, hasMore, entries, newCursor };
+    return { entries, newCursor, hasMore };
   });
 
   const maxRow = ctx.queries.getMaxLogEntryId.get({}) as { max_id: number | null } | undefined;
   const maxId = maxRow?.max_id ?? 0;
-  const remaining = hasMore ? Math.max(0, maxId - newCursor) : 0;
+  const lastEntryId = entries.length > 0
+    ? (isDesc ? (entries[entries.length - 1].id as number) : (entries[entries.length - 1].id as number))
+    : 0;
+  const remaining = hasMore ? Math.max(0, maxId - lastEntryId) : 0;
 
   const summary = hasMore
-    ? `${entries.length} entries returned (cursor: ${newCursor}/${maxId}). ${remaining} remaining — call get_updates again with the same nanoid to fetch the next batch.`
-    : `${entries.length} entries returned (cursor: ${newCursor}/${maxId}). All caught up.`;
+    ? `${entries.length} entries returned (cursor: ${lastEntryId}/${maxId}). ${remaining} remaining — call get_updates again with the same nanoid to fetch the next batch.`
+    : `${entries.length} entries returned (cursor: ${lastEntryId}/${maxId}). All caught up.`;
 
   return ok(summary, {
     entries,
@@ -901,7 +962,7 @@ export function getUpdates(
 export function getFreeFields(
   ctx: IToolCtx,
   input: dna.infer<typeof S.getFreeFieldsInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getFreeFieldsInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -953,7 +1014,7 @@ function extractMarkdownTitle(content: string): string | null {
 export function listDocs(
   _ctx: IToolCtx,
   input: dna.infer<typeof S.listDocsInput>,
-): IToolResult {
+): OToolResult {
   const res = S.listDocsInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
@@ -991,7 +1052,7 @@ export function listDocs(
 export function getDoc(
   _ctx: IToolCtx,
   input: dna.infer<typeof S.getDocInput>,
-): IToolResult {
+): OToolResult {
   const res = S.getDocInput.safeParse(input);
   if (!res.success) {
     const messages = res.errors.map((e) => `${e.message} at ${e.path}`);

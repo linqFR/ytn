@@ -110,7 +110,7 @@ export interface tsWriterRow {
   objective: string | null;
   expertise: string | null;
   prohibitions: string | null;
-  last_read_at: number;
+  last_read_at: string;
   created_at: string;
 }
 
@@ -166,7 +166,7 @@ export interface tsCountRow {
 }
 
 export interface tsCursorRow {
-  last_read_at: number;
+  last_read_at: string;
 }
 
 export interface tsScopeTreeRow {

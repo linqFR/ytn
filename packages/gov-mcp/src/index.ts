@@ -37,7 +37,7 @@ export { compileQueries, type IQueries } from "./queries/index.js";
 export * as schemas from "./schemas/tool-inputs.js";
 
 // Tool types
-export type { IToolCtx, IToolResult } from "./types/types.ts";
+export type { IToolCtx, OToolResult as IToolResult } from "./types/types.ts";
 
 // Tools (for direct programmatic use)
 export * as readTools from "./tools/read.js";

@@ -22,15 +22,15 @@ export function compileIdeaQueries(db: GovDb): Pick<IQueries,
       t.ideas.req.selectRaw(`COALESCE(MAX(${i.col.seq}), 0) + 1 AS next_seq`).toSQL(),
     ),
     countIdeasByScope: db.prepare(
-      t.ideas.req.count().whereRaw(`${i.col.id} IN (SELECT ${es.col.entity_id} FROM ${es.table} WHERE ${es.col.entity_type} = 'idea' AND ${es.col.scope_id} = @scope)`).toSQL(),
+      t.ideas.req.count().whereIn(i.col.id, t.entity_scopes.req.select(es.col.entity_id).whereLiteral(es.col.entity_type, "'idea'").where([{ col: es.col.scope_id, param: "scope" }])).toSQL(),
     ),
     insertIdea: db.prepare(t.ideas.insert),
     updateIdeaStatus: db.prepare(
-      t.ideas.req.update(i.col.status, i.col.promoted_to, i.col.abandon_reason, i.col.updated_at).whereRaw(`${i.col.id} = @id`).toSQL(),
+      t.ideas.req.update(i.col.status, i.col.promoted_to, i.col.abandon_reason, i.col.updated_at).where([i.col.id]).toSQL(),
     ),
     reportIdeasByDate: db.prepare(
       t.ideas.req.select(i.col.id, i.col.title, i.col.status)
-        .whereRaw(`${i.col.date} LIKE @date`).orderBy(i.col.seq, "ASC").toSQL(),
+        .whereLike(i.col.date, "date").orderBy(i.col.seq, "ASC").toSQL(),
     ),
     reportAllIdeas: db.prepare(
       t.ideas.req.select(i.col.id, i.col.title, i.col.status, i.col.package, i.col.priority, i.col.promoted_to, i.col.short_desc, i.col.long_desc, i.col.abandon_reason, i.col.tested)

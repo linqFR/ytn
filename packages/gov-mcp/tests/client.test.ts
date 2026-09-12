@@ -76,7 +76,7 @@ describe("McpClient", () => {
     expect(writer?.id).toBe("test-writer");
     expect(writer?.role).toBe("admin");
     expect(writer?.nanoid).toBe(nanoid);
-    expect(writer?.last_read_at).toBeNull();
+    expect(writer?.last_read_at).toBe("1970-01-01T00:00:00.000Z");
   });
 
   it("whoami returns null for unknown nanoid", async () => {

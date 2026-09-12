@@ -325,7 +325,7 @@ describe("MCP protocol: full server with all tools", () => {
         nanoid,
         title: "Use SQLite as source of truth",
         decider: "admin",
-        scope: "ytn",
+        scope: ["ytn"],
         context: "Need a local governance DB",
         decision: "SQLite is the authoritative source",
         consequences: "Markdown becomes generated views",
@@ -353,7 +353,7 @@ describe("MCP protocol: full server with all tools", () => {
       arguments: {
         nanoid,
         title: "Implement schema migration",
-        scope: "ytn",
+        scope: ["ytn"],
         priority: "P0",
         source: "DEC-0001",
         source_type: "decision",
@@ -374,7 +374,7 @@ describe("MCP protocol: full server with all tools", () => {
         title: "Schema migration blocker",
         severity: "HIGH",
         type: "code",
-        scope: "ytn",
+        scope: ["ytn"],
         description: "Need to handle FTS5 triggers",
         linkedAct: "ACT-0001",
       },
@@ -415,7 +415,7 @@ describe("MCP protocol: full server with all tools", () => {
       arguments: {
         nanoid,
         title: "Add Python implementation",
-        scope: "ytn",
+        scope: ["ytn"],
         shortDesc: "Share the same SQLite schema",
       },
     });
@@ -430,7 +430,7 @@ describe("MCP protocol: full server with all tools", () => {
         nanoid,
         title: "Add Python implementation alongside Node.js",
         decider: "admin",
-        scope: "ytn",
+        scope: ["ytn"],
       },
     });
     const decId = structured<{ id: string }>(decResult).id;
@@ -453,7 +453,7 @@ describe("MCP protocol: full server with all tools", () => {
       arguments: {
         nanoid,
         title: "Implement Python schema module",
-        scope: "ytn",
+        scope: ["ytn"],
         priority: "P1",
         source: decId,
         source_type: "decision",
@@ -490,13 +490,13 @@ describe("MCP protocol: full server with all tools", () => {
     // Create idea + decision + promote
     const ideaRes = await client.callTool({
       name: "create_idea",
-      arguments: { nanoid, title: "Use NoSQL instead", scope: "ytn", shortDesc: "bad idea" },
+      arguments: { nanoid, title: "Use NoSQL instead", scope: ["ytn"], shortDesc: "bad idea" },
     });
     const ideaId = structured<{ id: string }>(ideaRes).id;
 
     const decRes = await client.callTool({
       name: "create_decision",
-      arguments: { nanoid, title: "Switch to NoSQL", decider: "admin", scope: "ytn" },
+      arguments: { nanoid, title: "Switch to NoSQL", decider: "admin", scope: ["ytn"] },
     });
     const decId = structured<{ id: string }>(decRes).id;
 
@@ -528,15 +528,15 @@ describe("MCP protocol: full server with all tools", () => {
     // Create actions in different scopes
     await client.callTool({
       name: "create_action",
-      arguments: { nanoid, title: "workspace ACT", scope: "workspace", priority: "P2" },
+      arguments: { nanoid, title: "workspace ACT", scope: ["workspace"], priority: "P2" },
     });
     await client.callTool({
       name: "create_action",
-      arguments: { nanoid, title: "ytn ACT", scope: "ytn", priority: "P2" },
+      arguments: { nanoid, title: "ytn ACT", scope: ["ytn"], priority: "P2" },
     });
     await client.callTool({
       name: "create_action",
-      arguments: { nanoid, title: "dna ACT", scope: "dna", priority: "P2" },
+      arguments: { nanoid, title: "dna ACT", scope: ["dna"], priority: "P2" },
     });
 
     // workspace withChildren → all scopes
@@ -615,7 +615,7 @@ describe("MCP protocol: full server with all tools", () => {
         type: "action",
         subject: "Test log entry via MCP",
         body: "Verifying get_updates cursor",
-        scope: "ytn",
+        scope: ["ytn"],
       },
     });
 
@@ -928,7 +928,7 @@ describe("MCP protocol: full server with all tools", () => {
         type: "question",
         subject: "How does the cascade work?",
         body: "I need to understand the ACT→PB cascade",
-        scope: "ytn",
+        scope: ["ytn"],
       },
     });
     expect(firstResult.isError).toBeFalsy();
@@ -944,7 +944,7 @@ describe("MCP protocol: full server with all tools", () => {
         type: "answer",
         subject: "Re: How does the cascade work?",
         body: "When an action is done, linked problems become partial",
-        scope: "ytn",
+        scope: ["ytn"],
         replyTo: firstEntry.id,
         threadId: firstEntry.thread_id,
       },
@@ -973,7 +973,7 @@ describe("MCP protocol: full server with all tools", () => {
         nanoid,
         id: "SPEC-0001",
         filename: "spec-gov-mcp.md",
-        scope: "ytn",
+        scope: ["ytn"],
         version: 1,
         status: "locked",
       },
@@ -988,7 +988,7 @@ describe("MCP protocol: full server with all tools", () => {
         title: "Spec drift in gov-mcp",
         severity: "MEDIUM",
         type: "spec",
-        scope: "ytn",
+        scope: ["ytn"],
         linkedSpec: "SPEC-0001",
         description: "Spec doesn't match implementation",
       },
@@ -1023,7 +1023,7 @@ describe("MCP protocol: full server with all tools", () => {
     // Create a pending action
     await client.callTool({
       name: "create_action",
-      arguments: { nanoid, title: "Open action for handoff", scope: "ytn", priority: "P1" },
+      arguments: { nanoid, title: "Open action for handoff", scope: ["ytn"], priority: "P1" },
     });
 
     const result = await client.callTool({
@@ -1074,7 +1074,7 @@ describe("MCP protocol: full server with all tools", () => {
         nanoid,
         title: "Forced decision",
         decider: "admin",
-        scope: "ytn",
+        scope: ["ytn"],
         forcedNumId: 5001,
       },
     });
@@ -1091,7 +1091,7 @@ describe("MCP protocol: full server with all tools", () => {
         nanoid,
         title: "Duplicate forced decision",
         decider: "admin",
-        scope: "ytn",
+        scope: ["ytn"],
         forcedNumId: 5001,
       },
     });
@@ -1105,7 +1105,7 @@ describe("MCP protocol: full server with all tools", () => {
         nanoid,
         title: "Too small",
         decider: "admin",
-        scope: "ytn",
+        scope: ["ytn"],
         forcedNumId: 0,
       },
     });
@@ -1118,7 +1118,7 @@ describe("MCP protocol: full server with all tools", () => {
       arguments: {
         nanoid,
         title: "Forced action",
-        scope: "ytn",
+        scope: ["ytn"],
         forcedNumId: 5002,
       },
     });
@@ -1134,7 +1134,7 @@ describe("MCP protocol: full server with all tools", () => {
       arguments: {
         nanoid,
         title: "Forced idea",
-        scope: "ytn",
+        scope: ["ytn"],
         forcedNumId: 5003,
       },
     });
@@ -1152,7 +1152,7 @@ describe("MCP protocol: full server with all tools", () => {
         title: "Forced problem",
         severity: "HIGH",
         type: "code",
-        scope: "ytn",
+        scope: ["ytn"],
         forcedNumId: 5004,
       },
     });

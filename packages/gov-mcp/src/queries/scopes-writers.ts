@@ -29,7 +29,7 @@ export function compileScopeWriterQueries(db: GovDb): Pick<IQueries,
       t.scopes.req.insert(t.scopes.cols).or("IGNORE").toSQL(),
     ),
     updateScopeFields: db.prepare(
-      t.scopes.req.update(sc.col.label, sc.col.description, sc.col.parent, sc.col.sort_order, sc.col.updated_at).whereRaw(`${sc.col.id} = @id`).toSQL(),
+      t.scopes.req.update(sc.col.label, sc.col.description, sc.col.parent, sc.col.sort_order, sc.col.updated_at).where([sc.col.id]).toSQL(),
     ),
     scopeTree: db.prepare(
       `WITH RECURSIVE scope_tree(id) AS (
@@ -44,7 +44,7 @@ export function compileScopeWriterQueries(db: GovDb): Pick<IQueries,
     insertWriter: db.prepare(t.writers.insert),
     getWriterCursor: db.prepare(t.writers.req.select(w.col.last_read_at).where([w.col.nanoid]).toSQL()),
     updateWriterCursor: db.prepare(
-      t.writers.req.update(w.col.last_read_at).whereRaw(`${w.col.nanoid} = @nanoid`).toSQL(),
+      t.writers.req.update(w.col.last_read_at).where([w.col.nanoid]).toSQL(),
     ),
     insertEntityScope: db.prepare(t.entity_scopes.insert),
     deleteEntityScopes: db.prepare(

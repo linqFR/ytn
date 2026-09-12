@@ -23,14 +23,14 @@ export const forcedNumIdSchema = dna.int().min(1).max(10000).optional().describe
 
 export const scopeSchema = dna.string().min(1).max(100).describe("Scope ID");
 
-/** Accepts a single scope ID or an array of scope IDs. Normalized to array in tool transforms. */
-export const scopeOrScopesSchema = scopeSchema
-  .or(dna.array(scopeSchema))
-  .optional()
-  .describe("Scope ID or array of scope IDs");
+/** Array of scope IDs. */
+export const scopeOrScopesSchema = scopeSchema.array().optional().describe("Array of scope IDs");
 
 /** When true, scope filtering includes all descendant scopes (recursive CTE). Default: false. */
 export const withChildrenSchema = dna.boolean().optional().describe("Include descendant scopes (recursive)");
+
+/** Target audience for log entries. Array of writer IDs, or ["all"] for broadcast. */
+export const audienceSchema = dna.string().min(1).max(100).array().optional().describe('Target audience: ["all"] (broadcast, default), or array of writer IDs (e.g. ["writer1","writer2"]). If you want a specific writer to see your write, include their writer ID here — do not rely on scope-sharing alone.');
 
 export const dateSchema = dna.coerce.date()
   .transform((d) => d.toISOString())
@@ -78,6 +78,26 @@ Returns:
   { id, nanoid, role, responsibility, default_scope, display_name, objective, expertise, prohibitions }
 
 The nanoid is a secret token. Store it securely. It is required as "nanoid" parameter for all write tools. list_writers never returns it. whoami requires it.`,
+  category: "writers",
+});
+
+export const updateMeInput = dna.object({
+  nanoid: nanoidSchema,
+  responsibility: dna.string().optional().describe("Updated responsibility"),
+  objective: dna.string().optional().describe("Updated objective"),
+  expertise: dna.string().optional().describe("Updated expertise"),
+  prohibitions: dna.string().optional().describe("Updated prohibitions"),
+}).meta({
+  title: "UpdateMeInput",
+  description: "Update your own writer profile (responsibility, objective, expertise, prohibitions). At least one field must be provided. Role, id, default_scope, and display_name cannot be changed via this tool.",
+  usage: `Update your writer profile.
+
+At least one of the optional fields must be provided.
+
+Returns:
+  { id, updated: true, fields: ["responsibility", ...] }
+
+Cannot modify: role, id, default_scope, display_name.`,
   category: "writers",
 });
 
@@ -322,6 +342,7 @@ export const updateSpecStatusInput = dna.object({
   id: entityIdSchema.describe("Spec ID"),
   newStatus: specStatusSchema.describe("New status"),
   supersedes: entityIdSchema.optional().describe("Spec ID that supersedes this one"),
+  reason: dna.string().optional().describe("Reason for change"),
 }).meta({
   title: "UpdateSpecStatusInput",
   description: "Update a spec's status. Triggers cascade: superseded → linked spec-type problems reopened.",
@@ -385,15 +406,6 @@ export const addFreeFieldInput = dna.object({
   description: "Add a free-form metadata field to any entity (decision, action, idea, problem, spec). Supports md, json, link, url, and text formats.",
   usage: `Add a free-form metadata field to an entity.
 
-Parameters:
-  nanoid — writer token
-  entityType — "decision" | "action" | "idea" | "problem" | "spec"
-  entityId — entity ID (e.g. "DEC-0001")
-  key — field key (e.g. "required_role", "instructions", "sandbox_ref")
-  format — "md" | "json" | "link" | "url" | "text"
-  value — field value (string)
-  ftsIndexed — optional boolean (default false)
-
 Returns:
   { id, created: true }`,
   category: "write",
@@ -407,11 +419,6 @@ export const getFreeFieldsInput = dna.object({
   title: "GetFreeFieldsInput",
   description: "Retrieve all active free-form metadata fields for a given entity. Set includeDeprecated=true to also see deprecated fields.",
   usage: `Get free fields for an entity.
-
-Parameters:
-  entityType — "decision" | "action" | "idea" | "problem" | "spec"
-  entityId — entity ID
-  includeDeprecated — optional boolean (default: false)
 
 Returns:
   { freeFields: tsFreeFieldRow[], count }`,
@@ -437,7 +444,7 @@ export const appendLogEntryInput = dna.object({
   nanoid: nanoidSchema,
   date: dateSchema,
   type: logEntryTypeSchema,
-  audience: dna.string().optional().describe('Target audience: "all" (broadcast, default), comma-separated writer IDs (e.g. "writer1,writer2"), or "all,writer-id" to broadcast AND address a specific writer. If you want a specific writer to see your write, include their writer ID here — do not rely on scope-sharing alone.'),
+  audience: audienceSchema,
   subject: dna.string().optional().describe("Entry subject"),
   body: dna.string().optional().describe("Entry body"),
   refId: dna.string().optional().describe("Reference entity ID"),
@@ -463,6 +470,7 @@ export const correctInput = dna.object({
   field: dna.string().min(1).max(100).describe("Field name to correct (must be in the entity's whitelist)"),
   newValue: dna.string().describe("New value"),
   reason: dna.string().min(1).describe("Correction reason"),
+  audience: audienceSchema,
 }).meta({
   title: "CorrectInput",
   description: "Append a correction to an entity field. Never mutates the original record — appends a correction log entry + updates the field.",
@@ -690,13 +698,22 @@ export const getUpdatesInput = dna.object({
   withChildren: withChildrenSchema,
   type: logEntryTypeSchema.optional().describe("Filter by type"),
   limit: limitSchema.describe("Max results (1-1000, default 50)"),
+  last: dna.int().min(1).max(1000).optional().describe("Return N most recent entries (DESC order), advance cursor to max"),
+  resetCursor: dna.boolean().optional().describe("Advance cursor to max without returning entries"),
+  since: dna.string().optional().describe("ISO timestamp — return entries after this point (DESC order)"),
 }).meta({
   title: "GetUpdatesInput",
   description: "Get log entries since the writer's last read cursor (MQTT-like). Advances the cursor. Returns cursor position, max entry ID, and remaining count.",
   usage: `Get new log entries since your last read. Advances your cursor.
 
+Modes:
+  - Default: ASC from last_read_at cursor.
+  - last: N — return N most recent entries (DESC), advance cursor to max.
+  - resetCursor: true — advance cursor to max without returning entries.
+  - since: ISO timestamp — return entries after this point (DESC).
+
 Returns:
-  { entries: tsLogEntryRow[], new_cursor: number, max_entry_id: number, has_more: boolean, remaining: number }
+  { entries: tsLogEntryRow[], new_cursor: string, max_entry_id: number, has_more: boolean, remaining: number }
 
 If has_more is true, call get_updates again with the same nanoid to fetch the next batch.
 Cursor is advanced transactionally — safe to stop and resume anytime.`,
@@ -724,16 +741,20 @@ export const mailboxLast24hInput = dna.object({
   hours: dna.int().min(1).max(720).optional().describe("Lookback window in hours (default 24)"),
   scope: scopeSchema.optional().describe("Filter by scope"),
   withChildren: withChildrenSchema,
+  type: dna.enum(["decision", "action", "idea", "problem", "log_entry"]).optional().describe("Filter by entity type"),
+  limit: dna.int().min(1).max(1000).optional().describe("Max results (default: all)"),
 }).meta({
   title: "MailboxLast24hInput",
-  description: "Transverse view of all entities updated in the last N hours (default 24). UNION across 5 tables. Optional scope filtering via entity_scopes.",
+  description: "Transverse view of all entities updated in the last N hours (default 24). UNION across 5 tables. Optional scope and type filtering.",
   usage: `Get all entities updated in the last N hours.
 
 Returns:
-  { items: Array<{ type, id, title, body, timestamp }>, count: number }
+  { timeline: Array<{ type, id, title, body, timestamp }>, count: number }
 
 type is one of: "decision", "action", "idea", "problem", "log_entry". Ordered by timestamp DESC.
-When scope is provided, results are post-filtered via entity_scopes (with optional withChildren for descendant scopes).`,
+When scope is provided, results are post-filtered via entity_scopes (with optional withChildren for descendant scopes).
+When type is provided, results are filtered to that entity type only.
+When limit is provided, at most N items are returned.`,
   category: "search",
 });
 
@@ -909,6 +930,18 @@ Writes a Markdown file to mailbox/generated/problems-report.md.`,
   category: "reports",
 });
 
+export const generateSpecsReportInput = dna.object({}).meta({
+  title: "GenerateSpecsReportInput",
+  description: "Generate a full specs registry report (Markdown). Writes to mailbox/generated/.",
+  usage: `Generate a full specs registry.
+
+Returns:
+  { count, path }
+
+Writes a Markdown file to mailbox/generated/mailbox-specs.md.`,
+  category: "reports",
+});
+
 export const exportDumpInput = dna.object({}).meta({
   title: "ExportDumpInput",
   description: "Export the full database as a SQL text dump (DDL + INSERTs). For backup/restore. Returned as string, not written to disk.",
@@ -923,13 +956,13 @@ The dump contains all DDL (CREATE TABLE, CREATE INDEX, CREATE TRIGGER) and all I
 
 export const generateAllReportsInput = dna.object({}).meta({
   title: "GenerateAllReportsInput",
-  description: "Generate all 5 main reports (decisions, actions, ideas, problems, daily) in one call. Writes to mailbox/generated/.",
-  usage: `Generate all 5 main reports at once.
+  description: "Generate all 6 main reports (decisions, actions, ideas, problems, specs, daily) in one call. Writes to mailbox/generated/.",
+  usage: `Generate all 6 main reports at once.
 
 Returns:
   { reports: { report: string, filepath: string }[] }
 
-Generates: mailbox-decisions.md, mailbox-actions.md, features-ideas.md, mailbox-problems.md, mailbox-YYYY-MM-DD.md.`,
+Generates: mailbox-decisions.md, mailbox-actions.md, features-ideas.md, mailbox-problems.md, mailbox-specs.md, mailbox-YYYY-MM-DD.md.`,
   category: "reports",
 });
 
@@ -968,9 +1001,6 @@ export const getDocInput = dna.object({
   title: "GetDocInput",
   description: "Get the Markdown content of a documentation file from the package docs/ directory. Rejects path traversal.",
   usage: `Get the content of a specific documentation file.
-
-Parameters:
-  filename (string, required) — bare .md filename (e.g. "tools.md"), no path separators
 
 Returns:
   { filename, content, size }`,

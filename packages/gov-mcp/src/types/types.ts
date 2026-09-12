@@ -12,7 +12,7 @@ export interface IToolCtx {
 }
 
 /** A successful tool result with structured content. */
-export interface IToolResult {
+export interface OToolResult {
   content: { type: "text"; text: string }[];
   structuredContent?: Record<string, unknown>;
   isError: boolean;

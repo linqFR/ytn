@@ -22,15 +22,15 @@ export function compileProblemQueries(db: GovDb): Pick<IQueries,
       t.problems.req.selectRaw(`COALESCE(MAX(${p.col.seq}), 0) + 1 AS next_seq`).toSQL(),
     ),
     countProblemsByScope: db.prepare(
-      t.problems.req.count().whereRaw(`${p.col.id} IN (SELECT ${es.col.entity_id} FROM ${es.table} WHERE ${es.col.entity_type} = 'problem' AND ${es.col.scope_id} = @scope)`).toSQL(),
+      t.problems.req.count().whereIn(p.col.id, t.entity_scopes.req.select(es.col.entity_id).whereLiteral(es.col.entity_type, "'problem'").where([{ col: es.col.scope_id, param: "scope" }])).toSQL(),
     ),
     insertProblem: db.prepare(t.problems.insert),
     updateProblemStatus: db.prepare(
-      t.problems.req.update(p.col.status, p.col.fix, p.col.root_cause, p.col.wontfix_reason, p.col.fixed_at, p.col.tested, p.col.updated_at).whereRaw(`${p.col.id} = @id`).toSQL(),
+      t.problems.req.update(p.col.status, p.col.fix, p.col.root_cause, p.col.wontfix_reason, p.col.fixed_at, p.col.tested, p.col.updated_at).where([p.col.id]).toSQL(),
     ),
     reportProblemsByDate: db.prepare(
       t.problems.req.select(p.col.id, p.col.title, p.col.status, p.col.severity)
-        .whereRaw(`${p.col.date} LIKE @date`).orderBy(p.col.seq, "ASC").toSQL(),
+        .whereLike(p.col.date, "date").orderBy(p.col.seq, "ASC").toSQL(),
     ),
     reportAllProblems: db.prepare(
       t.problems.req.select(p.col.id, p.col.title, p.col.status, p.col.severity, p.col.type, p.col.linked_spec, p.col.linked_act, p.col.description, p.col.root_cause, p.col.fix, p.col.wontfix_reason, p.col.fast_track, p.col.tested, p.col.fixed_at)

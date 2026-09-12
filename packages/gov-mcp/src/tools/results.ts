@@ -2,7 +2,7 @@
  * MCP tool result helpers — ok/err/validate.
  */
 
-import type { IToolResult } from "../types/types.ts";
+import type { OToolResult } from "../types/types.ts";
 
 /** Format a value as readable text (compact, not JSON). */
 function formatValue(value: unknown, indent = 0): string {
@@ -64,7 +64,7 @@ function serializeStructured(structured: Record<string, unknown>): string {
 export function ok(
   text: string,
   structured?: Record<string, unknown>,
-): IToolResult {
+): OToolResult {
   const fullText = structured
     ? `${text}\n${serializeStructured(structured)}`
     : text;
@@ -76,7 +76,7 @@ export function ok(
 }
 
 /** Create an error result. */
-export function err(text: string): IToolResult {
+export function err(text: string): OToolResult {
   return {
     content: [{ type: "text", text }],
     isError: true,

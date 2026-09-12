@@ -12,7 +12,7 @@
 import type { DnaSomeType } from "@ytrynot/dna/core";
 import { DnaObject } from "@ytrynot/dna/core";
 import { getDescription } from "@ytrynot/dna/introspect";
-import * as S from "../schemas/tool-inputs.js";
+import { toolList } from "../definitions/tools.js";
 
 /** JSON Schema property shape (subset we care about). */
 interface IJSProp {
@@ -97,76 +97,23 @@ export function describeSignature(schema: DnaSomeType): string {
 }
 
 /**
- * Map tool names to their DNA input schemas.
+ * Map tool names to their DNA input schemas, derived from `toolList`.
  *
- * Tools with `inputSchema: undefined` in server.ts have no entry here —
- * `describeSignature` returns "" for them, and `help()` shows only the prose.
+ * `toolList` is the single source of truth — each entry's `args` field is the
+ * DNA schema. Built lazily to break the circular import chain:
+ *   describe-signature.ts → definitions/tools.ts → tools/read.ts → describe-signature.ts
  */
-const toolSchemas: Record<string, DnaSomeType> = {
-  // Writers
-  register_writer: S.registerWriterInput,
-  register_me: S.registerWriterInput,
-  whoami: S.whoamiInput,
-  list_writers: S.listWritersInput,
-  // Read: entities
-  list_decisions: S.listDecisionsInput,
-  get_decision: S.getDecisionInput,
-  list_actions: S.listActionsInput,
-  get_action: S.getActionInput,
-  list_ideas: S.listIdeasInput,
-  get_idea: S.getIdeaInput,
-  list_problems: S.listProblemsInput,
-  get_problem: S.getProblemInput,
-  list_specs: S.listSpecsInput,
-  get_spec: S.getSpecInput,
-  list_scopes: S.listScopesInput,
-  get_scope_info: S.getScopeInput,
-  // Read: log entries
-  list_log_entries: S.listLogEntriesInput,
-  get_last_log_entry: S.getLastLogEntryInput,
-  get_thread: S.getThreadInput,
-  get_updates: S.getUpdatesInput,
-  // Search & transverse
-  search_mailbox: S.searchMailboxInput,
-  mailbox_last_24h: S.mailboxLast24hInput,
-  get_decision_history: S.getDecisionHistoryInput,
-  get_action_lineage: S.getActionLineageInput,
-  get_open_actions: S.getOpenActionsInput,
-  audit_consistency: S.auditConsistencyInput,
-  // Write: decisions
-  create_decision: S.createDecisionInput,
-  update_decision_status: S.updateDecisionStatusInput,
-  // Write: actions
-  create_action: S.createActionInput,
-  update_action_status: S.updateActionStatusInput,
-  // Write: ideas
-  create_idea: S.createIdeaInput,
-  update_idea_status: S.updateIdeaStatusInput,
-  // Write: problems
-  create_problem: S.createProblemInput,
-  update_problem_status: S.updateProblemStatusInput,
-  // Write: links
-  link_problem_action: S.linkProblemActionInput,
-  link_action_workstream: S.linkActionWorkstreamInput,
-  link_action_dependency: S.linkActionDependencyInput,
-  // Write: specs
-  create_spec: S.createSpecInput,
-  update_spec_status: S.updateSpecStatusInput,
-  // Write: scopes
-  create_scope: S.createScopeInput,
-  update_scope: S.updateScopeInput,
-  // Write: log & correct
-  append_log_entry: S.appendLogEntryInput,
-  correct: S.correctInput,
-  // Reports
-  generate_daily_report: S.generateDailyReportInput,
-  generate_decision_history_report: S.generateDecisionHistoryReportInput,
-  // System
-  help: S.helpInput,
-  // Read: documentation
-  list_docs: S.listDocsInput,
-  get_doc: S.getDocInput,
-};
+let _toolSchemas: Record<string, DnaSomeType> | null = null;
+
+function getToolSchemas(): Record<string, DnaSomeType> {
+  if (_toolSchemas !== null) return _toolSchemas;
+  _toolSchemas = Object.fromEntries(
+    toolList
+      .filter((t) => t.args !== undefined)
+      .map((t) => [t.name, t.args as DnaSomeType]),
+  );
+  return _toolSchemas;
+}
 
 /**
  * Get the auto-generated `Parameters:` block for a tool by name.
@@ -176,7 +123,7 @@ const toolSchemas: Record<string, DnaSomeType> = {
  * Returns "" if the tool has no schema or no fields.
  */
 export function describeToolSignature(toolName: string): string {
-  const schema = toolSchemas[toolName];
+  const schema = getToolSchemas()[toolName];
   if (!schema) return "";
   return describeSignature(schema);
 }

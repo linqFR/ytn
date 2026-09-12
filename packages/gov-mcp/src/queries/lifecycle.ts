@@ -66,7 +66,7 @@ export function compileLifecycleQueries(db: GovDb): Pick<IQueries,
         .selectRaw(`i.${i.col.id} AS idea_id, i.${i.col.title} AS idea_title, i.${i.col.promoted_to}, d.${d.col.status} AS dec_status`)
         .joinInner(`${d.table} d`, `i.${i.col.promoted_to} = d.${d.col.id}`)
         .whereLiteral(`i.${i.col.status}`, `'${IDEA_STATUS.implemented}'`)
-        .whereRaw(`d.${d.col.status} != '${DECISION_STATUS.Accepted}'`)
+        .whereLiteralNotEq(`d.${d.col.status}`, `'${DECISION_STATUS.Accepted}'`)
         .toSQL(),
     ),
     auditActDonePbOpen: db.prepare(
@@ -79,35 +79,40 @@ export function compileLifecycleQueries(db: GovDb): Pick<IQueries,
         .whereIn(`p.${p.col.status}`, [PROBLEM_STATUS.open, PROBLEM_STATUS.critical])
         .toSQL(),
     ),
-    // EXISTS subquery — qb escape hatch (whereRaw for correlated EXISTS)
+    // EXISTS subquery — correlated (references a1 from outer query)
     auditActPendingStale: db.prepare(
       tables.actions.req
         .as("a1")
         .select(a.col.id, a.col.title, a.col.source)
         .whereLiteral(`a1.${a.col.status}`, `'${ACTION_STATUS.pending}'`)
         .whereLiteral(`a1.${a.col.source_type}`, `'${SOURCE_TYPE.decision}'`)
-        .whereRaw(`EXISTS (SELECT 1 FROM ${a.table} a2 WHERE a2.${a.col.source} = a1.${a.col.source} AND a2.${a.col.source_type} = '${SOURCE_TYPE.decision}' AND a2.${a.col.status} = '${ACTION_STATUS.done}')`)
+        .whereExists(
+          t.actions.req.as("a2").selectRaw("1")
+            .whereRaw(`a2.${a.col.source} = a1.${a.col.source}`)
+            .whereLiteral(`a2.${a.col.source_type}`, `'${SOURCE_TYPE.decision}'`)
+            .whereLiteral(`a2.${a.col.status}`, `'${ACTION_STATUS.done}'`)
+        )
         .toSQL(),
     ),
     auditPbPartialNoToTest: db.prepare(
       tables.problems.req
         .select(p.col.id, p.col.title)
         .whereLiteral(p.col.status, `'${PROBLEM_STATUS.partial}'`)
-        .whereRaw(`${p.col.tested} != '${TESTED_STATUS.partially}'`)
+        .whereLiteralNotEq(p.col.tested, `'${TESTED_STATUS.partially}'`)
         .toSQL(),
     ),
     auditActDoneNoEvidence: db.prepare(
       tables.actions.req
         .select(a.col.id, a.col.title)
         .whereLiteral(a.col.status, `'${ACTION_STATUS.done}'`)
-        .whereRaw(`(${a.col.evidence} IS NULL OR ${a.col.evidence} = '')`)
+        .whereNullish(a.col.evidence)
         .toSQL(),
     ),
     auditPbFixedNoFix: db.prepare(
       tables.problems.req
         .select(p.col.id, p.col.title)
         .whereLiteral(p.col.status, `'${PROBLEM_STATUS.fixed}'`)
-        .whereRaw(`(${p.col.fix} IS NULL OR ${p.col.fix} = '')`)
+        .whereNullish(p.col.fix)
         .toSQL(),
     ),
   };

@@ -252,7 +252,7 @@ export const tables = {
     { name: "objective", sqliteType: "TEXT", optional: true },
     { name: "expertise", sqliteType: "TEXT", optional: true },
     { name: "prohibitions", sqliteType: "TEXT", optional: true },
-    { name: "last_read_at", sqliteType: "INTEGER", hasDefault: true, defaultValue: "0" },
+    { name: "last_read_at", sqliteType: "TEXT", hasDefault: true, defaultValue: { string: "1970-01-01T00:00:00.000Z" } },
     { name: "created_at", sqliteType: "TEXT" },
   ]),
   status_history: QueryBuilder.defTable("status_history", statusHistoryColumns),

@@ -210,7 +210,7 @@ describe("junction tables: entity_scopes (multi-scope)", () => {
       title: "Single scope",
       decider: "admin",
       forcedNumId: 1,
-      scope: "cli",
+      scope: ["cli"],
     });
 
     const rows = ctx.queries.getEntityScopes.all({ entity_type: "decision", entity_id: "DEC-0001" });

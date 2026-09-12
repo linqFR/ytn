@@ -180,7 +180,7 @@ describe("scope inheritance: status_history trigger", () => {
     write.createDecision(ctx, {
       nanoid: NANOID, title: "Single scope decision",
       decider: "admin", forcedNumId: 1,
-      scope: "cli",
+      scope: ["cli"],
     });
     write.updateDecisionStatus(ctx, {
       nanoid: NANOID, id: "DEC-0001", newStatus: "Accepted",
@@ -237,13 +237,13 @@ describe("scope inheritance: cascade trigger inherits problem scopes", () => {
     write.createProblem(ctx, {
       nanoid: NANOID, title: "Scoped problem",
       severity: "HIGH", type: "code", forcedNumId: 1,
-      scope: "cli",
+      scope: ["cli"],
     });
 
     // Create an action with scopes ["dna"] (different from problem)
     write.createAction(ctx, {
       nanoid: NANOID, title: "Scoped action", forcedNumId: 1,
-      scope: "dna",
+      scope: ["dna"],
     });
 
     // Link problem ↔ action
@@ -288,7 +288,7 @@ describe("scope inheritance: cascade trigger inherits problem scopes", () => {
     // Create an action with a single different scope
     write.createAction(ctx, {
       nanoid: NANOID, title: "Single scope action", forcedNumId: 1,
-      scope: "qb",
+      scope: ["qb"],
     });
 
     write.linkProblemAction(ctx, {
@@ -330,12 +330,12 @@ describe("scope filtering: get_updates", () => {
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "CLI update", body: "CLI scoped entry",
-      scope: "cli",
+      scope: ["cli"],
     });
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "DNA update", body: "DNA scoped entry",
-      scope: "dna",
+      scope: ["dna"],
     });
 
     const result = read.getUpdates(ctx, { nanoid: NANOID, scope: "cli" });
@@ -350,17 +350,17 @@ describe("scope filtering: get_updates", () => {
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "CLI entry", body: "cli",
-      scope: "cli",
+      scope: ["cli"],
     });
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "CLI-DNA child entry", body: "cli-dna",
-      scope: "cli-dna",
+      scope: ["cli-dna"],
     });
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "DNA entry", body: "dna",
-      scope: "dna",
+      scope: ["dna"],
     });
 
     const result = read.getUpdates(ctx, { nanoid: NANOID, scope: "cli", withChildren: true });
@@ -376,12 +376,12 @@ describe("scope filtering: get_updates", () => {
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "CLI entry", body: "cli",
-      scope: "cli",
+      scope: ["cli"],
     });
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "DNA entry", body: "dna",
-      scope: "dna",
+      scope: ["dna"],
     });
 
     const result = read.getUpdates(ctx, { nanoid: NANOID });
@@ -408,11 +408,11 @@ describe("scope filtering: mailbox_last_24h", () => {
     // Create entities in different scopes (these generate log entries + entity rows)
     write.createDecision(ctx, {
       nanoid: NANOID, title: "CLI decision", decider: "admin", forcedNumId: 1,
-      scope: "cli",
+      scope: ["cli"],
     });
     write.createDecision(ctx, {
       nanoid: NANOID, title: "DNA decision", decider: "admin", forcedNumId: 2,
-      scope: "dna",
+      scope: ["dna"],
     });
 
     const result = read.mailboxLast24h(ctx, { scope: "cli" });
@@ -427,15 +427,15 @@ describe("scope filtering: mailbox_last_24h", () => {
   it("mailbox_last_24h({ scope: 'cli', withChildren: true }) returns cli + children", () => {
     write.createAction(ctx, {
       nanoid: NANOID, title: "CLI action", forcedNumId: 1,
-      scope: "cli",
+      scope: ["cli"],
     });
     write.createAction(ctx, {
       nanoid: NANOID, title: "CLI-DNA child action", forcedNumId: 2,
-      scope: "cli-dna",
+      scope: ["cli-dna"],
     });
     write.createAction(ctx, {
       nanoid: NANOID, title: "DNA action", forcedNumId: 3,
-      scope: "dna",
+      scope: ["dna"],
     });
 
     const result = read.mailboxLast24h(ctx, { scope: "cli", withChildren: true });
@@ -462,12 +462,12 @@ describe("scope filtering: list_log_entries", () => {
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "DNA log", body: "dna scoped",
-      scope: "dna",
+      scope: ["dna"],
     });
     write.appendLogEntry(ctx, {
       nanoid: NANOID, date: "2026-09-05", type: "status",
       subject: "CLI log", body: "cli scoped",
-      scope: "cli",
+      scope: ["cli"],
     });
 
     const result = read.listLogEntries(ctx, { scope: "dna" });
@@ -547,7 +547,7 @@ describe("scope filtering: search_mailbox (post-FTS)", () => {
     write.createDecision(ctx, {
       nanoid: NANOID, title: "ZyzzFlake child decision",
       decider: "admin", forcedNumId: 1,
-      scope: "cli-dna",
+      scope: ["cli-dna"],
       context: "ZyzzFlake child context",
     });
 

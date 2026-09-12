@@ -1,5 +1,5 @@
-import type { DnaType } from "@ytrynot/dna";
 import { z } from "zod";
+import { dna } from "@ytrynot/dna"
 import { Builder, OnConflictBuilder } from "./builder.js";
 import { DDLEngine, validateIdentifier } from "./ddl.js";
 import { DnaIntrospector } from "./dna/introspector.js";
@@ -198,7 +198,7 @@ export class QueryBuilder {
    * @function reqCreateTable
    * @description Shortcut for `defTable(name, def, options).createTable` — returns only the DDL string.
    * @param {string} tableName - Target table name.
-   * @param {z.ZodTypeAny | DnaType | qbColumn[]} def - Schema definition (Zod, DNA, or manual columns).
+   * @param {z.ZodTypeAny | dna.DnaType | qbColumn[]} def - Schema definition (Zod, DNA, or manual columns).
    * @param {qbTableOptions} [options={}] - Manual overrides for DDL.
    * @returns {string} Compiled SQL DDL.
    * @throws {TypeError} If `def` is not a Zod schema, DNA schema, or `qbColumn[]`.
@@ -206,7 +206,7 @@ export class QueryBuilder {
    */
   public static reqCreateTable(
     tableName: string,
-    def: z.ZodTypeAny | DnaType | qbColumn[],
+    def: z.ZodType | dna.DnaType | qbColumn[],
     options: qbTableOptions = {},
   ): string {
     return QueryBuilder.defTable(tableName, def, options).createTable;
@@ -255,7 +255,7 @@ export class QueryBuilder {
    */
   public static defTable(
     tableName: string,
-    def: z.ZodTypeAny | DnaType | qbColumn[],
+    def: z.ZodType | dna.DnaType | qbColumn[],
     options: qbTableOptions = {},
   ): TableDef {
     let columns: qbColumn[];
@@ -280,12 +280,11 @@ export class QueryBuilder {
       pk = QueryBuilder.#zod.getPrimaryKey(def) || "id";
     } else if (typeof def === "object" && def !== null) {
       // DNA — after Array.isArray and instanceof z.ZodType checks, def is DnaType.
-      // CAST: TS can't narrow the union to DnaType from typeof check alone.
-      columns = QueryBuilder.#dna.getColumns(def as DnaType) || [];
+      columns = QueryBuilder.#dna.getColumns(def) || [];
       if (columns.length === 0) {
         throw new Error("defTable: schema is not a DnaObject (or a wrapper pointing to one).");
       }
-      pk = QueryBuilder.#dna.getPrimaryKey(def as DnaType) || "id";
+      pk = QueryBuilder.#dna.getPrimaryKey(def) || "id";
     } else {
       throw new TypeError(`defTable: expected Zod schema, DNA schema, or qbColumn[], got ${typeof def}.`);
     }

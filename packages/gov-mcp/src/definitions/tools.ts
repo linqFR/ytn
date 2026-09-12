@@ -214,7 +214,7 @@ const toolList: IToolDef[] = [
     args: S.getOpenActionsInput,
     handler: read.getOpenActions,
   },
-  { name: "get_handoff", category: CATEGORY.search, handler: read.getHandoff },
+  { name: "get_handoff", category: CATEGORY.search, args: S.getHandoffInput, handler: read.getHandoff },
   {
     name: "audit_consistency",
     category: CATEGORY.search,
@@ -384,26 +384,31 @@ const toolList: IToolDef[] = [
   {
     name: "generate_decisions_report",
     category: CATEGORY.reports,
+    args: S.generateDecisionsReportInput,
     handler: reports.generateDecisionsReport,
   },
   {
     name: "generate_actions_report",
     category: CATEGORY.reports,
+    args: S.generateActionsReportInput,
     handler: reports.generateActionsReport,
   },
   {
     name: "generate_ideas_report",
     category: CATEGORY.reports,
+    args: S.generateIdeasReportInput,
     handler: reports.generateIdeasReport,
   },
   {
     name: "generate_problems_report",
     category: CATEGORY.reports,
+    args: S.generateProblemsReportInput,
     handler: reports.generateProblemsReport,
   },
   {
     name: "generate_specs_report",
     category: CATEGORY.reports,
+    args: S.generateSpecsReportInput,
     handler: reports.generateSpecsReport,
   },
   {
@@ -415,11 +420,13 @@ const toolList: IToolDef[] = [
   {
     name: "export_dump",
     category: CATEGORY.reports,
+    args: S.exportDumpInput,
     handler: reports.exportDump,
   },
   {
     name: "generate_all_reports",
     category: CATEGORY.reports,
+    args: S.generateAllReportsInput,
     handler: reports.generateAllReports,
   },
 ];

@@ -35,7 +35,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   it("returns entries and advances cursor", () => {
     const queries = compileQueries(db);
     const writer = queries.getWriterByNanoid.get({ nanoid: "test-nanoid-12345678901" });
-    expect(writer!.last_read_at).toBeNull();
+    expect(writer!.last_read_at).toBe("1970-01-01T00:00:00.000Z");
 
     const rows = db.prepare("SELECT * FROM log_entries WHERE timestamp > ? ORDER BY timestamp ASC LIMIT ?")
       .all("1970-01-01T00:00:00.000Z", 50);
@@ -214,7 +214,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
       id: "SPEC-0001",
       filename: "test-spec-reason.md",
       version: 1,
-      scope: "workspace",
+      scope: ["workspace"],
     });
     expect(specResult.isError).toBe(false);
     const specId = specResult.structuredContent?.id as string;

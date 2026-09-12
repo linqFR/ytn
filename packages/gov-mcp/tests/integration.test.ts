@@ -453,7 +453,7 @@ describe("get_updates cursor", () => {
     initDatabase(db);
     db.prepare(
       "INSERT INTO writers (id, nanoid, role, default_scope, last_read_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-    ).run("devin-cli", "test-nanoid-12345678901", "agent", "workspace", 0, currentTimestamp());
+    ).run("devin-cli", "test-nanoid-12345678901", "agent", "workspace", "1970-01-01T00:00:00.000Z", currentTimestamp());
     // Insert some log entries
     for (let i = 0; i < 5; i++) {
       db.prepare(
@@ -469,14 +469,14 @@ describe("get_updates cursor", () => {
   it("returns entries and advances cursor", () => {
     const queries = compileQueries(db);
     const writer = queries.getWriterByNanoid.get({ nanoid: "test-nanoid-12345678901" });
-    expect(writer!.last_read_at).toBe(0);
+    expect(writer!.last_read_at).toBe("1970-01-01T00:00:00.000Z");
 
-    const rows = db.prepare("SELECT * FROM log_entries WHERE id > ? ORDER BY id ASC LIMIT ?")
-      .all(0, 50);
+    const rows = db.prepare("SELECT * FROM log_entries WHERE timestamp > ? ORDER BY id ASC LIMIT ?")
+      .all("1970-01-01T00:00:00.000Z", 50);
     expect(rows).toHaveLength(5);
 
-    // Advance cursor
-    const newCursor = rows[rows.length - 1].id;
+    // Advance cursor to the timestamp of the last entry
+    const newCursor = rows[rows.length - 1].timestamp as string;
     queries.updateWriterCursor.run({ last_read_at: newCursor, nanoid: "test-nanoid-12345678901" });
 
     const updated = queries.getWriterByNanoid.get({ nanoid: "test-nanoid-12345678901" });

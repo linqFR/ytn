@@ -483,7 +483,14 @@ export class Builder {
   public whereEq(fields: tsWhereDefinition[]): this;
   public whereEq(...fields: tsWhereDefinition[]): this;
   public whereEq(first?: tsWhereDefinition[] | tsWhereDefinition, ...rest: tsWhereDefinition[]): this {
-    return this.where(first, ...rest);
+    // Delegate to where() implementation — inline to avoid overload resolution mismatch.
+    const fields = first === undefined
+      ? []
+      : Array.isArray(first)
+        ? first
+        : [first, ...rest];
+    this.#whereFields = [...this.#whereFields, ...fields];
+    return this;
   }
 
   /**

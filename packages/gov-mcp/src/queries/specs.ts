@@ -16,11 +16,11 @@ export function compileSpecQueries(db: GovDb): Pick<IQueries,
     listSpecs: db.prepare(t.specs.req.select().orderBy(s.col.updated_at, "DESC").limit(100).toSQL()),
     insertSpec: db.prepare(t.specs.insert),
     updateSpecStatus: db.prepare(
-      t.specs.req.update(s.col.status, s.col.supersedes, s.col.updated_at).whereRaw(`${s.col.id} = @id`).toSQL(),
+      t.specs.req.update(s.col.status, s.col.supersedes, s.col.updated_at).where([s.col.id]).toSQL(),
     ),
     reportSpecsByDate: db.prepare(
       t.specs.req.select(s.col.id, s.col.filename, s.col.status)
-        .whereRaw(`${s.col.date} LIKE @date`).orderBy(s.col.id, "ASC").toSQL(),
+        .whereLike(s.col.date, "date").orderBy(s.col.id, "ASC").toSQL(),
     ),
   };
 }

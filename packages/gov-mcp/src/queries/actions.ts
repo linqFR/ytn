@@ -30,11 +30,11 @@ export function compileActionQueries(db: GovDb): Pick<IQueries,
       t.actions.req.selectRaw(`COALESCE(MAX(${a.col.seq}), 0) + 1 AS next_seq`).toSQL(),
     ),
     countActionsByScope: db.prepare(
-      t.actions.req.count().whereRaw(`${a.col.id} IN (SELECT ${es.col.entity_id} FROM ${es.table} WHERE ${es.col.entity_type} = 'action' AND ${es.col.scope_id} = @scope)`).toSQL(),
+      t.actions.req.count().whereIn(a.col.id, t.entity_scopes.req.select(es.col.entity_id).whereLiteral(es.col.entity_type, "'action'").where([{ col: es.col.scope_id, param: "scope" }])).toSQL(),
     ),
     insertAction: db.prepare(t.actions.insert),
     updateActionStatus: db.prepare(
-      t.actions.req.update(a.col.status, a.col.evidence, a.col.blockers, a.col.updated_at).whereRaw(`${a.col.id} = @id`).toSQL(),
+      t.actions.req.update(a.col.status, a.col.evidence, a.col.blockers, a.col.updated_at).where([a.col.id]).toSQL(),
     ),
     getOpenActions: db.prepare(
       t.actions.req.select().whereIn(a.col.status, [ACTION_STATUS.pending, ACTION_STATUS.in_progress, ACTION_STATUS.blocked])
@@ -79,7 +79,7 @@ export function compileActionQueries(db: GovDb): Pick<IQueries,
     ),
     reportActionsByDate: db.prepare(
       t.actions.req.select(a.col.id, a.col.title, a.col.status)
-        .whereRaw(`${a.col.date} LIKE @date`).orderBy(a.col.seq, "ASC").toSQL(),
+        .whereLike(a.col.date, "date").orderBy(a.col.seq, "ASC").toSQL(),
     ),
     reportAllActions: db.prepare(
       t.actions.req.select(a.col.id, a.col.title, a.col.status, a.col.owner, a.col.priority, a.col.source, a.col.source_type, a.col.spec_ref, a.col.body, a.col.evidence, a.col.blockers, a.col.defer_reason, a.col.cancel_reason, a.col.tested)
