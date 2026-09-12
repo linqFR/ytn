@@ -30,11 +30,15 @@ export function handlerLog(result: HookResult, hookCtx: HookContext): void {
 
   hookCtx.state.touchSession(session_id);
 
-  // Extract additionalContext from output if present
+  // Extract additionalContext from hookSpecificOutput if present
   const output = result.output;
+  const specific =
+    output !== null && typeof output === "object" && "hookSpecificOutput" in output
+      ? (output as { hookSpecificOutput: { additionalContext?: string } }).hookSpecificOutput
+      : null;
   const additionalContext =
-    output !== null && typeof output === "object" && "additionalContext" in output
-      ? truncate((output as { additionalContext: string }).additionalContext, 500)
+    specific && typeof specific.additionalContext === "string"
+      ? truncate(specific.additionalContext, 500)
       : null;
 
   // Build input summary for log

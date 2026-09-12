@@ -154,12 +154,16 @@ const specificOutputBaseSchema = dna.object({
   hookEventName: hookEventNameSchema,
 });
 
-export const additionalContextBlockSchema = specificOutputBaseSchema.extend({
-  additionalContext: dna.string().min(1),
+export const additionalContextBlockSchema = dna.object({
+  hookSpecificOutput: specificOutputBaseSchema.extend({
+    additionalContext: dna.string().min(1),
+  }),
 });
 
-export const updateInputBlockSchema = specificOutputBaseSchema.extend({
-  updatedInput: dna.object({}).loose(),
+export const updateInputBlockSchema = dna.object({
+  hookSpecificOutput: specificOutputBaseSchema.extend({
+    updatedInput: dna.object({}).loose(),
+  }),
 });
 
 export type tsDecisionBlock = dna.infer<typeof decisionBlockSchema>;
@@ -171,23 +175,31 @@ export type tsUpdateInputBlock = dna.infer<typeof updateInputBlockSchema>;
 // Each has its own hookEventName literal (not the union).
 
 export const sessionStartOutputSchema = dna.object({
-  hookEventName: dna.literal("SessionStart"),
-  additionalContext: dna.string().min(1),
+  hookSpecificOutput: dna.object({
+    hookEventName: dna.literal("SessionStart"),
+    additionalContext: dna.string().min(1),
+  }),
 }).nullable();
 
 export const userPromptSubmitOutputSchema = dna.object({
-  hookEventName: dna.literal("UserPromptSubmit"),
-  additionalContext: dna.string().min(1),
+  hookSpecificOutput: dna.object({
+    hookEventName: dna.literal("UserPromptSubmit"),
+    additionalContext: dna.string().min(1),
+  }),
 }).nullable();
 
 export const postToolUseOutputSchema = dna.object({
-  hookEventName: dna.literal("PostToolUse"),
-  additionalContext: dna.string().min(1),
+  hookSpecificOutput: dna.object({
+    hookEventName: dna.literal("PostToolUse"),
+    additionalContext: dna.string().min(1),
+  }),
 }).nullable();
 
 export const postCompactionOutputSchema = dna.object({
-  hookEventName: dna.literal("PostCompaction"),
-  additionalContext: dna.string().min(1),
+  hookSpecificOutput: dna.object({
+    hookEventName: dna.literal("PostCompaction"),
+    additionalContext: dna.string().min(1),
+  }),
 }).nullable();
 
 // Stop: decision + reason only (null = allow stop silently)

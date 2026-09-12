@@ -19,12 +19,12 @@ export function decisionBlock(decision: "block" | "approve", reason: string): ts
   return { decision, reason };
 }
 
-export function additionalContext<E extends tsHookEvent>(event: E, context: string): { hookEventName: E; additionalContext: string } {
-  return { hookEventName: event, additionalContext: context };
+export function additionalContext<E extends tsHookEvent>(event: E, context: string): { hookSpecificOutput: { hookEventName: E; additionalContext: string } } {
+  return { hookSpecificOutput: { hookEventName: event, additionalContext: context } };
 }
 
-export function updateInput<E extends tsHookEvent>(event: E, input: Record<string, unknown>): { hookEventName: E; updatedInput: Record<string, unknown> } {
-  return { hookEventName: event, updatedInput: input };
+export function updateInput<E extends tsHookEvent>(event: E, input: Record<string, unknown>): { hookSpecificOutput: { hookEventName: E; updatedInput: Record<string, unknown> } } {
+  return { hookSpecificOutput: { hookEventName: event, updatedInput: input } };
 }
 
 // ── Per-handler helpers ──

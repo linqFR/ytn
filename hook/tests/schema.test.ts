@@ -188,24 +188,30 @@ describe("output schemas", () => {
 
   it("additionalContextBlockSchema accepts context", () => {
     const result = additionalContextBlockSchema.safeParse({
-      hookEventName: "UserPromptSubmit",
-      additionalContext: "Remember to test",
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: "Remember to test",
+      },
     });
     expect(result.success).toBe(true);
   });
 
   it("additionalContextBlockSchema rejects empty context", () => {
     const result = additionalContextBlockSchema.safeParse({
-      hookEventName: "UserPromptSubmit",
-      additionalContext: "",
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: "",
+      },
     });
     expect(result.success).toBe(false);
   });
 
   it("updateInputBlockSchema accepts updatedInput", () => {
     const result = updateInputBlockSchema.safeParse({
-      hookEventName: "PreToolUse",
-      updatedInput: { command: "rtk git status" },
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        updatedInput: { command: "rtk git status" },
+      },
     });
     expect(result.success).toBe(true);
   });
@@ -220,16 +226,20 @@ describe("output schemas", () => {
 
   it("responseSchema accepts additionalContext", () => {
     const result = responseSchema.safeParse({
-      hookEventName: "SessionStart",
-      additionalContext: "Welcome",
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: "Welcome",
+      },
     });
     expect(result.success).toBe(true);
   });
 
   it("responseSchema accepts updatedInput", () => {
     const result = responseSchema.safeParse({
-      hookEventName: "PreToolUse",
-      updatedInput: { command: "safe command" },
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        updatedInput: { command: "safe command" },
+      },
     });
     expect(result.success).toBe(true);
   });

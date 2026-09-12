@@ -25,7 +25,7 @@ function mockWriter(overrides: Partial<tsWriterRow> = {}): tsWriterRow {
     objective: "build",
     expertise: "ts",
     prohibitions: "none",
-    last_read_at: 0,
+    last_read_at: "",
     created_at: "",
     ...overrides,
   };
@@ -200,9 +200,9 @@ describe("sessionStart handler", () => {
     const result = await sessionStart(sessionStartInput, ctx);
 
     expect(result).not.toBeNull();
-    expect(result?.hookEventName).toBe("SessionStart");
-    expect(result?.additionalContext).toContain("[IDENTITY]");
-    expect(result?.additionalContext).toContain("register_me");
+    expect(result?.hookSpecificOutput?.hookEventName).toBe("SessionStart");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[IDENTITY]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("register_me");
   });
 
   it("injects identity and nanoid when writer found", async () => {
@@ -214,12 +214,12 @@ describe("sessionStart handler", () => {
     const result = await sessionStart(sessionStartInput, ctx);
 
     expect(result).not.toBeNull();
-    expect(result?.hookEventName).toBe("SessionStart");
-    expect(result?.additionalContext).toContain("[IDENTITY]");
-    expect(result?.additionalContext).toContain("Test Writer");
-    expect(result?.additionalContext).toContain("build");
-    expect(result?.additionalContext).toContain("[SESSION]");
-    expect(result?.additionalContext).toContain("nanoid: `n1`");
+    expect(result?.hookSpecificOutput?.hookEventName).toBe("SessionStart");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[IDENTITY]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("Test Writer");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("build");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[SESSION]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("nanoid: `n1`");
   });
 });
 
@@ -229,9 +229,9 @@ describe("userPromptSubmit handler", () => {
     const result = await userPromptSubmit(userPromptSubmitInput, ctx);
 
     expect(result).not.toBeNull();
-    expect(result?.hookEventName).toBe("UserPromptSubmit");
-    expect(result?.additionalContext).toContain("[IDENTITY]");
-    expect(result?.additionalContext).toContain("register_me");
+    expect(result?.hookSpecificOutput?.hookEventName).toBe("UserPromptSubmit");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[IDENTITY]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("register_me");
   });
 
   it("injects mailbox summary and reminder when entries exist", async () => {
@@ -245,10 +245,10 @@ describe("userPromptSubmit handler", () => {
     const result = await userPromptSubmit(userPromptSubmitInput, ctx);
 
     expect(result).not.toBeNull();
-    expect(result?.hookEventName).toBe("UserPromptSubmit");
-    expect(result?.additionalContext).toContain("[MAILBOX]");
-    expect(result?.additionalContext).toContain("1 unread");
-    expect(result?.additionalContext).toContain("[REMINDER]");
+    expect(result?.hookSpecificOutput?.hookEventName).toBe("UserPromptSubmit");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[MAILBOX]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("1 unread");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[REMINDER]");
   });
 });
 
@@ -258,9 +258,9 @@ describe("postCompaction handler", () => {
     const result = await postCompaction(postCompactionInput, ctx);
 
     expect(result).not.toBeNull();
-    expect(result?.hookEventName).toBe("PostCompaction");
-    expect(result?.additionalContext).toContain("[IDENTITY]");
-    expect(result?.additionalContext).toContain("register_me");
+    expect(result?.hookSpecificOutput?.hookEventName).toBe("PostCompaction");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[IDENTITY]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("register_me");
   });
 
   it("re-injects identity after compaction", async () => {
@@ -272,9 +272,9 @@ describe("postCompaction handler", () => {
     const result = await postCompaction(postCompactionInput, ctx);
 
     expect(result).not.toBeNull();
-    expect(result?.hookEventName).toBe("PostCompaction");
-    expect(result?.additionalContext).toContain("[POST-COMPACTION]");
-    expect(result?.additionalContext).toContain("[IDENTITY]");
+    expect(result?.hookSpecificOutput?.hookEventName).toBe("PostCompaction");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[POST-COMPACTION]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[IDENTITY]");
   });
 });
 
@@ -295,8 +295,8 @@ describe("postToolUse handler — nanoid capture", () => {
 
     expect(ctx.state.setNanoid).toHaveBeenCalledWith("test-123", "abc123XYZ789", "devin-test");
     expect(result).not.toBeNull();
-    expect(result?.additionalContext).toContain("`abc123XYZ789`");
-    expect(result?.additionalContext).toContain("captured");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("`abc123XYZ789`");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("captured");
   });
 
   it("captures nanoid from mcp_call_tool wrapper with JSON sentinel", async () => {
@@ -319,7 +319,7 @@ describe("postToolUse handler — nanoid capture", () => {
 
     expect(ctx.state.setNanoid).toHaveBeenCalledWith("test-123", "XYZ987abc456", "devin-test-2");
     expect(result).not.toBeNull();
-    expect(result?.additionalContext).toContain("captured");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("captured");
   });
 
   it("falls back to regex when JSON sentinel is absent", async () => {
@@ -388,8 +388,8 @@ describe("postToolUse handler — prohibited patterns", () => {
     const result = await postToolUse(input, ctx);
 
     expect(result).not.toBeNull();
-    expect(result?.additionalContext).toContain("[REMINDER]");
-    expect(result?.additionalContext).toContain("as any");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[REMINDER]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("as any");
   });
 
   it("detects 'as unknown as' in write content", async () => {
@@ -403,8 +403,8 @@ describe("postToolUse handler — prohibited patterns", () => {
     const result = await postToolUse(input, ctx);
 
     expect(result).not.toBeNull();
-    expect(result?.additionalContext).toContain("[REMINDER]");
-    expect(result?.additionalContext).toContain("as unknown as");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("[REMINDER]");
+    expect(result?.hookSpecificOutput?.additionalContext).toContain("as unknown as");
   });
 
   it("does not flag clean code", async () => {

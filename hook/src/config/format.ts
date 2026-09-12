@@ -40,17 +40,24 @@ export function formatOpenActions(actions: tsActionRow[]): string {
 }
 
 export function formatHandoff(handoff: OGetHandoffResult): string {
+  const MAX_ITEMS = 5;
   const lines: string[] = [`${messages.handoffLabel} ${handoff.date}`];
   if (handoff.open_actions.length > 0) {
     lines.push(`Open actions (${handoff.open_actions.length}):`);
-    for (const a of handoff.open_actions.slice(0, 5)) {
+    for (const a of handoff.open_actions.slice(0, MAX_ITEMS)) {
       lines.push(`  - \`${a.id}\`: ${a.title} [\`${a.status}\`]${a.priority ? ` (\`${a.priority}\`)` : ""}`);
+    }
+    if (handoff.open_actions.length > MAX_ITEMS) {
+      lines.push(`  ...and ${handoff.open_actions.length - MAX_ITEMS} more`);
     }
   }
   if (handoff.pending_decisions.length > 0) {
     lines.push(`Pending decisions (${handoff.pending_decisions.length}):`);
-    for (const d of handoff.pending_decisions.slice(0, 5)) {
+    for (const d of handoff.pending_decisions.slice(0, MAX_ITEMS)) {
       lines.push(`  - \`${d.id}\`: ${d.title} [\`${d.status}\`]`);
+    }
+    if (handoff.pending_decisions.length > MAX_ITEMS) {
+      lines.push(`  ...and ${handoff.pending_decisions.length - MAX_ITEMS} more`);
     }
   }
   const allProblems = [
@@ -60,8 +67,11 @@ export function formatHandoff(handoff: OGetHandoffResult): string {
   ];
   if (allProblems.length > 0) {
     lines.push(`Active problems (${allProblems.length}):`);
-    for (const p of allProblems.slice(0, 5)) {
+    for (const p of allProblems.slice(0, MAX_ITEMS)) {
       lines.push(`  - \`${p.id}\`: ${p.title} [\`${p.severity}\`]`);
+    }
+    if (allProblems.length > MAX_ITEMS) {
+      lines.push(`  ...and ${allProblems.length - MAX_ITEMS} more`);
     }
   }
   return lines.join("\n");
