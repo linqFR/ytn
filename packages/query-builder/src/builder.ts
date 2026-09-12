@@ -37,6 +37,15 @@ export class Builder {
   #groupBy: string[] = [];
   #offset: number | null = null;
   #whereInFields: IWhereInDefinition[] = [];
+  #whereNotInFields: IWhereInDefinition[] = [];
+  #whereNotEqFields: tsWhereDefinition[] = [];
+  #whereLikeFields: { col: string; param: string }[] = [];
+  #whereNullFields: string[] = [];
+  #whereEmptyFields: string[] = [];
+  #whereNullishFields: string[] = [];
+  #whereExistsFields: Builder[] = [];
+  #whereNotExistsFields: Builder[] = [];
+  #whereLiteralNotEqFields: { col: string; value: string }[] = [];
   #indexName: string = "";
   #indexColumns: string[] = [];
   #indexWhere: string | null = null;
@@ -132,6 +141,22 @@ export class Builder {
     cloned.#whereInFields = this.#whereInFields.map((f) => ({
       col: f.col,
       target: Array.isArray(f.target) ? [...f.target] : f.target,
+    }));
+    cloned.#whereNotInFields = this.#whereNotInFields.map((f) => ({
+      col: f.col,
+      target: Array.isArray(f.target) ? [...f.target] : f.target,
+    }));
+    cloned.#whereNotEqFields = this.#whereNotEqFields.map((f) =>
+      typeof f === "string" ? f : { ...f },
+    );
+    cloned.#whereLikeFields = this.#whereLikeFields.map((f) => ({ ...f }));
+    cloned.#whereNullFields = [...this.#whereNullFields];
+    cloned.#whereEmptyFields = [...this.#whereEmptyFields];
+    cloned.#whereNullishFields = [...this.#whereNullishFields];
+    cloned.#whereExistsFields = [...this.#whereExistsFields];
+    cloned.#whereNotExistsFields = [...this.#whereNotExistsFields];
+    cloned.#whereLiteralNotEqFields = this.#whereLiteralNotEqFields.map((f) => ({
+      ...f,
     }));
 
     cloned.#compoundParts = this.#compoundParts ? [...this.#compoundParts] : null;
@@ -444,6 +469,149 @@ export class Builder {
   public whereRaw(condition: string): this {
     this.#assertNotCompound("whereRaw");
     this.#whereRawFields.push(condition);
+    return this;
+  }
+
+  /**
+   * @function whereEq
+   * @description Alias for `where()`. Adds a WHERE equality condition (`col = @param`).
+   * Provided for API symmetry with `whereNotEq`, `whereLike`, etc.
+   * @param {tsWhereDefinition[]} fields - Column name(s) or `{ col, param }` object(s).
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereEq('status')` or `.whereEq({ col: 'status', param: 's' })`
+   */
+  public whereEq(fields: tsWhereDefinition[]): this;
+  public whereEq(...fields: tsWhereDefinition[]): this;
+  public whereEq(first?: tsWhereDefinition[] | tsWhereDefinition, ...rest: tsWhereDefinition[]): this {
+    return this.where(first, ...rest);
+  }
+
+  /**
+   * @function whereNotEq
+   * @description Adds a WHERE inequality condition (`col != @param`).
+   * @param {tsWhereDefinition[]} fields - Column name(s) or `{ col, param }` object(s).
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereNotEq('status')` or `.whereNotEq({ col: 'type', param: 't' })`
+   */
+  public whereNotEq(fields: tsWhereDefinition[]): this;
+  public whereNotEq(...fields: tsWhereDefinition[]): this;
+  public whereNotEq(first?: tsWhereDefinition[] | tsWhereDefinition, ...rest: tsWhereDefinition[]): this {
+    this.#assertNotCompound("whereNotEq");
+    const fields = first === undefined
+      ? []
+      : Array.isArray(first)
+        ? first
+        : [first, ...rest];
+    this.#whereNotEqFields = [...this.#whereNotEqFields, ...fields];
+    return this;
+  }
+
+  /**
+   * @function whereNotIn
+   * @description Adds a WHERE NOT IN clause.
+   * @param {string} col - The column name.
+   * @param {string[] | Builder} target - List of values or a subquery Builder.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereNotIn('status', ['deleted', 'archived'])` or `.whereNotIn('id', subquery)`
+   */
+  public whereNotIn(col: string, target: string[] | Builder): this {
+    this.#assertNotCompound("whereNotIn");
+    this.#whereNotInFields.push({ col, target });
+    return this;
+  }
+
+  /**
+   * @function whereLike
+   * @description Adds a WHERE LIKE condition with a bound parameter (`col LIKE @param`).
+   * @param {string} col - The column name.
+   * @param {string} param - The parameter name in the query.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereLike('title', 'search')` → `title LIKE @search`
+   */
+  public whereLike(col: string, param: string): this {
+    this.#assertNotCompound("whereLike");
+    this.#whereLikeFields.push({ col, param });
+    return this;
+  }
+
+  /**
+   * @function whereNull
+   * @description Adds a WHERE IS NULL condition.
+   * @param {string} col - The column name.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereNull('deleted_at')` → `deleted_at IS NULL`
+   */
+  public whereNull(col: string): this {
+    this.#assertNotCompound("whereNull");
+    this.#whereNullFields.push(col);
+    return this;
+  }
+
+  /**
+   * @function whereEmpty
+   * @description Adds a WHERE condition for empty string (`col = ''`).
+   * @param {string} col - The column name.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereEmpty('description')` → `description = ''`
+   */
+  public whereEmpty(col: string): this {
+    this.#assertNotCompound("whereEmpty");
+    this.#whereEmptyFields.push(col);
+    return this;
+  }
+
+  /**
+   * @function whereNullish
+   * @description Adds a WHERE condition for NULL or empty string (`col IS NULL OR col = ''`).
+   * Each call produces a parenthesized OR group, safely ANDed with other conditions.
+   * @param {string} col - The column name.
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereNullish('evidence')` → `(evidence IS NULL OR evidence = '')`
+   */
+  public whereNullish(col: string): this {
+    this.#assertNotCompound("whereNullish");
+    this.#whereNullishFields.push(col);
+    return this;
+  }
+
+  /**
+   * @function whereExists
+   * @description Adds a WHERE EXISTS (subquery) condition.
+   * @param {Builder} subquery - A subquery Builder (call `.select()` etc. before passing).
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereExists(QueryBuilder.table('orders').select('1').whereColumn('orders.user_id', 'users.id'))`
+   */
+  public whereExists(subquery: Builder): this {
+    this.#assertNotCompound("whereExists");
+    this.#whereExistsFields.push(subquery);
+    return this;
+  }
+
+  /**
+   * @function whereNotExists
+   * @description Adds a WHERE NOT EXISTS (subquery) condition.
+   * @param {Builder} subquery - A subquery Builder (call `.select()` etc. before passing).
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereNotExists(QueryBuilder.table('orders').select('1').whereColumn('orders.user_id', 'users.id'))`
+   */
+  public whereNotExists(subquery: Builder): this {
+    this.#assertNotCompound("whereNotExists");
+    this.#whereNotExistsFields.push(subquery);
+    return this;
+  }
+
+  /**
+   * @function whereLiteralNotEq
+   * @description Adds a WHERE condition with a literal SQL value and inequality (`col != 'literal'`).
+   * Symmetric to `whereLiteral` which uses `=`.
+   * @param {string} col - The column name.
+   * @param {string} value - The literal SQL value (e.g., "'active'", "CURRENT_TIMESTAMP").
+   * @returns {this} The current Builder instance for chaining.
+   * @usage `.whereLiteralNotEq('status', "'deleted'")` → `status != 'deleted'`
+   */
+  public whereLiteralNotEq(col: string, value: string): this {
+    this.#assertNotCompound("whereLiteralNotEq");
+    this.#whereLiteralNotEqFields.push({ col, value });
     return this;
   }
 
@@ -1300,6 +1468,72 @@ export class Builder {
           ? `(${f.target.map((v) => `'${String(v).replaceAll("'", "''")}'`).join(", ")})`
           : `(${f.target.toSQL()})`;
         conditions.push(`${f.col} IN ${targetStr}`);
+      });
+    }
+
+    if (this.#whereNotInFields.length > 0) {
+      this.#whereNotInFields.forEach((f) => {
+        const targetStr = Array.isArray(f.target)
+          ? `(${f.target.map((v) => `'${String(v).replaceAll("'", "''")}'`).join(", ")})`
+          : `(${f.target.toSQL()})`;
+        conditions.push(`${f.col} NOT IN ${targetStr}`);
+      });
+    }
+
+    if (this.#whereNotEqFields.length > 0) {
+      const notEqClause = this.#whereNotEqFields
+        .map((f) => {
+          if (typeof f === "string") return `${f} != @${f}`;
+          return `${f.col} != @${f.param}`;
+        })
+        .join(" AND ");
+      conditions.push(notEqClause);
+    }
+
+    if (this.#whereLikeFields.length > 0) {
+      const likeClause = this.#whereLikeFields
+        .map((f) => `${f.col} LIKE @${f.param}`)
+        .join(" AND ");
+      conditions.push(likeClause);
+    }
+
+    if (this.#whereNullFields.length > 0) {
+      const nullClause = this.#whereNullFields
+        .map((c) => `${c} IS NULL`)
+        .join(" AND ");
+      conditions.push(nullClause);
+    }
+
+    if (this.#whereEmptyFields.length > 0) {
+      const emptyClause = this.#whereEmptyFields
+        .map((c) => `${c} = ''`)
+        .join(" AND ");
+      conditions.push(emptyClause);
+    }
+
+    if (this.#whereNullishFields.length > 0) {
+      const nullishClause = this.#whereNullishFields
+        .map((c) => `(${c} IS NULL OR ${c} = '')`)
+        .join(" AND ");
+      conditions.push(nullishClause);
+    }
+
+    if (this.#whereLiteralNotEqFields.length > 0) {
+      const litNotEqClause = this.#whereLiteralNotEqFields
+        .map((f) => `${f.col} != ${f.value}`)
+        .join(" AND ");
+      conditions.push(litNotEqClause);
+    }
+
+    if (this.#whereExistsFields.length > 0) {
+      this.#whereExistsFields.forEach((sub) => {
+        conditions.push(`EXISTS (${sub.toSQL()})`);
+      });
+    }
+
+    if (this.#whereNotExistsFields.length > 0) {
+      this.#whereNotExistsFields.forEach((sub) => {
+        conditions.push(`NOT EXISTS (${sub.toSQL()})`);
       });
     }
 

@@ -69,9 +69,9 @@ In addition to global build rules, this package requires:
 
 ## 🧪 Testing Workflow
 
-Always run the full suite before submitting changes. "It builds" is not enough. 405 tests total.
+Always run the full suite before submitting changes. "It builds" is not enough. 427 tests total.
 
-- **`tests/builder.test.ts`** (108): Core `Builder` fluent API — SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, `defTable` + `req`/`q` + `uniqueKeys` + `ddl` shortcut, `onConflict` sub-builder, `insertMulti`, `insertDefaultValues`, `having`, `distinct`, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, `dropIndex`, runtime guards, PragmaBuilder full coverage.
+- **`tests/builder.test.ts`** (152): Core `Builder` fluent API — SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, `defTable` + `req`/`q` + `uniqueKeys` + `ddl` shortcut, `onConflict` sub-builder, `insertMulti`, `insertDefaultValues`, `having`, `distinct`, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, `dropIndex`, runtime guards, PragmaBuilder full coverage, WHERE operator methods (whereEq, whereNotEq, whereNotIn, whereLike, whereNull, whereEmpty, whereNullish, whereExists, whereNotExists, whereLiteralNotEq).
 - **`tests/readme-examples.test.ts`** (17): Verifies that every code example in `README.md` produces the documented SQL output.
 - **`tests/e2e-lifecycle.test.ts`** (48): End-to-end CRUD lifecycle across SQLite drivers (`node:sqlite`, `better-sqlite3`) and schema sources (Zod, DNA, Manual).
 - **`tests/e2e-ddl.test.ts`** (36): DDL generation + execution across drivers and schema sources, including `qbTableOptions` overrides + PRAGMA e2e (both drivers).

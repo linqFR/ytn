@@ -1122,4 +1122,147 @@ describe('QueryBuilder - Fixes and New Features', () => {
     });
   });
 
+  describe('12. WHERE operator methods', () => {
+    it('whereEq() — alias of where(), produces col = @param', () => {
+      const sql = QueryBuilder.table('users').select().whereEq('status').toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE status = @status');
+    });
+
+    it('whereEq() with object form', () => {
+      const sql = QueryBuilder.table('users').select().whereEq({ col: 'type_id', param: 'type' }).toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE type_id = @type');
+    });
+
+    it('whereEq() and where() produce identical SQL', () => {
+      const a = QueryBuilder.table('users').select().whereEq('id', 'status').toSQL();
+      const b = QueryBuilder.table('users').select().where('id', 'status').toSQL();
+      expect(a).toBe(b);
+    });
+
+    it('whereNotEq() — string form: col != @col', () => {
+      const sql = QueryBuilder.table('users').select().whereNotEq('status').toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE status != @status');
+    });
+
+    it('whereNotEq() — object form: col != @param', () => {
+      const sql = QueryBuilder.table('users').select().whereNotEq({ col: 'type_id', param: 'type' }).toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE type_id != @type');
+    });
+
+    it('whereNotEq() — array and variadic produce identical SQL', () => {
+      const a = QueryBuilder.table('users').select().whereNotEq(['id', 'status']).toSQL();
+      const b = QueryBuilder.table('users').select().whereNotEq('id', 'status').toSQL();
+      expect(a).toBe(b);
+    });
+
+    it('whereNotIn() with literal list', () => {
+      const sql = QueryBuilder.table('users').select().whereNotIn('status', ['deleted', 'archived']).toSQL();
+      expect(sql).toBe("SELECT * FROM users WHERE status NOT IN ('deleted', 'archived')");
+    });
+
+    it('whereNotIn() with subquery Builder', () => {
+      const sub = QueryBuilder.table('blocked').select('user_id');
+      const sql = QueryBuilder.table('users').select().whereNotIn('id', sub).toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE id NOT IN (SELECT user_id FROM blocked)');
+    });
+
+    it('whereLike() — col LIKE @param', () => {
+      const sql = QueryBuilder.table('users').select().whereLike('name', 'search').toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE name LIKE @search');
+    });
+
+    it('whereNull() — col IS NULL', () => {
+      const sql = QueryBuilder.table('users').select().whereNull('deleted_at').toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE deleted_at IS NULL');
+    });
+
+    it('whereEmpty() — col = \'\'', () => {
+      const sql = QueryBuilder.table('users').select().whereEmpty('description').toSQL();
+      expect(sql).toBe("SELECT * FROM users WHERE description = ''");
+    });
+
+    it('whereNullish() — (col IS NULL OR col = \'\')', () => {
+      const sql = QueryBuilder.table('users').select().whereNullish('evidence').toSQL();
+      expect(sql).toBe("SELECT * FROM users WHERE (evidence IS NULL OR evidence = '')");
+    });
+
+    it('whereLiteralNotEq() — col != \'literal\'', () => {
+      const sql = QueryBuilder.table('users').select().whereLiteralNotEq('status', "'deleted'").toSQL();
+      expect(sql).toBe("SELECT * FROM users WHERE status != 'deleted'");
+    });
+
+    it('whereExists() with subquery', () => {
+      const sub = QueryBuilder.table('orders').select('1').whereColumn('orders.user_id', 'users.id');
+      const sql = QueryBuilder.table('users').select().whereExists(sub).toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE EXISTS (SELECT 1 FROM orders WHERE orders.user_id = users.id)');
+    });
+
+    it('whereNotExists() with subquery', () => {
+      const sub = QueryBuilder.table('orders').select('1').whereColumn('orders.user_id', 'users.id');
+      const sql = QueryBuilder.table('users').select().whereNotExists(sub).toSQL();
+      expect(sql).toBe('SELECT * FROM users WHERE NOT EXISTS (SELECT 1 FROM orders WHERE orders.user_id = users.id)');
+    });
+
+    it('multiple where methods combine with AND', () => {
+      const sql = QueryBuilder.table('users')
+        .select()
+        .where('active')
+        .whereNotEq('role')
+        .whereNotIn('status', ['deleted', 'banned'])
+        .whereLike('name', 'search')
+        .whereNullish('bio')
+        .toSQL();
+      // Rendering order follows condition-type groups, not call order:
+      // where → whereNotIn → whereNotEq → whereLike → whereNullish
+      expect(sql).toBe(
+        "SELECT * FROM users " +
+        "WHERE active = @active " +
+        "AND status NOT IN ('deleted', 'banned') " +
+        "AND role != @role " +
+        "AND name LIKE @search " +
+        "AND (bio IS NULL OR bio = '')"
+      );
+    });
+
+    it('clone() isolates whereNotIn, whereNotEq, whereLike, whereNull, whereEmpty, whereNullish, whereExists, whereNotExists, whereLiteralNotEq', () => {
+      const sub = QueryBuilder.table('blocked').select('user_id');
+      const base = QueryBuilder.table('users')
+        .select()
+        .whereNotEq('status')
+        .whereNotIn('id', sub)
+        .whereLike('name', 'search')
+        .whereNull('deleted_at')
+        .whereEmpty('bio')
+        .whereNullish('evidence')
+        .whereLiteralNotEq('role', "'admin'")
+        .whereExists(sub)
+        .whereNotExists(sub);
+
+      const clone = base.clone();
+      clone.whereNotEq('role').whereNull('updated_at');
+
+      const baseSql = base.toSQL();
+      const cloneSql = clone.toSQL();
+
+      // Base has 9 conditions
+      expect(baseSql).toContain('status != @status');
+      expect(baseSql).toContain('id NOT IN (SELECT user_id FROM blocked)');
+      expect(baseSql).toContain('name LIKE @search');
+      expect(baseSql).toContain('deleted_at IS NULL');
+      expect(baseSql).toContain("bio = ''");
+      expect(baseSql).toContain("(evidence IS NULL OR evidence = '')");
+      expect(baseSql).toContain("role != 'admin'");
+      expect(baseSql).toContain('EXISTS (SELECT user_id FROM blocked)');
+      expect(baseSql).toContain('NOT EXISTS (SELECT user_id FROM blocked)');
+
+      // Clone has 11 conditions (9 original + 2 new)
+      expect(cloneSql).toContain('role != @role');
+      expect(cloneSql).toContain('updated_at IS NULL');
+
+      // Base must not have the clone's additions
+      expect(baseSql).not.toContain('role != @role');
+      expect(baseSql).not.toContain('updated_at IS NULL');
+    });
+  });
+
 });

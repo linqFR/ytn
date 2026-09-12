@@ -212,11 +212,21 @@ All values are plain strings/booleans computed once at `defTable` time — no ge
 | Table alias | ✅ | `.as(alias)` |
 | JOIN (INNER, LEFT, RIGHT) | ✅ | `.joinInner()`, `.joinLeft()`, `.joinRight()` |
 | Subquery JOIN | ✅ | Pass `Builder` as join target |
-| WHERE (column = @param) | ✅ | `.where(fields)` |
+| WHERE (column = @param) | ✅ | `.where(fields)` / `.whereEq(fields)` (alias) |
 | WHERE column = column | ✅ | `.whereColumn(col1, col2)` |
 | WHERE literal value | ✅ | `.whereLiteral(col, value)` |
+| WHERE literal inequality | ✅ | `.whereLiteralNotEq(col, value)` — `col != 'literal'` |
 | WHERE IN (values) | ✅ | `.whereIn(col, [...])` |
 | WHERE IN (subquery) | ✅ | `.whereIn(col, Builder)` |
+| WHERE NOT IN (values) | ✅ | `.whereNotIn(col, [...])` |
+| WHERE NOT IN (subquery) | ✅ | `.whereNotIn(col, Builder)` |
+| WHERE inequality (@param) | ✅ | `.whereNotEq(fields)` — `col != @param` |
+| WHERE LIKE (@param) | ✅ | `.whereLike(col, param)` — `col LIKE @param` |
+| WHERE IS NULL | ✅ | `.whereNull(col)` |
+| WHERE empty string | ✅ | `.whereEmpty(col)` — `col = ''` |
+| WHERE null or empty | ✅ | `.whereNullish(col)` — `(col IS NULL OR col = '')` |
+| WHERE EXISTS (subquery) | ✅ | `.whereExists(Builder)` |
+| WHERE NOT EXISTS (subquery) | ✅ | `.whereNotExists(Builder)` |
 | WHERE raw SQL | ✅ | `.whereRaw(condition)` |
 | Search (LIKE) | ✅ | `.search(fields)` → `LIKE @search_term` |
 | EXISTS / NOT EXISTS | ✅ | `.asExists()`, `.asNotExists()` |
@@ -347,13 +357,13 @@ All values are plain strings/booleans computed once at `defTable` time — no ge
 ## Testing
 
 - **Framework**: Vitest 4 (pure ESM)
-- **Total tests**: 410
+- **Total tests**: 427
 - **Run**: `npm.cmd test -w @ytrynot/qb`
 - **Typecheck**: `npm.cmd test -- --typecheck`
 
 | Test file | Count | Coverage |
 |-----------|-------|----------|
-| `tests/builder.test.ts` | 135 | Core Builder API: SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, onConflict sub-builder, insertMulti, insertDefaultValues, having, distinct, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, dropIndex, runtime guards, PragmaBuilder full coverage, PK detection via `pk`/`meta.pk`/`pkauto`, NOT NULL + DEFAULT independence, direct properties without `meta`, `names` metadata (table, col, pk, isPk, isUnique, readonly, updatable) |
+| `tests/builder.test.ts` | 152 | Core Builder API: SELECT, INSERT, UPDATE, DELETE, UPSERT, WHERE, JOINs, cloning, onConflict sub-builder, insertMulti, insertDefaultValues, having, distinct, DDL additions (composite UNIQUE, CHECK), INDEX partial WHERE + expression, dropIndex, runtime guards, PragmaBuilder full coverage, PK detection via `pk`/`meta.pk`/`pkauto`, NOT NULL + DEFAULT independence, direct properties without `meta`, `names` metadata (table, col, pk, isPk, isUnique, readonly, updatable), WHERE operator methods (whereEq, whereNotEq, whereNotIn, whereLike, whereNull, whereEmpty, whereNullish, whereExists, whereNotExists, whereLiteralNotEq) |
 | `tests/readme-examples.test.ts` | 17 | README examples produce documented SQL |
 | `tests/e2e-lifecycle.test.ts` | 48 | CRUD lifecycle across drivers + schema sources |
 | `tests/e2e-ddl.test.ts` | 36 | DDL generation + execution + PRAGMA e2e (both drivers) |
