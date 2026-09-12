@@ -1,0 +1,26 @@
+﻿{
+  "name": "@ytrynot/hook",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Devin CLI governance hook — identity injection and mailbox context",
+  "type": "module",
+  "main": "dist/hook-v1.js",
+  "scripts": {
+    "build": "tsup ./src/hook-v1.ts --format esm --out-dir dist",
+    "start": "node dist/hook-v1.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ytrynot/dna": "^0.11.0",
+    "@ytrynot/gov-mcp": "^0.2.0",
+    "@ytrynot/qb": "^1.2.0",
+    "better-sqlite3": "^13.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.5.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  }
+}
