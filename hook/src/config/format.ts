@@ -23,8 +23,9 @@ export function formatIdentity(identity: tsWriterRow): string {
 
 export function formatMailboxSummary(entries: tsLogEntryRow[]): string {
   if (entries.length === 0) return messages.noUnreadMailbox;
+  const sorted = [...entries].sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
   const lines: string[] = [`${messages.mailboxLabel} ${entries.length} unread message(s):`];
-  for (const entry of entries.slice(0, 10)) {
+  for (const entry of sorted.slice(0, 10)) {
     lines.push(`  - #${entry.id} \`${entry.subject ?? "(no subject)"}\` — ${entry.date}`);
   }
   return lines.join("\n");
