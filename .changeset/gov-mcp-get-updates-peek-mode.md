@@ -4,6 +4,10 @@
 
 BREAKING CHANGE: `get_updates` cursor semantics changed and input fields renamed.
 
+## Default order changed to DESC
+
+`get_updates` now returns entries in **DESC order** (most recent first) by default. Previously the default was ASC (oldest first). `lastN` no longer controls the order — it only overrides the limit. Use `list_entries` for ASC or filtered queries.
+
 ## Cursor semantics
 
 The writer's read cursor (`writers.last_read_at`) now stores the **date of reading** (when the agent called the tool), not the timestamp of the last entry returned. This simplifies the logic: no more ASC/DESC branches for cursor calculation, no edge cases with entries sharing the same timestamp.

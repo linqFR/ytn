@@ -755,8 +755,8 @@ export const getUpdatesInput = dna.object({
   withChildren: withChildrenSchema,
   type: logEntryTypeSchema.optional().describe("Filter by log entry type"),
   limitN: limitSchema.describe("Max results (1-1000, default 50)"),
-  lastN: dna.int().min(1).max(1000).optional().describe("Return N most recent entries (DESC order), advance cursor to max"),
-  markAllRead: dna.boolean().optional().describe("Advance cursor to max without returning entries"),
+  lastN: dna.int().min(1).max(1000).optional().describe("Limit to N most recent entries (overrides limitN)"),
+  markAllRead: dna.boolean().optional().describe("Set cursor to now without returning entries"),
   peek: dna.boolean().optional().default(false).describe("Return entries WITHOUT resetting DateTime cursor (read-only preview)"),
 }).meta({
   title: "GetUpdatesInput",

@@ -862,9 +862,9 @@ export function getUpdates(
   }
 
   // ── Determine order and cursor reference ──
-  // - lastN mode: DESC (most recent first)
-  // - default mode: ASC (oldest first), cursor is last_read_at
-  const isDesc = input.lastN !== undefined;
+  // - DESC (most recent first) — get_updates is about latest news
+  // - lastN overrides the limit but order is always DESC
+  const isDesc = true;
   const effectiveLimit = input.lastN ?? limit;
 
   // Build query: whereRaw for timestamp > (qb .where() only supports =),

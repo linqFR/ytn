@@ -200,20 +200,20 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     expect(data.count).toBe(5);
   });
 
-  it("get_updates default mode is backward compatible (ASC from cursor)", async () => {
+  it("get_updates default mode returns entries in DESC order (most recent first)", async () => {
     const read = await import("../src/tools/read.js");
     const write = await import("../src/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-default", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
-    // Default mode: forward from last_read_at (null = epoch), ASC
+    // Default mode: DESC (most recent first)
     const result = read.getUpdates(ctx, { nanoid });
     expect(result.isError).toBe(false);
     const data = result.structuredContent as { entries: { id: number }[]; new_cursor: string };
     expect(data.entries).toHaveLength(5);
-    // ASC order
-    expect(data.entries[0].id).toBeLessThan(data.entries[4].id);
+    // DESC order: most recent first
+    expect(data.entries[0].id).toBeGreaterThan(data.entries[4].id);
     // new_cursor is an ISO timestamp
     expect(typeof data.new_cursor).toBe("string");
   });
