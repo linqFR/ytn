@@ -9,7 +9,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Client } from "@modelcontextprotocol/client";
-import { GovDb } from "../src/driver.js";
+import { GovDb } from "../src/server/driver.js";
 import { setupMcpServer } from "./helpers/setup-mcp.js";
 
 describe("MCP protocol: tools/list exposes DNA schemas", () => {

@@ -41,7 +41,7 @@ In `src/schemas/tool-inputs.ts`, define a DNA schema for the tool's input parame
 
 ```ts
 import { dna } from "@ytrynot/dna";
-import { entityIdSchema } from "./tool-inputs.js"; // reuse shared schemas
+import { entityIdSchema } from "./constants.js"; // reuse shared schemas
 
 export const getDecisionInput = dna.strictObject({
   id: entityIdSchema.describe("Decision ID (e.g. DEC-0001)"),

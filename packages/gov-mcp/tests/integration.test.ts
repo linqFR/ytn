@@ -3,10 +3,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GovDb, resolveReportsDir } from "../src/driver.js";
-import { currentDate, currentTimestamp } from "../src/helpers.js";
-import { initDatabase } from "../src/init.js";
-import { compileQueries } from "../src/queries/index.js";
+import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { currentDate, currentTimestamp } from "../src/server/helpers.js";
+import { initDatabase } from "../src/server/init.js";
+import { compileQueries } from "../src/server/queries/index.js";
 
 describe("governance DB integration", () => {
   let db: GovDb;
@@ -113,7 +113,7 @@ describe("governance DB integration", () => {
     queries.insertEntityScope.run({ entity_type: "decision", entity_id: "DEC-0002", scope_id: "ytn" });
     queries.insertEntityScope.run({ entity_type: "decision", entity_id: "DEC-0003", scope_id: "dna" });
 
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
 
     // Exact match: scope=ytn returns only ytn
@@ -153,7 +153,7 @@ describe("governance DB integration", () => {
     queries.insertEntityScope.run({ entity_type: "action", entity_id: "ACT-0002", scope_id: "ytn" });
     queries.insertEntityScope.run({ entity_type: "action", entity_id: "ACT-0003", scope_id: "dna" });
 
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
 
     // withChildren: true on ytn → ytn + dna (not workspace)
@@ -227,7 +227,7 @@ describe("governance DB integration", () => {
     queries.insertEntityScope.run({ entity_type: "log_entry", entity_id: String(ytnLogId.id), scope_id: "ytn" });
     queries.insertEntityScope.run({ entity_type: "log_entry", entity_id: String(qbLogId.id), scope_id: "qb" });
 
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
 
     // Ideas: ytn withChildren → 2
@@ -257,7 +257,7 @@ describe("governance DB integration", () => {
   });
 
   it("withChildren: true on unknown scope falls back to exact match", async () => {
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
 
@@ -484,8 +484,8 @@ describe("get_updates cursor", () => {
   });
 
   it("whoami returns the writer profile", async () => {
-    const write = await import("../src/tools/write.js");
-    const read = await import("../src/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, {
@@ -510,7 +510,7 @@ describe("get_updates cursor", () => {
   });
 
   it("whoami rejects unknown nanoid", async () => {
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const result = read.whoami(ctx, { nanoid: "nonexistent-nanoid-xx" });
@@ -519,7 +519,7 @@ describe("get_updates cursor", () => {
   });
 
   it("registerWriter rejects duplicate id", async () => {
-    const write = await import("../src/tools/write.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const first = write.registerWriter(ctx, { id: "dup-agent", role: "agent" });
@@ -530,7 +530,7 @@ describe("get_updates cursor", () => {
   });
 
   it("createDecision rejects invalid input via DNA (direct call, no MCP)", async () => {
-    const write = await import("../src/tools/write.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     // Missing required fields: title, decider
@@ -540,7 +540,7 @@ describe("get_updates cursor", () => {
   });
 
   it("createDecision rejects invalid enum value via DNA (direct call)", async () => {
-    const write = await import("../src/tools/write.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const result = write.createDecision(ctx, {

@@ -12,7 +12,7 @@
 // Run with: npx.cmd vitest run packages/gov-mcp/tests/test-optional-keys.test-d.ts --typecheck
 
 import { describe, it, expectTypeOf } from "vitest";
-import * as S from "../src/schemas/tool-inputs.js";
+import * as S from "../src/shared/schemas/tool-inputs.js";
 import type {
   DnaOptional,
   DnaNullish,

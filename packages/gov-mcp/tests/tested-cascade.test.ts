@@ -11,12 +11,12 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Client } from "@modelcontextprotocol/client";
-import { GovDb } from "../src/driver.js";
+import { GovDb } from "../src/server/driver.js";
 import { setupMcpServer, registerWriterViaMcp } from "./helpers/setup-mcp.js";
-import { TESTED_STATUS } from "../src/definitions/enums.js";
-import type { IToolCtx } from "../src/types/types.ts";
-import * as write from "../src/tools/write.js";
-import * as read from "../src/tools/read.js";
+import { TESTED_STATUS } from "../src/shared/enums.js";
+import type { IToolCtx } from "../src/server/types/types.ts";
+import * as write from "../src/server/tools/write.js";
+import * as read from "../src/server/tools/read.js";
 
 describe("tested column: cascade, override, correct, audit", () => {
   let client: Client;

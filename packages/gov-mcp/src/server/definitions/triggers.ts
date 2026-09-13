@@ -14,7 +14,7 @@ import { tables } from "./schema.js";
 import {
   TESTED_STATUS, ACTION_STATUS, PROBLEM_STATUS, IDEA_STATUS,
   DECISION_STATUS, SPEC_STATUS, SOURCE_TYPE, PROBLEM_TYPE,
-} from "./enums.js";
+} from "../../shared/enums.js";
 
 // ─── Shorthand table/column name references ──────────────────────────────────
 // Derived from tables.xxx.names so renames propagate automatically.

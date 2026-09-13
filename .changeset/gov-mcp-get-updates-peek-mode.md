@@ -31,5 +31,6 @@ The writer's read cursor (`writers.last_read_at`) now stores the **date of readi
 
 - `peek: boolean` (default false) — return entries WITHOUT advancing the cursor (read-only preview for hooks)
 - `listLogEntriesInput`: optional `nanoid` field — if provided, advances the writer's read cursor to now
+- `McpClient` interface updated: `getUpdates` signature aligned with new fields, `listLogEntries` method added (was missing), `OListLogEntriesResult` type exported, `OGetUpdatesResult` includes `max_entry_id`
 
 Fixes the shared-nanoid bug where a hook calling `get_updates` on `UserPromptSubmit` would consume the agent's mailbox entries by advancing the cursor before the agent could read them.

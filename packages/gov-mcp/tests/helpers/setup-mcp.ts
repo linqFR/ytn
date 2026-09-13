@@ -8,14 +8,14 @@
 
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
-import { GovDb, resolveReportsDir } from "../../src/driver.js";
-import { initDatabase } from "../../src/init.js";
-import { compileQueries } from "../../src/queries/index.js";
-import * as S from "../../src/schemas/tool-inputs.js";
-import { toCallToolResult } from "../../src/server.js";
-import * as read from "../../src/tools/read.js";
-import * as write from "../../src/tools/write.js";
-import type { IToolCtx } from "../../src/types/types.ts";
+import { GovDb, resolveReportsDir } from "../../src/server/driver.js";
+import { initDatabase } from "../../src/server/init.js";
+import { compileQueries } from "../../src/server/queries/index.js";
+import * as S from "../../src/shared/schemas/tool-inputs.js";
+import { toCallToolResult } from "../../src/server/server.js";
+import * as read from "../../src/server/tools/read.js";
+import * as write from "../../src/server/tools/write.js";
+import type { IToolCtx } from "../../src/server/types/types.ts";
 
 export interface IMcpTestHarness {
   client: Client;

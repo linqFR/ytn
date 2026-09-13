@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { GovDb } from "../src/driver.js";
-import { initDatabase, initIfEmpty } from "../src/init.js";
-import { compileQueries } from "../src/queries/index.js";
+import { GovDb } from "../src/server/driver.js";
+import { initDatabase, initIfEmpty } from "../src/server/init.js";
+import { compileQueries } from "../src/server/queries/index.js";
 
 describe("smoke test", () => {
   it("GovDb.memory() creates an in-memory database", () => {

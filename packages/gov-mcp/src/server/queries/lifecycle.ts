@@ -12,7 +12,7 @@ import { tables } from "../definitions/schema.js";
 import {
   IDEA_STATUS, ACTION_STATUS, PROBLEM_STATUS, SOURCE_TYPE, TESTED_STATUS,
   DECISION_STATUS,
-} from "../definitions/enums.js";
+} from "../../shared/enums.js";
 
 export function compileLifecycleQueries(db: GovDb): Pick<IQueries,
   | "getDecisionsForIdea" | "getIdeasByPromotedTo" | "getActionsBySource"

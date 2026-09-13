@@ -16,7 +16,7 @@
  */
 
 import { toolList } from "../definitions/tools.js";
-import { CATEGORY, type IToolCategory } from "../definitions/enums.js";
+import { CATEGORY, type IToolCategory } from "../../shared/enums.js";
 
 export interface IToolMeta {
   /** Short description for MCP tools/list. */

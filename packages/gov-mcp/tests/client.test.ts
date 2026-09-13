@@ -8,7 +8,7 @@
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { GovDb, resolveReportsDir, initDatabase, compileQueries, schemas as S, readTools as read, writeTools as write, type IToolCtx } from "../src/index.js";
-import { toCallToolResult } from "../src/server.js";
+import { toCallToolResult } from "../src/server/server.js";
 import { createMcpClient } from "../src/client.ts";
 import type { McpClient } from "../src/client.ts";
 
@@ -71,21 +71,23 @@ afterAll(async () => {
 
 describe("McpClient", () => {
   it("whoami returns the writer profile", async () => {
-    const writer = await mcp.whoami(nanoid);
-    expect(writer).not.toBeNull();
-    expect(writer?.id).toBe("test-writer");
-    expect(writer?.role).toBe("admin");
-    expect(writer?.nanoid).toBe(nanoid);
-    expect(writer?.last_read_at).toBe("1970-01-01T00:00:00.000Z");
+    const result = await mcp.whoami({ nanoid });
+    expect(result).not.toBeNull();
+    expect(result.writer.id).toBe("test-writer");
+    expect(result.writer.role).toBe("admin");
+    expect(result.writer.nanoid).toBe(nanoid);
+    expect(result.writer.last_read_at).toBe("1970-01-01T00:00:00.000Z");
   });
 
-  it("whoami returns null for unknown nanoid", async () => {
-    const writer = await mcp.whoami("invalid-nanoid-1234567");
-    expect(writer).toBeNull();
+  it("whoami returns error text for unknown nanoid", async () => {
+    const result = await mcp.whoami({ nanoid: "V1StGXR8_Z5jdHi6B-myT" });
+    // Server returns error text (no structuredContent) for unknown nanoid
+    expect(typeof result).toBe("string");
+    expect(result as string).toContain("not found");
   });
 
-  it("getUpdates returns the correct shape", async () => {
-    const result = await mcp.getUpdates(nanoid);
+  it("get_updates returns the correct shape", async () => {
+    const result = await mcp.get_updates({ nanoid });
     expect(result).toHaveProperty("entries");
     expect(result).toHaveProperty("new_cursor");
     expect(result).toHaveProperty("has_more");
@@ -93,32 +95,32 @@ describe("McpClient", () => {
     expect(Array.isArray(result.entries)).toBe(true);
   });
 
-  it("listActions returns { actions, count }", async () => {
-    const result = await mcp.listActions();
+  it("list_actions returns { actions, count }", async () => {
+    const result = await mcp.list_actions({});
     expect(result).toHaveProperty("actions");
     expect(result).toHaveProperty("count");
     expect(Array.isArray(result.actions)).toBe(true);
     expect(typeof result.count).toBe("number");
   });
 
-  it("listProblems returns { problems, count }", async () => {
-    const result = await mcp.listProblems();
+  it("list_problems returns { problems, count }", async () => {
+    const result = await mcp.list_problems({});
     expect(result).toHaveProperty("problems");
     expect(result).toHaveProperty("count");
     expect(Array.isArray(result.problems)).toBe(true);
     expect(typeof result.count).toBe("number");
   });
 
-  it("getOpenActions returns { actions, count }", async () => {
-    const result = await mcp.getOpenActions();
+  it("get_open_actions returns { actions, count }", async () => {
+    const result = await mcp.get_open_actions({});
     expect(result).toHaveProperty("actions");
     expect(result).toHaveProperty("count");
     expect(Array.isArray(result.actions)).toBe(true);
     expect(typeof result.count).toBe("number");
   });
 
-  it("getHandoff returns the handoff snapshot shape", async () => {
-    const result = await mcp.getHandoff();
+  it("get_handoff returns the handoff snapshot shape", async () => {
+    const result = await mcp.get_handoff({});
     expect(result).toHaveProperty("date");
     expect(result).toHaveProperty("open_actions");
     expect(result).toHaveProperty("pending_decisions");

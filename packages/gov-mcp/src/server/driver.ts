@@ -157,7 +157,7 @@ function resolveDefaultDbPath(): string {
   const envPath = process.env.GOVERNANCE_DB_PATH;
   if (envPath) return resolve(expandWorkspace(envPath));
   // Default: packages/gov-mcp/data/ytn-gov-mcp.db relative to this file
-  return resolve(import.meta.dirname, "..", "data", "ytn-gov-mcp.db");
+  return resolve(import.meta.dirname, "..", "..", "data", "ytn-gov-mcp.db");
 }
 
 /** Resolve the reports output directory from GOVERNANCE_REPORTS_DIR env or monorepo default.
@@ -166,7 +166,7 @@ export function resolveReportsDir(): string {
   const envPath = process.env.GOVERNANCE_REPORTS_DIR;
   const dir = envPath
     ? resolve(expandWorkspace(envPath))
-    : resolve(import.meta.dirname, "..", "..", "..", "mailbox", "generated");
+    : resolve(import.meta.dirname, "..", "..", "..", "..", "mailbox", "generated");
   mkdirSync(dir, { recursive: true });
   return dir;
 }

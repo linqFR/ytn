@@ -13,10 +13,10 @@ import { dna } from "@ytrynot/dna";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { currentDate, currentDateTimeUTC, formatDateTimeUTC } from "../helpers.js";
-import * as S from "../schemas/tool-inputs.js";
+import * as S from "../../shared/schemas/tool-inputs.js";
 import { err, ok } from "./results.js";
 import type { IToolCtx, OToolResult } from "../types/types.ts";
-import { PROBLEM_STATUS, IDEA_STATUS, DECISION_STATUS } from "../definitions/enums.js";
+import { PROBLEM_STATUS, IDEA_STATUS, DECISION_STATUS } from "../../shared/enums.js";
 
 // ─── File writing helper ─────────────────────────────────────────────────────
 

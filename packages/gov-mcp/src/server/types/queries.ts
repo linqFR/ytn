@@ -8,7 +8,7 @@ import type {
   tsDecisionRow, tsDecisionSupersedesRow, tsEntityScopeRow, tsFTS5SearchRow, tsFreeFieldRow, tsIdeaRow, tsLogEntryRow, tsNextSeqRow,
   tsProblemActionRow, tsProblemRow, tsScopeRow, tsScopeTreeRow, tsSpecRow,
   tsStatusHistoryRow, tsWriterRow,
-} from "./rows.ts";
+} from "../../shared/types/rows.ts";
 
 export interface IQueries {
   // Entity by ID

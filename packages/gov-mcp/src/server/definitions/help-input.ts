@@ -9,8 +9,8 @@
  * ensuring only valid tool names are accepted.
  */
 import { dna } from "@ytrynot/dna";
-import { CATEGORY } from "./enums.js";
-import type { IToolCategory } from "./enums.js";
+import { CATEGORY } from "../../shared/enums.js";
+import type { IToolCategory } from "../../shared/enums.js";
 
 /**
  * Build the help input schema from the list of registered tool names.

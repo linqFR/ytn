@@ -6,7 +6,7 @@ import type { GovDb } from "../driver.ts";
 import type { IQueries } from "../types/queries.ts";
 import { tables } from "../definitions/schema.js";
 import { QueryBuilder } from "@ytrynot/qb";
-import { ACTION_STATUS } from "../definitions/enums.js";
+import { ACTION_STATUS } from "../../shared/enums.js";
 
 export function compileActionQueries(db: GovDb): Pick<IQueries,
   | "getActionById" | "getActionBySeq" | "listActions" | "nextActionSeq"

@@ -6,10 +6,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GovDb, resolveReportsDir } from "../src/driver.js";
-import { currentDate, currentTimestamp } from "../src/helpers.js";
-import { initDatabase } from "../src/init.js";
-import { compileQueries } from "../src/queries/index.js";
+import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { currentDate, currentTimestamp } from "../src/server/helpers.js";
+import { initDatabase } from "../src/server/init.js";
+import { compileQueries } from "../src/server/queries/index.js";
 
 describe("get_updates, mailbox_last_24h, and spec status", () => {
   let db: GovDb;
@@ -49,8 +49,8 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("whoami returns the writer profile", async () => {
-    const write = await import("../src/tools/write.js");
-    const read = await import("../src/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, {
@@ -75,8 +75,8 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("get_updates with lastN returns N most recent entries (DESC) and advances cursor to now", async () => {
-    const read = await import("../src/tools/read.js");
-    const write = await import("../src/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     // Register a writer to get a valid nanoid
@@ -98,8 +98,8 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("get_updates with markAllRead sets cursor to now without returning entries", async () => {
-    const read = await import("../src/tools/read.js");
-    const write = await import("../src/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-reset", role: "agent" });
@@ -118,8 +118,8 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("get_updates with markAllRead + peek does NOT advance cursor", async () => {
-    const read = await import("../src/tools/read.js");
-    const write = await import("../src/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-reset-peek", role: "agent" });
@@ -133,8 +133,8 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("get_updates with peek returns entries WITHOUT advancing the cursor", async () => {
-    const read = await import("../src/tools/read.js");
-    const write = await import("../src/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-peek", role: "agent" });
@@ -160,8 +160,8 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("list_entries with nanoid advances the writer's read cursor to now", async () => {
-    const read = await import("../src/tools/read.js");
-    const write = await import("../src/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-list", role: "agent" });
@@ -176,8 +176,8 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("list_entries with nanoid + peek does NOT advance the cursor", async () => {
-    const read = await import("../src/tools/read.js");
-    const write = await import("../src/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-list-peek", role: "agent" });
@@ -191,7 +191,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("list_entries without nanoid does NOT touch any cursor", async () => {
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const result = read.listLogEntries(ctx, {});
@@ -201,8 +201,8 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("get_updates default mode returns entries in DESC order (most recent first)", async () => {
-    const read = await import("../src/tools/read.js");
-    const write = await import("../src/tools/write.js");
+    const read = await import("../src/server/tools/read.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-default", role: "agent" });
@@ -219,7 +219,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("mailbox_last_24h with type filter returns only matching entity type", async () => {
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     // The 5 log entries are all type "status" — filter by type "log_entry" should still work
@@ -238,7 +238,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("mailbox_last_24h with limit returns at most N items", async () => {
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const result = read.mailboxLast24h(ctx, { limit: 2 });
@@ -249,7 +249,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("mailbox_last_24h with type + limit combines both filters in SQL", async () => {
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const result = read.mailboxLast24h(ctx, { type: "log_entry", limit: 3 });
@@ -260,7 +260,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("mailbox_last_24h without type/limit returns all (backward compat)", async () => {
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const result = read.mailboxLast24h(ctx, {});
@@ -270,7 +270,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("update_spec_status accepts optional reason and stores it in status_history", async () => {
-    const write = await import("../src/tools/write.js");
+    const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     // Create a spec first
@@ -303,7 +303,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   });
 
   it("whoami rejects unknown nanoid", async () => {
-    const read = await import("../src/tools/read.js");
+    const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
     const ctx = { db, queries, reportsDir: resolveReportsDir() };
     const result = read.whoami(ctx, { nanoid: "nonexistent-nanoid-xx" });

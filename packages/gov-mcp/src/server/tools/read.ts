@@ -8,8 +8,8 @@ import { toolMeta } from "./meta.js";
 import { buildHelp } from "./describe-signature.js";
 import { resolveScopeFilter, currentTimestamp } from "../helpers.js";
 import { tables } from "../definitions/schema.js";
-import { TESTED_STATUS, DECISION_STATUS, IDEA_STATUS, CATEGORY } from "../definitions/enums.js";
-import * as S from "../schemas/tool-inputs.js";
+import { TESTED_STATUS, DECISION_STATUS, IDEA_STATUS, CATEGORY } from "../../shared/enums.js";
+import * as S from "../../shared/schemas/tool-inputs.js";
 import { helpInput } from "../definitions/tools.js";
 import type { IToolCtx, OToolResult } from "../types/types.ts";
 import * as fs from "node:fs";
@@ -757,7 +757,8 @@ export function help(
     if (!toolMeta[toolName]) {
       return err(`Unknown tool: ${toolName}. Call help() without args for the full list.`);
     }
-    return ok(buildHelp(toolName, "{{name}}: {{desc}}\n\n{{sig}}\n\n{{args}}\n\n{{usage}}"));
+    const helpText = buildHelp(toolName, "{{name}}: {{desc}}\n\n{{sig}}\n\n{{args}}\n\n{{usage}}");
+    return ok(helpText, helpText);
   }
 
   // ── Compact index mode: help() without args ──
@@ -822,7 +823,8 @@ export function help(
     '- `help({ tool: "create_decision" })` returns full detail for one tool.',
   );
 
-  return ok(lines.join("\n"));
+  const helpText = lines.join("\n");
+  return ok(helpText, helpText);
 }
 
 
@@ -975,15 +977,15 @@ export function getFreeFields(
 /**
  * Resolve the docs directory relative to this module.
  *
- * In source (tsx): `import.meta.dirname` is `src/tools/`, so docs is `../../docs`.
+ * In source (tsx): `import.meta.dirname` is `src/server/tools/`, so docs is `../../../docs`.
  * In bundled output (tsup): `import.meta.dirname` is `dist/`, so docs is `../docs`.
  * The `files` array in package.json includes "docs" so the directory is published.
  */
 function resolveDocsDir(): string {
   const dir = import.meta.dirname;
-  // Try source layout first (src/tools → ../../docs), then bundled (dist → ../docs)
+  // Try source layout first (src/server/tools → ../../../docs), then bundled (dist → ../docs)
   const candidates = [
-    path.resolve(dir, "..", "..", "docs"),
+    path.resolve(dir, "..", "..", "..", "docs"),
     path.resolve(dir, "..", "docs"),
   ];
   for (const candidate of candidates) {

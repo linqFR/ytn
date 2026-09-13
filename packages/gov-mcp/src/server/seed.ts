@@ -103,9 +103,9 @@ ${values};`;
 
 /**
  * Resolve the monorepo root from the current module location.
- * This file is at 'packages/gov-mcp/src/seed.ts', so the monorepo root is 3 levels up.
+ * This file is at 'packages/gov-mcp/src/server/seed.ts', so the monorepo root is 4 levels up.
  */
 export function resolveMonorepoRoot(): string {
   // import.meta.dirname is available in Node 26 (ESM)
-  return resolve(import.meta.dirname, "..", "..", "..");
+  return resolve(import.meta.dirname, "..", "..", "..", "..");
 }

@@ -16,6 +16,6 @@ export interface IToolCtx {
 /** A successful tool result with structured content. */
 export interface OToolResult {
   content: { type: "text"; text: string }[];
-  structuredContent?: Record<string, unknown>;
+  structuredContent?: unknown;
   isError: boolean;
 }

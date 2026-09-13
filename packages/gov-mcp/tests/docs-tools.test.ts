@@ -9,11 +9,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { GovDb, resolveReportsDir } from "../src/driver.js";
-import { initDatabase } from "../src/init.js";
-import { compileQueries } from "../src/queries/index.js";
-import * as read from "../src/tools/read.js";
-import type { IToolCtx } from "../src/types/types.ts";
+import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { initDatabase } from "../src/server/init.js";
+import { compileQueries } from "../src/server/queries/index.js";
+import * as read from "../src/server/tools/read.js";
+import type { IToolCtx } from "../src/server/types/types.ts";
 
 const ctx: IToolCtx = (() => {
   const db = GovDb.memory();

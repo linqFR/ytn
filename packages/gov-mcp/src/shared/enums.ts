@@ -6,6 +6,9 @@
  * for TypeScript signatures.
  */
 
+/** The only invariant scope — referenced by DEFAULT 'workspace' in FK columns. */
+export const ROOT_SCOPE_ID = "workspace" as const;
+
 export const CATEGORY = {
   id: { name: "Writers & Identity", key: "writers", order: 1 },
   read: { name: "Read & Browse", key: "read", order: 2 },

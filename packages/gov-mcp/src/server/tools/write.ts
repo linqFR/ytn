@@ -6,9 +6,9 @@
 import { dna } from "@ytrynot/dna";
 import { ROOT_SCOPE_ID } from "../definitions/constants.js";
 import { currentTimestamp, formatId, generateWriterNanoid } from "../helpers.js";
-import * as S from "../schemas/tool-inputs.js";
+import * as S from "../../shared/schemas/tool-inputs.js";
 import { tables } from "../definitions/schema.js";
-import { TESTED_STATUS, ACTION_STATUS, IDEA_STATUS, PROBLEM_STATUS } from "../definitions/enums.js";
+import { TESTED_STATUS, ACTION_STATUS, IDEA_STATUS, PROBLEM_STATUS } from "../../shared/enums.js";
 import { err, ok } from "./results.js";
 import type { IToolCtx, OToolResult } from "../types/types.ts";
 

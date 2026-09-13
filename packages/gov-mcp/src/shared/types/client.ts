@@ -21,8 +21,14 @@ export interface OWhoamiResult {
 export interface OGetUpdatesResult {
   entries: tsLogEntryRow[];
   new_cursor: string;
+  max_entry_id: number;
   has_more: boolean;
   remaining: number;
+}
+
+export interface OListLogEntriesResult {
+  entries: tsLogEntryRow[];
+  count: number;
 }
 
 export interface OListActionsResult {

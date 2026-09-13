@@ -1,9 +1,9 @@
 // Tests for describeSignature (auto-generated from DNA schemas) and help() merge.
 import { describe, it, expect } from "vitest";
-import { help } from "../src/tools/read.js";
-import { describeToolSignature, describeSignature } from "../src/tools/describe-signature.js";
-import * as S from "../src/schemas/tool-inputs.js";
-import { helpInput } from "../src/definitions/tools.js";
+import { help } from "../src/server/tools/read.js";
+import { describeToolSignature, describeSignature } from "../src/server/tools/describe-signature.js";
+import * as S from "../src/shared/schemas/tool-inputs.js";
+import { helpInput } from "../src/server/definitions/tools.js";
 
 describe("describeSignature — auto-generated from DNA schema + .describe() metadata", () => {
   it("generates types and descriptions for register_writer", () => {

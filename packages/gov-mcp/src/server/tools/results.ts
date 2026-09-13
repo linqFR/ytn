@@ -62,15 +62,17 @@ function serializeStructured(structured: Record<string, unknown>): string {
 
 /** Create a successful result with both text content and structured content. */
 export function ok(
-  text: string,
-  structured?: Record<string, unknown>,
+  content: string,
+  structuredOutput?: unknown,
 ): OToolResult {
-  const fullText = structured
-    ? `${text}\n${serializeStructured(structured)}`
-    : text;
+  const fullText = structuredOutput && typeof structuredOutput === "object"
+    ? `${content}\n${serializeStructured(structuredOutput as Record<string, unknown>)}`
+    : typeof structuredOutput === "string"
+      ? structuredOutput
+      : content;
   return {
     content: [{ type: "text", text: fullText }],
-    structuredContent: structured,
+    structuredContent: structuredOutput,
     isError: false,
   };
 }
