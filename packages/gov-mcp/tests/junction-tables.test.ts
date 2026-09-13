@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GovDb } from "../src/driver.js";
+import { GovDb, resolveReportsDir } from "../src/driver.js";
 import { initDatabase } from "../src/init.js";
 import { compileQueries } from "../src/queries/index.js";
 import * as write from "../src/tools/write.js";
@@ -22,7 +22,7 @@ describe("junction tables: decision_supersedes", () => {
   beforeEach(() => {
     db = GovDb.memory();
     initDatabase(db);
-    ctx = { db, queries: compileQueries(db) };
+    ctx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
 
     // Register a writer
     write.registerWriter(ctx, { id: "test-admin", role: "admin" });
@@ -102,7 +102,7 @@ describe("decision_supersedes: partial + superseded_by trigger", () => {
   beforeEach(() => {
     db = GovDb.memory();
     initDatabase(db);
-    ctx = { db, queries: compileQueries(db) };
+    ctx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
 
     write.registerWriter(ctx, { id: "test-admin", role: "admin" });
     db.prepare("UPDATE writers SET nanoid = ? WHERE id = ?").run(NANOID, "test-admin");
@@ -176,7 +176,7 @@ describe("junction tables: entity_scopes (multi-scope)", () => {
   beforeEach(() => {
     db = GovDb.memory();
     initDatabase(db);
-    ctx = { db, queries: compileQueries(db) };
+    ctx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
 
     write.registerWriter(ctx, { id: "test-admin", role: "admin" });
     db.prepare("UPDATE writers SET nanoid = ? WHERE id = ?").run(NANOID, "test-admin");
@@ -330,7 +330,7 @@ describe("create_decision with date field", () => {
   beforeEach(() => {
     db = GovDb.memory();
     initDatabase(db);
-    ctx = { db, queries: compileQueries(db) };
+    ctx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
 
     write.registerWriter(ctx, { id: "test-admin", role: "admin" });
     db.prepare("UPDATE writers SET nanoid = ? WHERE id = ?").run(NANOID, "test-admin");

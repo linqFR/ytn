@@ -19,7 +19,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { rmSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GovDb } from "../src/driver.js";
+import { GovDb, resolveReportsDir } from "../src/driver.js";
 import { initDatabase } from "../src/init.js";
 import { compileQueries } from "../src/queries/index.js";
 import * as S from "../src/schemas/tool-inputs.js";
@@ -59,7 +59,7 @@ describe("MCP protocol: full server with all tools", () => {
   beforeAll(async () => {
     db = GovDb.memory();
     initDatabase(db);
-    ctx = { db, queries: compileQueries(db) };
+    ctx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
 
     server = new McpServer(
       { name: "test-gov-full", version: "0.0.1" },

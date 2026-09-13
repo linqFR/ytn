@@ -704,6 +704,8 @@ export const getScopeInput = dna.object({
 });
 
 export const listLogEntriesInput = dna.object({
+  nanoid: nanoidSchema.optional().describe("Writer token — if provided, advances the writer's read cursor to now (unless peek: true)"),
+  peek: dna.boolean().optional().default(false).describe("Return entries WITHOUT advancing the cursor (read-only preview)"),
   date: dateFilterSchema.optional().describe("Filter by date"),
   type: logEntryTypeSchema.optional().describe("Filter by type"),
   refId: dna.string().optional().describe("Filter by reference ID"),
@@ -712,7 +714,7 @@ export const listLogEntriesInput = dna.object({
   limit: limitSchema,
 }).meta({
   title: "ListLogEntriesInput",
-  description: "List log entries, optionally filtered by type, scope, and/or date. Ordered by id DESC, limit 100.",
+  description: "List log entries, optionally filtered by type, scope, and/or date. Ordered by id DESC, limit 100. If nanoid is provided, advances the writer's read cursor to now (unless peek: true).",
   usage: [
     `List log entries from the append-only journal.`,
     ``,
@@ -751,26 +753,20 @@ export const getUpdatesInput = dna.object({
   nanoid: nanoidSchema,
   scope: scopeSchema.optional().describe("Filter by scope"),
   withChildren: withChildrenSchema,
-  type: logEntryTypeSchema.optional().describe("Filter by type"),
-  limit: limitSchema.describe("Max results (1-1000, default 50)"),
-  last: dna.int().min(1).max(1000).optional().describe("Return N most recent entries (DESC order), advance cursor to max"),
-  resetCursor: dna.boolean().optional().describe("Advance cursor to max without returning entries"),
-  since: dna.string().optional().describe("ISO timestamp — return entries after this point (DESC order)"),
+  type: logEntryTypeSchema.optional().describe("Filter by log entry type"),
+  limitN: limitSchema.describe("Max results (1-1000, default 50)"),
+  lastN: dna.int().min(1).max(1000).optional().describe("Return N most recent entries (DESC order), advance cursor to max"),
+  markAllRead: dna.boolean().optional().describe("Advance cursor to max without returning entries"),
+  peek: dna.boolean().optional().default(false).describe("Return entries WITHOUT resetting DateTime cursor (read-only preview)"),
 }).meta({
   title: "GetUpdatesInput",
-  description: "Get log entries since the writer's last read cursor (MQTT-like). Advances the cursor. Returns cursor position, max entry ID, and remaining count.",
+  description: "Get unread log entries since last reading of log_entries.",
   usage: [
-    `Get new log entries since your last read. Advances your cursor.`,
-    `Modes:
-  - Default: ASC from last_read_at cursor.
-  - last: N — return N most recent entries (DESC), advance cursor to max.
-  - resetCursor: true — advance cursor to max without returning entries.
-  - since: ISO timestamp — return entries after this point (DESC).
-If has_more is true, call get_updates again with the same nanoid to fetch the next batch.
-Cursor is advanced transactionally — safe to stop and resume anytime.`,
+    `Get new log entries since your last read. Advances date-time cursor, unless peek: true.`,
+    "If `has_more` is true, call `get_updates` again with the same nanoid to fetch the next batch.",
   ],
   category: CATEGORY.read,
-  returns: "{ entries: tsLogEntryRow[], new_cursor: string, max_entry_id: number, has_more: boolean, remaining: number }"
+  returns: "{ entries[], new_cursor: string, max_entry_id: number, has_more: boolean, remaining: number }"
 });
 
 export const searchMailboxInput = dna.object({

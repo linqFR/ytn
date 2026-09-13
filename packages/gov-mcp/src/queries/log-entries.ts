@@ -9,7 +9,7 @@ import { tables } from "../definitions/schema.js";
 export function compileLogEntryQueries(db: GovDb): Pick<IQueries,
   | "listLogEntries" | "getLastLogEntryByRef" | "getThreadEntries" | "getLogEntryById"
   | "insertLogEntry" | "updateLogEntryThread"
-  | "reportLogEntriesByDate" | "reportLogEntriesByRef" | "getUpdatesRaw" | "getMaxLogEntryId"
+  | "reportLogEntriesByDate" | "reportLogEntriesSince" | "reportLogEntriesByRef" | "getUpdatesRaw" | "getMaxLogEntryId"
 > {
   const t = tables;
   const le = t.log_entries.names;
@@ -28,6 +28,9 @@ export function compileLogEntryQueries(db: GovDb): Pick<IQueries,
     ),
     reportLogEntriesByDate: db.prepare(
       t.log_entries.req.select().whereLike(le.col.date, "date").orderBy(le.col.id, "ASC").toSQL(),
+    ),
+    reportLogEntriesSince: db.prepare(
+      t.log_entries.req.select().whereRaw(`${le.col.timestamp} >= @since`).orderBy(le.col.id, "ASC").toSQL(),
     ),
     reportLogEntriesByRef: db.prepare(
       t.log_entries.req.select(le.col.id, le.col.timestamp, le.col.type, le.col.author, le.col.subject, le.col.body)

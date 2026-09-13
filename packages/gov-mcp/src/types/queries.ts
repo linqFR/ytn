@@ -139,6 +139,7 @@ export interface IQueries {
   reportIdeasByDate: IStatement<{ id: string; title: string; status: string }>;
   reportSpecsByDate: IStatement<{ id: string; filename: string; status: string }>;
   reportLogEntriesByDate: IStatement<tsLogEntryRow>;
+  reportLogEntriesSince: IStatement<tsLogEntryRow>;
   reportAllDecisions: IStatement<{ id: string; title: string; status: string; date: string; decider: string; context: string | null; decision: string | null; consequences: string | null }>;
   reportAllActions: IStatement<{ id: string; title: string; status: string; owner: string | null; priority: string | null; source: string | null; source_type: string | null; body: string | null; evidence: string | null; blockers: string | null; tested: string }>;
   reportAllIdeas: IStatement<{ id: string; title: string; status: string; package: string | null; priority: string | null; promoted_to: string | null; short_desc: string | null; long_desc: string | null; abandon_reason: string | null; tested: string }>;

@@ -6,7 +6,7 @@ import { dna } from "@ytrynot/dna";
 import { err, ok } from "./results.js";
 import { toolMeta } from "./meta.js";
 import { buildHelp } from "./describe-signature.js";
-import { resolveScopeFilter } from "../helpers.js";
+import { resolveScopeFilter, currentTimestamp } from "../helpers.js";
 import { tables } from "../definitions/schema.js";
 import { TESTED_STATUS, DECISION_STATUS, IDEA_STATUS, CATEGORY } from "../definitions/enums.js";
 import * as S from "../schemas/tool-inputs.js";
@@ -322,6 +322,10 @@ export function listLogEntries(
   if (scopeClause) builder = builder.whereRaw(scopeClause);
   const sql = builder.orderBy("id", "DESC").limit(input.limit ?? 100).toSQL();
   const rows = ctx.db.prepare(sql).all(params);
+  // If nanoid is provided, advance the writer's read cursor to now (unless peek).
+  if (input.nanoid && input.peek !== true) {
+    ctx.queries.updateWriterCursor.run({ last_read_at: currentTimestamp(), nanoid: input.nanoid });
+  }
   return ok(`${rows.length} log entr(ies)`, { entries: rows, count: rows.length });
 }
 
@@ -837,21 +841,20 @@ export function getUpdates(
   // last_read_at stores an ISO timestamp (not a numeric id). Fallback covers
   // freshly-registered writers and legacy null values.
   const cursor = writer.last_read_at || "1970-01-01T00:00:00.000Z";
-  const limit = input.limit ?? 50;
+  const limit = input.limitN ?? 50;
+  const isPeek = input.peek === true;
 
-  // ── Mode: resetCursor — advance cursor to max without returning entries ──
-  if (input.resetCursor) {
+  // ── Mode: markAllRead — set cursor to now without returning entries ──
+  if (input.markAllRead) {
+    const now = currentTimestamp();
     const maxRow = ctx.queries.getMaxLogEntryId.get({}) as { max_id: number | null } | undefined;
     const maxId = maxRow?.max_id ?? 0;
-    let maxTimestamp = cursor;
-    if (maxId > 0) {
-      const maxEntry = ctx.queries.getLogEntryById.get({ id: maxId }) as { timestamp: string } | undefined;
-      if (maxEntry) maxTimestamp = maxEntry.timestamp;
+    if (!isPeek) {
+      ctx.queries.updateWriterCursor.run({ last_read_at: now, nanoid: input.nanoid });
     }
-    ctx.queries.updateWriterCursor.run({ last_read_at: maxTimestamp, nanoid: input.nanoid });
-    return ok(`Cursor reset to max (${maxId}). 0 entries returned.`, {
+    return ok(`Cursor ${isPeek ? "unchanged (peek)" : "set to now"}. 0 entries returned.`, {
       entries: [],
-      new_cursor: maxTimestamp,
+      new_cursor: isPeek ? cursor : now,
       max_entry_id: maxId,
       has_more: false,
       remaining: 0,
@@ -859,15 +862,14 @@ export function getUpdates(
   }
 
   // ── Determine order and cursor reference ──
-  // - last/since modes: DESC (most recent first), cursor is the `since` timestamp or epoch
+  // - lastN mode: DESC (most recent first)
   // - default mode: ASC (oldest first), cursor is last_read_at
-  const isDesc = input.last !== undefined || input.since !== undefined;
-  const effectiveCursor = input.since ?? cursor;
-  const effectiveLimit = input.last ?? limit;
+  const isDesc = input.lastN !== undefined;
+  const effectiveLimit = input.lastN ?? limit;
 
   // Build query: whereRaw for timestamp > (qb .where() only supports =),
   // .where() for type equality, .whereIn() for scope subquery.
-  const params: Record<string, unknown> = { cursor: effectiveCursor };
+  const params: Record<string, unknown> = { cursor };
   let builder = tables.log_entries.req.select()
     .whereRaw("timestamp > @cursor");
   if (input.type) {
@@ -910,17 +912,18 @@ export function getUpdates(
 
   // Read + cursor update must be transactional to avoid skipping entries
   // inserted between the SELECT and the cursor advancement.
-  const { entries, newCursor, hasMore } = ctx.db.transaction(() => {
+  const { entries, hasMore } = ctx.db.transaction(() => {
     const rows = ctx.db.prepare(sql).all(params);
     // We always request effectiveLimit + 1 rows to detect has_more
     const hasMore = rows.length > effectiveLimit;
     const entries = hasMore ? rows.slice(0, effectiveLimit) : rows;
-    // new_cursor = timestamp of the most recent entry returned (DESC: first, ASC: last)
-    const last = isDesc ? entries[0] : entries[entries.length - 1];
-    const newCursor = last ? (last.timestamp as string) : effectiveCursor;
-    ctx.queries.updateWriterCursor.run({ last_read_at: newCursor, nanoid: input.nanoid });
-    return { entries, newCursor, hasMore };
+    // Cursor = date of reading (now), not the timestamp of the last entry.
+    if (!isPeek) {
+      ctx.queries.updateWriterCursor.run({ last_read_at: currentTimestamp(), nanoid: input.nanoid });
+    }
+    return { entries, hasMore };
   });
+  const newCursor = currentTimestamp();
 
   const maxRow = ctx.queries.getMaxLogEntryId.get({}) as { max_id: number | null } | undefined;
   const maxId = maxRow?.max_id ?? 0;
@@ -929,9 +932,10 @@ export function getUpdates(
     : 0;
   const remaining = hasMore ? Math.max(0, maxId - lastEntryId) : 0;
 
+  const peekNote = isPeek ? " [PEEK MODE]" : "";
   const summary = hasMore
-    ? `${entries.length} entries returned (cursor: ${lastEntryId}/${maxId}). ${remaining} remaining — call get_updates again with the same nanoid to fetch the next batch.`
-    : `${entries.length} entries returned (cursor: ${lastEntryId}/${maxId}). All caught up.`;
+    ? `${entries.length} entries returned (cursor: ${lastEntryId}/${maxId}). ${remaining} remaining — call get_updates again with the same nanoid to fetch the next batch.${peekNote}`
+    : `${entries.length} entries returned (cursor: ${lastEntryId}/${maxId}). All caught up.${peekNote}`;
 
   return ok(summary, {
     entries,

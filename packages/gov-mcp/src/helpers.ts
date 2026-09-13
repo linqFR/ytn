@@ -26,6 +26,32 @@ export function currentTimestamp(): string {
   return new Date().toISOString();
 }
 
+/** Get the current UTC datetime in readable format (e.g. 2026-09-13 01:05 UTC). */
+export function currentDateTimeUTC(): string {
+  const iso = new Date().toISOString();
+  return formatDateTimeUTC(iso);
+}
+
+/**
+ * Format an ISO date string as a readable UTC date or datetime.
+ * - `2026-09-13T01:00:00.000Z` → `2026-09-13 01:00 UTC`
+ * - `2026-09-13T01:00:00.000+02:00` → `2026-09-12 23:00 UTC` (converted to UTC)
+ * - `2026-09-13` → `2026-09-13` (date-only unchanged)
+ * - `""` or nullish → `—`
+ */
+export function formatDateTimeUTC(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mi = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi} UTC`;
+}
+
 /**
  * Resolve scope filter: exact match or recursive (withChildren).
  * Returns a WHERE clause fragment and params object.

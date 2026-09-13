@@ -12,7 +12,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GovDb } from "../src/driver.js";
+import { GovDb, resolveReportsDir } from "../src/driver.js";
 import { initDatabase } from "../src/init.js";
 import { compileQueries } from "../src/queries/index.js";
 import * as write from "../src/tools/write.js";
@@ -24,7 +24,7 @@ const NANOID = "scope-nanoid-21chars_";
 function setup(): { db: GovDb; ctx: IToolCtx } {
   const db = GovDb.memory();
   initDatabase(db);
-  const ctx: IToolCtx = { db, queries: compileQueries(db) };
+  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
   write.registerWriter(ctx, { id: "scope-admin", role: "admin" });
   db.prepare("UPDATE writers SET nanoid = ? WHERE id = ?").run(NANOID, "scope-admin");
   // Create base scopes for tests

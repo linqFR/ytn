@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GovDb } from "../src/driver.js";
+import { GovDb, resolveReportsDir } from "../src/driver.js";
 import { currentDate, currentTimestamp } from "../src/helpers.js";
 import { initDatabase } from "../src/init.js";
 import { compileQueries } from "../src/queries/index.js";
@@ -24,7 +24,7 @@ const NANOID_C = "aud-nanoid-cccccccccc";
 function setup(): { db: GovDb; ctx: IToolCtx } {
   const db = GovDb.memory();
   initDatabase(db);
-  const ctx: IToolCtx = { db, queries: compileQueries(db) };
+  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
   // Create scopes directly (FK constraint on writers.default_scope)
   db.prepare("INSERT INTO scopes (id, label, created_at, updated_at) VALUES (?, ?, ?, ?)")
     .run("cli", "CLI", currentTimestamp(), currentTimestamp());

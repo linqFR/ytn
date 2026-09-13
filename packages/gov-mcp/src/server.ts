@@ -8,7 +8,7 @@
 
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { GovDb } from "./driver.js";
+import { GovDb, resolveReportsDir } from "./driver.js";
 import { initDatabase } from "./init.js";
 import { compileQueries } from "./queries/index.js";
 import { toolList } from "./definitions/tools.js";
@@ -36,7 +36,7 @@ export async function startServer(options: IServerOptions = {}): Promise<void> {
   const db = GovDb.open({ dbPath: options.dbPath });
   initDatabase(db);
   const queries = compileQueries(db);
-  const ctx: IToolCtx = { db, queries };
+  const ctx: IToolCtx = { db, queries, reportsDir: resolveReportsDir() };
 
   const server = new McpServer(
     { name: pkg.name, version: pkg.version },

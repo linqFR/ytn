@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { GovDb } from "../src/driver.js";
+import { GovDb, resolveReportsDir } from "../src/driver.js";
 import { initDatabase } from "../src/init.js";
 import { compileQueries } from "../src/queries/index.js";
 import * as read from "../src/tools/read.js";
@@ -18,7 +18,7 @@ import type { IToolCtx } from "../src/types/types.ts";
 const ctx: IToolCtx = (() => {
   const db = GovDb.memory();
   initDatabase(db);
-  return { db, queries: compileQueries(db) };
+  return { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
 })();
 
 describe("list_docs", () => {

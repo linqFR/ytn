@@ -9,6 +9,8 @@ import type { IQueries } from "../queries/index.ts";
 export interface IToolCtx {
   db: GovDb;
   queries: IQueries;
+  /** Absolute path to the reports output directory (mailbox/generated/ by default). */
+  reportsDir: string;
 }
 
 /** A successful tool result with structured content. */

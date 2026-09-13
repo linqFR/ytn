@@ -5,7 +5,7 @@
  */
 
 // Driver
-export { GovDb, type IDriverOptions, type IStatement, type TxFn } from "./driver.js";
+export { GovDb, resolveReportsDir, type IDriverOptions, type IStatement, type TxFn } from "./driver.js";
 
 // Schema
 export { FTS5_DDL, generateIndexDDL, generateSchemaSQL, tables } from "./definitions/schema.js";
