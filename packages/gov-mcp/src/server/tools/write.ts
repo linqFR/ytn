@@ -9,7 +9,7 @@ import { currentTimestamp, formatId, generateWriterNanoid } from "../helpers.js"
 import * as S from "../../shared/schemas/tool-inputs.js";
 import { tables } from "../definitions/schema.js";
 import { TESTED_STATUS, ACTION_STATUS, IDEA_STATUS, PROBLEM_STATUS } from "../../shared/enums.js";
-import { err, ok } from "./results.js";
+import { err, formatErrors, ok, type tsTransformCtx } from "./results.js";
 import type { IToolCtx, OToolResult } from "../types/types.ts";
 
 // ─── Writer management ───────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ export function registerWriter(
   input: dna.infer<typeof S.registerWriterInput>,
 ): OToolResult {
   const res = S.registerWriterInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.registerWriterInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       if (ctx.queries.getWriterById.get({ id: data.id })) {
         dnactx.issues.push({ message: `Writer ${data.id} already exists` });
@@ -32,8 +32,7 @@ export function registerWriter(
     .safeParse(input, { ctx, generateWriterNanoid, ROOT_SCOPE_ID });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -71,7 +70,7 @@ export function updateMe(
   input: dna.infer<typeof S.updateMeInput>,
 ): OToolResult {
   const res = S.updateMeInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.updateMeInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -92,8 +91,7 @@ export function updateMe(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const d = res.data!;
   const sets: string[] = [];
@@ -121,7 +119,7 @@ export function createDecision(
   input: dna.infer<typeof S.createDecisionInput>,
 ): OToolResult {
   const res = S.createDecisionInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.createDecisionInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -156,8 +154,7 @@ export function createDecision(
     .safeParse(input, { ctx, formatId });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -215,7 +212,7 @@ export function updateDecisionStatus(
   input: dna.infer<typeof S.updateDecisionStatusInput>,
 ): OToolResult {
   const res = S.updateDecisionStatusInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.updateDecisionStatusInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -232,8 +229,7 @@ export function updateDecisionStatus(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -269,7 +265,7 @@ export function createAction(
   input: dna.infer<typeof S.createActionInput>,
 ): OToolResult {
   const res = S.createActionInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.createActionInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -304,8 +300,7 @@ export function createAction(
     .safeParse(input, { ctx, formatId });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -354,7 +349,7 @@ export function updateActionStatus(
   input: dna.infer<typeof S.updateActionStatusInput>,
 ): OToolResult {
   const res = S.updateActionStatusInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.updateActionStatusInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -374,8 +369,7 @@ export function updateActionStatus(
     }, { ctx })
     .safeParse(input, { ctx });
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -426,7 +420,7 @@ export function createIdea(
   input: dna.infer<typeof S.createIdeaInput>,
 ): OToolResult {
   const res = S.createIdeaInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.createIdeaInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -460,8 +454,7 @@ export function createIdea(
     }, { ctx, formatId })
     .safeParse(input, { ctx, formatId });
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -497,7 +490,7 @@ export function updateIdeaStatus(
   input: dna.infer<typeof S.updateIdeaStatusInput>,
 ): OToolResult {
   const res = S.updateIdeaStatusInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.updateIdeaStatusInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -513,8 +506,7 @@ export function updateIdeaStatus(
     }, { ctx })
     .safeParse(input, { ctx });
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -546,7 +538,7 @@ export function createProblem(
   input: dna.infer<typeof S.createProblemInput>,
 ): OToolResult {
   const res = S.createProblemInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.createProblemInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -580,8 +572,7 @@ export function createProblem(
     }, { ctx, formatId })
     .safeParse(input, { ctx, formatId });
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -618,7 +609,7 @@ export function updateProblemStatus(
   input: dna.infer<typeof S.updateProblemStatusInput>,
 ): OToolResult {
   const res = S.updateProblemStatusInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.updateProblemStatusInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -634,8 +625,7 @@ export function updateProblemStatus(
     }, { ctx })
     .safeParse(input, { ctx });
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -676,7 +666,7 @@ export function linkProblemAction(
   input: dna.infer<typeof S.linkProblemActionInput>,
 ): OToolResult {
   const res = S.linkProblemActionInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.linkProblemActionInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -688,8 +678,7 @@ export function linkProblemAction(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -714,7 +703,7 @@ export function linkActionWorkstream(
   input: dna.infer<typeof S.linkActionWorkstreamInput>,
 ): OToolResult {
   const res = S.linkActionWorkstreamInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.linkActionWorkstreamInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -726,8 +715,7 @@ export function linkActionWorkstream(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -750,7 +738,7 @@ export function linkActionDependency(
 ): OToolResult {
   const ad = tables.action_dependencies.names;
   const res = S.linkActionDependencyInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.linkActionDependencyInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -794,8 +782,7 @@ export function linkActionDependency(
     .safeParse(input, { ctx, ad });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -818,7 +805,7 @@ export function createSpec(
   input: dna.infer<typeof S.createSpecInput>,
 ): OToolResult {
   const res = S.createSpecInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.createSpecInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -831,8 +818,7 @@ export function createSpec(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -861,7 +847,7 @@ export function updateSpecStatus(
   input: dna.infer<typeof S.updateSpecStatusInput>,
 ): OToolResult {
   const res = S.updateSpecStatusInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.updateSpecStatusInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -878,8 +864,7 @@ export function updateSpecStatus(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -909,7 +894,7 @@ export function createScope(
   input: dna.infer<typeof S.createScopeInput>,
 ): OToolResult {
   const res = S.createScopeInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.createScopeInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -921,8 +906,7 @@ export function createScope(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -948,7 +932,7 @@ export function updateScope(
   input: dna.infer<typeof S.updateScopeInput>,
 ): OToolResult {
   const res = S.updateScopeInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.updateScopeInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -965,8 +949,7 @@ export function updateScope(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -990,7 +973,7 @@ export function appendLogEntry(
   input: dna.infer<typeof S.appendLogEntryInput>,
 ): OToolResult {
   const res = S.appendLogEntryInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.appendLogEntryInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -1010,8 +993,7 @@ export function appendLogEntry(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -1073,7 +1055,7 @@ export function correct(
   );
 
   const res = S.correctInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.correctInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -1095,8 +1077,7 @@ export function correct(
     .safeParse(input, { ctx, tableMap, fieldWhitelist });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // DNA guarantees data is defined when success is true; the | undefined comes from early `return;` in the transform
   const d = res.data!;
@@ -1147,7 +1128,7 @@ export function addFreeField(
   input: dna.infer<typeof S.addFreeFieldInput>,
 ): OToolResult {
   const res = S.addFreeFieldInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.addFreeFieldInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -1159,8 +1140,7 @@ export function addFreeField(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const d = res.data!;
   const now = currentTimestamp();
@@ -1193,7 +1173,7 @@ export function deprecateFreeField(
   input: dna.infer<typeof S.deprecateFreeFieldInput>,
 ): OToolResult {
   const res = S.deprecateFreeFieldInput
-    .transform((data, dnactx) => {
+    .transform((data: dna.infer<typeof S.deprecateFreeFieldInput>, dnactx: tsTransformCtx) => {
       if (dnactx.issues.length > 0) return;
       const writer = ctx.queries.getWriterByNanoid.get({ nanoid: data.nanoid });
       if (!writer) {
@@ -1205,8 +1185,7 @@ export function deprecateFreeField(
     .safeParse(input, { ctx });
 
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const d = res.data!;
   const now = currentTimestamp();

@@ -3,7 +3,7 @@
  */
 
 import { dna } from "@ytrynot/dna";
-import { err, ok } from "./results.js";
+import { err, formatErrors, ok } from "./results.js";
 import { toolMeta } from "./meta.js";
 import { buildHelp } from "./describe-signature.js";
 import { resolveScopeFilter, currentTimestamp } from "../helpers.js";
@@ -23,8 +23,7 @@ export function listDecisions(
 ): OToolResult {
   const res = S.listDecisionsInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const whereFields: string[] = [];
   const params: Record<string, unknown> = {};
@@ -52,8 +51,7 @@ export function getDecision(
 ): OToolResult {
   const res = S.getDecisionInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const row = ctx.queries.getDecisionById.get({ id: input.id });
   if (!row) return err(`Decision ${input.id} not found`);
@@ -69,8 +67,7 @@ export function listActions(
 ): OToolResult {
   const res = S.listActionsInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const whereFields: string[] = [];
   const params: Record<string, unknown> = {};
@@ -97,8 +94,7 @@ export function getAction(
 ): OToolResult {
   const res = S.getActionInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const row = ctx.queries.getActionById.get({ id: input.id });
   if (!row) return err(`Action ${input.id} not found`);
@@ -123,8 +119,7 @@ export function listIdeas(
 ): OToolResult {
   const res = S.listIdeasInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const whereFields: string[] = [];
   const params: Record<string, unknown> = {};
@@ -151,8 +146,7 @@ export function getIdea(
 ): OToolResult {
   const res = S.getIdeaInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const row = ctx.queries.getIdeaById.get({ id: input.id });
   if (!row) return err(`Idea ${input.id} not found`);
@@ -169,8 +163,7 @@ export function listProblems(
 ): OToolResult {
   const res = S.listProblemsInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const whereFields: string[] = [];
   const params: Record<string, unknown> = {};
@@ -197,8 +190,7 @@ export function getProblem(
 ): OToolResult {
   const res = S.getProblemInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const row = ctx.queries.getProblemById.get({ id: input.id });
   if (!row) return err(`Problem ${input.id} not found`);
@@ -214,8 +206,7 @@ export function listSpecs(
 ): OToolResult {
   const res = S.listSpecsInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const whereFields: string[] = [];
   const params: Record<string, unknown> = {};
@@ -241,8 +232,7 @@ export function getSpec(
 ): OToolResult {
   const res = S.getSpecInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const row = ctx.queries.getSpecById.get({ id: input.id });
   if (!row) return err(`Spec ${input.id} not found`);
@@ -256,8 +246,7 @@ export function listScopes(
 ): OToolResult {
   const res = S.listScopesInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const whereFields: string[] = [];
   const params: Record<string, unknown> = {};
@@ -275,8 +264,7 @@ export function getScope(
 ): OToolResult {
   const res = S.getScopeInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const row = ctx.queries.getScopeById.get({ id: input.id });
   if (!row) return err(`Scope ${input.id} not found`);
@@ -297,8 +285,7 @@ export function listLogEntries(
 ): OToolResult {
   const res = S.listLogEntriesInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const whereFields: string[] = [];
   const params: Record<string, unknown> = {};
@@ -335,8 +322,7 @@ export function getLastLogEntry(
 ): OToolResult {
   const res = S.getLastLogEntryInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const row = ctx.queries.getLastLogEntryByRef.get({ ref_id: input.refId });
   if (!row) return err(`No log entry found for ref_id=${input.refId}`);
@@ -349,8 +335,7 @@ export function getThread(
 ): OToolResult {
   const res = S.getThreadInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const rows = ctx.queries.getThreadEntries.all({ thread_id: input.threadId });
   if (rows.length === 0) return err(`Thread ${input.threadId} not found or empty`);
@@ -368,8 +353,7 @@ export function searchMailbox(
 ): OToolResult {
   const res = S.searchMailboxInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const entityType = input.entityType ?? "all";
   let results = entityType === "all"
@@ -408,8 +392,7 @@ export function mailboxLast24h(
 ): OToolResult {
   const res = S.mailboxLast24hInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const hours = -(input.hours ?? 24);
   let rows = ctx.queries.mailboxLast24h.all(
@@ -468,8 +451,7 @@ export function getDecisionHistory(
 ): OToolResult {
   const res = S.getDecisionHistoryInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const dec = ctx.queries.getDecisionById.get({ id: input.id });
   if (!dec) return err(`Decision ${input.id} not found`);
@@ -490,8 +472,7 @@ export function getActionLineage(
 ): OToolResult {
   const res = S.getActionLineageInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const act = ctx.queries.getActionById.get({ id: input.id });
   if (!act) return err(`Action ${input.id} not found`);
@@ -516,8 +497,7 @@ export function getOpenActions(
 ): OToolResult {
   const res = S.getOpenActionsInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const rows = input.priority
     ? ctx.queries.getOpenActionsByPriority.all({ priority: input.priority })
@@ -588,8 +568,7 @@ export function auditConsistency(
 ): OToolResult {
   const res = S.auditConsistencyInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   // Resolve scope filter set (for post-query filtering)
   let scopeSet: Set<string> | null = null;
@@ -711,8 +690,7 @@ export function whoami(
 ): OToolResult {
   const res = S.whoamiInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const writer = ctx.queries.getWriterByNanoid.get({ nanoid: input.nanoid });
   if (!writer) return err(`Writer not found for nanoid ${input.nanoid}`);
@@ -726,8 +704,7 @@ export function listWriters(
 ): OToolResult {
   const res = S.listWritersInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const cols = ["id", "role", "responsibility", "default_scope", "display_name", "objective", "expertise", "prohibitions", "created_at"];
   let sql = tables.writers.req.select(cols);
@@ -747,8 +724,7 @@ export function help(
 ): OToolResult {
   const res = helpInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
 
   // ── Detailed mode: help({ tool: "xxx" }) ──
@@ -835,8 +811,7 @@ export function getUpdates(
 ): OToolResult {
   const res = S.getUpdatesInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const writer = ctx.queries.getWriterByNanoid.get({ nanoid: input.nanoid });
   if (!writer) return err(`Writer not found for nanoid ${input.nanoid}`);
@@ -956,8 +931,7 @@ export function getFreeFields(
 ): OToolResult {
   const res = S.getFreeFieldsInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const query = input.includeDeprecated
     ? ctx.queries.getFreeFieldsAll
@@ -1008,8 +982,7 @@ export function listDocs(
 ): OToolResult {
   const res = S.listDocsInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const docsDir = resolveDocsDir();
   let entries: fs.Dirent[];
@@ -1046,8 +1019,7 @@ export function getDoc(
 ): OToolResult {
   const res = S.getDocInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const docsDir = resolveDocsDir();
   const filePath = path.join(docsDir, input.filename);

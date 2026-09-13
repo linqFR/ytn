@@ -84,3 +84,27 @@ export function err(text: string): OToolResult {
     isError: true,
   };
 }
+
+/** Shape of a DNA parser error (matches tsParserError from @ytrynot/dna, which is not publicly exported). */
+interface tsParserError {
+  message: string;
+  path: string;
+  input: unknown;
+}
+
+/**
+ * Minimal shape of the DNA transform/refine context.
+ * `tsDnaRefineCtx<T>` is not publicly exported from `@ytrynot/dna`, so this
+ * structural supertype is used to annotate transform callbacks. It is
+ * assignable from `tsDnaRefineCtx<T>` for any `T` (contravariance).
+ */
+export interface tsTransformCtx {
+  issues: Array<{ message?: string; [key: string]: unknown }>;
+  addIssue(arg: string): void;
+}
+
+/** Format DNA safeParse errors as a human-readable validation failure message. */
+export function formatErrors(errors: tsParserError[]): string {
+  const messages = errors.map((e) => `${e.message} at ${e.path}`);
+  return `Validation failed:\n${messages.join("\n")}`;
+}

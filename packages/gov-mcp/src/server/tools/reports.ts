@@ -14,7 +14,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { currentDate, currentDateTimeUTC, formatDateTimeUTC } from "../helpers.js";
 import * as S from "../../shared/schemas/tool-inputs.js";
-import { err, ok } from "./results.js";
+import { err, formatErrors, ok } from "./results.js";
 import type { IToolCtx, OToolResult } from "../types/types.ts";
 import { PROBLEM_STATUS, IDEA_STATUS, DECISION_STATUS } from "../../shared/enums.js";
 
@@ -74,8 +74,7 @@ export function generateDailyReport(
 ): OToolResult {
   const res = S.generateDailyReportInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const date = input.date;
   const q = ctx.queries;
@@ -470,8 +469,7 @@ export function generateDecisionHistoryReport(
 ): OToolResult {
   const res = S.generateDecisionHistoryReportInput.safeParse(input);
   if (!res.success) {
-    const messages = res.errors.map((e) => `${e.message} at ${e.path}`);
-    return err(`Validation failed:\n${messages.join("\n")}`);
+    return err(formatErrors(res.errors));
   }
   const q = ctx.queries;
   const scopesFor = (entityType: string, entityId: string): string => {
