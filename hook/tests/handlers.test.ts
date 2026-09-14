@@ -50,16 +50,16 @@ function mockLogEntry(overrides: Partial<tsLogEntryRow> = {}): tsLogEntryRow {
 
 function mockMcp(overrides: Partial<McpClient> = {}): McpClient {
   return {
-    whoami: vi.fn(async () => null),
-    getUpdates: vi.fn(async () => ({
+    whoami: vi.fn(async () => ({ writer: null })),
+    get_updates: vi.fn(async () => ({
       entries: [],
       new_cursor: "0",
       max_entry_id: 0,
       has_more: false,
       remaining: 0,
     })),
-    getOpenActions: vi.fn(async () => ({ actions: [], count: 0 })),
-    getHandoff: vi.fn(async () => ({
+    get_open_actions: vi.fn(async () => ({ actions: [], count: 0 })),
+    get_handoff: vi.fn(async () => ({
       date: "",
       open_actions: [],
       pending_decisions: [],
@@ -68,9 +68,9 @@ function mockMcp(overrides: Partial<McpClient> = {}): McpClient {
       to_test: [],
       architectural_items: [],
     })),
-    listProblems: vi.fn(async () => ({ problems: [], count: 0 })),
-    listActions: vi.fn(async () => ({ actions: [], count: 0 })),
-    listDecisions: vi.fn(async () => ({ decisions: [], count: 0 })),
+    list_problems: vi.fn(async () => ({ problems: [], count: 0 })),
+    list_actions: vi.fn(async () => ({ actions: [], count: 0 })),
+    list_decisions: vi.fn(async () => ({ decisions: [], count: 0 })),
     close: vi.fn(async () => {}),
     ...overrides,
   };
@@ -91,7 +91,7 @@ function mockCtx(overrides: { mcp?: Partial<McpClient>; state?: Partial<HookCont
       getLogs: vi.fn(() => []),
       ...overrides.state,
     },
-    getMcp: vi.fn(async () => mcp),
+    mcp,
   };
 }
 
@@ -208,7 +208,7 @@ describe("sessionStart handler", () => {
   it("injects identity and nanoid when writer found", async () => {
     const ctx = mockCtx({
       state: { getSession: vi.fn(() => ({ session_id: "s1", nanoid: "n1", writer_id: "w1", last_stop_at: null, last_handoff_at: null, stop_count: 0, created_at: "", updated_at: null, last_seen_at: null, title: null })) },
-      mcp: { whoami: vi.fn(async () => mockWriter()) },
+      mcp: { whoami: vi.fn(async () => ({ writer: mockWriter() })) },
     });
 
     const result = await sessionStart(sessionStartInput, ctx);
@@ -238,7 +238,7 @@ describe("userPromptSubmit handler", () => {
     const ctx = mockCtx({
       state: { getSession: vi.fn(() => ({ session_id: "s1", nanoid: "n1", writer_id: "w1", last_stop_at: null, last_handoff_at: null, stop_count: 0, created_at: "", updated_at: null, last_seen_at: null, title: null })) },
       mcp: {
-        getUpdates: vi.fn(async () => ({ entries: [mockLogEntry()], new_cursor: "2026-09-09T10:00:00.000Z", max_entry_id: 1265, has_more: false, remaining: 0 })),
+        get_updates: vi.fn(async () => ({ entries: [mockLogEntry()], new_cursor: "2026-09-09T10:00:00.000Z", max_entry_id: 1265, has_more: false, remaining: 0 })),
       },
     });
 
@@ -266,7 +266,7 @@ describe("postCompaction handler", () => {
   it("re-injects identity after compaction", async () => {
     const ctx = mockCtx({
       state: { getSession: vi.fn(() => ({ session_id: "s1", nanoid: "n1", writer_id: "w1", last_stop_at: null, last_handoff_at: null, stop_count: 0, created_at: "", updated_at: null, last_seen_at: null, title: null })) },
-      mcp: { whoami: vi.fn(async () => mockWriter()) },
+      mcp: { whoami: vi.fn(async () => ({ writer: mockWriter() })) },
     });
 
     const result = await postCompaction(postCompactionInput, ctx);

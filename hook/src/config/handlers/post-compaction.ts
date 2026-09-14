@@ -36,10 +36,11 @@ export async function postCompaction(
   const out: string[] = [];
 
   await nanoidChecker(out, nanoid, async (nanoid) => {
-    const mcp = await ctx.getMcp();
+    const mcp = ctx.mcp;
 
     // 1. Identity
-    const writer = await mcp.whoami(nanoid);
+    const whoamiResult = await mcp.whoami({ nanoid });
+    const writer = whoamiResult?.writer;
     if (writer) {
       out.push(`${messages.compactionLabel} ${formatIdentity(writer)}`);
     }
@@ -47,9 +48,9 @@ export async function postCompaction(
     // 2. Scoped handoff briefing via individual list calls
     const scope = writer?.default_scope ?? "workspace";
     const [actionsResult, decisionsResult, problemsResult] = await Promise.all([
-      mcp.listActions({ scope, withChildren: true, limit: 100 }),
-      mcp.listDecisions({ scope, withChildren: true, status: "Proposed", limit: 100 }),
-      mcp.listProblems({ scope, withChildren: true, limit: 100 }),
+      mcp.list_actions({ scope, withChildren: true, limit: 100 }),
+      mcp.list_decisions({ scope, withChildren: true, status: "Proposed", limit: 100 }),
+      mcp.list_problems({ scope, withChildren: true, limit: 100 }),
     ]);
 
     // Filter + sort actions by priority (P0 > P1 > P2), then by date DESC
@@ -89,7 +90,7 @@ export async function postCompaction(
     out.push(formatHandoff(handoff));
 
     // 3. Unread mailbox
-    const updates = await mcp.getUpdates(nanoid);
+    const updates = await mcp.get_updates({ nanoid, peek: true, lastN: 10 });
     const entries = updates.entries ?? [];
     if (entries.length > 0) {
       out.push(formatMailboxSummary(entries));

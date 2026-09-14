@@ -22,9 +22,9 @@ export async function sessionStart(
   const out: string[] = [];
 
   await nanoidChecker(out, nanoid, async (nanoid) => {
-    const writer = await (await ctx.getMcp()).whoami(nanoid);
-    if (writer) {
-      out.push(formatIdentity(writer));
+    const result = await ctx.mcp.whoami({ nanoid });
+    if (result?.writer) {
+      out.push(formatIdentity(result.writer));
       out.push(`[SESSION] nanoid: \`${nanoid}\``);
     }
   });

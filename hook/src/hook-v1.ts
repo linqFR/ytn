@@ -8,7 +8,13 @@
  * hooks.v1.json points to hook/dist/hook-v1.js (built from this file).
  */
 
+import { createMcpClient, type McpClient } from "@ytrynot/gov-mcp/client";
+
+
 import {main} from "./config/index.js";
 
-main();
+const mcpClient: McpClient = await createMcpClient();
 
+await main(mcpClient);
+
+await mcpClient.close();

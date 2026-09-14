@@ -29,13 +29,13 @@ export async function userPromptSubmit(
 
   await nanoidChecker(out, nanoid, async (nanoid) => {
     if (shouldRefreshIdentity) {
-      const writer = await (await ctx.getMcp()).whoami(nanoid);
-      if (writer) {
-        out.push(formatIdentity(writer));
+      const result = await ctx.mcp.whoami({ nanoid });
+      if (result?.writer) {
+        out.push(formatIdentity(result.writer));
         out.push(`[SESSION] nanoid: \`${nanoid}\``);
       }
     }
-    const updates = await (await ctx.getMcp()).getUpdates(nanoid);
+    const updates = await ctx.mcp.get_updates({ nanoid, peek: true, lastN: 10 });
     const entries = updates.entries ?? [];
     if (entries.length > 0) {
       out.push(formatMailboxSummary(entries));
