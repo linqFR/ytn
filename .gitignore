@@ -16,6 +16,7 @@
 .idea/
 .DS_Store
 Thumbs.db
+nul
 **/_*/
 **/dev_tools/
 **/sandbox/
@@ -29,6 +30,7 @@ yarn-error.log*
 # Testing
 coverage/
 **/.vitest/
+**/tests/.tmp/
 
 # Antigravity / Gemini specific (if applicable)
 .gemini/
