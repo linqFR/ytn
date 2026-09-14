@@ -6,12 +6,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { GovDb } from "../src/server/driver.js";
 import { initDatabase } from "../src/server/init.js";
 import { compileQueries } from "../src/server/queries/index.js";
 import * as read from "../src/server/tools/read.js";
 import * as write from "../src/server/tools/write.js";
 import type { IToolCtx } from "../src/server/types/types.ts";
+import { testReportsDir } from "./helpers/setup-mcp.js";
 
 const NANOID = "test-nanoid-21chars__";
 
@@ -22,7 +23,7 @@ describe("free_fields", () => {
   beforeEach(() => {
     db = GovDb.memory();
     initDatabase(db);
-    ctx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
+    ctx = { db, queries: compileQueries(db), reportsDir: testReportsDir() };
 
     write.registerWriter(ctx, { id: "test-admin", role: "admin" });
     db.prepare("UPDATE writers SET nanoid = ? WHERE id = ?").run(NANOID, "test-admin");

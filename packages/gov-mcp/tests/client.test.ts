@@ -7,10 +7,11 @@
 
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { GovDb, resolveReportsDir, initDatabase, compileQueries, schemas as S, readTools as read, writeTools as write, type IToolCtx } from "../src/index.js";
+import { GovDb, initDatabase, compileQueries, schemas as S, readTools as read, writeTools as write, type IToolCtx } from "../src/index.js";
 import { toCallToolResult } from "../src/server/server.js";
 import { createMcpClient } from "../src/client.ts";
 import type { McpClient } from "../src/client.ts";
+import { testReportsDir } from "./helpers/setup-mcp.js";
 
 let mcp: McpClient;
 let nanoid: string;
@@ -18,7 +19,7 @@ let nanoid: string;
 beforeAll(async () => {
   const db = GovDb.memory();
   initDatabase(db);
-  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
+  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: testReportsDir() };
 
   // Register writer directly (no MCP roundtrip for setup)
   const regResult = write.registerWriter(ctx, { id: "test-writer", role: "admin" });

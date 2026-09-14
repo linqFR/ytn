@@ -98,4 +98,4 @@ export const toolSchemas = {
   generate_decision_history_report: { schema: S.generateDecisionHistoryReportInput, output: O.generateDecisionHistoryReportOutputSchema, isReadonly: false },
   export_dump: { schema: S.exportDumpInput, output: O.exportDumpOutputSchema, isReadonly: false },
   generate_all_reports: { schema: S.generateAllReportsInput, output: O.generateAllReportsOutputSchema, isReadonly: false },
-};
+} as const;

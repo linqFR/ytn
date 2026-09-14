@@ -9,16 +9,17 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { GovDb } from "../src/server/driver.js";
 import { initDatabase } from "../src/server/init.js";
 import { compileQueries } from "../src/server/queries/index.js";
 import * as read from "../src/server/tools/read.js";
 import type { IToolCtx } from "../src/server/types/types.ts";
+import { testReportsDir } from "./helpers/setup-mcp.js";
 
 const ctx: IToolCtx = (() => {
   const db = GovDb.memory();
   initDatabase(db);
-  return { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
+  return { db, queries: compileQueries(db), reportsDir: testReportsDir() };
 })();
 
 describe("list_docs", () => {

@@ -29,8 +29,7 @@
 
 import { Client, type Transport } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { resolve } from "node:path";
-import { dna } from "@ytrynot/dna";
+import { GOVERNANCE_DB_PATH, GOVERNANCE_REPORTS_DIR, GOVERNANCE_SERVER_SCRIPT } from "../shared/env-vars.js";
 import type { toolSchemas } from "../shared/schemas/tool-schemas.js";
 
 // Re-export public types for consumers of @ytrynot/gov-mcp/client
@@ -47,12 +46,16 @@ export type { tsActionRow, tsLogEntryRow, tsProblemRow, tsWriterRow } from "../s
 // - Output: dna.infer<typeof toolSchemas[K]["output"]>  (DNA output schema)
 // Flipping isReadonly on a tool adds/removes it here automatically.
 
+// Local equivalent of dna.$Output<S> — avoids importing the `dna` namespace
+// type (rollup-plugin-dts cannot serialize `dna.infer` member access yet).
+type SchemaOutput<S> = S extends { _output: any } ? S["_output"] : unknown;
+
 type ReadonlyToolName = {
   [K in keyof typeof toolSchemas]: typeof toolSchemas[K]["isReadonly"] extends true ? K : never
 }[keyof typeof toolSchemas];
 
 export type McpClient = {
-  [K in ReadonlyToolName]: (input: dna.infer<typeof toolSchemas[K]["schema"]>) => Promise<dna.infer<typeof toolSchemas[K]["output"]>>
+  [K in ReadonlyToolName]: (input: SchemaOutput<typeof toolSchemas[K]["schema"]>) => Promise<SchemaOutput<typeof toolSchemas[K]["output"]>>
 } & {
   close: () => Promise<void>;
 };
@@ -64,16 +67,25 @@ export interface CreateMcpClientOpts {
   serverScriptPath?: string;
   /** Inject a custom transport (e.g. InMemoryTransport for tests). */
   transport?: Transport;
+  env:{
+    /** Explicit GOVERNANCE_DB_PATH (overrides config files). */
+    GOVERNANCE_DB_PATH?: string;
+    /** Explicit GOVERNANCE_REPORTS_DIR (overrides config files). */
+    GOVERNANCE_REPORTS_DIR?: string;
+  }
 }
 
 export async function createMcpClient(opts?: CreateMcpClientOpts): Promise<McpClient> {
   const transport = opts?.transport ?? (() => {
-    const projectDir = process.env.DEVIN_PROJECT_DIR ?? ".";
-    const serverScript = opts?.serverScriptPath ?? resolve(projectDir, "packages", "gov-mcp", "dist", "server.js");
+    const serverScript = opts?.serverScriptPath ?? GOVERNANCE_SERVER_SCRIPT;
     return new StdioClientTransport({
       command: "node",
       args: [serverScript],
       stderr: "pipe",
+      env: {
+        GOVERNANCE_DB_PATH: opts?.env?.GOVERNANCE_DB_PATH ?? GOVERNANCE_DB_PATH,
+        GOVERNANCE_REPORTS_DIR: opts?.env?.GOVERNANCE_REPORTS_DIR ?? GOVERNANCE_REPORTS_DIR,
+      },
     });
   })();
 

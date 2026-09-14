@@ -152,21 +152,19 @@ function expandWorkspace(path: string): string {
   return expanded;
 }
 
-/** Resolve the default DB path from GOVERNANCE_DB_PATH env or package default. */
+/** Resolve the DB path from GOVERNANCE_DB_PATH env (required). */
 function resolveDefaultDbPath(): string {
   const envPath = process.env.GOVERNANCE_DB_PATH;
-  if (envPath) return resolve(expandWorkspace(envPath));
-  // Default: packages/gov-mcp/data/ytn-gov-mcp.db relative to this file
-  return resolve(import.meta.dirname, "..", "..", "data", "ytn-gov-mcp.db");
+  if (!envPath) throw new Error("GOVERNANCE_DB_PATH env var is required");
+  return resolve(expandWorkspace(envPath));
 }
 
-/** Resolve the reports output directory from GOVERNANCE_REPORTS_DIR env or monorepo default.
+/** Resolve the reports output directory from GOVERNANCE_REPORTS_DIR env (required).
  *  The directory is created if it does not exist. */
 export function resolveReportsDir(): string {
   const envPath = process.env.GOVERNANCE_REPORTS_DIR;
-  const dir = envPath
-    ? resolve(expandWorkspace(envPath))
-    : resolve(import.meta.dirname, "..", "..", "..", "..", "mailbox", "generated");
+  if (!envPath) throw new Error("GOVERNANCE_REPORTS_DIR env var is required");
+  const dir = resolve(expandWorkspace(envPath));
   mkdirSync(dir, { recursive: true });
   return dir;
 }

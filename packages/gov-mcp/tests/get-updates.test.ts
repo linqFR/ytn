@@ -6,10 +6,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { GovDb } from "../src/server/driver.js";
 import { currentDate, currentTimestamp } from "../src/server/helpers.js";
 import { initDatabase } from "../src/server/init.js";
 import { compileQueries } from "../src/server/queries/index.js";
+import { testReportsDir } from "./helpers/setup-mcp.js";
 
 describe("get_updates, mailbox_last_24h, and spec status", () => {
   let db: GovDb;
@@ -52,7 +53,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     const write = await import("../src/server/tools/write.js");
     const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const regResult = write.registerWriter(ctx, {
       id: "agent-x",
       role: "agent",
@@ -78,7 +79,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     const read = await import("../src/server/tools/read.js");
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     // Register a writer to get a valid nanoid
     const regResult = write.registerWriter(ctx, { id: "test-agent-last", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
@@ -101,7 +102,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     const read = await import("../src/server/tools/read.js");
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-reset", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
     const result = read.getUpdates(ctx, { nanoid, markAllRead: true });
@@ -121,7 +122,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     const read = await import("../src/server/tools/read.js");
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-reset-peek", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
     const cursorBefore = queries.getWriterByNanoid.get({ nanoid })!.last_read_at;
@@ -136,7 +137,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     const read = await import("../src/server/tools/read.js");
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-peek", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
     // Cursor starts at epoch
@@ -163,7 +164,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     const read = await import("../src/server/tools/read.js");
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-list", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
     const cursorBefore = queries.getWriterByNanoid.get({ nanoid })!.last_read_at;
@@ -179,7 +180,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     const read = await import("../src/server/tools/read.js");
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-list-peek", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
     const cursorBefore = queries.getWriterByNanoid.get({ nanoid })!.last_read_at;
@@ -193,7 +194,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   it("list_entries without nanoid does NOT touch any cursor", async () => {
     const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const result = read.listLogEntries(ctx, {});
     expect(result.isError).toBe(false);
     const data = result.structuredContent as { count: number };
@@ -204,7 +205,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     const read = await import("../src/server/tools/read.js");
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const regResult = write.registerWriter(ctx, { id: "test-agent-default", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
     // Default mode: DESC (most recent first)
@@ -221,7 +222,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   it("mailbox_last_24h with type filter returns only matching entity type", async () => {
     const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     // The 5 log entries are all type "status" — filter by type "log_entry" should still work
     // since mailbox_last_24h UNIONs all tables. With only log_entries populated, type "log_entry"
     // returns all 5, type "decision" returns 0.
@@ -240,7 +241,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   it("mailbox_last_24h with limit returns at most N items", async () => {
     const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const result = read.mailboxLast24h(ctx, { limit: 2 });
     expect(result.isError).toBe(false);
     const data = result.structuredContent as { timeline: unknown[]; count: number };
@@ -251,7 +252,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   it("mailbox_last_24h with type + limit combines both filters in SQL", async () => {
     const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const result = read.mailboxLast24h(ctx, { type: "log_entry", limit: 3 });
     expect(result.isError).toBe(false);
     const data = result.structuredContent as { timeline: { type: string }[]; count: number };
@@ -262,7 +263,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   it("mailbox_last_24h without type/limit returns all (backward compat)", async () => {
     const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const result = read.mailboxLast24h(ctx, {});
     expect(result.isError).toBe(false);
     const data = result.structuredContent as { count: number };
@@ -272,7 +273,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   it("update_spec_status accepts optional reason and stores it in status_history", async () => {
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     // Create a spec first
     const regResult = write.registerWriter(ctx, { id: "test-agent-spec", role: "agent" });
     const nanoid = regResult.structuredContent?.nanoid as string;
@@ -305,7 +306,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
   it("whoami rejects unknown nanoid", async () => {
     const read = await import("../src/server/tools/read.js");
     const queries = compileQueries(db);
-    const ctx = { db, queries, reportsDir: resolveReportsDir() };
+    const ctx = { db, queries, reportsDir: testReportsDir() };
     const result = read.whoami(ctx, { nanoid: "nonexistent-nanoid-xx" });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Writer not found");

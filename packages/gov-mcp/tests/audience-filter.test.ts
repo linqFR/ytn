@@ -9,13 +9,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { GovDb } from "../src/server/driver.js";
 import { currentDate, currentTimestamp } from "../src/server/helpers.js";
 import { initDatabase } from "../src/server/init.js";
 import { compileQueries } from "../src/server/queries/index.js";
 import * as write from "../src/server/tools/write.js";
 import * as read from "../src/server/tools/read.js";
 import type { IToolCtx } from "../src/server/types/types.ts";
+import { testReportsDir } from "./helpers/setup-mcp.js";
 
 const NANOID_A = "aud-nanoid-aaaaaaaaaa";
 const NANOID_B = "aud-nanoid-bbbbbbbbbb";
@@ -24,7 +25,7 @@ const NANOID_C = "aud-nanoid-cccccccccc";
 function setup(): { db: GovDb; ctx: IToolCtx } {
   const db = GovDb.memory();
   initDatabase(db);
-  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
+  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: testReportsDir() };
   // Create scopes directly (FK constraint on writers.default_scope)
   db.prepare("INSERT INTO scopes (id, label, created_at, updated_at) VALUES (?, ?, ?, ?)")
     .run("cli", "CLI", currentTimestamp(), currentTimestamp());

@@ -19,20 +19,21 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { existsSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
-import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { GovDb } from "../src/server/driver.js";
 import { initDatabase } from "../src/server/init.js";
 import { compileQueries } from "../src/server/queries/index.js";
 import * as write from "../src/server/tools/write.js";
 import * as read from "../src/server/tools/read.ts";
 import * as reports from "../src/server/tools/reports.js";
 import type { IToolCtx } from "../src/server/types/types.ts";
+import { testReportsDir } from "./helpers/setup-mcp.js";
 
 const NANOID = "e2e-nanoid-21chars___";
 
 function setup(): { db: GovDb; ctx: IToolCtx } {
   const db = GovDb.memory();
   initDatabase(db);
-  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
+  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: testReportsDir() };
   write.registerWriter(ctx, { id: "e2e-admin", role: "admin" });
   db.prepare("UPDATE writers SET nanoid = ? WHERE id = ?").run(NANOID, "e2e-admin");
   return { db, ctx };

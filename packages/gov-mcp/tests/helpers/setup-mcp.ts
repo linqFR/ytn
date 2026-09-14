@@ -8,7 +8,7 @@
 
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
-import { GovDb, resolveReportsDir } from "../../src/server/driver.js";
+import { GovDb } from "../../src/server/driver.js";
 import { initDatabase } from "../../src/server/init.js";
 import { compileQueries } from "../../src/server/queries/index.js";
 import * as S from "../../src/shared/schemas/tool-inputs.js";
@@ -16,6 +16,16 @@ import { toCallToolResult } from "../../src/server/server.js";
 import * as read from "../../src/server/tools/read.js";
 import * as write from "../../src/server/tools/write.js";
 import type { IToolCtx } from "../../src/server/types/types.ts";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+/** Temp reports dir for tests (created once per process). */
+let _reportsDir: string | undefined;
+export function testReportsDir(): string {
+  if (!_reportsDir) _reportsDir = mkdtempSync(join(tmpdir(), "gov-mcp-test-"));
+  return _reportsDir;
+}
 
 export interface IMcpTestHarness {
   client: Client;
@@ -31,7 +41,7 @@ export interface IMcpTestHarness {
 export async function setupMcpServer(): Promise<IMcpTestHarness> {
   const db = GovDb.memory();
   initDatabase(db);
-  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
+  const ctx: IToolCtx = { db, queries: compileQueries(db), reportsDir: testReportsDir() };
 
   const server = new McpServer(
     { name: "test-gov-protocol", version: "0.0.1" },
@@ -41,73 +51,73 @@ export async function setupMcpServer(): Promise<IMcpTestHarness> {
   // Read: entities
   server.registerTool("list_decisions",
     { description: "List decisions", inputSchema: S.listDecisionsInput },
-    async (args) => toCallToolResult(read.listDecisions(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(read.listDecisions(ctx, args)),
   );
   server.registerTool("list_actions",
     { description: "List actions", inputSchema: S.listActionsInput },
-    async (args) => toCallToolResult(read.listActions(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(read.listActions(ctx, args)),
   );
   server.registerTool("list_ideas",
     { description: "List ideas", inputSchema: S.listIdeasInput },
-    async (args) => toCallToolResult(read.listIdeas(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(read.listIdeas(ctx, args)),
   );
   server.registerTool("list_problems",
     { description: "List problems", inputSchema: S.listProblemsInput },
-    async (args) => toCallToolResult(read.listProblems(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(read.listProblems(ctx, args)),
   );
   server.registerTool("list_specs",
     { description: "List specs", inputSchema: S.listSpecsInput },
-    async (args) => toCallToolResult(read.listSpecs(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(read.listSpecs(ctx, args)),
   );
   server.registerTool("get_action_lineage",
     { description: "Action lineage", inputSchema: S.getActionLineageInput },
-    async (args) => toCallToolResult(read.getActionLineage(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(read.getActionLineage(ctx, args)),
   );
 
   // Write: writer + scopes
   server.registerTool("register_writer",
     { description: "Register writer", inputSchema: S.registerWriterInput },
-    async (args) => toCallToolResult(write.registerWriter(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.registerWriter(ctx, args)),
   );
   server.registerTool("create_scope",
     { description: "Create scope", inputSchema: S.createScopeInput },
-    async (args) => toCallToolResult(write.createScope(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.createScope(ctx, args)),
   );
 
   // Write: entities
   server.registerTool("create_decision",
     { description: "Create decision", inputSchema: S.createDecisionInput },
-    async (args) => toCallToolResult(write.createDecision(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.createDecision(ctx, args)),
   );
   server.registerTool("create_action",
     { description: "Create action", inputSchema: S.createActionInput },
-    async (args) => toCallToolResult(write.createAction(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.createAction(ctx, args)),
   );
   server.registerTool("create_idea",
     { description: "Create idea", inputSchema: S.createIdeaInput },
-    async (args) => toCallToolResult(write.createIdea(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.createIdea(ctx, args)),
   );
   server.registerTool("create_problem",
     { description: "Create problem", inputSchema: S.createProblemInput },
-    async (args) => toCallToolResult(write.createProblem(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.createProblem(ctx, args)),
   );
   server.registerTool("create_spec",
     { description: "Create spec", inputSchema: S.createSpecInput },
-    async (args) => toCallToolResult(write.createSpec(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.createSpec(ctx, args)),
   );
   server.registerTool("link_problem_action",
     { description: "Link problem to action", inputSchema: S.linkProblemActionInput },
-    async (args) => toCallToolResult(write.linkProblemAction(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.linkProblemAction(ctx, args)),
   );
   server.registerTool("update_action_status",
     { description: "Update action status", inputSchema: S.updateActionStatusInput },
-    async (args) => toCallToolResult(write.updateActionStatus(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.updateActionStatus(ctx, args)),
   );
 
   // Write: correct
   server.registerTool("correct",
     { description: "Correct a field", inputSchema: S.correctInput },
-    async (args) => toCallToolResult(write.correct(ctx, args)),
+    async (args: Record<string, unknown>) => toCallToolResult(write.correct(ctx, args)),
   );
 
   // Connect client

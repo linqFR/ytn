@@ -7,7 +7,7 @@
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GovDb, resolveReportsDir } from "../src/server/driver.js";
+import { GovDb } from "../src/server/driver.js";
 import { initDatabase } from "../src/server/init.js";
 import { compileQueries } from "../src/server/queries/index.js";
 import * as S from "../src/shared/schemas/tool-inputs.js";
@@ -15,6 +15,7 @@ import { toCallToolResult } from "../src/server/server.js";
 import * as read from "../src/server/tools/read.js";
 import type { IToolCtx } from "../src/server/types/types.ts";
 import * as write from "../src/server/tools/write.js";
+import { testReportsDir } from "./helpers/setup-mcp.js";
 
 describe("McpServer + DNA schemas", () => {
   let db: GovDb;
@@ -25,7 +26,7 @@ describe("McpServer + DNA schemas", () => {
   beforeAll(async () => {
     db = GovDb.memory();
     initDatabase(db);
-    ctx = { db, queries: compileQueries(db), reportsDir: resolveReportsDir() };
+    ctx = { db, queries: compileQueries(db), reportsDir: testReportsDir() };
 
     server = new McpServer(
       { name: "test-gov", version: "0.0.1" },
