@@ -33,7 +33,7 @@ export const whoamiOutputSchema = dna.object({
 });
 
 export const listWritersOutputSchema = dna.object({
-  writers: dna.array(writerRowSchema),
+  writers: dna.array(writerRowSchema.omit({ nanoid: true })),
 });
 
 // ── Read: decisions ──
