@@ -16,7 +16,7 @@ Practical workflows for common governance tasks. Each section shows the sequence
 - [Define and Track a Workstream](#define-and-track-a-workstream)
 - [Register and Version a Spec](#register-and-version-a-spec)
 - [Add Metadata with Free Fields](#add-metadata-with-free-fields)
-- [Correct a Field on an Entity](#correct-a-field-on-an-entity)
+- [Edit a Field on an Entity](#edit-a-field-on-an-entity)
 - [Search Across All Entities](#search-across-all-entities)
 - [Pull Unread Updates](#pull-unread-updates)
 - [Generate Reports](#generate-reports)
@@ -153,6 +153,8 @@ append_log_entry({
 
 ## Propose and Accept a Decision
 
+> **No `update_decision` tool?** To modify a field on an existing decision (title, context, decision text, etc.), use [`edit_field`](#edit-a-field-on-an-entity). Only `update_decision_status` changes status.
+
 ### 1. Create the decision
 
 ```
@@ -208,6 +210,8 @@ create_decision({
 The old decision's `superseded_by` is updated automatically by a trigger.
 
 ## Create Actions from a Decision
+
+> **No `update_action` tool?** To modify a field on an existing action (title, owner, body, etc.), use [`edit_field`](#edit-a-field-on-an-entity). Only `update_action_status` changes status.
 
 ```
 create_action({
@@ -314,6 +318,8 @@ update_action_status({
 
 ## Report and Fix a Problem
 
+> **No `update_problem` tool?** To modify a field on an existing problem (title, description, severity, etc.), use [`edit_field`](#edit-a-field-on-an-entity). Only `update_problem_status` changes status.
+
 ### 1. Create the problem
 
 ```
@@ -397,6 +403,8 @@ link_problem_action({
 When the primary action is marked `done`, the problem is automatically set to `partial` + `tested = 'partially'` via cascade trigger.
 
 ## Promote an Idea to a Decision
+
+> **No `update_idea` tool?** To modify a field on an existing idea (title, short_desc, long_desc, etc.), use [`edit_field`](#edit-a-field-on-an-entity). Only `update_idea_status` changes status.
 
 ### 1. Create the idea
 
@@ -502,6 +510,8 @@ get_open_actions({ priority: "P0" })
 Returns all open actions sorted by priority — filter by workstream in the calling agent.
 
 ## Register and Version a Spec
+
+> **No `update_spec` tool?** To modify a field on an existing spec (filename, scope, package, version), use [`edit_field`](#edit-a-field-on-an-entity). Only `update_spec_status` changes status.
 
 The MCP server tracks specs as governance entities (ID, status, links, scope). It does **not** create, write, or version the spec Markdown file — the file is authored by the team. Use `create_spec` to register an already-written spec file in the database, and `update_spec_status` to track its lifecycle.
 
@@ -653,12 +663,12 @@ The field remains in the database with `status: "deprecated"`. If it was FTS-ind
 
 See [docs/free-fields.md](free-fields.md) for the full reference.
 
-## Correct a Field on an Entity
+## Edit a Field on an Entity
 
-The `correct` tool appends a correction — it does not mutate history. The original value is logged in a `correction` log entry.
+The `edit_field` tool appends a correction — it does not mutate history. The original value is logged in a `correction` log entry.
 
 ```
-correct({
+edit_field({
   nanoid: "<token>",
   entityType: "decision",
   entityId: "DEC-0001",

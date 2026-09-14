@@ -200,10 +200,10 @@ describe("write tools audience parameter", () => {
     expect(logRow.audience).toBe("all");
   });
 
-  it("correct without audience defaults to 'all'", () => {
+  it("edit_field without audience defaults to 'all'", () => {
     write.createDecision(ctx, {
       nanoid: NANOID_B,
-      title: "Decision to correct",
+      title: "Decision to edit",
       decider: "writer-b",
     });
     const decId = db.prepare(
@@ -226,10 +226,10 @@ describe("write tools audience parameter", () => {
     expect(logRow.audience).toBe("all");
   });
 
-  it("correct with audience stores it in log_entry", () => {
+  it("edit_field with audience stores it in log_entry", () => {
     write.createDecision(ctx, {
       nanoid: NANOID_B,
-      title: "Decision to correct",
+      title: "Decision to edit",
       decider: "writer-b",
     });
     const decId = db.prepare(

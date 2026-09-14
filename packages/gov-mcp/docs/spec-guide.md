@@ -13,8 +13,13 @@ How to write and manage specification annexes (specs) in a governance system pow
 - [Invariants Section (Mandatory)](#invariants-section-mandatory)
 - [Drift Handling](#drift-handling)
 - [Relationship to Decisions and Actions](#relationship-to-decisions-and-actions)
+- [Specs Registry (gov-mcp)](#specs-registry-gov-mcp)
 - [Checklists](#checklists)
+- [Self-Audit (Session Start)](#self-audit-session-start)
+- [No Mailbox References in Code](#no-mailbox-references-in-code)
 - [Complete Workflow](#complete-workflow)
+- [Migration of Existing Specs](#migration-of-existing-specs)
+- [Non-Retro-Écriture](#non-retro-écriture)
 
 ---
 
@@ -168,6 +173,31 @@ The spec is the **source of truth for technical content**. Decisions and actions
 
 Decisions and actions that do not have a spec (simple decisions, conventions) keep their full content inline — the spec is optional and proportionate to complexity.
 
+## Specs Registry (gov-mcp)
+
+The specs index is managed through gov-mcp tools, not a manual markdown file.
+The governance SQLite database is the single source of truth for spec metadata;
+`mailbox/generated/mailbox-specs.md` is a generated view produced by
+`generate_all_reports`, never hand-edited.
+
+- When a spec is created: call `create_spec` with the spec metadata (id, filename,
+  scope, version, status, supersedes).
+- When a spec's status changes: call `update_spec_status` (append-only via
+  `status_history` — status changes are new history rows, not edits).
+- To discover specs: call `list_specs` (with optional filters: status, package,
+  scope) or `get_spec` for a single spec by ID.
+
+### Mapping: header fields → gov-mcp fields
+
+| Spec header | gov-mcp `create_spec` field |
+|-------------|---------------------------|
+| `Status` | `status` (default `"draft"`) |
+| `Current version` | `version` (0 = pre-spec, 1 = first formal) |
+| `Linked decision (why)` | tracked via decision `specRef` field (reverse lookup) |
+| `Linked action (how)` | tracked via action `specRef` field (reverse lookup) |
+| `Superseded by` | `supersedes` on the new spec + `update_spec_status` on the old |
+| `Linked problem` | tracked via problem `linkedSpec` field (reverse lookup) |
+
 ## Checklists
 
 ### Writing a spec
@@ -178,6 +208,7 @@ Decisions and actions that do not have a spec (simple decisions, conventions) ke
 - [ ] Acceptance criteria concrete (inputs/outputs, no vague adjectives)
 - [ ] If reviewed → drift section + vN+1 (complete restatement)
 - [ ] Status updated (draft → ready → locked)
+- [ ] Spec registered via `create_spec` on gov-mcp
 
 ### Before lock
 
@@ -200,6 +231,7 @@ Decisions and actions that do not have a spec (simple decisions, conventions) ke
 - [ ] Acceptance criteria from the spec are verified
 - [ ] Invariants from the spec are verified against the code
 - [ ] Spec status → `implemented`
+- [ ] Spec status updated via `update_spec_status` on gov-mcp
 - [ ] Action status → `done` with evidence
 - [ ] If bugs discovered → problem created
 - [ ] If spec incompleteness revealed by implementation → vN+1 (drift, not superseded)
@@ -215,9 +247,11 @@ Decisions and actions that do not have a spec (simple decisions, conventions) ke
    v0 (pre-spec, draft) → v1 (ready → locked)
    Header: Status, Linked decision (why), Invariants
    Checklist "before lock" verified
+   gov-mcp: `create_spec` (register the spec entity)
 5. Review → drift v1 → v2 if needed
    Spec: v1 + Drift v1→v2 (reasons) + v2
    Status: locked (v2)
+   gov-mcp: `update_spec_status` (status changes)
 6. Decision (Accepted) — "implement X per spec vN"
    1-3 line summary mandatory
    Checklist "before implementation" verified
@@ -226,6 +260,7 @@ Decisions and actions that do not have a spec (simple decisions, conventions) ke
 8. Build + tests + acceptance criteria + invariants verified
    Checklist "after implementation" verified
 9. Spec → implemented
+   gov-mcp: `update_spec_status` (new status)
 10. If bug discovered:
     Problem created
     - CRITICAL → fast-track (admin authorizes, fix immediately, spec aligned later)
@@ -237,3 +272,50 @@ Decisions and actions that do not have a spec (simple decisions, conventions) ke
 ### Decisions and actions without a spec
 
 Simple decisions (conventions, rules, small fixes) do not require a spec. The decision/action keeps its full content inline. The spec is optional and proportionate to complexity.
+
+## Self-Audit (Session Start)
+
+At the start of a session, the agent verifies the consistency of the artifacts
+**it will work on**, not the entire mailbox. Concretely:
+
+1. If working on a spec: verify that its `Status` is consistent with the state of
+   the code (no unreported `desync`).
+2. If working on a decision: verify that its `Spec` field (if present) points to a
+   spec that exists.
+3. If working on an action: verify that its `Spec` field (if present) points to a
+   spec that is `locked` or `implemented`.
+4. If working on a problem: verify that its `Linked Spec` (if present) points to a
+   spec that exists.
+
+Discrepancies are reported as `challenge` entries in the daily log, not silently
+fixed.
+
+## No Mailbox References in Code
+
+Never reference spec identifiers (`SPEC`, `PB-NNNN`, `DEC-NNNN`, `ACT-NNNN`,
+`IDEA-NNNN`) or spec filenames in source code, code comments, JSDoc, test
+descriptions, READMEs, or user-facing documentation. These are internal
+coordination artifacts that may be superseded, cancelled, or reorganized. Code
+comments and documentation must explain the *what* and *why* in self-contained
+terms.
+
+## Migration of Existing Specs
+
+The 2 existing spec-annexes (`mailbox-2026-08-22-spec-act-0018.md` and
+`mailbox-2026-08-25-spec-cli-mode.md`) are migrated to the new header format by
+**adding a header block at the top** of each file (append-only — existing content
+is not modified). Status: `implemented`.
+
+Existing manual index rows are migrated to gov-mcp via `create_spec`.
+
+## Non-Retro-Écriture
+
+This guide applies **only to the future**. Existing decisions, actions, ideas,
+specs, and mailbox files are not retro-written. The past remains the past and
+operates under the rules in effect when it was written.
+
+Exceptions (explicitly approved):
+- Migration of the 2 existing spec-annexes to the new header format (addition at
+  the top, append-only).
+- Cosmetic cleanup of `DEC-NNNN` references in code comments (comments only, no
+  behavioural impact).

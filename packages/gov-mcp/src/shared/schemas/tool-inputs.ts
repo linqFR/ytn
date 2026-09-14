@@ -304,7 +304,7 @@ export const createSpecInput = dna.object({
   scope: scopeOrScopesSchema,
   date: dateSchema.optional().describe("Spec date (default today)"),
   package: dna.string().optional().describe("Related package"),
-  version: dna.int().min(1).describe("Spec version (default 1)"),
+  version: dna.int().min(0).describe("Spec version (default 1, 0 = pre-spec/exploration)"),
   status: specStatusSchema.optional().describe('Initial status (default "draft")'),
   supersedes: entityIdSchema.optional().describe("Spec ID that supersedes this one"),
 }).meta({

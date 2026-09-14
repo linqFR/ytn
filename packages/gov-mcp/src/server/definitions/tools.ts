@@ -88,7 +88,7 @@ export const toolDefs = {
   create_scope: { ...toolSchemas.create_scope, handler: write.createScope },
   update_scope: { ...toolSchemas.update_scope, handler: write.updateScope },
   append_log_entry: { ...toolSchemas.append_log_entry, handler: write.appendLogEntry },
-  correct: { ...toolSchemas.correct, handler: write.correct },
+  edit_field: { ...toolSchemas.edit_field, handler: write.correct },
   add_free_field: { ...toolSchemas.add_free_field, handler: write.addFreeField },
   deprecate_free_field: { ...toolSchemas.deprecate_free_field, handler: write.deprecateFreeField },
 

@@ -1,5 +1,5 @@
 /**
- * Write (mutation) MCP tools — create, update, link, correct, append.
+ * Write (mutation) MCP tools — create, update, link, edit_field, append.
  * All mutations require a valid nanoid (access management).
  */
 

@@ -127,11 +127,11 @@ describe("tested column: cascade, override, correct, audit", () => {
     expect(pb.tested).toBe(TESTED_STATUS.not_ready);
   });
 
-  it("correct can change tested independently of status", async () => {
+  it("edit_field can change tested independently of status", async () => {
     // PB-0003 is partial with tested=not_ready (from previous test)
-    // Correct tested to 'success' without changing status
+    // Edit tested to 'success' without changing status
     const result = await client.callTool({
-      name: "correct",
+      name: "edit_field",
       arguments: {
         nanoid,
         entityType: "problem",
@@ -149,14 +149,14 @@ describe("tested column: cascade, override, correct, audit", () => {
     expect(pb.tested).toBe(TESTED_STATUS.success);
   });
 
-  it("correct can change fast_track", async () => {
+  it("edit_field can change fast_track", async () => {
     // PB-0003 fast_track should be 0 by default
     const before = db.prepare("SELECT fast_track FROM problems WHERE id = ?")
       .get("PB-0003") as { fast_track: number };
     expect(before.fast_track).toBe(0);
 
     const result = await client.callTool({
-      name: "correct",
+      name: "edit_field",
       arguments: {
         nanoid,
         entityType: "problem",

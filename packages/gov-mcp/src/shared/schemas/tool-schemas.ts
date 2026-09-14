@@ -84,7 +84,7 @@ export const toolSchemas = {
   create_scope: { schema: S.createScopeInput, output: O.createScopeOutputSchema, isReadonly: false },
   update_scope: { schema: S.updateScopeInput, output: O.updateScopeOutputSchema, isReadonly: false },
   append_log_entry: { schema: S.appendLogEntryInput, output: O.appendLogEntryOutputSchema, isReadonly: false },
-  correct: { schema: S.correctInput, output: O.correctOutputSchema, isReadonly: false },
+  edit_field: { schema: S.correctInput, output: O.correctOutputSchema, isReadonly: false },
   add_free_field: { schema: S.addFreeFieldInput, output: O.addFreeFieldOutputSchema, isReadonly: false },
   deprecate_free_field: { schema: S.deprecateFreeFieldInput, output: O.deprecateFreeFieldOutputSchema, isReadonly: false },
 

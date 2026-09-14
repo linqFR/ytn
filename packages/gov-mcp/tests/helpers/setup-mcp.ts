@@ -114,9 +114,9 @@ export async function setupMcpServer(): Promise<IMcpTestHarness> {
     async (args: Record<string, unknown>) => toCallToolResult(write.updateActionStatus(ctx, args)),
   );
 
-  // Write: correct
-  server.registerTool("correct",
-    { description: "Correct a field", inputSchema: S.correctInput },
+  // Write: edit_field
+  server.registerTool("edit_field",
+    { description: "Edit a field", inputSchema: S.correctInput },
     async (args: Record<string, unknown>) => toCallToolResult(write.correct(ctx, args)),
   );
 

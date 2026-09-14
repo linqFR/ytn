@@ -212,8 +212,8 @@ describe("MCP protocol: full server with all tools", () => {
     server.registerTool("append_log_entry",
       { description: "Append a log entry", inputSchema: S.appendLogEntryInput },
       async (args: Record<string, unknown>) => toCallToolResult(write.appendLogEntry(ctx, args)));
-    server.registerTool("correct",
-      { description: "Correct a field", inputSchema: S.correctInput },
+    server.registerTool("edit_field",
+      { description: "Edit a field", inputSchema: S.correctInput },
       async (args: Record<string, unknown>) => toCallToolResult(write.correct(ctx, args)));
 
     // Reports
@@ -640,9 +640,9 @@ describe("MCP protocol: full server with all tools", () => {
 
   // ─── correct via MCP ───────────────────────────────────────────────────────
 
-  it("correct updates a field and logs the correction via MCP", async () => {
+  it("edit_field updates a field and logs the correction via MCP", async () => {
     const result = await client.callTool({
-      name: "correct",
+      name: "edit_field",
       arguments: {
         nanoid,
         entityType: "decision",
@@ -673,9 +673,9 @@ describe("MCP protocol: full server with all tools", () => {
     expect(logsData.entries[0].subject).toContain("title");
   });
 
-  it("correct rejects log_entry entityType at DNA level", async () => {
+  it("edit_field rejects log_entry entityType at DNA level", async () => {
     const result = await client.callTool({
-      name: "correct",
+      name: "edit_field",
       arguments: {
         nanoid,
         entityType: "log_entry",

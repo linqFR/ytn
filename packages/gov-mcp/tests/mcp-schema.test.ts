@@ -32,7 +32,7 @@ describe("MCP protocol: tools/list exposes DNA schemas", () => {
     expect(names).toContain("list_ideas");
     expect(names).toContain("list_problems");
     expect(names).toContain("list_specs");
-    expect(names).toContain("correct");
+    expect(names).toContain("edit_field");
     expect(names).toContain("get_action_lineage");
     expect(names).toContain("create_scope");
     expect(names).toContain("update_action_status");
@@ -47,9 +47,9 @@ describe("MCP protocol: tools/list exposes DNA schemas", () => {
     expect(props.withChildren).toBeDefined();
   });
 
-  it("correct exposes entityType enum without log_entry", async () => {
+  it("edit_field exposes entityType enum without log_entry", async () => {
     const result = await client.listTools();
-    const tool = result.tools.find((t) => t.name === "correct");
+    const tool = result.tools.find((t) => t.name === "edit_field");
     expect(tool).toBeDefined();
     const entityType = (tool!.inputSchema.properties as Record<string, { enum?: string[] }>).entityType;
     expect(entityType).toBeDefined();
