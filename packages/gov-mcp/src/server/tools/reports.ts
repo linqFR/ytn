@@ -111,7 +111,7 @@ export function generateDailyReport(
 
   // Writers mentioned in log entries (as authors), without nanoid
   const authorIds = [...new Set(logEntries.map((e) => e.author).filter((a): a is string => a !== null))];
-  const writers = authorIds.map((id) => q.getWriterById.get({ id })).filter((w): w is NonNullable<typeof w> => w !== null);
+  const writers = authorIds.map((id) => q.getWriterById.get({ id })).filter((w): w is NonNullable<typeof w> => w != null);
   const writersMd = writers.map((w) => `### ${w.id}
 
 - **Display name:** ${w.display_name ?? "—"}
