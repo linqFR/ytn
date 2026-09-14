@@ -94,8 +94,16 @@ This ensures invalid data cannot enter the database even if a tool bypasses DNA 
 All multi-table mutations are wrapped in `db.transaction()`:
 
 - `create_decision` — INSERT decision + INSERT status_history + INSERT log_entry.
+- `update_decision_status` — UPDATE decision + INSERT status_history + INSERT log_entry (+ cascade via triggers).
+- `create_action` — INSERT action + INSERT status_history + INSERT log_entry.
 - `update_action_status` — UPDATE action + INSERT status_history + INSERT log_entry (+ cascade via triggers).
-- `correct` — UPDATE entity + INSERT log_entry (+ INSERT status_history if correcting status).
+- `create_idea` — INSERT idea + INSERT status_history + INSERT log_entry.
+- `update_idea_status` — UPDATE idea + INSERT status_history + INSERT log_entry.
+- `create_problem` — INSERT problem + INSERT status_history + INSERT log_entry.
+- `update_problem_status` — UPDATE problem + INSERT status_history + INSERT log_entry.
+- `edit_field` — UPDATE entity + INSERT log_entry (+ INSERT status_history if correcting status).
+
+All status changes (`update_*_status`) automatically create a `log_entry` with `type: "status"`. Agents do not need to manually post a log entry for status transitions.
 
 Transactions are atomic: if any statement fails, all changes are rolled back.
 

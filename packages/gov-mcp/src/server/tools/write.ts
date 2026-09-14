@@ -524,6 +524,13 @@ export function updateIdeaStatus(
       new_status: d.newStatus, changed_at: now, changed_by: d.writer.id,
       reason: null, cascade_trigger: null,
     });
+    ctx.queries.insertLogEntry.run({
+      id: null, date: currentTimestamp(), timestamp: now, type: "status",
+      author: d.writer.id, audience: "all",
+      subject: `Idea ${d.id} → ${d.newStatus}`,
+      body: "", ref_id: d.id,
+      reply_to: null, thread_id: null,
+    });
   });
   if (!tx.ok) return err(`Database error: ${tx.error}`);
   return ok(`Idea ${d.id} updated to ${d.newStatus}`, {
@@ -651,6 +658,13 @@ export function updateProblemStatus(
       old_status: d.current.status,
       new_status: d.newStatus, changed_at: now, changed_by: d.writer.id,
       reason: null, cascade_trigger: null,
+    });
+    ctx.queries.insertLogEntry.run({
+      id: null, date: currentTimestamp(), timestamp: now, type: "status",
+      author: d.writer.id, audience: "all",
+      subject: `Problem ${d.id} → ${d.newStatus}`,
+      body: d.fix ?? "", ref_id: d.id,
+      reply_to: null, thread_id: null,
     });
   });
   if (!tx.ok) return err(`Database error: ${tx.error}`);

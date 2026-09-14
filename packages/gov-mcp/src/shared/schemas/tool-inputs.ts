@@ -155,7 +155,7 @@ export const updateActionStatusInput = dna.object({
   cascade: dna.boolean().optional().describe("Whether to trigger cascades (default true)"),
 }).meta({
   title: "UpdateActionStatusInput",
-  description: "Update an action's status. Triggers cascades: done → linked problems partial, done → linked ideas implemented (if all sibling actions done). Before marking done, the `tested` field MUST be set to `success`/`partially`/`no_need` via `correct` — never mark `done` with `tested: not_ready`.",
+  description: "Update an action's status. Triggers cascades: done → linked problems partial, done → linked ideas implemented (if all sibling actions done). Logs in status_history and log_entries. Before marking done, the `tested` field MUST be set to `success`/`partially`/`no_need` via `correct` — never mark `done` with `tested: not_ready`.",
   usage: [
     `Update an action's status.`,
     `Completion protocol (MANDATORY for done):

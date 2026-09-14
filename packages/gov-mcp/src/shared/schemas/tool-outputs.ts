@@ -177,11 +177,18 @@ export const mailboxLast24hOutputSchema = dna.object({
 // ── History & lineage ──
 
 export const getDecisionHistoryOutputSchema = dna.object({
+  decision: decisionRowSchema.pick({ id: true, title: true, status: true, date: true }),
+  actions: dna.array(actionRowSchema.pick({ id: true, title: true, status: true, priority: true })),
+  ideas: dna.array(ideaRowSchema.pick({ id: true, title: true, status: true })),
   history: dna.array(statusHistoryRowSchema),
 });
 
 export const getActionLineageOutputSchema = dna.object({
-  lineage: dna.array(dna.any()),
+  action: actionRowSchema.pick({ id: true, title: true, status: true, priority: true }),
+  sourceDecision: decisionRowSchema.pick({ id: true, title: true, status: true }).nullable(),
+  dependencies: dna.array(actionDependencyRowSchema),
+  problemLinks: dna.array(problemActionRowSchema.pick({ problem_id: true, role: true })),
+  history: dna.array(statusHistoryRowSchema),
 });
 
 export const getOpenActionsOutputSchema = dna.object({
@@ -191,7 +198,7 @@ export const getOpenActionsOutputSchema = dna.object({
 
 export const getHandoffOutputSchema = dna.object({
   date: dna.string(),
-  open_actions: dna.array(actionRowSchema),
+  open_actions: dna.array(actionRowSchema.pick({ id: true, title: true, priority: true, status: true })),
   pending_decisions: dna.array(dna.object({
     id: dna.string(),
     title: dna.string(),
