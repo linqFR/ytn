@@ -5,12 +5,14 @@
  * formatting logic. Edit these values to change what the agent sees.
  */
 
+import { APPEND_LOG_ENTRY_TOOL, GOV_MCP_SERVER, HANDOFF_LOG_TYPE } from "./handlers/constants.ts";
+
 export const messages = {
   readBeforeWriteReminder:
     "[REMINDER] Before writing to the mailbox, verify you have read recent entries (`get_updates`). Know your role and prohibitions.",
 
   registerReminder:
-    "[IDENTITY] You have no nanoid to benefit from automatic support and recalls. Call `register_me` on `gov-test-mcp` to register as a writer. You cannot read or write the mailbox without a nanoid.",
+    `[IDENTITY] You have no nanoid to benefit from automatic support and recalls. Call \`register_me\` on \`${GOV_MCP_SERVER}\` to register as a writer. You cannot read or write the mailbox without a nanoid.`,
 
   noUnreadMailbox: "[MAILBOX] No unread messages.",
   noOpenActions: "[ACTIONS] No open actions.",
@@ -20,7 +22,7 @@ export const messages = {
   actionsLabel: "[ACTIONS]",
   handoffLabel: "[HANDOFF]",
   handoffReminder:
-    "[HANDOFF] Before stopping, leave a handoff log entry via `append_log_entry` (MCP `gov-test-mcp`) with type=`handoff`. Include your current objective, progress, and blockers.",
+    `[HANDOFF] Before stopping, leave a handoff log entry via \`${APPEND_LOG_ENTRY_TOOL}\` (MCP \`${GOV_MCP_SERVER}\`) with type=\`${HANDOFF_LOG_TYPE}\`. Include your current objective, progress, and blockers.`,
   reminderLabel: "[REMINDER]",
   compactionLabel: "[POST-COMPACTION] Your context was compacted. Here is your identity:",
   castReminder: `[REMINDER] Prohibited TypeScript casting detected in your last edit.

@@ -7,9 +7,15 @@
  */
 
 import { messages } from "../messages.ts";
-
-/** Registration tool names on the gov-test-mcp server. */
-const REGISTRATION_TOOLS = new Set(["register_me", "register_writer"]);
+import {
+  APPEND_LOG_ENTRY_TOOL,
+  GOV_MCP_PREFIX,
+  GOV_MCP_SERVER,
+  HANDOFF_LOG_TYPE,
+  MCP_CALL_TOOL,
+  REGISTRATION_TOOLS,
+  WHOAMI_TOOL,
+} from "./constants.ts";
 
 /**
  * Push a registration reminder to the messages array if nanoid is missing.
@@ -58,40 +64,62 @@ export function handoffEntryCallChecker(
   if (subHandler) subHandler(outMessages);
 }
 
+/**
+ * If this tool call is a whoami call on gov-test-mcp, run the subHandler.
+ * No message if not a whoami call — silent pass-through.
+ */
+export function whoamiCallChecker(
+  outMessages: string[],
+  toolName: string,
+  toolInput: Record<string, unknown>,
+  subHandler: (out: string[]) => void,
+): void {
+  if (!isWhoamiCall(toolName, toolInput)) return;
+  subHandler(outMessages);
+}
+
+/**
+ * Resolve the gov-test-mcp tool name for a call, whatever the invocation
+ * form (`mcp__gov-test-mcp__<tool>` or generic `mcp_call_tool` dispatch).
+ * Returns null when the call does not target the governance server.
+ */
+function govMcpToolName(
+  toolName: string,
+  toolInput: Record<string, unknown>,
+): string | null {
+  if (toolName.startsWith(GOV_MCP_PREFIX)) {
+    return toolName.slice(GOV_MCP_PREFIX.length);
+  }
+  if (toolName === MCP_CALL_TOOL && toolInput.server_name === GOV_MCP_SERVER) {
+    const tool = toolInput.tool_name;
+    if (typeof tool === "string") return tool;
+  }
+  return null;
+}
+
 function isRegistrationCall(
   toolName: string,
   toolInput: Record<string, unknown>,
 ): boolean {
-  if (toolName.startsWith("mcp__gov-test-mcp__")) {
-    const fn = toolName.slice("mcp__gov-test-mcp__".length);
-    return REGISTRATION_TOOLS.has(fn);
-  }
-  if (toolName === "mcp_call_tool" && toolInput) {
-    const server = toolInput.server_name;
-    const tool = toolInput.tool_name;
-    if (server === "gov-test-mcp" && typeof tool === "string") {
-      return REGISTRATION_TOOLS.has(tool);
-    }
-  }
-  return false;
+  const tool = govMcpToolName(toolName, toolInput);
+  return tool !== null && REGISTRATION_TOOLS.has(tool);
+}
+
+/** True if this tool call is a `whoami` call on gov-test-mcp. */
+function isWhoamiCall(
+  toolName: string,
+  toolInput: Record<string, unknown>,
+): boolean {
+  return govMcpToolName(toolName, toolInput) === WHOAMI_TOOL;
 }
 
 function isHandoffEntryCall(
   toolName: string,
   toolInput: Record<string, unknown>,
 ): boolean {
-  if (toolName === "mcp__gov-test-mcp__append_log_entry" && toolInput) {
-    return toolInput.type === "handoff";
-  }
-  if (toolName === "mcp_call_tool" && toolInput) {
-    const server = toolInput.server_name;
-    const tool = toolInput.tool_name;
-    const args = toolInput.arguments;
-    if (server === "gov-test-mcp" && tool === "append_log_entry" && typeof args === "object" && args !== null && "type" in args) {
-      return args.type === "handoff";
-    }
-  }
-  return false;
+  if (govMcpToolName(toolName, toolInput) !== APPEND_LOG_ENTRY_TOOL) return false;
+  const args = toolName === MCP_CALL_TOOL ? toolInput.arguments : toolInput;
+  return typeof args === "object" && args !== null && "type" in args && args.type === HANDOFF_LOG_TYPE;
 }
 
 /**

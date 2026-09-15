@@ -77,6 +77,7 @@ export interface tsStateDb {
   upsertSession: (session_id: string, data: Partial<Omit<SessionStateRow, "session_id" | "created_at">>) => void;
   setNanoid: (session_id: string, nanoid: string, writer_id: string) => void;
   incrementStop: (session_id: string) => void;
+  resetStopCount: (session_id: string) => void;
   setHandoff: (session_id: string) => void;
   touchSession: (session_id: string) => void;
   setTitle: (session_id: string, title: string) => void;
@@ -155,14 +156,29 @@ export function stateMgr(): tsStateDb {
   );
 
   // UPSERT for incrementStop: INSERT (session_id, last_stop_at, stop_count, created_at, updated_at)
-  // ON CONFLICT(session_id) DO UPDATE SET last_stop_at=excluded.last_stop_at, stop_count=(session_state.stop_count + 1) % 50, updated_at=excluded.updated_at
+  // ON CONFLICT(session_id) DO UPDATE SET last_stop_at=excluded.last_stop_at, stop_count=session_state.stop_count + 1, updated_at=excluded.updated_at
+  // No modulo — stop_count resets to 0 only when identity is actually re-injected (resetStopCount).
   const stmtUpsertStop = db.prepare(
     t.req
       .insert(["session_id", "last_stop_at", "stop_count", "created_at", "updated_at"])
       .onConflict("session_id")
       .doUpdateRaw({
         last_stop_at: "excluded.last_stop_at",
-        stop_count: "(session_state.stop_count + 1) % 50",
+        stop_count: "session_state.stop_count + 1",
+        updated_at: "excluded.updated_at",
+      })
+      .toSQL(),
+  );
+
+  // UPSERT for resetStopCount: INSERT (session_id, last_stop_at, stop_count, created_at, updated_at)
+  // ON CONFLICT(session_id) DO UPDATE SET last_stop_at=excluded.last_stop_at, stop_count=0, updated_at=excluded.updated_at
+  const stmtResetStopCount = db.prepare(
+    t.req
+      .insert(["session_id", "last_stop_at", "stop_count", "created_at", "updated_at"])
+      .onConflict("session_id")
+      .doUpdateRaw({
+        last_stop_at: "excluded.last_stop_at",
+        stop_count: "0",
         updated_at: "excluded.updated_at",
       })
       .toSQL(),
@@ -254,6 +270,10 @@ export function stateMgr(): tsStateDb {
     incrementStop(session_id: string): void {
       const now = new Date().toISOString();
       stmtUpsertStop.run({ session_id, last_stop_at: now, stop_count: 1, created_at: now, updated_at: now });
+    },
+    resetStopCount(session_id: string): void {
+      const now = new Date().toISOString();
+      stmtResetStopCount.run({ session_id, last_stop_at: now, stop_count: 0, created_at: now, updated_at: now });
     },
     setHandoff(session_id: string): void {
       const now = new Date().toISOString();

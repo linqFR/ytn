@@ -2,15 +2,15 @@
  * handlers/post-tool-use.ts — PostToolUse handler.
  *
  * Two responsibilities:
- * 1. Capture the nanoid from register_me / register_writer tool responses
- *    and store it in session_state for later use by other handlers.
+ * 1. Capture the nanoid from register_me / register_writer / whoami tool
+ *    responses and store it in session_state for later use by other handlers.
  * 2. After edit/write tool calls, scan the written content for prohibited
  *    TypeScript casting patterns (`as any`, `as unknown as`) and inject a
  *    reminder that type casting and over-annotation must be avoided per
  *    the repository's TypeScript rules.
  */
 
-import { buildContext, registrationCallChecker, handoffEntryCallChecker } from "./shared.ts";
+import { buildContext, registrationCallChecker, whoamiCallChecker, handoffEntryCallChecker } from "./shared.ts";
 import { messages } from "../messages.ts";
 import { postToolUse as postToolUseOutput } from "../../core/responses.ts";
 import type { tsPostToolUseInput, tsPostToolUseOutput } from "../../core/schema.ts";
@@ -33,18 +33,20 @@ export async function postToolUse(
 
   const out: string[] = [];
 
-  // ── 1. Nanoid capture from registration tools ──
-  registrationCallChecker(out, toolName, data.tool_input, (out) => {
+  // ── 1. Nanoid capture from registration and whoami calls ──
+  const captureIdentity = (out: string[]) => {
     const response = data.tool_response;
     if (response?.success) {
-      const nanoid = extractNanoid(response);
+      const nanoid = extractNanoidFromInput(data.tool_input) ?? extractNanoid(response);
       if (nanoid) {
         const writerId = extractWriterId(response);
         ctx.state.setNanoid(data.session_id, nanoid, writerId ?? "");
         out.push(messages.nanoidCaptured(nanoid, data.session_id));
       }
     }
-  });
+  };
+  registrationCallChecker(out, toolName, data.tool_input, captureIdentity);
+  whoamiCallChecker(out, toolName, data.tool_input, captureIdentity);
 
   // ── 2. Prohibited patterns reminder after edit/write ──
   if (WRITE_TOOLS.has(toolName)) {
@@ -92,7 +94,13 @@ function extractMcpOutput(output: string): Record<string, unknown> | null {
 /** Extract nanoid from MCP tool response (sentinel-first, regex fallback). */
 function extractNanoid(response: { output: string }): string | null {
   const mcpOutput = extractMcpOutput(response.output);
-  if (mcpOutput && typeof mcpOutput.nanoid === "string") return mcpOutput.nanoid;
+  if (mcpOutput) {
+    if (typeof mcpOutput.nanoid === "string") return mcpOutput.nanoid;
+    const writer = mcpOutput.writer;
+    if (typeof writer === "object" && writer !== null && "nanoid" in writer && typeof writer.nanoid === "string") {
+      return writer.nanoid;
+    }
+  }
   const match = response.output.match(/Nanoid:\s*([A-Za-z0-9_-]+)/);
   return match ? match[1] : null;
 }
@@ -100,7 +108,23 @@ function extractNanoid(response: { output: string }): string | null {
 /** Extract writer id from MCP tool response (sentinel-first, regex fallback). */
 function extractWriterId(response: { output: string }): string | null {
   const mcpOutput = extractMcpOutput(response.output);
-  if (mcpOutput && typeof mcpOutput.id === "string") return mcpOutput.id;
+  if (mcpOutput) {
+    if (typeof mcpOutput.id === "string") return mcpOutput.id;
+    const writer = mcpOutput.writer;
+    if (typeof writer === "object" && writer !== null && "id" in writer && typeof writer.id === "string") {
+      return writer.id;
+    }
+  }
   const match = response.output.match(/(?:^|\n)id:\s*(\S+)/);
   return match ? match[1] : null;
+}
+
+/** Extract nanoid from tool_input (direct `nanoid` field or nested `arguments.nanoid`). */
+function extractNanoidFromInput(toolInput: Record<string, unknown>): string | null {
+  if (typeof toolInput.nanoid === "string") return toolInput.nanoid;
+  const args = toolInput.arguments;
+  if (typeof args === "object" && args !== null && "nanoid" in args && typeof args.nanoid === "string") {
+    return args.nanoid;
+  }
+  return null;
 }
