@@ -127,6 +127,26 @@ export function createDecision(
         return;
       }
       const scopes = data.scope ?? [writer.default_scope];
+      if (data.specRef && !ctx.queries.getSpecById.get({ id: data.specRef })) {
+        dnactx.issues.push({ message: `Linked spec ${data.specRef} not found` });
+        return;
+      }
+      if (data.supersedes) {
+        for (const supId of data.supersedes) {
+          if (!ctx.queries.getDecisionById.get({ id: supId })) {
+            dnactx.issues.push({ message: `Superseded decision ${supId} not found` });
+            return;
+          }
+        }
+      }
+      if (data.supersedesPartial) {
+        for (const supId of data.supersedesPartial) {
+          if (!ctx.queries.getDecisionById.get({ id: supId })) {
+            dnactx.issues.push({ message: `Partially superseded decision ${supId} not found` });
+            return;
+          }
+        }
+      }
       const seqRow = ctx.queries.nextDecisionSeq.get();
       if (!seqRow) {
         dnactx.issues.push({ message: `Failed to generate sequence number` });
@@ -273,6 +293,18 @@ export function createAction(
         return;
       }
       const scopes = data.scope ?? [writer.default_scope];
+      if (data.specRef && !ctx.queries.getSpecById.get({ id: data.specRef })) {
+        dnactx.issues.push({ message: `Linked spec ${data.specRef} not found` });
+        return;
+      }
+      if (data.dependencies) {
+        for (const depId of data.dependencies) {
+          if (!ctx.queries.getActionById.get({ id: depId })) {
+            dnactx.issues.push({ message: `Dependency action ${depId} not found` });
+            return;
+          }
+        }
+      }
       const seqRow = ctx.queries.nextActionSeq.get();
       if (!seqRow) {
         dnactx.issues.push({ message: `Failed to generate sequence number` });
@@ -502,6 +534,10 @@ export function updateIdeaStatus(
         dnactx.issues.push({ message: `Idea ${data.id} not found` });
         return;
       }
+      if (data.promotedTo && !ctx.queries.getDecisionById.get({ id: data.promotedTo })) {
+        dnactx.issues.push({ message: `Promoted-to decision ${data.promotedTo} not found` });
+        return;
+      }
       return { ...data, writer, current };
     }, { ctx })
     .safeParse(input, { ctx });
@@ -553,6 +589,14 @@ export function createProblem(
         return;
       }
       const scopes = data.scope ?? [writer.default_scope];
+      if (data.linkedSpec && !ctx.queries.getSpecById.get({ id: data.linkedSpec })) {
+        dnactx.issues.push({ message: `Linked spec ${data.linkedSpec} not found` });
+        return;
+      }
+      if (data.linkedAct && !ctx.queries.getActionById.get({ id: data.linkedAct })) {
+        dnactx.issues.push({ message: `Linked action ${data.linkedAct} not found` });
+        return;
+      }
       const seqRow = ctx.queries.nextProblemSeq.get();
       if (!seqRow) {
         dnactx.issues.push({ message: `Failed to generate sequence number` });
@@ -827,6 +871,10 @@ export function createSpec(
         return;
       }
       const scopes = data.scope ?? [writer.default_scope];
+      if (data.supersedes && !ctx.queries.getSpecById.get({ id: data.supersedes })) {
+        dnactx.issues.push({ message: `Superseded spec ${data.supersedes} not found` });
+        return;
+      }
       return { ...data, writer, scopes };
     }, { ctx })
     .safeParse(input, { ctx });
