@@ -29,6 +29,7 @@ export function handlerLog(result: HookResult, hookCtx: HookContext): void {
   const input = result.input as tsHookLogInput;
 
   hookCtx.state.touchSession(session_id);
+  hookCtx.state.incrementSeen(session_id);
 
   // Extract additionalContext from hookSpecificOutput if present
   const output = result.output;

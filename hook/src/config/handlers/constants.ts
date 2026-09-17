@@ -1,4 +1,4 @@
-/** Re-inject identity every N stops to combat context window scrolling. */
+/** Re-inject identity every N hook events to combat context window scrolling. */
 export const IDENTITY_REFRESH_INTERVAL = 50;
 
 /** Governance MCP server name used in tool routing and messages. */

@@ -3,7 +3,7 @@
  *
  * Blocks the stop if no handoff log entry has been written this session.
  * Once the agent writes a handoff (tracked via last_handoff_at), the
- * stop is allowed. Increments the stop counter in local state.
+ * stop is allowed.
  */
 
 import { messages } from "../messages.ts";
@@ -19,8 +19,6 @@ export async function stop(
   const session = ctx.state.getSession(data.session_id);
   const nanoid = session?.nanoid;
   const out: string[] = [];
-
-  ctx.state.incrementStop(data.session_id);
 
   let blocked = false;
   await nanoidChecker(out, nanoid, async () => {

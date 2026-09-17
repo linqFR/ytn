@@ -4,7 +4,7 @@
  * Fetches unread mailbox entries for the session's writer and injects
  * a summary into the agent context before each user prompt.
  * If no nanoid is stored, injects a registration reminder (rule 2).
- * Every IDENTITY_REFRESH_INTERVAL stops, re-injects identity + nanoid
+ * Every IDENTITY_REFRESH_INTERVAL events, re-injects identity + nanoid
  * to combat context window scrolling. get_updates manages its own cursor.
  */
 

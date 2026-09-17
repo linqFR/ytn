@@ -6,66 +6,44 @@
  * Uses @ytrynot/qb for DDL + DML generation.
  */
 
-import { QueryBuilder as qb, type qbTable } from "@ytrynot/qb";
+import { dna } from "@ytrynot/dna";
+import { QueryBuilder as qb } from "@ytrynot/qb";
 import Database from "better-sqlite3";
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 
-// ── Hook-local types ──
+// ── Row schemas — single source of truth (columns AND row types) ──
 
-export interface SessionStateRow {
-  session_id: string;
-  nanoid: string | null;
-  writer_id: string | null;
-  last_stop_at: string | null;
-  last_handoff_at: string | null;
-  stop_count: number;
-  created_at: string;
-  updated_at: string | null;
-  last_seen_at: string | null;
-  title: string | null;
-}
+const sessionStateSchema = dna.object({
+  session_id: dna.string().meta({ pk: true }),
+  nanoid: dna.string().nullable(),
+  writer_id: dna.string().nullable(),
+  last_stop_at: dna.string().nullable(),
+  last_handoff_at: dna.string().nullable(),
+  stop_count: dna.int32().default(0),
+  created_at: dna.string(),
+  updated_at: dna.string().nullable(),
+  last_seen_at: dna.string().nullable(),
+  title: dna.string().nullable(),
+});
 
-export interface HookLogRow {
-  id: number;
-  ts: string;
-  event: string;
-  session_id: string | null;
-  tool_name: string | null;
-  input: string | null;
-  output: string | null;
-  meta: string | null;
-}
+const hookLogSchema = dna.object({
+  id: dna.int32().meta({ pkauto: true }),
+  ts: dna.string(),
+  event: dna.string(),
+  session_id: dna.string().nullable(),
+  tool_name: dna.string().nullable(),
+  input: dna.string().nullable(),
+  output: dna.string().nullable(),
+  meta: dna.string().nullable(),
+});
 
-// ── Table definitions via qb ──
+export type SessionStateRow = dna.infer<typeof sessionStateSchema>;
+export type HookLogRow = dna.infer<typeof hookLogSchema>;
 
-const sessionStateColumns: qbTable = [
-  { name: "session_id", sqliteType: "TEXT", pk: true },
-  { name: "nanoid", sqliteType: "TEXT", optional: true },
-  { name: "writer_id", sqliteType: "TEXT", optional: true },
-  { name: "last_stop_at", sqliteType: "TEXT", optional: true },
-  { name: "last_handoff_at", sqliteType: "TEXT", optional: true },
-  { name: "stop_count", sqliteType: "INTEGER", hasDefault: true, defaultValue: "0" },
-  { name: "created_at", sqliteType: "TEXT" },
-  { name: "updated_at", sqliteType: "TEXT", optional: true },
-  { name: "last_seen_at", sqliteType: "TEXT", optional: true },
-  { name: "title", sqliteType: "TEXT", optional: true },
-];
-
-const hookLogColumns: qbTable = [
-  { name: "id", sqliteType: "INTEGER", pkauto: true },
-  { name: "ts", sqliteType: "TEXT" },
-  { name: "event", sqliteType: "TEXT" },
-  { name: "session_id", sqliteType: "TEXT", optional: true },
-  { name: "tool_name", sqliteType: "TEXT", optional: true },
-  { name: "input", sqliteType: "TEXT", optional: true },
-  { name: "output", sqliteType: "TEXT", optional: true },
-  { name: "meta", sqliteType: "TEXT", optional: true },
-];
-
-const t = qb.defTable("session_state", sessionStateColumns);
-const tLog = qb.defTable("hook_log", hookLogColumns);
+const t = qb.defTable("session_state", sessionStateSchema);
+const tLog = qb.defTable("hook_log", hookLogSchema);
 
 /** Max log entries to keep (rotation). Older entries are pruned on insert. */
 const LOG_MAX_ENTRIES = 1000;
@@ -76,7 +54,7 @@ export interface tsStateDb {
   getSession: (session_id: string) => SessionStateRow | undefined;
   upsertSession: (session_id: string, data: Partial<Omit<SessionStateRow, "session_id" | "created_at">>) => void;
   setNanoid: (session_id: string, nanoid: string, writer_id: string) => void;
-  incrementStop: (session_id: string) => void;
+  incrementSeen: (session_id: string) => void;
   resetStopCount: (session_id: string) => void;
   setHandoff: (session_id: string) => void;
   touchSession: (session_id: string) => void;
@@ -155,7 +133,7 @@ export function stateMgr(): tsStateDb {
       .toSQL(),
   );
 
-  // UPSERT for incrementStop: INSERT (session_id, last_stop_at, stop_count, created_at, updated_at)
+  // UPSERT for incrementSeen: INSERT (session_id, last_stop_at, stop_count, created_at, updated_at)
   // ON CONFLICT(session_id) DO UPDATE SET last_stop_at=excluded.last_stop_at, stop_count=session_state.stop_count + 1, updated_at=excluded.updated_at
   // No modulo — stop_count resets to 0 only when identity is actually re-injected (resetStopCount).
   const stmtUpsertStop = db.prepare(
@@ -267,7 +245,7 @@ export function stateMgr(): tsStateDb {
       const now = new Date().toISOString();
       stmtUpsertNanoid.run({ session_id, nanoid, writer_id, created_at: now, updated_at: now });
     },
-    incrementStop(session_id: string): void {
+    incrementSeen(session_id: string): void {
       const now = new Date().toISOString();
       stmtUpsertStop.run({ session_id, last_stop_at: now, stop_count: 1, created_at: now, updated_at: now });
     },
