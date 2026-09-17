@@ -10,6 +10,7 @@ import { resolveScopeFilter, currentTimestamp } from "../helpers.js";
 import { tables } from "../definitions/schema.js";
 import { TESTED_STATUS, DECISION_STATUS, IDEA_STATUS, CATEGORY } from "../../shared/enums.js";
 import * as S from "../../shared/schemas/tool-inputs.js";
+import * as O from "../../shared/schemas/tool-outputs.js";
 import { helpInput } from "../definitions/tools.js";
 import type { IToolCtx, OToolResult } from "../types/types.ts";
 import * as fs from "node:fs";
@@ -151,7 +152,7 @@ export function getIdea(
   const row = ctx.queries.getIdeaById.get({ id: input.id });
   if (!row) return err(`Idea ${input.id} not found`);
   const promotedTo = row.promoted_to
-    ? ctx.queries.getDecisionById.get({ id: row.promoted_to as string })
+    ? (ctx.queries.getDecisionById.get({ id: row.promoted_to as string }) ?? null)
     : null;
   const scopes = ctx.queries.getEntityScopes.all({ entity_type: "idea", entity_id: input.id });
   return ok(`Idea ${input.id}`, { idea: row, promotedTo, scopes });
@@ -269,12 +270,46 @@ export function getScope(
   const row = ctx.queries.getScopeById.get({ id: input.id });
   if (!row) return err(`Scope ${input.id} not found`);
   const counts = {
-    decisions: ctx.queries.countDecisionsByScope.get({ scope: input.id }),
-    actions: ctx.queries.countActionsByScope.get({ scope: input.id }),
-    ideas: ctx.queries.countIdeasByScope.get({ scope: input.id }),
-    problems: ctx.queries.countProblemsByScope.get({ scope: input.id }),
+    decisions: ctx.queries.countDecisionsByScope.get({ scope: input.id })?.count ?? 0,
+    actions: ctx.queries.countActionsByScope.get({ scope: input.id })?.count ?? 0,
+    ideas: ctx.queries.countIdeasByScope.get({ scope: input.id })?.count ?? 0,
+    problems: ctx.queries.countProblemsByScope.get({ scope: input.id })?.count ?? 0,
   };
   return ok(`Scope ${input.id}`, { scope: row, counts });
+}
+export function _getScope(
+  ctx: IToolCtx,
+  input: dna.infer<typeof S.getScopeInput>,
+): OToolResult {
+  const res = S.getScopeInput
+    .transform((data, dnactx) => {
+      if (dnactx.issues.length > 0) return;
+      const row = ctx.queries.getScopeById.get({ id: data.id });
+      if (!row) {
+        dnactx.issues.push({ message: `Scope ${data.id} not found`, abort: true });
+        return;
+      }
+      const counts = {
+        decisions: ctx.queries.countDecisionsByScope.get({ scope: data.id })?.count ?? 0,
+        actions: ctx.queries.countActionsByScope.get({ scope: data.id })?.count ?? 0,
+        ideas: ctx.queries.countIdeasByScope.get({ scope: data.id })?.count ?? 0,
+        problems: ctx.queries.countProblemsByScope.get({ scope: data.id })?.count ?? 0,
+      };
+      return { scope: row, counts }
+    }, { ctx })
+    .pipe(
+      O.getScopeOutputSchema
+        .transform((data, dnaCtx) => {
+          if (dnaCtx.issues.length > 0) throw new Error("ScopeOuput is wrong", { cause: dnaCtx.issues });
+          return data
+        })
+    )
+    .safeParse(input, { ctx });
+
+  if (!res.success) {
+    return err(formatErrors(res.errors));
+  }
+  return ok(`Scope ${input.id}`, res.data);
 }
 
 // ─── Log entry tools ─────────────────────────────────────────────────────────
@@ -477,7 +512,7 @@ export function getActionLineage(
   const act = ctx.queries.getActionById.get({ id: input.id });
   if (!act) return err(`Action ${input.id} not found`);
   const sourceDec = act.source
-    ? ctx.queries.getDecisionById.get({ id: act.source as string })
+    ? (ctx.queries.getDecisionById.get({ id: act.source as string }) ?? null)
     : null;
   const deps = ctx.queries.getActionDependencies.all({ action_id: input.id });
   const pbLinks = ctx.queries.getProblemActionsByAction.all({ action_id: input.id });
@@ -792,7 +827,7 @@ export function help(
     if (tools.length === 0) continue;
     lines.push(`## ${cat.name}`, "");
     for (const [name] of tools) {
-      lines.push("- "+ buildHelp(name, "`{{name}}`: {{desc}} - `{{sig}}`."));
+      lines.push("- " + buildHelp(name, "`{{name}}`: {{desc}} - `{{sig}}`."));
     }
     lines.push("");
   }

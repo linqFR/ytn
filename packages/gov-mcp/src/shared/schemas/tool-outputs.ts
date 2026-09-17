@@ -33,13 +33,13 @@ export const whoamiOutputSchema = dna.object({
 });
 
 export const listWritersOutputSchema = dna.object({
-  writers: dna.array(writerRowSchema.omit({ nanoid: true })),
+  writers: dna.array(writerRowSchema.omit({ nanoid: true, last_read_at: true })),
 });
 
 // ── Read: decisions ──
 
 export const listDecisionsOutputSchema = dna.object({
-  decisions: dna.array(decisionRowSchema),
+  decisions: dna.array(decisionRowSchema.pick({ id: true, seq: true, title: true, status: true, date: true, decider: true })),
   count: dna.number(),
 });
 
@@ -53,14 +53,15 @@ export const getDecisionOutputSchema = dna.object({
 // ── Read: actions ──
 
 export const listActionsOutputSchema = dna.object({
-  actions: dna.array(actionRowSchema),
+  actions: dna.array(actionRowSchema.pick({ id: true, seq: true, title: true, status: true, owner: true, priority: true })),
   count: dna.number(),
 });
 
 export const getActionOutputSchema = dna.object({
   action: actionRowSchema,
   dependencies: dna.array(actionDependencyRowSchema),
-  workstreams: dna.array(actionWorkstreamRowSchema),
+  problemLinks: dna.array(problemActionRowSchema.pick({ problem_id: true, role: true })),
+  workstreamLinks: dna.array(actionWorkstreamRowSchema),
   history: dna.array(statusHistoryRowSchema),
   scopes: dna.array(entityScopeRowSchema).optional(),
 });
@@ -68,20 +69,20 @@ export const getActionOutputSchema = dna.object({
 // ── Read: ideas ──
 
 export const listIdeasOutputSchema = dna.object({
-  ideas: dna.array(ideaRowSchema),
+  ideas: dna.array(ideaRowSchema.pick({ id: true, seq: true, title: true, status: true, package: true, priority: true })),
   count: dna.number(),
 });
 
 export const getIdeaOutputSchema = dna.object({
   idea: ideaRowSchema,
-  promotedTo: decisionRowSchema.optional(),
+  promotedTo: decisionRowSchema.nullable(),
   scopes: dna.array(entityScopeRowSchema).optional(),
 });
 
 // ── Read: problems ──
 
 export const listProblemsOutputSchema = dna.object({
-  problems: dna.array(problemRowSchema),
+  problems: dna.array(problemRowSchema.pick({ id: true, seq: true, title: true, status: true, severity: true, type: true })),
   count: dna.number(),
 });
 
@@ -95,7 +96,7 @@ export const getProblemOutputSchema = dna.object({
 // ── Read: specs ──
 
 export const listSpecsOutputSchema = dna.object({
-  specs: dna.array(specRowSchema),
+  specs: dna.array(specRowSchema.pick({ id: true, filename: true, package: true, version: true, status: true })),
   count: dna.number(),
 });
 
@@ -147,19 +148,23 @@ export const getUpdatesOutputSchema = dna.object({
 export const listDocsOutputSchema = dna.object({
   docs: dna.array(dna.object({
     filename: dna.string(),
-    description: dna.string(),
+    size: dna.number(),
+    title: dna.string().nullable(),
   })),
   count: dna.number(),
 });
 
 export const getDocOutputSchema = dna.object({
+  filename: dna.string(),
   content: dna.string(),
+  size: dna.number(),
 });
 
 // ── Read: free fields ──
 
 export const getFreeFieldsOutputSchema = dna.object({
-  fields: dna.array(freeFieldRowSchema),
+  freeFields: dna.array(freeFieldRowSchema),
+  count: dna.number(),
 });
 
 // ── Search ──
@@ -233,14 +238,19 @@ export const getHandoffOutputSchema = dna.object({
   architectural_items: dna.array(dna.object({
     id: dna.number(),
     type: dna.string(),
-    subject: dna.string(),
+    subject: dna.string().nullable(),
   })),
 });
 
 // ── Audit ──
 
 export const auditConsistencyOutputSchema = dna.object({
-  issues: dna.array(dna.any()),
+  findings: dna.array(dna.any()),
+  summary: dna.object({
+    errors: dna.number(),
+    warnings: dna.number(),
+    info: dna.number(),
+  }),
 });
 
 // ── Help ──
@@ -408,6 +418,7 @@ export const generateDailyReportOutputSchema = dna.object({
     problems: dna.number(),
     ideas: dna.number(),
     specs: dna.number(),
+    logEntries: dna.number(),
   }),
 });
 

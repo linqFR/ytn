@@ -48,6 +48,13 @@ function structured<T = Record<string, unknown>>(result: { structuredContent?: u
   return result.structuredContent as T;
 }
 
+/** Invoke a typed tool handler with transport-level args (mirrors server.ts). */
+function callHandler<A, R>(ctx: IToolCtx, handler: (ctx: IToolCtx, input: A) => R, args: Record<string, unknown>): R {
+  // CAST: args arrive untyped from the MCP transport; every handler re-validates
+  // them via its schema's .safeParse() — same boundary cast as server.ts.
+  return handler(ctx, args as A);
+}
+
 // ─── Test fixture: full MCP server with all tools ────────────────────────────
 
 describe("MCP protocol: full server with all tools", () => {
@@ -72,154 +79,154 @@ describe("MCP protocol: full server with all tools", () => {
     // Read: entities
     server.registerTool("list_decisions",
       { description: "List decisions", inputSchema: S.listDecisionsInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.listDecisions(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.listDecisions, args)));
     server.registerTool("get_decision",
       { description: "Get a decision", inputSchema: S.getDecisionInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getDecision(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getDecision, args)));
     server.registerTool("list_actions",
       { description: "List actions", inputSchema: S.listActionsInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.listActions(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.listActions, args)));
     server.registerTool("get_action",
       { description: "Get an action", inputSchema: S.getActionInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getAction(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getAction, args)));
     server.registerTool("list_ideas",
       { description: "List ideas", inputSchema: S.listIdeasInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.listIdeas(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.listIdeas, args)));
     server.registerTool("get_idea",
       { description: "Get an idea", inputSchema: S.getIdeaInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getIdea(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getIdea, args)));
     server.registerTool("list_problems",
       { description: "List problems", inputSchema: S.listProblemsInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.listProblems(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.listProblems, args)));
     server.registerTool("get_problem",
       { description: "Get a problem", inputSchema: S.getProblemInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getProblem(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getProblem, args)));
     server.registerTool("list_specs",
       { description: "List specs", inputSchema: S.listSpecsInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.listSpecs(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.listSpecs, args)));
     server.registerTool("get_spec",
       { description: "Get a spec", inputSchema: S.getSpecInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getSpec(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getSpec, args)));
     server.registerTool("list_scopes",
       { description: "List scopes", inputSchema: S.listScopesInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.listScopes(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.listScopes, args)));
     server.registerTool("get_scope",
       { description: "Get a scope", inputSchema: S.getScopeInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getScope(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getScope, args)));
 
     // Read: log entries
     server.registerTool("list_log_entries",
       { description: "List log entries", inputSchema: S.listLogEntriesInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.listLogEntries(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.listLogEntries, args)));
     server.registerTool("get_last_log_entry",
       { description: "Get last log entry", inputSchema: S.getLastLogEntryInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getLastLogEntry(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getLastLogEntry, args)));
     server.registerTool("get_thread",
       { description: "Get thread", inputSchema: S.getThreadInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getThread(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getThread, args)));
     server.registerTool("get_updates",
       { description: "Get updates", inputSchema: S.getUpdatesInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getUpdates(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getUpdates, args)));
     server.registerTool("whoami",
       { description: "Whoami", inputSchema: S.whoamiInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.whoami(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.whoami, args)));
     server.registerTool("search_mailbox",
       { description: "Search", inputSchema: S.searchMailboxInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.searchMailbox(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.searchMailbox, args)));
 
     // Read: transverse
     server.registerTool("mailbox_last_24h",
       { description: "Mailbox last 24h", inputSchema: S.mailboxLast24hInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.mailboxLast24h(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.mailboxLast24h, args)));
     server.registerTool("get_decision_history",
       { description: "Decision history", inputSchema: S.getDecisionHistoryInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getDecisionHistory(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getDecisionHistory, args)));
     server.registerTool("get_action_lineage",
       { description: "Action lineage", inputSchema: S.getActionLineageInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getActionLineage(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getActionLineage, args)));
     server.registerTool("get_open_actions",
       { description: "Open actions", inputSchema: S.getOpenActionsInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.getOpenActions(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.getOpenActions, args)));
     server.registerTool("get_handoff",
       { description: "Handoff snapshot", inputSchema: undefined },
       async () => toCallToolResult(read.getHandoff(ctx)));
     server.registerTool("audit_consistency",
       { description: "Audit consistency", inputSchema: S.auditConsistencyInput },
-      async (args: Record<string, unknown>) => toCallToolResult(read.auditConsistency(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, read.auditConsistency, args)));
 
     // Write: writer
     server.registerTool("register_writer",
       { description: "Register a writer", inputSchema: S.registerWriterInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.registerWriter(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.registerWriter, args)));
 
     // Write: decisions
     server.registerTool("create_decision",
       { description: "Create a decision", inputSchema: S.createDecisionInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.createDecision(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.createDecision, args)));
     server.registerTool("update_decision_status",
       { description: "Update decision status", inputSchema: S.updateDecisionStatusInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.updateDecisionStatus(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.updateDecisionStatus, args)));
 
     // Write: actions
     server.registerTool("create_action",
       { description: "Create an action", inputSchema: S.createActionInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.createAction(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.createAction, args)));
     server.registerTool("update_action_status",
       { description: "Update action status", inputSchema: S.updateActionStatusInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.updateActionStatus(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.updateActionStatus, args)));
 
     // Write: ideas
     server.registerTool("create_idea",
       { description: "Create an idea", inputSchema: S.createIdeaInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.createIdea(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.createIdea, args)));
     server.registerTool("update_idea_status",
       { description: "Update idea status", inputSchema: S.updateIdeaStatusInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.updateIdeaStatus(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.updateIdeaStatus, args)));
 
     // Write: problems
     server.registerTool("create_problem",
       { description: "Create a problem", inputSchema: S.createProblemInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.createProblem(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.createProblem, args)));
     server.registerTool("update_problem_status",
       { description: "Update problem status", inputSchema: S.updateProblemStatusInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.updateProblemStatus(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.updateProblemStatus, args)));
 
     // Write: links
     server.registerTool("link_problem_action",
       { description: "Link problem to action", inputSchema: S.linkProblemActionInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.linkProblemAction(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.linkProblemAction, args)));
     server.registerTool("link_action_workstream",
       { description: "Link action to workstream", inputSchema: S.linkActionWorkstreamInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.linkActionWorkstream(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.linkActionWorkstream, args)));
 
     // Write: specs
     server.registerTool("create_spec",
       { description: "Create a spec", inputSchema: S.createSpecInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.createSpec(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.createSpec, args)));
     server.registerTool("update_spec_status",
       { description: "Update spec status", inputSchema: S.updateSpecStatusInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.updateSpecStatus(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.updateSpecStatus, args)));
 
     // Write: scopes
     server.registerTool("create_scope",
       { description: "Create a scope", inputSchema: S.createScopeInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.createScope(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.createScope, args)));
     server.registerTool("update_scope",
       { description: "Update a scope", inputSchema: S.updateScopeInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.updateScope(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.updateScope, args)));
 
     // Write: log entries
     server.registerTool("append_log_entry",
       { description: "Append a log entry", inputSchema: S.appendLogEntryInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.appendLogEntry(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.appendLogEntry, args)));
     server.registerTool("edit_field",
       { description: "Edit a field", inputSchema: S.correctInput },
-      async (args: Record<string, unknown>) => toCallToolResult(write.correct(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, write.correct, args)));
 
     // Reports
     server.registerTool("generate_daily_report",
       { description: "Generate daily report", inputSchema: S.generateDailyReportInput },
-      async (args: Record<string, unknown>) => toCallToolResult(reports.generateDailyReport(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, reports.generateDailyReport, args)));
     server.registerTool("generate_decisions_report",
       { description: "Generate decisions report", inputSchema: undefined },
       async () => toCallToolResult(reports.generateDecisionsReport(ctx)));
@@ -234,7 +241,7 @@ describe("MCP protocol: full server with all tools", () => {
       async () => toCallToolResult(reports.generateProblemsReport(ctx)));
     server.registerTool("generate_decision_history_report",
       { description: "Generate decision history report", inputSchema: S.generateDecisionHistoryReportInput },
-      async (args: Record<string, unknown>) => toCallToolResult(reports.generateDecisionHistoryReport(ctx, args)));
+      async (args: Record<string, unknown>) => toCallToolResult(callHandler(ctx, reports.generateDecisionHistoryReport, args)));
     server.registerTool("export_dump",
       { description: "Export dump", inputSchema: undefined },
       async () => toCallToolResult(reports.exportDump(ctx)));
@@ -1058,11 +1065,11 @@ describe("MCP protocol: full server with all tools", () => {
       arguments: { id: "ytn" },
     });
     expect(result.isError).toBeFalsy();
-    const data = structured<{ scope: { id: string; label: string }; counts: { decisions: { count: number }; actions: { count: number } } }>(result);
+    const data = structured<{ scope: { id: string; label: string }; counts: { decisions: number; actions: number } }>(result);
     expect(data.scope.id).toBe("ytn");
     expect(data.counts).toBeDefined();
-    expect(data.counts.decisions.count).toBeGreaterThanOrEqual(1);
-    expect(data.counts.actions.count).toBeGreaterThanOrEqual(1);
+    expect(data.counts.decisions).toBeGreaterThanOrEqual(1);
+    expect(data.counts.actions).toBeGreaterThanOrEqual(1);
   });
 
   // ─── forcedNumId option on create_* tools ──────────────────────────────────
