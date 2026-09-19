@@ -69,7 +69,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.2",
     "@ytrynot/dna": "*",
     "@ytrynot/shared": "*",
     "better-sqlite3": "^13.0.3",
