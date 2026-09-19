@@ -43,6 +43,7 @@ export async function postCompaction(
     const writer = whoamiResult?.writer;
     if (writer) {
       out.push(`${messages.compactionLabel} ${formatIdentity(writer)}`);
+      out.push(`[SESSION] nanoid: \`${nanoid}\``);
     }
 
     // 2. Scoped handoff briefing via individual list calls
