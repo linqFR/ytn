@@ -1,0 +1,72 @@
+{
+  "name": "@ytrynot/osem-rag",
+  "version": "0.1.0",
+  "description": "Oscillo Ergo Memini — deterministic memory-field RAG engine: multi-surface seeding, wave propagation, synaptic fatigue, spaced forgetting (STP/LTP) and honest-silence retrieval, all in pure SQLite",
+  "author": "linqFR",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/linqFR/ytn.git",
+    "directory": "packages/osem-rag"
+  },
+  "keywords": [
+    "sqlite",
+    "model2vec",
+    "sqlite-vec",
+    "memory",
+    "rag",
+    "spreading-activation",
+    "knowledge-graph",
+    "retrieval",
+    "agents",
+    "embedding"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "setup": "tsx scripts/install-model2vec.ts",
+    "demo": "tsx scripts/demo.ts",
+    "bench": "tsx scripts/bench.ts",
+    "test": "vitest run"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "better-sqlite3": "^13.0.3",
+    "sqlite-vec": "^0.1.9"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": {
+      "optional": false
+    },
+    "sqlite-vec": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "better-sqlite3": "^13.0.3",
+    "sqlite-vec": "^0.1.9"
+  }
+}
