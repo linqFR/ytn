@@ -20,13 +20,11 @@
     "tag": "changeset git-tag"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.1",
-    "@types/node": "^26.4.1",
-    "acorn": "^8.18.0",
-    "acorn-walk": "^8.3.5",
+    "@changesets/cli": "^3.0.3",
+    "@types/node": "^26.6.1",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.0",
+    "vitest": "^5.0.1",
     "zod": "^4.6.5"
   }
 }

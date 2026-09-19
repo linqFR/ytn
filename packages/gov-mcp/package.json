@@ -74,8 +74,8 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "^2.0.0",
     "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@ytrynot/dna": "^0.11.0",
     "@ytrynot/qb": "^1.2.0",
     "better-sqlite3": "^13.0.3",
@@ -83,7 +83,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.6.1",
     "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
     "tsx": "^4.23.13"
