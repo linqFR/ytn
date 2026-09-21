@@ -40,6 +40,7 @@
     "setup": "tsx scripts/install-model2vec.ts",
     "demo": "tsx scripts/demo.ts",
     "bench": "tsx scripts/bench.ts",
+    "lme": "tsx scripts/longmemeval.ts",
     "test": "vitest run"
   },
   "main": "./dist/index.js",

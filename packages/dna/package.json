@@ -86,7 +86,7 @@
     "@types/node": "^26.6.2",
     "@ytrynot/shared": "*",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "zod": "^4.6.5"
   },
   "dependencies": {
