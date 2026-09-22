@@ -31,8 +31,7 @@ ytrynot's SafeMode supports two interchangeable representations for results. Res
 
 ### 1. Tuple Style (Default / Array-like)
 
-Optimized for fast destructuring and linear flow.
-`type SafeResult<T> = [error: unknown, result: T | undefined]`
+Optimized for fast destructuring and linear flow. `type SafeResult<T> = [error: unknown, result: T | undefined]`
 
 ```typescript
 import { safeParse } from "@ytrynot/shared/js/json.js";

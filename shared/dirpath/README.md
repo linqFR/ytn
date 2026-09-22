@@ -16,8 +16,7 @@ Normalized path handling and deterministic, failure-transparent I/O operations. 
 
 In the **ytrynot** monorepo, we enforce **Forward Slashes (/)** for all paths in code and configuration. Node.js handles this correctly even on Windows.
 
-> [!CAUTION]
-> Always use `pathops` to normalize paths before persisting them or using them for comparisons.
+> [!CAUTION] Always use `pathops` to normalize paths before persisting them or using them for comparisons.
 
 ```typescript
 import * as pathops from "@ytrynot/shared/dirpath/path-ops.js";
