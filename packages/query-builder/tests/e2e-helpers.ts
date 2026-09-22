@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import Database from 'better-sqlite3';
 import { z } from 'zod';
 import { dna } from '@ytrynot/dna';
-import type { DnaType } from '@ytrynot/dna';
+import type { DnaType } from '@ytrynot/dna/core';
 import { QueryBuilder } from '../src/index.js';
 import type { qbColumn, TableDef } from '../src/types.js';
 

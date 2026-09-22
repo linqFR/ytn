@@ -3,7 +3,7 @@ import type {
   DnaObject,
   DnaSomeType,
   DnaType,
-} from "@ytrynot/dna";
+} from "@ytrynot/dna/core";
 import type {
   qbColumn,
   ISchemaIntrospector,

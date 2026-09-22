@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dna } from "@ytrynot/dna"
+import type { DnaType } from "@ytrynot/dna/core";
 import { Builder, OnConflictBuilder } from "./builder.js";
 import { DDLEngine, validateIdentifier } from "./ddl.js";
 import { DnaIntrospector } from "./dna/introspector.js";
@@ -198,7 +198,7 @@ export class QueryBuilder {
    * @function reqCreateTable
    * @description Shortcut for `defTable(name, def, options).createTable` — returns only the DDL string.
    * @param {string} tableName - Target table name.
-   * @param {z.ZodTypeAny | dna.DnaType | qbColumn[]} def - Schema definition (Zod, DNA, or manual columns).
+   * @param {z.ZodTypeAny | DnaType | qbColumn[]} def - Schema definition (Zod, DNA, or manual columns).
    * @param {qbTableOptions} [options={}] - Manual overrides for DDL.
    * @returns {string} Compiled SQL DDL.
    * @throws {TypeError} If `def` is not a Zod schema, DNA schema, or `qbColumn[]`.
@@ -206,7 +206,7 @@ export class QueryBuilder {
    */
   public static reqCreateTable(
     tableName: string,
-    def: z.ZodType | dna.DnaType | qbColumn[],
+    def: z.ZodType | DnaType | qbColumn[],
     options: qbTableOptions = {},
   ): string {
     return QueryBuilder.defTable(tableName, def, options).createTable;
@@ -255,7 +255,7 @@ export class QueryBuilder {
    */
   public static defTable(
     tableName: string,
-    def: z.ZodType | dna.DnaType | qbColumn[],
+    def: z.ZodType | DnaType | qbColumn[],
     options: qbTableOptions = {},
   ): TableDef {
     let columns: qbColumn[];
