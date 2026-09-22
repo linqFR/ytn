@@ -23,7 +23,7 @@ import {
   type ServeStdioOptions,
   type StdioServerHandle,
 } from "@modelcontextprotocol/server/stdio";
-import { writeFileSync } from "node:fs";
+import { chmodSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -195,8 +195,9 @@ export async function startStdioServer<Ctx>(
  * `dir` defaults to the OS temp dir (`tmpdir()`); pass another directory when
  * the temp dir is not the agreed rendezvous.
  *
- * The file is written world-readable (default umask) — never put secrets,
- * tokens, or credentials in `fields`.
+ * The file is written owner-only (mode 0600) so it stays readable by
+ * same-user sibling processes without being world-readable — still, never
+ * put secrets, tokens, or credentials in `fields`.
  */
 export function publishDiscoveryFile(
   fileName: string,
@@ -204,6 +205,12 @@ export function publishDiscoveryFile(
   dir?: string,
 ): string {
   const filePath = join(dir ?? tmpdir(), fileName);
-  writeFileSync(filePath, JSON.stringify(fields), "utf-8");
+  writeFileSync(filePath, JSON.stringify(fields), { encoding: "utf-8", mode: 0o600 });
+  // `mode` only applies on file creation — tighten an existing file too.
+  try {
+    chmodSync(filePath, 0o600);
+  } catch {
+    // Windows: chmod semantics are partial — the temp dir is per-user anyway.
+  }
   return filePath;
 }

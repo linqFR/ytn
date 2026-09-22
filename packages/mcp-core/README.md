@@ -186,7 +186,7 @@ Tests use `InMemoryTransport.createLinkedPair()` — pass the server end to `sta
 
 ## Discovery file
 
-**Opt-in** — only relevant when a process that did *not* spawn the server needs its runtime settings (DB path, config values). Pass `startStdioServer`'s `discovery` option and the server writes a small JSON descriptor to `<dir>/<fileName>` after connecting (`dir` defaults to the OS temp dir), with a `startedAt` timestamp added. `publishDiscoveryFile(fileName, fields, dir?)` is the standalone form for setups outside `startStdioServer`. Reading the file is domain-owned: `mcp-core` ships no reader. The file is written world-readable (default umask) — never put secrets or tokens in `fields`. Omit the option entirely when no sibling process exists — nothing is written.
+**Opt-in** — only relevant when a process that did *not* spawn the server needs its runtime settings (DB path, config values). Pass `startStdioServer`'s `discovery` option and the server writes a small JSON descriptor to `<dir>/<fileName>` after connecting (`dir` defaults to the OS temp dir), with a `startedAt` timestamp added. `publishDiscoveryFile(fileName, fields, dir?)` is the standalone form for setups outside `startStdioServer`. Reading the file is domain-owned: `mcp-core` ships no reader. The file is written owner-only (mode 0600) — still, never put secrets or tokens in `fields`. Omit the option entirely when no sibling process exists — nothing is written.
 
 Full mechanism (contract, reader code, staleness limits): [docs/how-to-server-and-client.md](./docs/how-to-server-and-client.md#publish-a-discovery-file).
 

@@ -477,7 +477,7 @@ const db = new Database(MY_DB); // whatever the domain opens — better-sqlite3,
 
 - **File absent** — the server never ran (or ran without `discovery`). Tolerate `ENOENT` and fall back to defaults.
 - **File stale** — nothing deletes the descriptor when the server exits; it outlives the process. `startedAt` is the freshness signal: compare it against the server process's lifetime or a staleness window rather than assuming the settings are current.
-- **World-readable** — the descriptor lands in a shared temp dir with the default umask; never put secrets or tokens in `fields` (pass paths and identifiers, not credentials).
+- **Owner-readable** — the descriptor is written mode 0600 (same-user sibling processes only). Still: never put secrets or tokens in `fields` (pass paths and identifiers, not credentials).
 
 ## Generate Tool Help
 
