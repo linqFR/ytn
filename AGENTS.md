@@ -119,6 +119,7 @@ Not all actions require the same level of validation. Use the correct level:
 - **JSDoc is Code**: Every public method, class, and exported type MUST be documented with comprehensive JSDocs.
 - **Preserve JSDocs**: Ensure build tools (like `tsup`) are configured to preserve JSDocs in the output.
 - **No mailbox references in code or docs**: NEVER reference mailbox-internal identifiers (`DEC-NNNN`, `ACT-NNNN`, `IDEA-NNN`, or any future registry prefix such as `ISS`, `PB`, `SPEC`, etc.) in source code, code comments, JSDoc, test descriptions, READMEs, or any user-facing documentation. These are internal coordination artifacts that may be superseded, cancelled, or reorganized. Code comments and documentation MUST explain the *what* and *why* in self-contained terms. The only place these references are allowed is inside mailbox files.
+- **No hard-wrapping prose in Markdown**: Write paragraphs as single logical lines (soft-wrap). Do NOT insert manual line breaks inside sentences or paragraphs to enforce a fixed column width — readers' editors and renderers wrap text naturally. Line breaks are only for semantic boundaries: headings, list items, table rows, code blocks, and one line per sentence is NOT required either.
 
 ### 3. Sandbox Usage
 
@@ -183,6 +184,7 @@ Reminder: Use Zod V4 exclusively.
 ## Testing Guidelines
 
 - **Framework**: **Vitest 4** (Pure ESM)
+- **Tests assert the contract, not the implementation**: a test is NOT written to make the package pass — it encodes the behavior and API the package is EXPECTED to expose. Never omit, weaken, or skip a test because the package does not (yet) provide what the test requires: a failing test is a specification gap signal, not a test problem. Fix the package, or explicitly escalate the spec — never bend the test to the current implementation.
 - **Rule**: All new features or bug fixes MUST include corresponding tests. The entire suite must pass before finalizing.
 - **Type Testing**: For complex DSLs and type-modifiers, ALWAYS include type-regression tests using **`expectTypeOf`** or **`assertType`**.
 - **Typecheck Command**: To validate type assertions during tests, use **`npm.cmd test -- --typecheck`**.
@@ -200,8 +202,7 @@ Reminder: Use Zod V4 exclusively.
 
 Publishing to npm is **fully automated** via GitHub Actions OIDC trusted publishing. No npm token, no 2FA, no manual `npm publish` is required.
 
-**Public packages** (published to npm): `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`, `@ytrynot/cli`.
-**Private packages** (never published, listed in `.changeset/config.json` `ignore`): `@ytrynot/wf`, `@ytrynot/shared`.
+**Public packages** (published to npm): `@ytrynot/dna`, `@ytrynot/schvalid`, `@ytrynot/qb`, `@ytrynot/cli`. **Private packages** (never published, listed in `.changeset/config.json` `ignore`): `@ytrynot/wf`, `@ytrynot/shared`.
 
 **Workflow**: `.github/workflows/publish.yml` — triggered on push to `main` when `.changeset/**` or public package `package.json` files change.
 
