@@ -1,7 +1,6 @@
 # AGENTS.md (Package: @ytrynot/cli)
 
-> [!IMPORTANT]
-> This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to @ytrynot/cli.
+> [!IMPORTANT] This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to @ytrynot/cli.
 
 ---
 

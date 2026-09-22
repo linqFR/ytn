@@ -1,12 +1,7 @@
 # How To: Define a CLI Contract
 
-> Practical guide — for each CLI shape you want, the exact DNA schema to write.
-> Covers subcommands, flags, positionals (required/optional/variadic), `--help`,
-> `--version`, short aliases, hidden routes, coercion, and AOT compilation.
->
-> See also: [README](../README.md) (Quick Start) ·
-> [API Reference](./api-reference.md) (signatures) ·
-> [Architecture](./architecture.md) (design rationale).
+> Practical guide — for each CLI shape you want, the exact DNA schema to write. Covers subcommands, flags, positionals (required/optional/variadic), `--help`, `--version`, short aliases, hidden routes, coercion, and AOT compilation.
+> See also: [README](../README.md) (Quick Start) · [API Reference](./api-reference.md) (signatures) · [Architecture](./architecture.md) (design rationale).
 
 ## Table of Contents
 
@@ -33,9 +28,7 @@
 
 ## Mental model
 
-A CLI contract is a set of **routes** (DNA objects). Each route is one possible
-subcommand. `@ytrynot/cli` uses `dna.cliUnion` to route `process.argv` to the
-matching route using a Maranget decision tree on the `cmd` discriminator.
+A CLI contract is a set of **routes** (DNA objects). Each route is one possible subcommand. `@ytrynot/cli` uses `dna.cliUnion` to route `process.argv` to the matching route using a Maranget decision tree on the `cmd` discriminator.
 
 ```
 process.argv
@@ -50,8 +43,7 @@ process.argv
 Every route MUST:
 
 1. Have a `cmd: dna.literal("<name>")` field — this is the discriminator.
-2. Declare `.meta({ cli: { routeId: "<name>" } })` — this is the internal
-   route identifier (injected as `\x00ID`, stripped from the public payload).
+2. Declare `.meta({ cli: { routeId: "<name>" } })` — this is the internal route identifier (injected as `\x00ID`, stripped from the public payload).
 3. Optionally declare `.meta({ description: "..." })` for help text.
 
 ---
@@ -154,8 +146,7 @@ execute(processed, ["unknown"]);   // → { success: false, errors: [...] }
 
 **Notes**:
 - `cmd` is the discriminator — `cliUnion` builds a Maranget tree on it.
-- Each route can have different fields. Fields not in the matched route are
-  ignored for that route.
+- Each route can have different fields. Fields not in the matched route are ignored for that route.
 
 ---
 
@@ -184,44 +175,23 @@ const result = execute(processed, ["build", "a.ts", "b.ts", "c.ts"]);
 ```
 
 **Why `cli.positionals` is required here**:
-- `files` is `.optional()` → DNA's `detectPositionals` skips optional fields
-  (a positional is "required by nature" in POSIX).
-- Without `cli.positionals`, `files` would be treated as a **flag** and
-  `build a.ts b.ts c.ts` would not populate `files`.
-- `cli.positionals: ["cmd", "files"]` tells `cliUnion` that `files` is a
-  positional, not a flag. parseArgs collects all positionals in order; the
-  CLI layer maps `positionals[0]` → `cmd`, `positionals.slice(1)` → `files`.
+- `files` is `.optional()` → DNA's `detectPositionals` skips optional fields (a positional is "required by nature" in POSIX).
+- Without `cli.positionals`, `files` would be treated as a **flag** and `build a.ts b.ts c.ts` would not populate `files`.
+- `cli.positionals: ["cmd", "files"]` tells `cliUnion` that `files` is a positional, not a flag. parseArgs collects all positionals in order; the CLI layer maps `positionals[0]` → `cmd`, `positionals.slice(1)` → `files`.
 
 **What happens at runtime** (verified on Node ≥25):
 
-When the user types `mycli build a.ts b.ts c.ts`, Node's `parseArgs`
-splits the argv into two buckets:
+When the user types `mycli build a.ts b.ts c.ts`, Node's `parseArgs` splits the argv into two buckets:
 - **Flags** (`--name value`): collected into `values`. Here, none.
-- **Positionals** (bare words, no `--` prefix): collected into
-  `positionals` in order. Here: `['build', 'a.ts', 'b.ts', 'c.ts']`.
+- **Positionals** (bare words, no `--` prefix): collected into `positionals` in order. Here: `['build', 'a.ts', 'b.ts', 'c.ts']`.
 
-The CLI layer then maps the positionals to the declared fields:
-`positionals[0]` → `cmd` (the subcommand), `positionals[1:]` → `files`
-(the variadic array). So `payload.files` ends up as
-`['a.ts', 'b.ts', 'c.ts']`.
+The CLI layer then maps the positionals to the declared fields: `positionals[0]` → `cmd` (the subcommand), `positionals[1:]` → `files` (the variadic array). So `payload.files` ends up as `['a.ts', 'b.ts', 'c.ts']`.
 
-If the user types just `mycli build` (no files), `positionals` is
-`['build']` only. There's nothing after `build`, so `files` is
-`[]` (an empty array — the variadic positional collects 0 elements,
-and the `.optional()` field accepts the empty array).
+If the user types just `mycli build` (no files), `positionals` is `['build']` only. There's nothing after `build`, so `files` is `[]` (an empty array — the variadic positional collects 0 elements, and the `.optional()` field accepts the empty array).
 
-**Mixing positionals and flags**: when the user types
-`mycli build a.ts b.ts --output dist`, parseArgs stops collecting
-positionals as soon as it hits `--output`. So `positionals` is
-`['build', 'a.ts', 'b.ts']` and `values.output` is `'dist'`. The
-CLI layer maps `positionals[1:]` → `files` (`['a.ts', 'b.ts']`) and
-`values.output` → `output` (`'dist'`). This is why a variadic
-positional only collects bare words up to the next flag — it does
-not "eat" flag values.
+**Mixing positionals and flags**: when the user types `mycli build a.ts b.ts --output dist`, parseArgs stops collecting positionals as soon as it hits `--output`. So `positionals` is `['build', 'a.ts', 'b.ts']` and `values.output` is `'dist'`. The CLI layer maps `positionals[1:]` → `files` (`['a.ts', 'b.ts']`) and `values.output` → `output` (`'dist'`). This is why a variadic positional only collects bare words up to the next flag — it does not "eat" flag values.
 
-**Variadic = optional by nature**: `[file2 ...]` in POSIX notation means
-0 or more. Use `.optional()` on the `dna.array(...)` field. If you want
-≥1 file, validate in the handler.
+**Variadic = optional by nature**: `[file2 ...]` in POSIX notation means 0 or more. Use `.optional()` on the `dna.array(...)` field. If you want ≥1 file, validate in the handler.
 
 ---
 
@@ -248,16 +218,13 @@ const result = execute(processed, ["build", "--files", "a.ts", "--files", "b.ts"
 ```
 
 **parseArgs behavior** (verified on Node ≥25):
-- `--files a.ts b.ts` → `values.files = ['a.ts']`, `positionals = ['b.ts']`
-  (parseArgs does **not** do greedy consumption — each flag occurrence
-  consumes exactly one value).
+- `--files a.ts b.ts` → `values.files = ['a.ts']`, `positionals = ['b.ts']` (parseArgs does **not** do greedy consumption — each flag occurrence consumes exactly one value).
 - `--files a.ts --files b.ts` → `values.files = ['a.ts','b.ts']`
 - `--files=a.ts --files=b.ts` → same as above
 
 **When to use this vs positional variadic**:
 - Positional variadic (`build a b c`) is the POSIX standard for file lists.
-- Flag `multiple` (`--files a --files b`) is useful when you want the flag
-  name to be explicit, or when mixing multiple list flags.
+- Flag `multiple` (`--files a --files b`) is useful when you want the flag name to be explicit, or when mixing multiple list flags.
 
 See [Decision table — positional vs flag](#decision-table--positional-vs-flag).
 
@@ -300,21 +267,15 @@ execute(processed, ["-v"]);         // → { success: true, route: "version", ..
 ```
 
 **Key points**:
-- `cli: { flag: true }` marks the route as a **flag interceptor** — accessible
-  via `--<cmdValue>` (here `--help`, `--version`).
+- `cli: { flag: true }` marks the route as a **flag interceptor** — accessible via `--<cmdValue>` (here `--help`, `--version`).
 - `cli: { short: "h" }` adds the short alias `-h`.
-- `flag: true` implies `hidden: "cmd"` — the route is hidden from the
-  "Commands" section of help (it appears as `--help` in "Options", not as
-  `mycli help`).
-- Help/version routes go in `fallbacks`, not `targets` — they're not
-  subcommands you run positionally.
-- `dna.looseObject(...).catchall(dna.unknown())` allows any extra args
-  after `--help` (e.g. `--help build` to get help for `build`).
+- `flag: true` implies `hidden: "cmd"` — the route is hidden from the "Commands" section of help (it appears as `--help` in "Options", not as `mycli help`).
+- Help/version routes go in `fallbacks`, not `targets` — they're not subcommands you run positionally.
+- `dna.looseObject(...).catchall(dna.unknown())` allows any extra args after `--help` (e.g. `--help build` to get help for `build`).
 
 **How flag routing works internally**:
 1. `parseArgs` sees `--help` as a boolean flag → `values.help = true`.
-2. The CLI preprocessor checks `flagMap` (`{ help: "help", version: "version" }`)
-   and prepends `"help"` to `positionals` → `positionals = ["help"]`.
+2. The CLI preprocessor checks `flagMap` (`{ help: "help", version: "version" }`) and prepends `"help"` to `positionals` → `positionals = ["help"]`.
 3. `cliUnion` routes on `cmd` → matches the `help` route.
 
 ---
@@ -344,12 +305,9 @@ execute(processed, ["build", "-o", "dist/"]);        // → payload.output = "di
 ```
 
 **Key points**:
-- `cli: { short: "o" }` on a **field** adds the short alias for the
-  corresponding parseArgs option.
-- `cli: { short: "h" }` on a **route** (with `flag: true`) adds the short
-  alias for the flag interceptor (see Recipe 5).
-- `cli: { flag: true }` on a **field** is **forbidden** — it's semantically
-  incorrect (flags are route-level interceptors, not field-level options).
+- `cli: { short: "o" }` on a **field** adds the short alias for the corresponding parseArgs option.
+- `cli: { short: "h" }` on a **route** (with `flag: true`) adds the short alias for the flag interceptor (see Recipe 5).
+- `cli: { flag: true }` on a **field** is **forbidden** — it's semantically incorrect (flags are route-level interceptors, not field-level options).
 
 ---
 
@@ -357,10 +315,7 @@ execute(processed, ["build", "-o", "dist/"]);        // → payload.output = "di
 
 **CLI shape**: `mycli build --watch` | `mycli deploy --dryRun`
 
-> **Note**: parseArgs does **not** convert kebab-case to camelCase. The
-> DNA field name is the parseArgs option name as-is. `dryRun` → `--dryRun`,
-> not `--dry-run`. Use single-word names (`watch`, `verbose`) or accept
-> `--dryRun` syntax.
+> **Note**: parseArgs does **not** convert kebab-case to camelCase. The DNA field name is the parseArgs option name as-is. `dryRun` → `--dryRun`, not `--dry-run`. Use single-word names (`watch`, `verbose`) or accept `--dryRun` syntax.
 
 ```ts
 const buildRoute = dna.object({
@@ -388,11 +343,9 @@ execute(processed, ["deploy", "--dryRun"]);       // → payload.dryRun = true
 
 **Key points**:
 - `dna.boolean()` fields become parseArgs options with `type: "boolean"`.
-- Boolean flags don't take a value — `--watch` sets `values.watch = true`,
-  absence means `undefined` (with `.optional()`).
+- Boolean flags don't take a value — `--watch` sets `values.watch = true`, absence means `undefined` (with `.optional()`).
 - DNA's `detectPositionals` skips boolean keys → they're always flags.
-- The option name is the **exact field key** — no kebab-case conversion.
-  `dryRun` → `--dryRun`, not `--dry-run`.
+- The option name is the **exact field key** — no kebab-case conversion. `dryRun` → `--dryRun`, not `--dry-run`.
 
 ---
 
@@ -421,13 +374,9 @@ execute(processed, ["deploy", "--port", "abc"]);
 ```
 
 **Key points**:
-- `dna.coerce.number()` converts the string from parseArgs to a number
-  during validation.
-- If the string is not coercible (`"abc"`), DNA rejects with a validation
-  error.
-- Use `dna.coerce.string()`, `dna.coerce.number()`, `dna.coerce.boolean()`,
-  `dna.coerce.bigint()`, `dna.coerce.date()` for type coercion from string
-  argv.
+- `dna.coerce.number()` converts the string from parseArgs to a number during validation.
+- If the string is not coercible (`"abc"`), DNA rejects with a validation error.
+- Use `dna.coerce.string()`, `dna.coerce.number()`, `dna.coerce.boolean()`, `dna.coerce.bigint()`, `dna.coerce.date()` for type coercion from string argv.
 
 ---
 
@@ -459,10 +408,8 @@ buildHelp(processed, "internal-cmd");   // → shows help for internal-cmd expli
 ```
 
 **`hidden` values**:
-- `"cmd"` — hide from "Commands" section (still appears as `--flag` if it's
-  a flag interceptor). Automatically set when `flag: true`.
-- `"flag"` — hide from "Options" section (still appears in "Commands" if
-  it's a positional command).
+- `"cmd"` — hide from "Commands" section (still appears as `--flag` if it's a flag interceptor). Automatically set when `flag: true`.
+- `"flag"` — hide from "Options" section (still appears in "Commands" if it's a positional command).
 - `"all"` — hide from all help sections.
 
 ---
@@ -493,13 +440,10 @@ execute(processed, ["--help", "build"]);
 ```
 
 **Key points**:
-- `dna.looseObject(...)` allows unknown keys (unlike `dna.object()` which
-  strips them).
+- `dna.looseObject(...)` allows unknown keys (unlike `dna.object()` which strips them).
 - `.catchall(dna.unknown())` accepts any extra args as `unknown` values.
-- Useful for `help`/`version` routes that accept arbitrary trailing args
-  (`--help build`, `--help deploy`, etc.).
-- Regular subcommands (`build`, `deploy`) should use `dna.object()` —
-  strict, unknown keys are stripped.
+- Useful for `help`/`version` routes that accept arbitrary trailing args (`--help build`, `--help deploy`, etc.).
+- Regular subcommands (`build`, `deploy`) should use `dna.object()` — strict, unknown keys are stripped.
 
 ---
 
@@ -570,19 +514,13 @@ await run();
 ```
 
 **Handler contract**:
-- Handlers return `{ success: true, data: unknown }` or
-  `{ success: false, error: string }`.
+- Handlers return `{ success: true, data: unknown }` or `{ success: false, error: string }`.
 - Returning nothing → `{ success: false, error: "Handler returned no result" }`.
-- If a handler `throw`s, it's a bug in the handler — `fullCli` does **not**
-  catch it. The throw propagates as an unhandled rejection. Handlers must
-  catch their own errors and return `{ success: false, error: "..." }`.
-- Handlers can be **async**: `(payload) => Promise<ts.HandlerResult>`.
-  `fullCli` uses `safeParseAsync` and awaits the result before
-  `process.exit`.
+- If a handler `throw`s, it's a bug in the handler — `fullCli` does **not** catch it. The throw propagates as an unhandled rejection. Handlers must catch their own errors and return `{ success: false, error: "..." }`.
+- Handlers can be **async**: `(payload) => Promise<ts.HandlerResult>`. `fullCli` uses `safeParseAsync` and awaits the result before `process.exit`.
 
 **Formatter contract**:
-- Receives `ts.HandlerResult` (`{ success: true, data }` or
-  `{ success: false, error }`).
+- Receives `ts.HandlerResult` (`{ success: true, data }` or `{ success: false, error }`).
 - `if (result.success)` narrows correctly to the `data` branch.
 - Returns `ts.FormattedResult` (`{ exit: 0 | 1, message: string }`).
 - `exit: 0` → `console.log(message)`. `exit: 1` → `console.error(message)`.
@@ -607,12 +545,9 @@ const result = parser(["build", "a.ts"]);
 ```
 
 **Key points**:
-- `compile()` uses `toJS(false, true)` + `new Function` to generate a
-  standalone JS function from the DNA bytecode.
-- Only **layer 1** (routing + validation) is AOT-compilable. Layers 2-4
-  (handlers, formatter, `process.exit`) are user code provided at runtime.
-- 1 external: `parseArgs` (captured at compile time from
-  `processed.externals`).
+- `compile()` uses `toJS(false, true)` + `new Function` to generate a standalone JS function from the DNA bytecode.
+- Only **layer 1** (routing + validation) is AOT-compilable. Layers 2-4 (handlers, formatter, `process.exit`) are user code provided at runtime.
+- 1 external: `parseArgs` (captured at compile time from `processed.externals`).
 - The compiled parser is **synchronous** (layer 1 has no async transforms).
 - Results are cached per contract (WeakMap, identity-based).
 
@@ -635,8 +570,7 @@ const result = parser(["build", "a.ts"]);
 | `short` | field | Short alias for the parseArgs option (e.g. `"o"` for `--output`). |
 | `hidden` | route | Hide from help: `"cmd"` (Commands), `"flag"` (Options), `"all"` (everywhere). Auto `"cmd"` when `flag: true`. |
 
-**Forbidden**: `flag: true` on a **field** (semantically incorrect — flags
-are route-level interceptors).
+**Forbidden**: `flag: true` on a **field** (semantically incorrect — flags are route-level interceptors).
 
 ---
 
@@ -672,10 +606,8 @@ are route-level interceptors).
 | `--version` / `-v` | `mycli --version` | route with `cli: { flag: true, short: "v" }` in `fallbacks` | — |
 
 **Rule of thumb**:
-- If the value comes **after the subcommand as a bare word**
-  (`build a.ts`), it's a **positional** → declare in `cli.positionals`.
-- If the value comes **with a `--name` prefix** (`build --output dist/`),
-  it's a **flag** → don't declare in `cli.positionals`.
+- If the value comes **after the subcommand as a bare word** (`build a.ts`), it's a **positional** → declare in `cli.positionals`.
+- If the value comes **with a `--name` prefix** (`build --output dist/`), it's a **flag** → don't declare in `cli.positionals`.
 
 ---
 
@@ -703,9 +635,7 @@ createContract({
 execute(processed, ["build", "a.ts"]);  // → payload.files = ["a.ts"]
 ```
 
-**Why**: DNA's `detectPositionals` skips optional fields (POSIX positionals
-are "required by nature"). You must explicitly declare optional positionals
-in `cli.positionals`.
+**Why**: DNA's `detectPositionals` skips optional fields (POSIX positionals are "required by nature"). You must explicitly declare optional positionals in `cli.positionals`.
 
 ### 2. Missing `routeId` in `.meta().cli`
 
@@ -719,8 +649,7 @@ const route = dna.object({ cmd: dna.literal("build") })
   .meta({ cli: { routeId: "build" }, description: "Build" });
 ```
 
-**Why**: `routeId` is the internal route identifier, injected as `\x00ID`
-by `apply`. Without it, `createContract` cannot build the routing.
+**Why**: `routeId` is the internal route identifier, injected as `\x00ID` by `apply`. Without it, `createContract` cannot build the routing.
 
 ### 3. `flag: true` on a field
 
@@ -732,8 +661,7 @@ const route = dna.object({
 }).meta({ cli: { routeId: "build" } });
 ```
 
-**Why**: `flag: true` means "this route is accessible via `--<cmdValue>`"
-— it's a route-level concept, not a field-level one.
+**Why**: `flag: true` means "this route is accessible via `--<cmdValue>`" — it's a route-level concept, not a field-level one.
 
 ### 4. Help/version in `targets` instead of `fallbacks`
 
@@ -752,9 +680,7 @@ createContract({
 });
 ```
 
-**Why**: `targets` are primary subcommands (routed positionally).
-`fallbacks` are secondary routes (routed via flags or as a last resort).
-Help/version are flag interceptors (`flag: true`), not subcommands.
+**Why**: `targets` are primary subcommands (routed positionally). `fallbacks` are secondary routes (routed via flags or as a last resort). Help/version are flag interceptors (`flag: true`), not subcommands.
 
 ### 5. Handler that `throw`s instead of returning `{ success: false, error }`
 
@@ -776,10 +702,7 @@ const handlers = {
 };
 ```
 
-**Why**: `fullCli` uses `safeParseAsync` which propagates throws as
-rejections. `process.exit` is never called → unhandled rejection. The
-formatter (layer 3) only sees `{ success: false, error }` returns, not
-throws.
+**Why**: `fullCli` uses `safeParseAsync` which propagates throws as rejections. `process.exit` is never called → unhandled rejection. The formatter (layer 3) only sees `{ success: false, error }` returns, not throws.
 
 ### 6. Using `dna.object()` for a route that accepts extra args
 
@@ -795,9 +718,7 @@ const helpRoute = dna.looseObject({
 }).catchall(dna.unknown()).meta({ cli: { flag: true, short: "h", routeId: "help" } });
 ```
 
-**Why**: `dna.object()` strips unknown keys. `dna.looseObject()` with
-`.catchall(dna.unknown())` preserves them. Help/version routes that
-accept trailing args (`--help build`) need loose objects.
+**Why**: `dna.object()` strips unknown keys. `dna.looseObject()` with `.catchall(dna.unknown())` preserves them. Help/version routes that accept trailing args (`--help build`) need loose objects.
 
 ### 7. Kebab-case flag names (`--dry-run` vs `--dryRun`)
 
@@ -814,10 +735,7 @@ execute(processed, ["deploy", "--dry-run"]);  // → dryRun is undefined
 execute(processed, ["deploy", "--dryRun"]);   // → dryRun = true
 ```
 
-**Why**: parseArgs uses the option name as-is — no kebab-case to
-camelCase conversion. The DNA field key `dryRun` becomes the parseArgs
-option `dryRun`, so the user must type `--dryRun`. Use single-word
-names (`watch`, `verbose`) when possible, or accept `--dryRun` syntax.
+**Why**: parseArgs uses the option name as-is — no kebab-case to camelCase conversion. The DNA field key `dryRun` becomes the parseArgs option `dryRun`, so the user must type `--dryRun`. Use single-word names (`watch`, `verbose`) when possible, or accept `--dryRun` syntax.
 
 ### 8. Optional positional in a fallback route not declared in `cli.positionals`
 
@@ -846,5 +764,4 @@ createContract({
 execute(processed, ["--help", "build"]);  // → topic = "build"
 ```
 
-**Why**: Same as Pitfall 1 — `detectPositionals` skips optional fields.
-This applies to fallback routes too, not just targets.
+**Why**: Same as Pitfall 1 — `detectPositionals` skips optional fields. This applies to fallback routes too, not just targets.

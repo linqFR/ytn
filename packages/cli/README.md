@@ -1,12 +1,8 @@
 # @ytrynot/cli
 
-[![npm version](https://img.shields.io/npm/v/@ytrynot/cli)](https://www.npmjs.com/package/@ytrynot/cli)
-[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/npm/l/@ytrynot/cli)](./LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![npm version](https://img.shields.io/npm/v/@ytrynot/cli)](https://www.npmjs.com/package/@ytrynot/cli) [![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/npm/l/@ytrynot/cli)](./LICENSE) [![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
 > **Looking for testers!** This package is actively seeking early users and feedback. If you try it out, please share your experience — issues, suggestions, or ideas are all welcome.
->
 > npm: https://www.npmjs.com/package/@ytrynot/cli · GitHub: https://github.com/linqFR/ytn/tree/main/packages/cli
 
 DNA-validated CLI router that compiles contracts into standalone JS functions and files — no runtime dependency on `@ytrynot/dna`, just `node:util.parseArgs`.
@@ -78,9 +74,7 @@ For the full recipe-oriented guide (subcommands, flags, positionals, `--help`, s
 
 ## Layers
 
-The CLI is built as 5 DNA schema layers, each chained via `.pipe()` or
-`.transform()`. Each layer is a standalone DNA schema — you can stop at any
-layer depending on how much of the pipeline you need.
+The CLI is built as 5 DNA schema layers, each chained via `.pipe()` or `.transform()`. Each layer is a standalone DNA schema — you can stop at any layer depending on how much of the pipeline you need.
 
 | Layer | Function | Externals | Sync/Async | Portable |
 |-------|----------|-----------|------------|----------|
@@ -89,35 +83,17 @@ layer depending on how much of the pipeline you need.
 | 3 | `cliFactory()` | `parseArgs`, `handlers`, `formatter` | async | yes |
 | 4 | `fullCli()` | + Node globals (`process`, `console`) | async + `process.exit` | Node-only |
 
-**Layer 0-1 (routing + validation)** — `createContract()` assembles a
-`dna.preprocess` that wraps argv, runs `parseArgs`, flattens positionals,
-pipes through `dna.cliUnion` for Maranget routing, and extracts
-`{ route, payload }`. Sync, 1 external (`parseArgs`), portable. The
-`execute()` helper runs `safeParse` and returns `OExecuteResult`.
+**Layer 0-1 (routing + validation)** — `createContract()` assembles a `dna.preprocess` that wraps argv, runs `parseArgs`, flattens positionals, pipes through `dna.cliUnion` for Maranget routing, and extracts `{ route, payload }`. Sync, 1 external (`parseArgs`), portable. The `execute()` helper runs `safeParse` and returns `OExecuteResult`.
 
-**Layer 2 (handlers)** — `executeContract()` adds a handler-dispatch
-transform. The transform dispatches by route, calls the matching handler,
-and returns `{ success: true, data }` or `{ success: false, error }`.
-Async (`safeParseAsync` required), 2 externals, portable.
+**Layer 2 (handlers)** — `executeContract()` adds a handler-dispatch transform. The transform dispatches by route, calls the matching handler, and returns `{ success: true, data }` or `{ success: false, error }`. Async (`safeParseAsync` required), 2 externals, portable.
 
-**Layer 3 (formatter)** — `cliFactory()` adds a formatter transform that
-receives the handler result and returns `{ exit: 0|1, message: string }`.
-Async, 3 externals, portable.
+**Layer 3 (formatter)** — `cliFactory()` adds a formatter transform that receives the handler result and returns `{ exit: 0|1, message: string }`. Async, 3 externals, portable.
 
-**Layer 4 (Node exit)** — `fullCli()` binds the formatted contract to
-Node.js globals. Reads `process.argv.slice(2)`, runs the full pipeline,
-prints to `console.log` (exit 0) or `console.error` (exit 1), and calls
-`process.exit()`. Node-only — `process` and `console` are Node globals,
-not externals, not in the bytecode.
+**Layer 4 (Node exit)** — `fullCli()` binds the formatted contract to Node.js globals. Reads `process.argv.slice(2)`, runs the full pipeline, prints to `console.log` (exit 0) or `console.error` (exit 1), and calls `process.exit()`. Node-only — `process` and `console` are Node globals, not externals, not in the bytecode.
 
-**`process.exit()` is outside DNA transforms** — it lives in `fullCli()`
-(layer 4), not in the bytecode. Layers 0-3 are portable (pure bytecode +
-externals) and run anywhere DNA runs.
+**`process.exit()` is outside DNA transforms** — it lives in `fullCli()` (layer 4), not in the bytecode. Layers 0-3 are portable (pure bytecode + externals) and run anywhere DNA runs.
 
-**AOT**: layers 0-1 compile via `compile()` into a standalone JS function
-using `toJS(false, true)` + `new Function`. The compiled parser requires no
-DNA runtime at call time — only the captured `parseArgs` external. Layers
-2-4 are not AOT-compilable (they contain user code provided at runtime).
+**AOT**: layers 0-1 compile via `compile()` into a standalone JS function using `toJS(false, true)` + `new Function`. The compiled parser requires no DNA runtime at call time — only the captured `parseArgs` external. Layers 2-4 are not AOT-compilable (they contain user code provided at runtime).
 
 For the full architectural rationale, see [Architecture](./docs/architecture.md).
 
@@ -189,8 +165,7 @@ await run();
 // Reads process.argv.slice(2), runs the full pipeline, prints, exits.
 ```
 
-**Layer 1 only** (sync, no handlers, no `process.exit`) — useful for testing
-or embedding:
+**Layer 1 only** (sync, no handlers, no `process.exit`) — useful for testing or embedding:
 
 ```typescript
 import { createContract, execute } from "@ytrynot/cli";
@@ -228,16 +203,10 @@ Full signatures, parameters, and return types: see [API Reference](./docs/api-re
 
 ## Documentation
 
-- **[How To: Define a CLI Contract](./docs/how-to-define-a-cli-contract.md)** —
-  practical recipes for each CLI shape (subcommands, flags, positionals,
-  `--help`, short aliases, coercion, hidden routes, AOT).
-- **[API Reference](./docs/api-reference.md)** — every public export,
-  signatures, parameters, return types, type definitions.
-- **[Architecture](./docs/architecture.md)** — the 5-layer pipeline, Maranget
-  routing, the `\x00ID` convention, portability boundary, AOT scope.
-- **[How To: Use CLI Routing in a REPL](./docs/how-to-use-cli-in-a-repl.md)** —
-  build a stdin-based REPL on top of `dna.cliUnion` (no `@ytrynot/cli` dependency
-  required, bypasses `parseArgs` and `process.exit`).
+- **[How To: Define a CLI Contract](./docs/how-to-define-a-cli-contract.md)** — practical recipes for each CLI shape (subcommands, flags, positionals, `--help`, short aliases, coercion, hidden routes, AOT).
+- **[API Reference](./docs/api-reference.md)** — every public export, signatures, parameters, return types, type definitions.
+- **[Architecture](./docs/architecture.md)** — the 5-layer pipeline, Maranget routing, the `\x00ID` convention, portability boundary, AOT scope.
+- **[How To: Use CLI Routing in a REPL](./docs/how-to-use-cli-in-a-repl.md)** — build a stdin-based REPL on top of `dna.cliUnion` (no `@ytrynot/cli` dependency required, bypasses `parseArgs` and `process.exit`).
 
 ## Status
 

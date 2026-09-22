@@ -75,8 +75,7 @@
 - f34b108: WIP
 - 8be32ee: @ytrynot/shared: reorganize shared/types into thematic files
   
-  - Split `modifiers.type.ts` into `structural.type.ts`, `predicates.type.ts`,
-    `enum.type.ts`, `record.type.ts`
+  - Split `modifiers.type.ts` into `structural.type.ts`, `predicates.type.ts`, `enum.type.ts`, `record.type.ts`
   - Add `$FlattenDistributive<T>` (preserves each union member independently)
   - Add `$FlattenCombinative<T>` and `$ToRecord<T>` as aliases of `$Flatten`
   - Add `$MaybeAsync<T>` and `$InferReturnType<F>` to `async.type.ts`
@@ -86,8 +85,7 @@
   - Update `shared/README.md` with missing namespaces (regex, cli, polyfill)
   - Fix broken imports in `shared/js/set-ops.ts` and `packages/cli/src/preprocess.ts`
   
-  Impact: @ytrynot/dna and @ytrynot/cli import from @ytrynot/shared/types.
-  The import paths changed (modifiers.type.ts → structural.type.ts / record.type.ts).
+  Impact: @ytrynot/dna and @ytrynot/cli import from @ytrynot/shared/types. The import paths changed (modifiers.type.ts → structural.type.ts / record.type.ts).
 - Updated dependencies [8be32ee]
 - Updated dependencies [8be32ee]
   - @ytrynot/dna@0.7.5
