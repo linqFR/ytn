@@ -1,7 +1,6 @@
 # Quick Start — @ytrynot/qb
 
 > **Tutorial** — Beginner, first contact. Step-by-step, end-to-end, every step runnable.
->
 > Prerequisites: a Node.js project (Node.js >= 25.0.0), basic familiarity with TypeScript and SQLite.
 
 This tutorial walks through installing `@ytrynot/qb`, building your first query, defining a table from a Zod v4 schema, defining the same table from a DNA schema, and executing the produced SQL with a driver. By the end you will have a complete, runnable example of schema-driven table creation and CRUD.
@@ -225,8 +224,7 @@ const row = selectStmt.get({ id: "550e8400-e29b-41d4-a716-446655440000" });
 console.log(row);
 ```
 
-> [!CAUTION]
-> **Foreign key enforcement**: SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` (or `qb.enableForeignKeys()`) when opening your connection. Without this, the database ignores FK constraints and allows orphaned rows.
+> [!CAUTION] **Foreign key enforcement**: SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` (or `qb.enableForeignKeys()`) when opening your connection. Without this, the database ignores FK constraints and allows orphaned rows.
 
 ## Where to go next
 

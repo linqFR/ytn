@@ -1,7 +1,6 @@
 # How-to: Queries — @ytrynot/qb
 
 > **How-to guide** — Knows the basics, wants to build DML queries (SELECT, INSERT, UPDATE, DELETE, UPSERT).
->
 > Prerequisites: `@ytrynot/qb` installed. No schema library required for the fluent DML API.
 
 This guide covers building data-manipulation SQL strings with the fluent `Builder` chain. Every example terminates with `.toSQL()`, which compiles the chain into a SQL string with named parameters. Pass the string and a parameters object to your driver.

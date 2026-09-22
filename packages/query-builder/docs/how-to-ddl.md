@@ -1,7 +1,6 @@
 # How-to: DDL & Schema Generation — @ytrynot/qb
 
 > **How-to guide** — Knows the basics, wants to define tables and generate DDL.
->
 > Prerequisites: `@ytrynot/qb` installed. For schema introspection, install `zod` (v4) and/or `@ytrynot/dna`.
 
 This guide covers the three ways to define a table and generate `CREATE TABLE` DDL with `@ytrynot/qb`: from a **Zod v4** schema, from a **@ytrynot/dna** schema, and from **manual column definitions**. It also covers metadata keys, foreign keys, unique keys, composite primary keys, and index management.
@@ -150,17 +149,14 @@ CREATE TABLE IF NOT EXISTS users (
 );
 ```
 
-> [!NOTE]
-> `NOT NULL` and `DEFAULT` are independent constraints. With `optional: false` + `hasDefault: true`, both are emitted — `role TEXT NOT NULL DEFAULT 'user'`. With `optional: true` + `hasDefault: true` (the Zod/DNA behavior for `.default()`), only `DEFAULT` is emitted.
+> [!NOTE] `NOT NULL` and `DEFAULT` are independent constraints. With `optional: false` + `hasDefault: true`, both are emitted — `role TEXT NOT NULL DEFAULT 'user'`. With `optional: true` + `hasDefault: true` (the Zod/DNA behavior for `.default()`), only `DEFAULT` is emitted.
 
-> [!IMPORTANT]
-> For manual `qbColumn[]`, all constraints are declared via top-level properties — no `meta` bag needed:
+> [!IMPORTANT] For manual `qbColumn[]`, all constraints are declared via top-level properties — no `meta` bag needed:
 > - **PRIMARY KEY**: `pk: true` — `{ name: "id", sqliteType: "TEXT", optional: false, hasDefault: false, pk: true }`
 > - **PRIMARY KEY AUTOINCREMENT**: `pkauto: true` — `{ name: "id", sqliteType: "INTEGER", optional: false, hasDefault: false, pkauto: true }`
 > - **UNIQUE**: `unique: true` — `{ name: "email", sqliteType: "TEXT", optional: false, hasDefault: false, unique: true }`
 > - **FOREIGN KEY**: `fk: { table: "orgs", col: "id" }` — direct property
 > - **CHECK**: `check: "age >= 0"` — direct property
->
 > The `meta` bag is used by the Zod/DNA introspectors when you chain `.meta({ pk: true })` on a schema field. The introspectors extract known keys (`pk`, `pkauto`, `unique`, `fk`) from `meta` and promote them to the same top-level properties. For manual columns, use the direct properties directly.
 
 ### `qbColumn` fields
@@ -266,14 +262,10 @@ const PostSchemaDna = dna.object({
 
 The `fk` value can be a string `"table(col)"` (shorthand, no actions) or an object `{ table, col, onDelete?, onUpdate? }` (full control).
 
-> [!CAUTION]
-> **SQLite enforcement**: SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` when opening your connection:
+> [!CAUTION] **SQLite enforcement**: SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` when opening your connection:
 >
-> ```typescript
-> const sql = qb.enableForeignKeys();
-> // â†’ "PRAGMA foreign_keys = ON;"
+> ```typescript const sql = qb.enableForeignKeys(); // â†’ "PRAGMA foreign_keys = ON;"
 > ```
->
 > Without this, the database ignores FK constraints and allows orphaned rows.
 
 ### Foreign key integrity actions

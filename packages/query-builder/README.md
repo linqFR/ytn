@@ -1,8 +1,4 @@
-[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@ytrynot/qb.svg)](https://www.npmjs.com/package/@ytrynot/qb)
-[![Bundle size](https://packagephobia.com/badge?p=@ytrynot/qb)](https://packagephobia.com/result?p=@ytrynot/qb)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml) [![npm version](https://img.shields.io/npm/v/@ytrynot/qb.svg)](https://www.npmjs.com/package/@ytrynot/qb) [![Bundle size](https://packagephobia.com/badge?p=@ytrynot/qb)](https://packagephobia.com/result?p=@ytrynot/qb) [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # @ytrynot/qb — Fluent SQLite Query Builder with Zod & DNA integration
 
@@ -10,13 +6,10 @@
 
 It can define a table and generate full CRUD directly from a **Zod v4** schema, a **@ytrynot/dna** schema, or manual column definitions. The fluent DML API (`.select()`, `.insert()`, `.where()`, `.joinInner()`, etc.) works independently of any schema library.
 
-> [!IMPORTANT]
-> **Schema support is strictly limited to Zod v4 and @ytrynot/dna.** No other schema library is supported for DDL generation or CRUD helpers. Zod v3 is **not** supported — the introspection layer relies on the v4 `._zod` protocol exclusively.
->
+> [!IMPORTANT] **Schema support is strictly limited to Zod v4 and @ytrynot/dna.** No other schema library is supported for DDL generation or CRUD helpers. Zod v3 is **not** supported — the introspection layer relies on the v4 `._zod` protocol exclusively.
 > For use cases that do not involve schema introspection, the `qb` fluent API (`.select()`, `.insert()`, `.where()`, etc.) works independently of any schema library.
 
-> [!NOTE]
-> **Terminology**:
+> [!NOTE] **Terminology**:
 > - **DDL** (Data Definition Language): statements that define the database schema — `CREATE TABLE`, `DROP TABLE`, `ALTER TABLE`.
 > - **DML** (Data Manipulation Language): statements that read and modify data — `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `UPSERT`.
 
@@ -170,8 +163,7 @@ CREATE TABLE IF NOT EXISTS users (
 - **Index Management**: `createIndex()` with partial WHERE and expression columns, `dropIndex()`.
 - **SQLite Pragmas**: Fluent `PragmaBuilder` for `foreign_keys`, `journal_mode`, `synchronous`, and more.
 
-> [!NOTE]
-> For the complete feature inventory (all supported/unsupported capabilities per category, type system, and out-of-scope decisions), see [`docs/feature-reference.md`](./docs/feature-reference.md).
+> [!NOTE] For the complete feature inventory (all supported/unsupported capabilities per category, type system, and out-of-scope decisions), see [`docs/feature-reference.md`](./docs/feature-reference.md).
 
 ## Table of Contents
 

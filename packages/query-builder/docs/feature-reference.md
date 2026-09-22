@@ -1,7 +1,6 @@
 # @ytrynot/qb — Feature Reference
 
-> Authoritative inventory of what `@ytrynot/qb` supports.
-> Update this file when features are added or changed.
+> Authoritative inventory of what `@ytrynot/qb` supports. Update this file when features are added or changed.
 
 ---
 
@@ -16,8 +15,7 @@
 
 ## SQLite Version Requirements
 
-qb does not validate the runtime SQLite version — consumers must ensure their
-driver meets the minimum requirement for each feature they use.
+qb does not validate the runtime SQLite version — consumers must ensure their driver meets the minimum requirement for each feature they use.
 
 | Feature | Min SQLite | Release date | qb API | Notes |
 |---------|-----------|-------------|-------|-------|

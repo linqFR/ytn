@@ -1,7 +1,6 @@
 # AGENTS.md (Package: @ytrynot/qb)
 
-> [!IMPORTANT]
-> This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to the Query Builder.
+> [!IMPORTANT] This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to the Query Builder.
 
 ---
 
@@ -11,7 +10,7 @@ The codebase is strictly modularized under `src/`. Avoid re-merging logic into s
 
 - **`src/types.ts`**: Unified interfaces and internal definitions (JoinDefinition, WhereDefinition, qbColumn, ISchemaIntrospector, etc.). Use these to keep the API clear and maintainable.
 - **`src/zod/introspector.ts`**: Zod v4 introspector implementing `ISchemaIntrospector<z.ZodType>`. Uses the shared reflection layer (`@ytrynot/shared/zod/zod-reflection.js`) to extract neutral `qbColumn[]` from Zod schemas. No direct `_zod` access — all reflection logic goes through the shared layer.
-- **`src/dna/introspector.ts`**: DNA introspector implementing `ISchemaIntrospector<DnaType>`. Uses `@ytrynot/dna/introspect` public API (`isOptional`, `isNullable`, `isObject`, `unwrap`, `unwrapDeep`, `defaultValue`) to extract neutral `qbColumn[]` from DNA schemas. No dependency on Zod.
+- **`src/dna/introspector.ts`**: DNA introspector implementing `ISchemaIntrospector<DnaType>`. Uses `@ytrynot/dna/introspect` public API (`isOptional`, `isNullable`, `isDnaObject`, `unwrap`, `unwrapDeep`, `defaultValue`) to extract neutral `qbColumn[]` from DNA schemas. No dependency on Zod.
 - **`src/ddl.ts`**: Translates schema shapes into SQL table structures.
 - **`src/builder.ts`**: The Fluent DML Builder. Focuses on SQL string construction with strict preservation of validated syntax.
 - **`src/index.ts`**: The public entry point (facade).
@@ -26,10 +25,7 @@ The codebase is strictly modularized under `src/`. Avoid re-merging logic into s
 
 ## 🗄️ SQLite Version Requirements
 
-qb generates SQL that depends on specific SQLite versions. The builder does **not**
-validate the runtime SQLite version — consumers must ensure their driver meets the
-minimum requirement. When adding a new feature, **always document the min SQLite
-version** in the method's JSDoc and in the table below.
+qb generates SQL that depends on specific SQLite versions. The builder does **not** validate the runtime SQLite version — consumers must ensure their driver meets the minimum requirement. When adding a new feature, **always document the min SQLite version** in the method's JSDoc and in the table below.
 
 | Feature | Min SQLite | Release date | qb API |
 |---------|-----------|-------------|-------|
@@ -91,12 +87,9 @@ Always run the full suite before submitting changes. "It builds" is not enough. 
 
 ## 📋 Feature Reference
 
-The authoritative feature inventory — including supported features, SQLite version
-requirements, type system, out-of-scope decisions, and future ideas — is maintained
-in **[docs/feature-reference.md](docs/feature-reference.md)**.
+The authoritative feature inventory — including supported features, SQLite version requirements, type system, out-of-scope decisions, and future ideas — is maintained in **[docs/feature-reference.md](docs/feature-reference.md)**.
 
-When adding a new feature, **always update `docs/feature-reference.md`** and the
-method's JSDoc.
+When adding a new feature, **always update `docs/feature-reference.md`** and the method's JSDoc.
 
 ---
 

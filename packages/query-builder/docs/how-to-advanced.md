@@ -1,7 +1,6 @@
 # How-to: Advanced Patterns — @ytrynot/qb
 
 > **How-to guide** — Wants advanced SQL patterns: EXISTS, CASE WHEN, correlated subqueries, window functions, and SQLite pragmas.
->
 > Prerequisites: `@ytrynot/qb` installed. Familiarity with the fluent DML API (see [How-to: Queries](./how-to-queries.md)).
 
 This guide covers SQL constructs that go beyond basic CRUD: existence predicates, declarative CASE statements, correlated subqueries, window functions, and database configuration via the PragmaBuilder.
@@ -119,8 +118,7 @@ The inner `Builder` is compiled automatically when the outer query calls `.toSQL
 
 `.selectWindow(alias, definition)` adds a window function expression (`OVER (...)`). The `IWindowDefinition` accepts a function call, optional `PARTITION BY`, optional `ORDER BY`, and an optional `frame` specification.
 
-> [!NOTE]
-> Window functions require SQLite 3.25+. Window frames (`ROWS BETWEEN ...`) are supported via the `frame` option.
+> [!NOTE] Window functions require SQLite 3.25+. Window frames (`ROWS BETWEEN ...`) are supported via the `frame` option.
 
 ```typescript
 const sql = qb.table("events")
@@ -204,8 +202,7 @@ console.log(sql);
 // PRAGMA foreign_keys = ON;
 ```
 
-> [!CAUTION]
-> SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` when opening your connection, or foreign key actions (`CASCADE`, `RESTRICT`, etc.) defined in your schema will be ignored.
+> [!CAUTION] SQLite does **not** enforce foreign key constraints by default. Run `PRAGMA foreign_keys = ON;` when opening your connection, or foreign key actions (`CASCADE`, `RESTRICT`, etc.) defined in your schema will be ignored.
 
 ## Where to go next
 

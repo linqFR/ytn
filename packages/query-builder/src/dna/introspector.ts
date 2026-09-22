@@ -15,7 +15,7 @@ import type {
 /**
  * @class DnaIntrospector
  * @description DNA introspector implementing ISchemaIntrospector.
- * Uses the `dna.introspect.*` public API (isOptional, isNullable, isObject, unwrap, unwrapDeep,
+ * Uses the `dna.introspect.*` public API (isOptional, isNullable, isDnaObject, unwrap, unwrapDeep,
  * defaultValue) to extract a neutral qbColumn[] from a DNA schema.
  * No dependency on Zod or @ytrynot/shared. No casts — all introspection logic
  * lives inside the DNA package where the classes are available.
@@ -99,7 +99,7 @@ export class DnaIntrospector implements ISchemaIntrospector<DnaType> {
 function unwrapToDnaObject(schema: DnaType): DnaObject | null {
   let current: DnaSomeType = schema;
   for (let i = 0; i < 32; i++) {
-    if (introspect.isObject(current)) return current;
+    if (introspect.isDnaObject(current)) return current;
     const inner = introspect.unwrap(current);
     if (!inner) return null;
     current = inner;
