@@ -1,0 +1,75 @@
+{
+  "name": "@ytrynot/mcp-core",
+  "version": "0.0.0",
+  "description": "Generic MCP server factory + client — declarative tool registry (Standard Schema args: DNA, Zod, JSON Schema + pure handlers) over the @modelcontextprotocol SDK, plus in-process dispatch",
+  "author": "linqFR",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/linqFR/ytn.git",
+    "directory": "packages/mcp-core"
+  },
+  "bugs": {
+    "url": "https://github.com/linqFR/ytn/issues"
+  },
+  "homepage": "https://github.com/linqFR/ytn/tree/main/packages/mcp-core#readme",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "server-factory",
+    "typescript",
+    "dna",
+    "zod",
+    "mcp-server",
+    "mcp-client"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@types/node": "^26.6.2",
+    "@ytrynot/dna": "^0.11.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0"
+  }
+}
