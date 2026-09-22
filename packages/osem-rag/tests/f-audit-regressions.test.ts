@@ -3,7 +3,7 @@
  *  B1. vec0 KNN branch seeded superseded atoms (the JS scan filtered them).
  *  B2. vec0 tables created on a populated base stayed EMPTY (no backfill)
  *      → the semantic surface died silently on reopen with useSqliteVec.
- *  B3. registerMemo→recallShallow without maintain() ran propagation on empty _fan/_mass/_din
+ *  B3. registerMemo→recallLexical without maintain() ran propagation on empty _fan/_mass/_din
  *      → upward propagation (derives_from/supports) was silently dead.
  */
 import Database from "better-sqlite3";
@@ -23,7 +23,7 @@ const vecAvailable = (() => {
   }
 })();
 
-describe("B3 — propagation stats: registerMemo→recallShallow without maintain() must not run a dead field", () => {
+describe("B3 — propagation stats: registerMemo→recallLexical without maintain() must not run a dead field", () => {
   it("upward propagation works right after deposits (lazy stats refresh)", () => {
     const { osem } = makeOsem(); // deliberately NO tick()
     const { surfaced } = osem.recall({

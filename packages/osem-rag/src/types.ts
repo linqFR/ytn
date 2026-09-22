@@ -52,22 +52,34 @@ export interface IOsemConfig {
   eta: number;
   /** Max reinforcement gain per agent per edge. */
   maxGainPerSession: number;
-  /** LTP rate: wave energy → salience at consolidation. */
+  /** LTP weight: multiplier of the windowed-frequency boost in the wave. */
   ltpRate: number;
   /** Floor for `pinned` atoms (right of surfacing, granted by the cadastre). */
   floorPinned: number;
   /** Floor for `high` atoms. */
   floorHigh: number;
-  /** Base half-life in hits — acting recalls on the scope (spaced-forgetting curve). */
-  tau0: number;
-  /** Half-life growth per spaced consultation. */
-  kappaTau: number;
-  /** Beyond this many uses, tau stops growing. */
-  tauCapUses: number;
-  /** Maximum earned floor. */
-  floorMax: number;
-  /** Spaced consultations needed to reach `floorMax`. */
-  floorLambda: number;
+  /** Hot window K1 — commits, commit-exact (read from `bookmarks`). */
+  freqWindowHot: number;
+  /** Medium window K2m — commits, bucket-aligned (read from `freq_buckets`). */
+  freqWindowMedium: number;
+  /** Long/durability window K2 — commits, bucket-aligned. */
+  freqWindowLong: number;
+  /** Commits per bucket; the ring depth is `freqWindowLong / freqBucketSize`. */
+  freqBucketSize: number;
+  /** Minimum occupied buckets (spread) for the `durable` tier. */
+  freqMinBuckets: number;
+  /** Boost weight of the hot-window share. */
+  freqWeightRecent: number;
+  /** Boost weight of the medium-window share. */
+  freqWeightWarm: number;
+  /** Boost weight of bucket spread (dispersion across distinct commits). */
+  freqWeightDurable: number;
+  /** Additive flag-floor term weight — truth sources keep wave presence
+   *  independent of bookmarks. */
+  flagFloorWeight: number;
+  /** Baseline share for atoms with no bookmarks (the « new things are
+   *  findable » prior); lives in the boost formula, never a bookmark. */
+  registrationWeight: number;
   /** Edge fatigue per recent traversal. */
   lambdaFatigue: number;
   /** Fatigue recovery per prompt. */
@@ -86,8 +98,6 @@ export interface IOsemConfig {
   budgetTok: number;
   /** Share of the budget allocated to the payload pool. */
   payloadShare: number;
-  /** Cascade confidence threshold (below → escalate to N2). */
-  thetaConf: number;
   /** Semantic-channel silence threshold (model2vec-like embedder). */
   cosSilenceSemantic: number;
   /** Hash-channel silence threshold (typo/morphology channel). */
@@ -108,8 +118,6 @@ export interface IOsemConfig {
   embedDim: number;
   /** Enable the native sqlite-vec KNN index (falls back to JS scan). */
   useSqliteVec: boolean;
-  /** Energy boost applied to the salience floor contribution in a wave. */
-  salienceBoost: number;
   /** Minimum energy for an atom to feed adjacent-term reformulation. */
   adjacentMinEnergy: number;
   /** Max adjacent terms injected at cascade step 2. */
@@ -150,7 +158,7 @@ export interface IRegisterDocOptions {
   ext?: string;
 }
 
-/** Options of {@link IOsemRag.recallShallow} / {@link IOsemRag.recall}. */
+/** Options of {@link IOsemRag.recallLexical} / {@link IOsemRag.recall}. */
 export interface IRecallInput {
   /** The acting agent — its personal plane is `agent:<agentId>`. */
   agentId: string;
@@ -163,6 +171,14 @@ export interface IRecallInput {
    *  plane. Requires ownership: the first caller to actAs a scope becomes its
    *  `scope_owner`; later claims by other agents are rejected. */
   actAs?: tsSharedScope;
+  /** Wave strategy. `"lexical"`: one lexical-only wave (the cheap probe —
+   *  equivalent to `recallLexical`). `"lexical_vec"` (default): the
+   *  cascade — a lexical wave first, then a full wave with adjacent-term
+   *  expansion + the vector surface; the stronger wave is kept. `"vec"`:
+   *  vec direct — one single wave where lexical AND vector seeds propagate
+   *  together; no pre-layer, no adjacent terms, no winner-take-all.
+   *  ~half the cost of the cascade. */
+  mode?: "lexical" | "lexical_vec" | "vec";
 }
 
 /** Options of {@link IOsemRag.formatContext}. */
@@ -176,7 +192,7 @@ export interface IFormatContextOpts {
   budgetTok?: number;
 }
 
-/** A surfaced atom returned by recallShallow/recall. */
+/** A surfaced atom returned by recallLexical/recall. */
 export interface ISurfaced {
   id: string;
   e: number;
@@ -215,6 +231,9 @@ export interface OStats {
   links: number;
   embeddings: number;
   scopes: string[];
+  /** Query atoms (`kind='query'`) — provenance entities, excluded from
+   *  corpus totals. */
+  queryAtoms: number;
 }
 
 /** Result of {@link IOsemRag.registerDoc}. */
@@ -233,9 +252,12 @@ export interface ORecallResult {
 export interface OMaintainResult {
   /** Learned edges pruned this pass (each pruning is traced in surface_log). */
   pruned: number;
+  /** `freq_buckets` slots that had drifted from the `bookmarks` truth
+   *  before this pass rebuilt the ring (0 = cache consistent). */
+  ringDrift: number;
 }
 
-/** One top-salience atom (diagnostics). */
+/** One hottest atom by recent-windowed share (diagnostics). */
 export interface OHotAtom {
   id: string;
   flag: string;
@@ -263,17 +285,20 @@ export interface IOsemRag {
   registerMemo(input: IMemoInput): void;
   /** Register a doc tree: doc → sections → paragraphs/sentences (adaptive leaves). */
   registerDoc(rootDir: string, opts?: IRegisterDocOptions): ORegisterDocResult;
-  /** Shallow recall: decay STP, seed 3 lexical surfaces, propagate, commit. */
-  recallShallow(opts: IRecallInput): ISurfaced[];
-  /** Recall: N1 lexical → N2 adjacent terms + gated vector surface. */
+  /** Lexical-only recall — the cheap probe. Alias of
+   *  `recall({ ...opts, mode: "lexical" })`. */
+  recallLexical(opts: IRecallInput): ISurfaced[];
+  /** Recall: the query cascade — `mode` picks the wave strategy:
+   *  `"lexical"` lexical only, `"lexical_vec"` (default) lexical pre-layer
+   *  then full wave, `"vec"` one fused lexical+vector wave. */
   recall(opts: IRecallInput): ORecallResult;
   /** Format context: pinned anchors + payload leaves + breadcrumbs + hot zones. */
   formatContext(opts: IFormatContextOpts): OContextBlock;
   /** Maintenance pass: erode/prune learned edges (traced) + refresh stats. */
   maintain(): OMaintainResult;
-  /** Top-salience atoms right now (diagnostics). `scope` filters one plane;
-   *  omitted = the hottest sediment row across every plane — each row decayed
-   *  by its own scope's hit count. */
+  /** Hottest atoms right now by recent-windowed share (diagnostics).
+   *  `scope` filters one plane; omitted = best share across every plane —
+   *  each atom normalized by its own scope's vocabulary. */
   hotAtoms(n?: number, scope?: tsScopeId): OHotAtom[];
   /** Field health statistics. */
   stats(): OStats;

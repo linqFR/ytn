@@ -20,7 +20,7 @@ describe("C1 — weight inequality (Gini) after 200 prompts", () => {
     const topics = ["maranget", "serialization", "coercion", "opcode", "schema",
       "performance", "worker", "bytecode", "dispatch", "coercion"];
     for (let i = 0; i < 200; i++)
-      osem.recallShallow({ agentId: "C1",
+      osem.recallLexical({ agentId: "C1",
                     prompt: `${topics[i % topics.length]} ${topics[(i * 7) % topics.length]}` });
     const weights = (db.prepare(`SELECT weight FROM atom_links`).all() as
       { weight: number }[]).map(w => w.weight);
@@ -35,7 +35,7 @@ describe("C2 — injected hubness (post-pools, ancestor cap)", () => {
       "dispatch", "worker", "bytecode", "matrix", "jump"];
     const injected = new Map<string, number>();
     for (let i = 0; i < 50; i++) {
-      osem.recallShallow({ agentId: "C2",
+      osem.recallLexical({ agentId: "C2",
                     prompt: `${topics[i % topics.length]} ${topics[(i * 3) % topics.length]}` });
       const ctx = osem.formatContext({ agentId: "C2" });
       for (const id of ctx.leafIds)
@@ -63,7 +63,7 @@ describe("D1 — latency scaling (synthetic corpus)", () => {
       const lat: number[] = [];
       for (let i = 0; i < 30; i++) {
         const t0 = performance.now();
-        osem.recallShallow({ agentId: "D1",
+        osem.recallLexical({ agentId: "D1",
                       prompt: `${words[(i * 11) % 300]} ${words[(i * 3 + 1) % 300]}` });
         lat.push(performance.now() - t0);
       }
@@ -86,7 +86,7 @@ describe("D2 — determinism (two identical systems, 100 identical queries)", ()
       const { osem } = makeOsem();
       const out: string[] = [];
       for (let i = 0; i < 100; i++) {
-        const s = osem.recallShallow({ agentId: "D2", prompt: "maranget" });
+        const s = osem.recallLexical({ agentId: "D2", prompt: "maranget" });
         out.push(s.map(x => `${x.id}:${x.e.toFixed(4)}`).join("|"));
       }
       return out.join("\n");

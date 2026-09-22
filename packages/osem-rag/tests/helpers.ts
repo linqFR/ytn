@@ -85,18 +85,18 @@ export function makeOsemReal(): IOsemHarness {
   return { osem, db };
 }
 
-/** Advance a scope's hit counter by `n` consultations that match nothing
- *  (honest silence — each acting recall is +1 hit, commits no sediment). */
+/** Advance a scope's seq by `n` silent recalls that match nothing
+ *  (honest silence — each acting recall is +1 seq, commits no bookmarks). */
 export function burn(osem: IOsemRag, agentId: string, n: number): void {
   for (let i = 0; i < n; i++)
-    osem.recallShallow({ agentId, prompt: "qzxw jvkm bplq zxcv" });
+    osem.recallLexical({ agentId, prompt: "qzxw jvkm bplq zxcv" });
 }
 
-/** Current hit count of a scope (its own consultation clock). */
-export function hitOf(db: Database.Database, scopeId: string): number {
-  // CAST: get() returns unknown — single {hit} row or undefined
-  return ((db.prepare(`SELECT hit FROM scope_clock WHERE scope_id = ?`)
-    .get(scopeId) as { hit: number } | undefined)?.hit) ?? 0;
+/** Current seq of a scope (its own commit counter — the window index). */
+export function seqOf(db: Database.Database, scopeId: string): number {
+  // CAST: get() returns unknown — single {seq} row or undefined
+  return ((db.prepare(`SELECT seq FROM scope_clock WHERE scope_id = ?`)
+    .get(scopeId) as { seq: number } | undefined)?.seq) ?? 0;
 }
 
 /** Deterministic pseudo-random words for load tests (no runtime randomness). */

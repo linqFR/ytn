@@ -16,7 +16,7 @@
  *   recency     — a memory reinforced on spaced hits outranks its twin
  *
  * Metrics per class: recall@formatContext (the memory actually pasted into context),
- * MRR on recallShallow, abstention accuracy, and end-to-end query latency
+ * MRR on recallLexical, abstention accuracy, and end-to-end query latency
  * (p50 / p95 reported; only a generous upper bound is asserted — CI noise).
  */
 import { describe, expect, it } from "vitest";
@@ -67,7 +67,7 @@ function leaf(osem: IOsemRag, sec: string, id: string, body: string) {
                  body, derivesFrom: sec });
 }
 
-/** Build the simulated session once: deposits only, no recallShallow yet. */
+/** Build the simulated session once: deposits only, no recallLexical yet. */
 function buildSim(): tsSim {
   const { osem, db } = makeOsem();
   osem.registerMemo({ id: "mem:project", kind: "synthese", granularity: "doc",
@@ -204,7 +204,7 @@ describe("H1 — needle recall at load (LongMemEval: information extraction)", (
     const isLeaf = (id: string) =>
       !/^(sec:|mem:|doc:)/.test(id) && !/^synth:doc#\d+$/.test(id);
     for (const q of needles) {
-      const surfaced = osem.recallShallow({ agentId: "alpha", prompt: q.prompt });
+      const surfaced = osem.recallLexical({ agentId: "alpha", prompt: q.prompt });
       const rank = surfaced.filter(x => isLeaf(x.id))
                            .findIndex(x => x.id === q.targetId);
       if (rank >= 0) mrr += 1 / (rank + 1);
@@ -225,13 +225,13 @@ describe("H2 — knowledge updates restitute the current value", () => {
     for (const u of updates) {
       // New token → the atom surfaces with its CURRENT body.
       const ctx = (() => {
-        osem.recallShallow({ agentId: "alpha", prompt: u.newTok });
+        osem.recallLexical({ agentId: "alpha", prompt: u.newTok });
         return osem.formatContext({ agentId: "alpha" });
       })();
       const item = ctx.items.find(x => x.excerpt.includes(u.newTok));
       if (item) ok++;
       // Old token → the atom must NOT be restituted as the old value.
-      osem.recallShallow({ agentId: "alpha", prompt: u.oldTok });
+      osem.recallLexical({ agentId: "alpha", prompt: u.oldTok });
       const stale = osem.formatContext({ agentId: "alpha" });
       expect(stale.items.some(x => x.excerpt.includes(u.oldTok))).toBe(false);
     }
@@ -244,7 +244,7 @@ describe("H3 — retracted memories stay inert (superseded)", () => {
   it("never surfaces nor injects a superseded fact", () => {
     const { osem, retracted } = getSim();
     for (const r of retracted) {
-      const surfaced = osem.recallShallow({ agentId: "alpha", prompt: r.query });
+      const surfaced = osem.recallLexical({ agentId: "alpha", prompt: r.query });
       expect(surfaced.some(x => x.id === r.id)).toBe(false);
       const ctx = osem.formatContext({ agentId: "alpha" });
       expect(ctx.leafIds.includes(r.id)).toBe(false);
@@ -257,7 +257,7 @@ describe("H4 — distractor pairs (adversarial near-duplicates)", () => {
     const { osem, distractors } = getSim();
     let ok = 0;
     for (const q of distractors) {
-      const surfaced = osem.recallShallow({ agentId: "alpha", prompt: q.prompt });
+      const surfaced = osem.recallLexical({ agentId: "alpha", prompt: q.prompt });
       const ai = surfaced.findIndex(x => x.id === q.targetId);
       const bi = surfaced.findIndex(x => x.id === q.twinId);
       if (ai >= 0 && (bi < 0 || ai < bi)) ok++;
@@ -272,7 +272,7 @@ describe("H5 — cross-plane restitution (multi-agent shared scope)", () => {
     const { osem, cross } = getSim();
     // Alpha consults and mirrors its working memory into scope:proj.
     for (const q of cross)
-      osem.recallShallow({ agentId: "alpha", prompt: q.prompt,
+      osem.recallLexical({ agentId: "alpha", prompt: q.prompt,
                     share: "scope:proj" });
     // Beta reads the shared plane only — authoritative scopes.
     let hits = 0;
@@ -289,7 +289,7 @@ describe("H6 — privacy: private planes do not leak", () => {
   it("alpha's private memories are absent from beta's planes", () => {
     const { osem, privacy } = getSim();
     for (const q of privacy)
-      osem.recallShallow({ agentId: "alpha", prompt: q.prompt }); // no share
+      osem.recallLexical({ agentId: "alpha", prompt: q.prompt }); // no share
     // Beta's formatContext (default: agent:beta + public) must not contain them.
     const ctx = osem.formatContext({ agentId: "beta" });
     for (const q of privacy)
@@ -302,7 +302,7 @@ describe("H7 — abstention (honest silence on unknown topics)", () => {
     const { osem, abstain } = getSim();
     let silent = 0;
     for (const q of abstain) {
-      const surfaced = osem.recallShallow({ agentId: "alpha", prompt: q.prompt });
+      const surfaced = osem.recallLexical({ agentId: "alpha", prompt: q.prompt });
       if (surfaced.length === 0) silent++;
     }
     console.log(`H7 abstention: ${silent}/${abstain.length} honest silences`);
@@ -315,14 +315,14 @@ describe("H8 — spaced reinforcement outranks the twin (temporal memory)", () =
     const { osem, recency } = getSim();
     let ok = 0;
     for (const r of recency) {
-      // Reinforce at Δhits ≥ tau/2 (tau0=5 → spaced consultations count):
-      // ~5 unrelated consultations between each reinforcement.
+      // Reinforce on spaced commits (~5 silent recalls between each) —
+      // dispersion across buckets is what builds the durable tier.
       for (let i = 0; i < 3; i++) {
-        osem.recallShallow({ agentId: "alpha",
+        osem.recallLexical({ agentId: "alpha",
                       prompt: `${r.prompt} reinforced` });
         burn(osem, "alpha", 5);
       }
-      const surfaced = osem.recallShallow({ agentId: "alpha", prompt: r.prompt });
+      const surfaced = osem.recallLexical({ agentId: "alpha", prompt: r.prompt });
       const ri = surfaced.findIndex(x => x.id === r.reinforced);
       const ti = surfaced.findIndex(x => x.id === r.twin);
       if (ri >= 0 && (ti < 0 || ri < ti)) ok++;
@@ -349,7 +349,7 @@ describe("H9 — end-to-end query latency under the full battery", () => {
     const lat: number[] = [];
     for (let i = 0; i < battery.length; i++) {
       const t0 = performance.now();
-      osem.recallShallow({ agentId: "alpha", prompt: battery[i]! });
+      osem.recallLexical({ agentId: "alpha", prompt: battery[i]! });
       osem.formatContext({ agentId: "alpha" });
       lat.push(performance.now() - t0);
     }
@@ -368,7 +368,7 @@ describe("H10 — long memories (multi-paragraph episodes)", () => {
     const { osem, long } = getSim();
     let hits = 0;
     for (const l of long) {
-      osem.recallShallow({ agentId: "alpha", prompt: l.prompt });
+      osem.recallLexical({ agentId: "alpha", prompt: l.prompt });
       const ctx = osem.formatContext({ agentId: "alpha" });
       if (!ctx.leafIds.includes(l.id)) continue;
       hits++;

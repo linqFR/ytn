@@ -67,8 +67,11 @@ export function makeInject(deps: tsInjectDeps) {
     };
 
     // Critical anchors: pinned facts — outside the payload budget.
+    // kind='query' atoms are provenance entities, never payload — the
+    // kind filter is a hard exclusion on every surface below.
     for (const b of db.prepare(
-      `SELECT id, body FROM atoms WHERE flag = 'pinned' AND status = 'active'`,
+      `SELECT id, body FROM atoms
+       WHERE flag = 'pinned' AND status = 'active' AND kind != 'query'`,
     ).all() as { id: string; body: string }[]) // CAST: all() returns unknown[]
       push(`⚓ [pinned] ${b.id}: ${b.body.slice(0, 200)}`, "anchor");
 
@@ -77,7 +80,7 @@ export function makeInject(deps: tsInjectDeps) {
       `SELECT s.atom_id AS id, s.e AS e, a.body, a.granularity,
               a.src, a.src_line, a.title
        FROM _energy s JOIN atoms a ON a.id = s.atom_id
-       WHERE a.status = 'active'
+       WHERE a.status = 'active' AND a.kind != 'query'
          AND a.granularity IN ('sentence','paragraph','row')
        ORDER BY s.e DESC`,
     ).all() as { id: string; e: number; body: string; granularity: string;
@@ -93,7 +96,9 @@ export function makeInject(deps: tsInjectDeps) {
       const anc = ancestorsOf(db, l.id);
       const sec = anc[anc.length - 1];
       // Diversity cap: one ancestor cannot propel more than N leaves.
-      const secKey = sec?.id ?? "_root";
+      // A root atom is its own ancestor — flat corpora must not collapse
+      // into a single "_root" bucket capped at N items total.
+      const secKey = sec?.id ?? l.id;
       if ((perAnc.get(secKey) ?? 0) >= cfg.maxLeavesPerAncestor) continue;
       perAnc.set(secKey, (perAnc.get(secKey) ?? 0) + 1);
       taken.push(l);
@@ -120,7 +125,7 @@ export function makeInject(deps: tsInjectDeps) {
     for (const z of db.prepare(
       `SELECT s.atom_id AS id, IFNULL(a.title, a.id) AS title, a.granularity
        FROM _energy s JOIN atoms a ON a.id = s.atom_id
-       WHERE s.e >= ? AND a.status = 'active'
+       WHERE s.e >= ? AND a.status = 'active' AND a.kind != 'query'
          AND a.granularity IN ('section','doc')`,
     ).all(cfg.theta) as { id: string; title: string; granularity: string }[]) { // CAST: all() returns unknown[]
       if (ancestorIds.has(z.id) || takenIds.has(z.id)) continue;

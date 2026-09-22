@@ -64,8 +64,8 @@ function buildCorpus() {
 describe("E — mixed sources (md + txt + url + sql rows, one field)", () => {
   it("surfaces facts from every source type in a single field", () => {
     const { osem } = buildCorpus();
-    osem.recallShallow({ agentId: "E1", prompt: "mdtok alpha" });
-    osem.recallShallow({ agentId: "E1", prompt: "txttok backups" });
+    osem.recallLexical({ agentId: "E1", prompt: "mdtok alpha" });
+    osem.recallLexical({ agentId: "E1", prompt: "txttok backups" });
     const ctx = osem.formatContext({ agentId: "E1" });
     expect(ctx.items.some(i => i.excerpt.includes("mdtok"))).toBe(true);
     expect(ctx.items.some(i => i.excerpt.includes("txttok"))).toBe(true);
@@ -73,9 +73,9 @@ describe("E — mixed sources (md + txt + url + sql rows, one field)", () => {
 
   it("keeps exact provenance (source + lines) for each source kind", () => {
     const { osem } = buildCorpus();
-    osem.recallShallow({ agentId: "E2", prompt: "mdtok alpha" });
-    osem.recallShallow({ agentId: "E2", prompt: "txttok backups" });
-    osem.recallShallow({ agentId: "E2", prompt: "DEC-0006 migrate" });
+    osem.recallLexical({ agentId: "E2", prompt: "mdtok alpha" });
+    osem.recallLexical({ agentId: "E2", prompt: "txttok backups" });
+    osem.recallLexical({ agentId: "E2", prompt: "DEC-0006 migrate" });
     const ctx = osem.formatContext({ agentId: "E2" });
     const md = ctx.items.find(i => i.excerpt.includes("mdtok"));
     const txtItem = ctx.items.find(i => i.excerpt.includes("txttok"));

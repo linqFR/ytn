@@ -33,7 +33,7 @@ describe("A1 — MRR/P@5: field vs raw FTS5 baseline", () => {
     const { osem, db } = makeOsem();
     let mrrB = 0, mrrC = 0;
     for (const { q, target } of A1_QUERIES) {
-      const champ = osem.recallShallow({ agentId: "A1", prompt: q });
+      const champ = osem.recallLexical({ agentId: "A1", prompt: q });
       const base = db.prepare(
         `SELECT atom_id FROM atoms_fts WHERE atoms_fts MATCH ? ORDER BY rank LIMIT 8`,
       ).all(q.split(/\s+/).map(t => `"${t}"`).join(" OR ")) as { atom_id: string }[];
@@ -74,7 +74,7 @@ describe("A4 — honest silence (10 absent concepts)", () => {
 describe("A10 — filiation (leaf + breadcrumb)", () => {
   it("injects the precise leaf with its doc > section breadcrumb", () => {
     const { osem } = makeOsem();
-    osem.recallShallow({ agentId: "A10", prompt: "coercion rules" });
+    osem.recallLexical({ agentId: "A10", prompt: "coercion rules" });
     const ctx = osem.formatContext({ agentId: "A10" });
     expect(ctx.leafIds.length).toBeGreaterThan(0);
     expect(ctx.text).toMatch(/🗺/);

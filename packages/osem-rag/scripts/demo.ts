@@ -20,9 +20,8 @@ import Database from "better-sqlite3";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, extname, join } from "node:path";
-import { createOsem } from "../src/index.ts";
-import { ancestorsOf } from "../src/engine/inject.ts";
-import { leafChunks, splitMarkdownSections } from "../src/engine/ingest.ts";
+import { ancestorsOf, createOsem, leafChunks,
+  splitMarkdownSections } from "@ytrynot/osem-rag";
 
 const modelDir = process.env.OSEM_MODEL_DIR
   ?? join(homedir(), ".osem", "models", "potion-base-8M");
@@ -110,7 +109,7 @@ for (const src of sources) {
   stats.files += r.files;
   stats.atoms += r.atoms;
 }
-osem.maintain(0);
+osem.maintain();
 console.log(`\n═══ OSEM-RAG demo ═══`);
 console.log(`Corpus: ${stats.files} document(s) → ${stats.atoms} atoms`);
 console.log(`Embedder: ${hasModel ? "model2vec (semantic) + hash (typos)" : "hash only"}\n`);
@@ -162,7 +161,7 @@ function show(surfaced: { id: string; e: number; via: string; srcs?: string }[],
 
 const run = (p: string) => {
   const t0 = performance.now();
-  const { surfaced, trace } = osem.recall({ agentId: "CLI", tick: 0, prompt: p });
+  const { surfaced, trace } = osem.recall({ agentId: "CLI", prompt: p });
   console.log(`\n── Query: "${p}"  [${(performance.now() - t0).toFixed(0)} ms] ──`);
   if (!surfaced.length) {
     console.log("  → the field stays SILENT: nothing in the corpus matches " +

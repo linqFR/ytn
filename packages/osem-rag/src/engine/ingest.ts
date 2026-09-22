@@ -18,7 +18,7 @@ export interface tsIngestDeps {
   hashEmbedder: IEmbedder;
   vecExtReady: boolean;
   /** Marked when the graph mutates — the next wave lazily refreshes
-   *  _fan/_mass/_din so registerMemo→recallShallow (no maintain) never propagates on stale stats. */
+   *  _fan/_mass/_din so registerMemo→recallLexical (no maintain) never propagates on stale stats. */
   statsState?: tsStatsState;
 }
 
@@ -40,8 +40,8 @@ export function registerMemo(deps: tsIngestDeps, d: IMemoInput): void {
   const w = d.flag === "pinned" ? 3 : 2;
   db.transaction(() => {
     // Upsert: re-ingesting an updated document must not crash on the PK.
-    // Sediment lives in atom_sediment per scope and is PRESERVED on update —
-    // this statement never touches it.
+    // Frequency lives in `bookmarks`/`freq_buckets` per scope and is
+    // PRESERVED on update — this statement never touches it.
     db.prepare(`INSERT INTO atoms(id,kind,body,flag,granularity,title,recorded_at,src,src_line)
                 VALUES (?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(id) DO UPDATE SET

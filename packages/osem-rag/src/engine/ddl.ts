@@ -4,9 +4,11 @@
  *
  * Memory planes: STP tables are keyed by `scope_id` — `agent:<id>` (personal),
  * `public` (shared), `scope:<name>` / `skill:<name>` (domain planes).
- * LTP is per-scope too: `atom_sediment(atom_id, scope_id, …)` — every scope is
- * an attention domain with its own sediment, its own clock (`scope_clock`)
- * and its own owner (`scope_owner`).
+ * LTP is windowed frequency: `bookmarks` is the append-only truth (« this
+ * query surfaced this atom on this scope »), `freq_buckets` is the derived
+ * ring cache (rebuildable from `bookmarks`), and `scope_clock.seq` is the
+ * per-scope window index. `surface_log` survives as the maintenance/audit
+ * log ('pruned' rows — forgetting is always traced).
  */
 export const OSEM_DDL = `
 PRAGMA foreign_keys = ON;
@@ -20,25 +22,35 @@ CREATE TABLE IF NOT EXISTS atoms (
   src TEXT,
   src_line INTEGER
 );
-CREATE TABLE IF NOT EXISTS atom_sediment (
-  atom_id TEXT NOT NULL REFERENCES atoms(id),
+CREATE TABLE IF NOT EXISTS bookmarks (
+  query_id TEXT NOT NULL REFERENCES atoms(id),
   scope_id TEXT NOT NULL,
-  salience REAL NOT NULL DEFAULT 0,
-  tau REAL NOT NULL DEFAULT 5,
-  uses INTEGER NOT NULL DEFAULT 0,
-  uses_spaced INTEGER NOT NULL DEFAULT 0,
-  touched_hit INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (atom_id, scope_id)
+  atom_id TEXT NOT NULL REFERENCES atoms(id),
+  seq INTEGER NOT NULL,
+  w REAL NOT NULL,
+  via TEXT,
+  path TEXT
+);
+CREATE INDEX IF NOT EXISTS bookmarks_scope_atom_seq
+  ON bookmarks(scope_id, atom_id, seq);
+CREATE INDEX IF NOT EXISTS bookmarks_scope_seq
+  ON bookmarks(scope_id, seq, atom_id);
+CREATE TABLE IF NOT EXISTS freq_buckets (
+  scope_id TEXT NOT NULL,
+  atom_id TEXT NOT NULL,
+  slot INTEGER NOT NULL,
+  bucket_id INTEGER NOT NULL,
+  n REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (scope_id, atom_id, slot)
 );
 CREATE TABLE IF NOT EXISTS scope_clock (
   scope_id TEXT PRIMARY KEY,
-  hit INTEGER NOT NULL DEFAULT 0,
   seq INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS scope_owner (
   scope_id TEXT PRIMARY KEY,
   owner TEXT NOT NULL,
-  created_hit INTEGER NOT NULL DEFAULT 0
+  created_seq INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS atom_links (
   from_id TEXT NOT NULL REFERENCES atoms(id),

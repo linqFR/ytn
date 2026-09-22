@@ -26,6 +26,11 @@ export { refreshStats } from "./engine/maintenance.ts";
 // IOsemRag instance returned by createOsem().
 export { createHashEmbedder } from "./embedder/hash.ts";
 export { loadModel2Vec } from "./embedder/model2vec.ts";
+// Public helpers for custom ingestion pipelines and provenance display:
+// leafChunks/splitMarkdownSections reproduce registerDoc's chunking on a
+// single markdown text; ancestorsOf walks the derives_from chain.
+export { leafChunks, splitMarkdownSections } from "./engine/ingest.ts";
+export { ancestorsOf } from "./engine/formatContext.ts";
 
 /** Audited defaults — every value traces back to a v12 campaign test. */
 export const DEFAULT_OSEM_CONFIG: IOsemConfig = {
@@ -40,11 +45,16 @@ export const DEFAULT_OSEM_CONFIG: IOsemConfig = {
   ltpRate: 0.3,
   floorPinned: 0.6,
   floorHigh: 0.3,
-  tau0: 5,
-  kappaTau: 0.25,
-  tauCapUses: 12,
-  floorMax: 0.3,
-  floorLambda: 3,
+  freqWindowHot: 20,
+  freqWindowMedium: 50,
+  freqWindowLong: 100,
+  freqBucketSize: 10,
+  freqMinBuckets: 3,
+  freqWeightRecent: 1.0,
+  freqWeightWarm: 1.0,
+  freqWeightDurable: 1.0,
+  flagFloorWeight: 1.0,
+  registrationWeight: 1.0,
   lambdaFatigue: 0.15,
   fatigueDecay: 0.5,
   fanout: 20,
@@ -54,7 +64,6 @@ export const DEFAULT_OSEM_CONFIG: IOsemConfig = {
   weightContains: 0.3,
   budgetTok: 800,
   payloadShare: 0.7,
-  thetaConf: 0.9,
   cosSilenceSemantic: 0.4,
   cosSilenceHash: 0.55,
   cosMin: 0.25,
@@ -65,7 +74,6 @@ export const DEFAULT_OSEM_CONFIG: IOsemConfig = {
   maxLeavesPerAncestor: 3,
   embedDim: 256,
   useSqliteVec: false,
-  salienceBoost: 0.4,
   adjacentMinEnergy: 0.08,
   adjacentMax: 6,
   rankFloor: 0.3,
@@ -109,34 +117,6 @@ export function createOsem(opts: IOsemOptions): IOsemRag {
     throw new Error(`hashEmbedder dim ${hashEmbedder.dim} != config.embedDim ${cfg.embedDim}`);
 
   db.exec(OSEM_DDL);
-  // Migration: pre-v5 databases carried the sediment ON atoms (global LTP).
-  // Move it into atom_sediment on the `public` plane — the collective scope —
-  // then every per-scope write lands in atom_sediment from now on.
-  // v5→v6: caller-provided ticks → per-scope hits (acting recalls) + seq
-  // (commits). Rename the columns, then align seq past any logged event.
-  const colsOf = (t: string) => new Set(
-    (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]) // CAST: all() returns unknown[]
-      .map(c => c.name));
-  if (colsOf("atom_sediment").has("touched_tick"))
-    db.exec(`ALTER TABLE atom_sediment RENAME COLUMN touched_tick TO touched_hit`);
-  if (colsOf("scope_owner").has("created_tick"))
-    db.exec(`ALTER TABLE scope_owner RENAME COLUMN created_tick TO created_hit`);
-  if (colsOf("surface_log").has("tick"))
-    db.exec(`ALTER TABLE surface_log RENAME COLUMN tick TO seq`);
-  if (colsOf("scope_clock").has("tick"))
-    db.exec(`ALTER TABLE scope_clock RENAME COLUMN tick TO hit`);
-  if (!colsOf("scope_clock").has("seq"))
-    db.exec(`ALTER TABLE scope_clock ADD COLUMN seq INTEGER NOT NULL DEFAULT 0`);
-  db.exec(`UPDATE scope_clock SET seq = MAX(seq, hit,
-    IFNULL((SELECT MAX(seq) FROM surface_log sl
-            WHERE sl.scope_id = scope_clock.scope_id), 0))`);
-  const atomCols = db.prepare(`PRAGMA table_info(atoms)`).all() as
-    { name: string }[]; // CAST: all() returns unknown[]
-  if (atomCols.some(c => c.name === "salience"))
-    db.exec(
-      `INSERT OR IGNORE INTO atom_sediment(atom_id, scope_id, salience, tau, uses, uses_spaced, touched_hit)
-       SELECT id, 'public', salience, tau, uses, uses_spaced, touched_tick
-       FROM atoms WHERE salience > 0 OR uses > 0`);
   if (vecExtReady)
     // Backfill: vec0 tables created on an already-populated base start EMPTY
     // (CREATE IF NOT EXISTS) — without this, reopening a populated DB with
@@ -153,7 +133,7 @@ export function createOsem(opts: IOsemOptions): IOsemRag {
   refreshStats(db, cfg);
 
   // Shared staleness flag: deposits mark the propagation stats dirty; the
-  // next wave lazily refreshes them (registerMemo→recallShallow without maintain() works).
+  // next wave lazily refreshes them (registerMemo→recallLexical without maintain() works).
   const statsState = { dirty: false };
   const ingestDeps = { db, cfg, embedder, hashEmbedder, vecExtReady, statsState };
   const field = makeField({ db, cfg, embedder, hashEmbedder, vecExtReady, statsState });
@@ -166,7 +146,7 @@ export function createOsem(opts: IOsemOptions): IOsemRag {
     embedder,
     registerMemo: (input) => registerMemo(ingestDeps, input),
     registerDoc: (rootDir, o) => registerDoc(ingestDeps, rootDir, o),
-    recallShallow: (x) => field.recallShallow(x),
+    recallLexical: (x) => field.recallLexical(x),
     recall: (x) => field.recall(x),
     formatContext: (o) => formatContext.formatContext(o),
     maintain: () => maint.maintain("system"),
