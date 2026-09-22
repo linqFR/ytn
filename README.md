@@ -18,6 +18,7 @@ Each package is designed to be **lightweight**, **type-safe**, and **independent
 | **[@ytrynot/schvalid](./packages/schvalid)** | Schvalid | **JSON Schema Processing** | `const dna = jschemaToDna(schema); const validate = validator(dna);` |
 | **[@ytrynot/cli](./packages/cli)** | CLI | **DNA-validated CLI Factory & Router** | `const contract = createContract({ routes }); const result = execute(contract, argv);` |
 | **[@ytrynot/gov-mcp](./packages/gov-mcp)** | Gov MCP | **Inter-agent Governance MCP Server** | `npx @ytrynot/gov-mcp` |
+| **[@ytrynot/mcp-core](./packages/mcp-core)** | MCP Core | **Generic MCP Server/Client Factory** | `const core = createCore({ tools, ctx }); startStdioServer({ core });` |
 
 ---
 
@@ -125,6 +126,22 @@ npx @ytrynot/gov-mcp
 }
 ```
 
+#### [@ytrynot/mcp-core](./packages/mcp-core/README.md)
+
+Generic MCP server + client factory — a domain owns a declarative tool list (`name` + Standard-Schema `args`/`output` + pure handler) and `mcp-core` serves it over stdio or dispatches it in-process. The same registry drives an MCP transport, a CLI hook, or a test harness.
+
+```typescript
+import { createCore } from "@ytrynot/mcp-core";
+import { startStdioServer } from "@ytrynot/mcp-core/server";
+import { createMcpClient } from "@ytrynot/mcp-core/client";
+
+const core = createCore({ tools, ctx });
+await startStdioServer({ name: "my-mcp", version: "1.0.0", core }); // serve
+
+const mcp = await createMcpClient({ stdio: { serverScript: "dist/server.js" } });
+const res = await mcp.call("greet", { name: "Ada" }); // → CallToolResult verbatim
+```
+
 ## Tech Stack
 
 - **Runtime**: Node.js (>=25.0.0)
@@ -143,6 +160,7 @@ npm install @ytrynot/dna
 npm install @ytrynot/schvalid
 npm install @ytrynot/cli
 npm install @ytrynot/gov-mcp
+npm install @ytrynot/mcp-core
 ```
 
 #### For development (monorepo)
