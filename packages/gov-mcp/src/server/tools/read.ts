@@ -856,6 +856,11 @@ export function getUpdates(
   if (!res.success) {
     return err(formatErrors(res.errors));
   }
+  // Unknown params are silently dropped by validation (keepOnly) — surface
+  // them so callers don't believe an unsupported filter (e.g. `cursor`) applied.
+  const knownParams = new Set(Object.keys(S.getUpdatesInput.shape));
+  const ignored = Object.keys(input).filter((k) => !knownParams.has(k));
+  const ignoredNote = ignored.length > 0 ? ` Ignored unknown param(s): ${ignored.join(", ")}.` : "";
   const writer = ctx.queries.getWriterByNanoid.get({ nanoid: input.nanoid });
   if (!writer) return err(`Writer not found for nanoid ${input.nanoid}`);
   // last_read_at stores an ISO timestamp (not a numeric id). Fallback covers
@@ -872,7 +877,7 @@ export function getUpdates(
     if (!isPeek) {
       ctx.queries.updateWriterCursor.run({ last_read_at: now, nanoid: input.nanoid });
     }
-    return ok(`Cursor ${isPeek ? "unchanged (peek)" : "set to now"}. 0 entries returned.`, {
+    return ok(`Cursor ${isPeek ? "unchanged (peek)" : "set to now"}. 0 entries returned.${ignoredNote}`, {
       entries: [],
       new_cursor: isPeek ? cursor : now,
       max_entry_id: maxId,
@@ -925,6 +930,7 @@ export function getUpdates(
   builder = builder.whereRaw(audienceCond);
   params.caller_id = writer.id;
   params.caller_scope = writer.default_scope;
+  const filteredSql = builder.toSQL();
   const sql = builder
     .orderBy("id", isDesc ? "DESC" : "ASC")
     .limit(effectiveLimit + 1)
@@ -932,30 +938,37 @@ export function getUpdates(
 
   // Read + cursor update must be transactional to avoid skipping entries
   // inserted between the SELECT and the cursor advancement.
-  const { entries, hasMore } = ctx.db.transaction(() => {
+  // The cursor only advances when the whole unread backlog was returned:
+  // a single `>` watermark cannot express "the newest N are read, older ones
+  // stay unread" — advancing past an unseen backlog would silently mark
+  // those entries as read. With hasMore, the caller must widen the limit.
+  const { entries, hasMore, totalUnread } = ctx.db.transaction(() => {
     const rows = ctx.db.prepare(sql).all(params);
     // We always request effectiveLimit + 1 rows to detect has_more
     const hasMore = rows.length > effectiveLimit;
     const entries = hasMore ? rows.slice(0, effectiveLimit) : rows;
-    // Cursor = date of reading (now), not the timestamp of the last entry.
-    if (!isPeek) {
+    const totalUnread = hasMore
+      ? (ctx.db.prepare(`SELECT COUNT(*) AS n FROM (${filteredSql})`).get(params) as { n: number }).n
+      : entries.length;
+    if (!isPeek && !hasMore) {
       ctx.queries.updateWriterCursor.run({ last_read_at: currentTimestamp(), nanoid: input.nanoid });
     }
-    return { entries, hasMore };
+    return { entries, hasMore, totalUnread };
   });
-  const newCursor = currentTimestamp();
+  const newCursor = hasMore ? cursor : currentTimestamp();
 
   const maxRow = ctx.queries.getMaxLogEntryId.get({}) as { max_id: number | null } | undefined;
   const maxId = maxRow?.max_id ?? 0;
-  const lastEntryId = entries.length > 0
-    ? (isDesc ? (entries[entries.length - 1].id as number) : (entries[entries.length - 1].id as number))
-    : 0;
-  const remaining = hasMore ? Math.max(0, maxId - lastEntryId) : 0;
+  const lastEntryId = entries.length > 0 ? (entries[entries.length - 1].id as number) : 0;
+  const remaining = totalUnread - entries.length;
 
   const peekNote = isPeek ? " [PEEK MODE]" : "";
+  const range = entries.length > 0
+    ? ` (ids #${lastEntryId}–#${entries[0].id}, newest first; log has ${maxId} entries)`
+    : ` (log has ${maxId} entries)`;
   const summary = hasMore
-    ? `${entries.length} entries returned (cursor: ${lastEntryId}/${maxId}). ${remaining} remaining — call get_updates again with the same nanoid to fetch the next batch.${peekNote}`
-    : `${entries.length} entries returned (cursor: ${lastEntryId}/${maxId}). All caught up.${peekNote}`;
+    ? `${entries.length} unread entries for ${writer.id} since ${cursor}${range}. ${remaining} more unread — cursor NOT advanced; call get_updates again with a larger lastN/limitN to fetch them.${peekNote}${ignoredNote}`
+    : `${entries.length} unread entries for ${writer.id} since ${cursor}${range}. No unread entries left for this writer.${peekNote}${ignoredNote}`;
 
   return ok(summary, {
     entries,

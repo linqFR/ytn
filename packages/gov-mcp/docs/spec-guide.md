@@ -175,17 +175,11 @@ Decisions and actions that do not have a spec (simple decisions, conventions) ke
 
 ## Specs Registry (gov-mcp)
 
-The specs index is managed through gov-mcp tools, not a manual markdown file.
-The governance SQLite database is the single source of truth for spec metadata;
-`mailbox/generated/mailbox-specs.md` is a generated view produced by
-`generate_all_reports`, never hand-edited.
+The specs index is managed through gov-mcp tools, not a manual markdown file. The governance SQLite database is the single source of truth for spec metadata; `mailbox/generated/mailbox-specs.md` is a generated view produced by `generate_all_reports`, never hand-edited.
 
-- When a spec is created: call `create_spec` with the spec metadata (id, filename,
-  scope, version, status, supersedes).
-- When a spec's status changes: call `update_spec_status` (append-only via
-  `status_history` — status changes are new history rows, not edits).
-- To discover specs: call `list_specs` (with optional filters: status, package,
-  scope) or `get_spec` for a single spec by ID.
+- When a spec is created: call `create_spec` with the spec metadata (id, filename, scope, version, status, supersedes).
+- When a spec's status changes: call `update_spec_status` (append-only via `status_history` — status changes are new history rows, not edits).
+- To discover specs: call `list_specs` (with optional filters: status, package, scope) or `get_spec` for a single spec by ID.
 
 ### Mapping: header fields → gov-mcp fields
 
@@ -275,47 +269,29 @@ Simple decisions (conventions, rules, small fixes) do not require a spec. The de
 
 ## Self-Audit (Session Start)
 
-At the start of a session, the agent verifies the consistency of the artifacts
-**it will work on**, not the entire mailbox. Concretely:
+At the start of a session, the agent verifies the consistency of the artifacts **it will work on**, not the entire mailbox. Concretely:
 
-1. If working on a spec: verify that its `Status` is consistent with the state of
-   the code (no unreported `desync`).
-2. If working on a decision: verify that its `Spec` field (if present) points to a
-   spec that exists.
-3. If working on an action: verify that its `Spec` field (if present) points to a
-   spec that is `locked` or `implemented`.
-4. If working on a problem: verify that its `Linked Spec` (if present) points to a
-   spec that exists.
+1. If working on a spec: verify that its `Status` is consistent with the state of the code (no unreported `desync`).
+2. If working on a decision: verify that its `Spec` field (if present) points to a spec that exists.
+3. If working on an action: verify that its `Spec` field (if present) points to a spec that is `locked` or `implemented`.
+4. If working on a problem: verify that its `Linked Spec` (if present) points to a spec that exists.
 
-Discrepancies are reported as `challenge` entries in the daily log, not silently
-fixed.
+Discrepancies are reported as `challenge` entries in the daily log, not silently fixed.
 
 ## No Mailbox References in Code
 
-Never reference spec identifiers (`SPEC`, `PB-NNNN`, `DEC-NNNN`, `ACT-NNNN`,
-`IDEA-NNNN`) or spec filenames in source code, code comments, JSDoc, test
-descriptions, READMEs, or user-facing documentation. These are internal
-coordination artifacts that may be superseded, cancelled, or reorganized. Code
-comments and documentation must explain the *what* and *why* in self-contained
-terms.
+Never reference spec identifiers (`SPEC`, `PB-NNNN`, `DEC-NNNN`, `ACT-NNNN`, `IDEA-NNNN`) or spec filenames in source code, code comments, JSDoc, test descriptions, READMEs, or user-facing documentation. These are internal coordination artifacts that may be superseded, cancelled, or reorganized. Code comments and documentation must explain the *what* and *why* in self-contained terms.
 
 ## Migration of Existing Specs
 
-The 2 existing spec-annexes (`mailbox-2026-08-22-spec-act-0018.md` and
-`mailbox-2026-08-25-spec-cli-mode.md`) are migrated to the new header format by
-**adding a header block at the top** of each file (append-only — existing content
-is not modified). Status: `implemented`.
+The 2 existing spec-annexes (`mailbox-2026-08-22-spec-act-0018.md` and `mailbox-2026-08-25-spec-cli-mode.md`) are migrated to the new header format by **adding a header block at the top** of each file (append-only — existing content is not modified). Status: `implemented`.
 
 Existing manual index rows are migrated to gov-mcp via `create_spec`.
 
 ## Non-Retro-Écriture
 
-This guide applies **only to the future**. Existing decisions, actions, ideas,
-specs, and mailbox files are not retro-written. The past remains the past and
-operates under the rules in effect when it was written.
+This guide applies **only to the future**. Existing decisions, actions, ideas, specs, and mailbox files are not retro-written. The past remains the past and operates under the rules in effect when it was written.
 
 Exceptions (explicitly approved):
-- Migration of the 2 existing spec-annexes to the new header format (addition at
-  the top, append-only).
-- Cosmetic cleanup of `DEC-NNNN` references in code comments (comments only, no
-  behavioural impact).
+- Migration of the 2 existing spec-annexes to the new header format (addition at the top, append-only).
+- Cosmetic cleanup of `DEC-NNNN` references in code comments (comments only, no behavioural impact).

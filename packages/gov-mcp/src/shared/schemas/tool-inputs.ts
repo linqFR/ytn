@@ -155,7 +155,7 @@ export const updateActionStatusInput = dna.object({
   cascade: dna.boolean().optional().describe("Whether to trigger cascades (default true)"),
 }).meta({
   title: "UpdateActionStatusInput",
-  description: "Update an action's status. Triggers cascades: done → linked problems partial, done → linked ideas implemented (if all sibling actions done). Logs in status_history and log_entries. Before marking done, the `tested` field MUST be set to `success`/`partially`/`no_need` via `correct` — never mark `done` with `tested: not_ready`.",
+  description: "Update an action's status. Triggers cascades: done → linked problems partial, done → linked ideas implemented (if all sibling actions done). Logs in status_history and log_entries. Before marking done, the `tested` field MUST be set to `success`/`partially`/`no_need` via `edit_field` — never mark `done` with `tested: not_ready`.",
   usage: [
     `Update an action's status.`,
     `Completion protocol (MANDATORY for done):
@@ -439,7 +439,7 @@ export const appendLogEntryInput = dna.object({
   description: "Append an entry to the immutable log journal. Creates a thread if replyTo is set and threadId is not.",
   usage: [
     `Append an entry to the append-only log journal.`,
-    `Log entries are immutable. Use correct to append corrections, never edit.`,
+    `Log entries are immutable. To correct a log entry, append a new entry with type="correction".`,
   ],
   category: CATEGORY.write,
   returns: "{ id, created: true, threadId }"
@@ -454,7 +454,7 @@ export const correctInput = dna.object({
   reason: dna.string().min(1).describe("Correction reason"),
   audience: audienceSchema,
 }).meta({
-  title: "CorrectInput",
+  title: "EditFieldInput",
   description: "Append a correction to an entity field. Never mutates the original record — appends a correction log entry + updates the field.",
   usage: [
     `Correct a field on an entity. Appends a correction; does not mutate history.`,
@@ -634,7 +634,7 @@ export const listScopesInput = dna.object({
 export const getScopeInput = dna.object({
   id: scopeSchema.describe("Scope ID"),
 }).meta({
-  title: "GetScopeInput",
+  title: "GetScopeInfoInput",
   description: "Get a single scope by ID, including entity counts for that scope.",
   usage: [
     `Get a single scope with entity counts.`,
@@ -703,8 +703,8 @@ export const getUpdatesInput = dna.object({
   title: "GetUpdatesInput",
   description: "Get unread log entries since last reading of log_entries.",
   usage: [
-    `Get new log entries since your last read. Advances date-time cursor, unless peek: true.`,
-    "If `has_more` is true, call `get_updates` again with the same nanoid to fetch the next batch.",
+    `Get new log entries since your last read. Advances the read cursor only when the whole backlog was returned (has_more: false) — unless peek: true.`,
+    "If `has_more` is true, the cursor is NOT advanced (unseen entries stay unread) — call `get_updates` again with a larger `lastN`/`limitN` to cover them.",
   ],
   category: CATEGORY.read,
   returns: "{ entries[], new_cursor: string, max_entry_id: number, has_more: boolean, remaining: number }"

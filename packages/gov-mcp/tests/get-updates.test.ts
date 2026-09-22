@@ -75,7 +75,7 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     expect(writer!.prohibitions).toBe("no backend changes");
   });
 
-  it("get_updates with lastN returns N most recent entries (DESC) and advances cursor to now", async () => {
+  it("get_updates with lastN returns N most recent entries (DESC) and does NOT advance cursor while has_more", async () => {
     const read = await import("../src/server/tools/read.js");
     const write = await import("../src/server/tools/write.js");
     const queries = compileQueries(db);
@@ -89,13 +89,17 @@ describe("get_updates, mailbox_last_24h, and spec status", () => {
     expect(data.entries).toHaveLength(3);
     // DESC order: most recent first
     expect(data.entries[0].id).toBeGreaterThan(data.entries[1].id);
-    // new_cursor is now an ISO timestamp (date of reading)
-    expect(typeof data.new_cursor).toBe("string");
-    // has_more is true (2 older entries exist)
+    // has_more is true (2 older entries exist) — the cursor must NOT advance:
+    // advancing it would mark the unseen backlog as read.
     expect(data.has_more).toBe(true);
-    // Cursor in DB should be updated to now (not epoch)
+    expect(data.remaining).toBe(2);
     const writer = queries.getWriterByNanoid.get({ nanoid });
-    expect(writer!.last_read_at).not.toBe("1970-01-01T00:00:00.000Z");
+    expect(writer!.last_read_at).toBe("1970-01-01T00:00:00.000Z");
+    // A follow-up call with a wider limit returns the full backlog, then advances
+    const result2 = read.getUpdates(ctx, { nanoid, lastN: 10 });
+    const data2 = result2.structuredContent as { entries: { id: number }[]; has_more: boolean };
+    expect(data2.has_more).toBe(false);
+    expect(queries.getWriterByNanoid.get({ nanoid })!.last_read_at).not.toBe("1970-01-01T00:00:00.000Z");
   });
 
   it("get_updates with markAllRead sets cursor to now without returning entries", async () => {

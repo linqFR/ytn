@@ -124,7 +124,7 @@ The MCP server tracks spec entities (ID, status, links). It does not create or e
 | Tool | Required Params | Optional Params | Returns |
 |------|----------------|----------------|---------|
 | `append_log_entry` | `nanoid`, `date`, `type` | `audience`, `subject`, `body`, `refId`, `scope`, `replyTo`, `threadId` | `{ id, created, thread_id }` |
-| `correct` | `nanoid`, `entityType`, `entityId`, `field`, `newValue`, `reason` | — | `{ entityType, entityId, field, corrected }` |
+| `edit_field` | `nanoid`, `entityType`, `entityId`, `field`, `newValue`, `reason` | — | `{ entityType, entityId, field, corrected }` |
 
 **Audience field**: Controls who sees the entry via `get_updates`. Use `"all"` (default) for broadcast, `"writer-id"` to address a specific writer, or `"all,writer-id"` for both. If you want a specific writer to see your write, include their writer ID in `audience` — do not rely on scope-sharing alone.
 
@@ -184,4 +184,4 @@ All MCP tool responses follow this structure:
 - **Not found**: `isError: true`, text says which entity was not found.
 - **Invalid nanoid**: `isError: true`, text says the writer token is invalid.
 - **Evidence required**: `update_action_status` with `newStatus="done"` requires non-empty `evidence`.
-- **`correct` on `log_entry`**: Rejected — use `append_log_entry` with `type=correction` instead.
+- **`edit_field` on `log_entry`**: Rejected — use `append_log_entry` with `type=correction` instead.

@@ -3,13 +3,7 @@
 Inter-agent governance MCP server. Tracks decisions, actions, ideas, problems, specs, and a narrative log shared across multiple AI agents — all exposed via the Model Context Protocol (MCP).
 
 <!-- badges:start -->
-[![npm version](https://img.shields.io/npm/v/@ytrynot/gov-mcp.svg)](https://www.npmjs.com/package/@ytrynot/gov-mcp)
-[![CI](https://img.shields.io/github/actions/workflow/status/linqFR/ytn/ci.yml?label=CI)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/@ytrynot/gov-mcp)](./LICENSE)
-[![types](https://img.shields.io/badge/types-TypeScript-blue)](./src/index.ts)
-[![node](https://img.shields.io/badge/node-%3E%3D26.0.0-brightgreen)](https://nodejs.org)
-[![MCP](https://img.shields.io/badge/MCP-2.0.0-blue)](https://modelcontextprotocol.io)
-[![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-lightgrey)](https://github.com/WiseLibs/better-sqlite3)
+[![npm version](https://img.shields.io/npm/v/@ytrynot/gov-mcp.svg)](https://www.npmjs.com/package/@ytrynot/gov-mcp) [![CI](https://img.shields.io/github/actions/workflow/status/linqFR/ytn/ci.yml?label=CI)](https://github.com/linqFR/ytn/actions/workflows/ci.yml) [![license](https://img.shields.io/npm/l/@ytrynot/gov-mcp)](./LICENSE) [![types](https://img.shields.io/badge/types-TypeScript-blue)](./src/index.ts) [![node](https://img.shields.io/badge/node-%3E%3D26.0.0-brightgreen)](https://nodejs.org) [![MCP](https://img.shields.io/badge/MCP-2.0.0-blue)](https://modelcontextprotocol.io) [![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-lightgrey)](https://github.com/WiseLibs/better-sqlite3)
 <!-- badges:end -->
 
 ## Why

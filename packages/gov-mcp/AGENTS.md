@@ -1,7 +1,6 @@
 # AGENTS.md (Package: @ytrynot/gov-mcp)
 
-> [!IMPORTANT]
-> This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to @ytrynot/gov-mcp.
+> [!IMPORTANT] This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**. Use this file ONLY for instructions specific to @ytrynot/gov-mcp.
 
 ---
 
@@ -65,9 +64,7 @@ Quick lookup for exported functions by file. Use this before grepping.
 **`src/tools/reports.ts`** — Report generators (8 exports):
 - `generateDailyReport`, `generateDecisionsReport`, `generateActionsReport`, `generateIdeasReport`, `generateProblemsReport`, `generateDecisionHistoryReport`, `exportDump`, `generateAllReports`
 
-**`src/tools/results.ts`** — Result helpers: `ok`, `err`
-**`src/tools/meta.ts`** — Tool metadata registry: `IToolMeta`, `toolMeta`
-**`src/tools/describe-signature.ts`** — Signature introspection: `describeSignature`, `describeToolSignature`
+**`src/tools/results.ts`** — Result helpers: `ok`, `err` **`src/tools/meta.ts`** — Tool metadata registry: `IToolMeta`, `toolMeta` **`src/tools/describe-signature.ts`** — Signature introspection: `describeSignature`, `describeToolSignature`
 
 **`src/schemas/tool-inputs.ts`** — All DNA input schemas (82 exports):
 - Shared schemas: `nanoidSchema`, `entityIdSchema`, `scopeSchema`, `withChildrenSchema`, `dateSchema`, `limitSchema`, status/enum schemas (`decisionStatusSchema`, `actionStatusSchema`, `ideaStatusSchema`, `problemStatusSchema`, `specStatusSchema`, `severitySchema`, `prioritySchema`, etc.)
@@ -81,9 +78,7 @@ Quick lookup for exported functions by file. Use this before grepping.
 - `createMcpClient(opts?)` factory
 - Re-exports `O*` result types (`OWhoamiResult`, `OListDecisionsResult`, `OGetHandoffResult`, etc.)
 
-**`src/types/rows.ts`** — 20 row interfaces (`tsDecisionRow`, `tsActionRow`, `tsIdeaRow`, `tsProblemRow`, `tsSpecRow`, `tsWriterRow`, `tsLogEntryRow`, etc.)
-**`src/types/queries.ts`** — `IQueries` interface (all prepared statement signatures)
-**`src/types/client.ts`** — Public `O*` result types for the MCP client
+**`src/types/rows.ts`** — 20 row interfaces (`tsDecisionRow`, `tsActionRow`, `tsIdeaRow`, `tsProblemRow`, `tsSpecRow`, `tsWriterRow`, `tsLogEntryRow`, etc.) **`src/types/queries.ts`** — `IQueries` interface (all prepared statement signatures) **`src/types/client.ts`** — Public `O*` result types for the MCP client
 
 ### Key invariants
 
@@ -93,7 +88,7 @@ Quick lookup for exported functions by file. Use this before grepping.
 4. **Transactions for multi-table mutations** — All-or-nothing via `BEGIN/COMMIT`.
 5. **DNA validates inputs, CHECK constraints validate at DB level** — Double validation.
 6. **WAL mode + busy_timeout** — Required for concurrent access (future Node+Python).
-7. **`correct` targets entities only** — `decision`, `action`, `idea`, `problem`, `spec`. Never `log_entries`.
+7. **`edit_field` targets entities only** — `decision`, `action`, `idea`, `problem`, `spec`. Never `log_entries`.
 8. **Free fields use soft delete** — `free_fields.status` is `active` or `deprecated`. `deprecate_free_field` marks as deprecated, never hard-deletes. Consistent with append-only philosophy.
 9. **Free fields FTS is conditional** — Only `fts_indexed = 1 AND status = 'active'` fields are indexed in `search_index` as `entity_type = 'free_field'`. Scope is resolved from the parent entity via subquery.
 

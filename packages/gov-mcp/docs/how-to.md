@@ -154,7 +154,6 @@ append_log_entry({
 ## Propose and Accept a Decision
 
 > **No `update_decision` tool?** To modify a field on an existing decision (title, context, decision text, etc.), use [`edit_field`](#edit-a-field-on-an-entity). Only `update_decision_status` changes status.
->
 > **Status changes are automatically traced.** Every `update_decision_status` call creates a `status_history` row and a `log_entry` with `type: "status"`. No manual log entry needed.
 
 ### 1. Create the decision
@@ -323,7 +322,6 @@ update_action_status({
 ## Report and Fix a Problem
 
 > **No `update_problem` tool?** To modify a field on an existing problem (title, description, severity, etc.), use [`edit_field`](#edit-a-field-on-an-entity). Only `update_problem_status` changes status.
->
 > **Status changes are automatically traced.** Every `update_problem_status` call creates a `status_history` row and a `log_entry` with `type: "status"`. No manual log entry needed.
 
 ### 1. Create the problem
@@ -411,7 +409,6 @@ When the primary action is marked `done`, the problem is automatically set to `p
 ## Promote an Idea to a Decision
 
 > **No `update_idea` tool?** To modify a field on an existing idea (title, short_desc, long_desc, etc.), use [`edit_field`](#edit-a-field-on-an-entity). Only `update_idea_status` changes status.
->
 > **Status changes are automatically traced.** Every `update_idea_status` call creates a `status_history` row and a `log_entry` with `type: "status"`. No manual log entry needed.
 
 ### 1. Create the idea

@@ -21,6 +21,7 @@ export const toolSchemas = {
   register_writer: { schema: S.registerWriterInput, output: O.registerWriterOutputSchema, isReadonly: false },
   register_me: {
     schema: S.registerWriterInput.meta({
+      title: "RegisterMeInput",
       description:
         "Alias for register_writer. Register yourself as a writer and receive a nanoid token.",
       usage: [
