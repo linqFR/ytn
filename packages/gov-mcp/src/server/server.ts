@@ -9,7 +9,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { resolve } from "node:path";
-import { writeFileSync } from "node:fs";
+import { chmodSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { GovDb, resolveReportsDir } from "./driver.js";
 import { initDatabase } from "./init.js";
@@ -86,14 +86,21 @@ export async function startServer(options: IServerOptions = {}): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  // Publish server info to TMP so hook clients can discover the env vars
+  // Publish server info to TMP so hook clients can discover the env vars.
+  // Owner-only (0600): the readers are same-user sibling processes.
   const infoFile = resolve(tmpdir(), "gov-mcp-server.json");
   writeFileSync(infoFile, JSON.stringify({
     GOVERNANCE_DB_PATH: process.env.GOVERNANCE_DB_PATH,
     GOVERNANCE_REPORTS_DIR: process.env.GOVERNANCE_REPORTS_DIR,
     GOVERNANCE_SERVER_SCRIPT: resolve(process.argv[1] ?? ""),
     startedAt: new Date().toISOString(),
-  }), "utf-8");
+  }), { encoding: "utf-8", mode: 0o600 });
+  // `mode` only applies on file creation — tighten an existing file too.
+  try {
+    chmodSync(infoFile, 0o600);
+  } catch {
+    // Windows: chmod semantics are partial — the temp dir is per-user anyway.
+  }
 }
 
 // Start if run directly
