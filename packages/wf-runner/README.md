@@ -29,14 +29,12 @@ npm install @ytrynot/wf
 
 ### 1. Define Your Workflow Specification
 
-A workflow is a key-value dictionary object where each key represents a step.
-Each step must implement:
+A workflow is a key-value dictionary object where each key represents a step. Each step must implement:
 - `schema`: A Zod schema validating the expected input data for this step.
 - `on`: The routing table (`Record<string, string>`) mapping a "signal" to the next step's ID.
 - `gate`: The function containing the logic (asynchronous or synchronous) for the step.
 
-> [!IMPORTANT]
-> The `gate` function receives the validated data as the first parameter, and a `tools` object as the second. You **must** use `tools.send[your_signal](data)` to transition to the next step.
+> [!IMPORTANT] The `gate` function receives the validated data as the first parameter, and a `tools` object as the second. You **must** use `tools.send[your_signal](data)` to transition to the next step.
 
 ```typescript
 import { z } from "zod";

@@ -1,13 +1,8 @@
-[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@ytrynot/schvalid.svg)](https://www.npmjs.com/package/@ytrynot/schvalid)
-[![Bundle size](https://packagephobia.com/badge?p=@ytrynot/schvalid)](https://packagephobia.com/result?p=@ytrynot/schvalid)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/linqFR/ytn/actions/workflows/ci.yml/badge.svg)](https://github.com/linqFR/ytn/actions/workflows/ci.yml) [![npm version](https://img.shields.io/npm/v/@ytrynot/schvalid.svg)](https://www.npmjs.com/package/@ytrynot/schvalid) [![Bundle size](https://packagephobia.com/badge?p=@ytrynot/schvalid)](https://packagephobia.com/result?p=@ytrynot/schvalid) [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # @ytrynot/schvalid
 
 > **Looking for testers!** This package is actively seeking early users and feedback. If you try it out, please share your experience — issues, suggestions, or ideas are all welcome.
->
 > npm: https://www.npmjs.com/package/@ytrynot/schvalid · GitHub: https://github.com/linqFR/ytn/tree/main/packages/schvalid
 
 JSON Schema 2020-12 validation with compiled standalone JS functions.
@@ -54,17 +49,10 @@ npx skills add linqFR/ytn
 
 ## Comparison with AJV
 
-@ytrynot/schvalid covers all core JSON Schema 2020-12 keywords with full parity — types,
-object/array constraints, const/enum, allOf/anyOf/oneOf, if/then/else, not,
-patternProperties, dependentRequired/Schemas, internal $ref, $id, $defs, discriminator.
-It does not aim to replace AJV in all use cases. Key differences:
+@ytrynot/schvalid covers all core JSON Schema 2020-12 keywords with full parity — types, object/array constraints, const/enum, allOf/anyOf/oneOf, if/then/else, not, patternProperties, dependentRequired/Schemas, internal $ref, $id, $defs, discriminator. It does not aim to replace AJV in all use cases. Key differences:
 
-- **schvalid adds**: DNA bytecode intermediate representation (IR), `parseFast` hybrid mode,
-  three-mode compilation API, parser output construction, standalone JS via `toJS()`,
-  faster compilation and validation than AJV.
-- **schvalid lacks**: external $ref, custom formats, user-defined keywords, async
-  validation, $data, type coercion, default injection, removeAdditional, vocabularies,
-  schema registry, multi-draft support.
+- **schvalid adds**: DNA bytecode intermediate representation (IR), `parseFast` hybrid mode, three-mode compilation API, parser output construction, standalone JS via `toJS()`, faster compilation and validation than AJV.
+- **schvalid lacks**: external $ref, custom formats, user-defined keywords, async validation, $data, type coercion, default injection, removeAdditional, vocabularies, schema registry, multi-draft support.
 
 Full feature-by-feature comparison: [docs/ajv-comparison.md](docs/ajv-comparison.md).
 
@@ -132,8 +120,7 @@ parseFast(data); // same shape as parse(), but data===input on the happy path (n
 
 ### Fast Hybrid Parsing
 
-`schvalid("fast")` (and `parseFast` from `schvalid("all")`) provides a hybrid parser that
-validates first (cheap, fail-fast) and only re-runs the full parser if validation fails:
+`schvalid("fast")` (and `parseFast` from `schvalid("all")`) provides a hybrid parser that validates first (cheap, fail-fast) and only re-runs the full parser if validation fails:
 
 ```typescript
 import { schvalid } from "@ytrynot/schvalid";
@@ -144,15 +131,9 @@ const result = parseFast({ name: "John", age: 30 });
 // { success: true, data: { name: "John", age: 30 } }
 ```
 
-**Trade-off**: on success, `parseFast`'s `data` is the **same reference** as the input
-(`data === input`) — no fresh copy is built, unlike `schvalid("parser")`'s `parse()`, which
-always returns a newly constructed output object. Both agree on validity (constraints like
-`additionalProperties: false` are checked identically), so there's no discrepancy in
-pass/fail decisions — only in whether `data` is a fresh object or the original reference.
+**Trade-off**: on success, `parseFast`'s `data` is the **same reference** as the input (`data === input`) — no fresh copy is built, unlike `schvalid("parser")`'s `parse()`, which always returns a newly constructed output object. Both agree on validity (constraints like `additionalProperties: false` are checked identically), so there's no discrepancy in pass/fail decisions — only in whether `data` is a fresh object or the original reference.
 
-Use `parseFast` for validation-heavy workloads where a fresh, isolated `data` object isn't
-required on the happy path. Use the regular `parser()` when downstream code needs its own
-copy of the validated data.
+Use `parseFast` for validation-heavy workloads where a fresh, isolated `data` object isn't required on the happy path. Use the regular `parser()` when downstream code needs its own copy of the validated data.
 
 ```typescript
 // Get validate + parse + parseFast in one compile pass (single validate/parse compilation,

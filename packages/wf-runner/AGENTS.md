@@ -1,7 +1,6 @@
 # AGENTS.md (Package: @ytrynot/wf)
 
-> [!IMPORTANT]
-> This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**.
+> [!IMPORTANT] This package MUST comply with the **[Global AGENTS.md](../../AGENTS.md)**.
 
 ## Naming Standards Enforcement
 

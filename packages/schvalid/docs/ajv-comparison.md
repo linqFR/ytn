@@ -1,12 +1,7 @@
 # @ytrynot/schvalid vs AJV 8.x — Feature Comparison
 
-> Generated from source code analysis of `@ytrynot/schvalid` (src/jschema-to-dna.ts,
-> src/string-formats.ts, src/index.ts, README.md, AGENTS.md) and the JSON Schema
-> Test Suite runner (tests/schemas/json-schema-suite.test.ts).
->
-> AJV 8.x features are based on the AJV 2020 distribution (`ajv/dist/2020.js`)
-> used in the benchmark, AJV's documented public API, and well-known AJV capabilities.
->
+> Generated from source code analysis of `@ytrynot/schvalid` (src/jschema-to-dna.ts, src/string-formats.ts, src/index.ts, README.md, AGENTS.md) and the JSON Schema Test Suite runner (tests/schemas/json-schema-suite.test.ts).
+> AJV 8.x features are based on the AJV 2020 distribution (`ajv/dist/2020.js`) used in the benchmark, AJV's documented public API, and well-known AJV capabilities.
 > Last updated: 2026-08-07.
 
 ---
@@ -42,11 +37,7 @@
 | Standalone JS (toJS) | ⚠️ (ajv-pack) | ✅ (native) | schvalid advantage |
 | Compilation speed | Baseline | faster than AJV (see `perf/`) | schvalid advantage |
 
-**Bottom line**: @ytrynot/schvalid covers all core JSON Schema 2020-12 keywords with full parity.
-It does not aim to replace AJV in all use cases — external $ref, custom keywords, async
-validation, type coercion, and vocabularies are intentionally out of scope for 0.2.x.
-schvalid's value proposition is: standalone compiled functions, DNA bytecode IR, parseFast
-hybrid mode, and faster compilation and validation than AJV (run `npm run bench` to reproduce).
+**Bottom line**: @ytrynot/schvalid covers all core JSON Schema 2020-12 keywords with full parity. It does not aim to replace AJV in all use cases — external $ref, custom keywords, async validation, type coercion, and vocabularies are intentionally out of scope for 0.2.x. schvalid's value proposition is: standalone compiled functions, DNA bytecode IR, parseFast hybrid mode, and faster compilation and validation than AJV (run `npm run bench` to reproduce).
 
 ---
 
@@ -87,27 +78,20 @@ hybrid mode, and faster compilation and validation than AJV (run `npm run bench`
 ### format keyword (assertion mode)
 - **AJV**: Full format library + custom formats (sync and async)
 - **schvalid**: 19 built-in regex formats, no custom format API
-- **Built-in formats**: `date`, `time`, `date-time`, `duration`, `uri`, `uri-reference`,
-  `uri-template`, `email`, `hostname`, `idn-hostname`, `ipv4`, `ipv6`, `uuid`,
-  `json-pointer`, `json-pointer-uri-fragment`, `relative-json-pointer`, `regex`, `iri`,
-  `iri-reference`
+- **Built-in formats**: `date`, `time`, `date-time`, `duration`, `uri`, `uri-reference`, `uri-template`, `email`, `hostname`, `idn-hostname`, `ipv4`, `ipv6`, `uuid`, `json-pointer`, `json-pointer-uri-fragment`, `relative-json-pointer`, `regex`, `iri`, `iri-reference`
 - **Gap**: No custom formats. Unknown formats silently ignored (no validation).
 - **Test gap**: `optional/format/` directory NOT run (test runner only walks root `.json` files)
 
 ### $ref to $dynamicAnchor
 - **AJV**: Full dynamic scope traversal
-- **schvalid**: Registers `$dynamicAnchor` in URI map, can resolve static refs to them,
-  but does NOT implement runtime dynamic scope resolution
+- **schvalid**: Registers `$dynamicAnchor` in URI map, can resolve static refs to them, but does NOT implement runtime dynamic scope resolution
 - **Test**: `dynamicRef.json` explicitly skipped
 - **TODO**: Investigation planned for later
 
 ### unevaluatedProperties
 - **AJV**: Full annotation-based tracking
 - **schvalid**: Structural wrapper approach (wraps inner content)
-- **Status**: ✅ Test suite passes (1243 passing per mode). The structural approach covers all
-  tested cases. The difference is implementation strategy (structural wrapping vs
-  annotation tracking), not a feature gap. Edge cases with `$ref` +
-  `unevaluatedProperties` may differ but are not covered by the test suite.
+- **Status**: ✅ Test suite passes (1243 passing per mode). The structural approach covers all tested cases. The difference is implementation strategy (structural wrapping vs annotation tracking), not a feature gap. Edge cases with `$ref` + `unevaluatedProperties` may differ but are not covered by the test suite.
 - **Note**: If edge cases are found in production, investigation will be needed.
 
 ### unevaluatedItems
@@ -128,8 +112,7 @@ hybrid mode, and faster compilation and validation than AJV (run `npm run bench`
 ### Error reporting
 - **AJV**: Structured errors with `keyword`, `instancePath`, `schemaPath`, `params`, `message`
 - **schvalid**: Parser mode returns `{ success: false, errors: [...] }` with DNA-engine-specific format
-- **Direction**: schvalid's error format will be closer to Zod than AJV. A translation
-  mechanism to AJV error format may be added if needed.
+- **Direction**: schvalid's error format will be closer to Zod than AJV. A translation mechanism to AJV error format may be added if needed.
 
 ### strict mode
 - **AJV**: Comprehensive (unknown keywords, misspelled keywords, type mismatches, overlapping keywords)
@@ -237,10 +220,7 @@ All core JSON Schema 2020-12 keywords are fully supported:
 | `optional/dynamicRef.json` | **Not run** | Same |
 | All other root `.json` files | ✅ Run | 1243 passing per mode per AGENTS.md |
 
-**Total**: 1287 tests per mode, 1243 passing, 44 skipped. The test runner IS recursive — `discoverJsonFiles()`
-walks all directories including `optional/`. Files in the `optional/` directory are filtered
-out by `shouldSkipFile()` due to unsupported features (external references, content
-vocabulary, etc.), not because the directory isn't walked.
+**Total**: 1287 tests per mode, 1243 passing, 44 skipped. The test runner IS recursive — `discoverJsonFiles()` walks all directories including `optional/`. Files in the `optional/` directory are filtered out by `shouldSkipFile()` due to unsupported features (external references, content vocabulary, etc.), not because the directory isn't walked.
 
 ---
 
