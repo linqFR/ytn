@@ -73,7 +73,7 @@
     "@ytrynot/dna": "*",
     "@ytrynot/shared": "*",
     "better-sqlite3": "^13.0.3",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "tsx": "^4.23.13",
     "zod": "^4.5.4"
   }
